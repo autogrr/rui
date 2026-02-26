@@ -1,5 +1,5 @@
-// Copyright (c) 2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 // Package gazellemusic implements gzlx-style cross-seed matching against Gazelle trackers
 // (OPS/RED) using their JSON APIs.

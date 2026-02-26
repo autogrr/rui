@@ -10,7 +10,7 @@ In this guide we will download qui, set it up, and create a Windows Task so it r
 
 ## Download
 
-1. Download the latest Windows release from [GitHub Releases](https://github.com/autobrr/qui/releases/latest).
+1. Download the latest Windows release from [GitHub Releases](https://github.com/autogrr/rui/releases/latest).
    - For most systems, download `qui_x.x.x_windows_amd64.zip`.
 2. Extract the archive and place `qui.exe` in a directory, for example `C:\qui`.
 

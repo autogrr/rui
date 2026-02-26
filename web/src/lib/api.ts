@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2025-2026, s0up and the autobrr contributors.
- * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (c) 2025, s0up and the autobrr contributors.
+ * Copyright (c) 2026, the rui contributors.
+ * SPDX-License-Identifier: AGPL-1.0-or-later
  */
 
 import type {
@@ -1905,54 +1906,6 @@ class ApiClient {
 
   async deleteClientApiKey(id: number): Promise<void> {
     return this.request(`/client-api-keys/${id}`, { method: "DELETE" })
-  }
-
-  // License endpoints
-  async activateLicense(licenseKey: string): Promise<{
-    valid: boolean
-    expiresAt?: string
-    message?: string
-    error?: string
-  }> {
-    return this.request("/license/activate", {
-      method: "POST",
-      body: JSON.stringify({ licenseKey }),
-    })
-  }
-
-  async validateLicense(licenseKey: string): Promise<{
-    valid: boolean
-    productName?: string
-    expiresAt?: string
-    message?: string
-    error?: string
-  }> {
-    return this.request("/license/validate", {
-      method: "POST",
-      body: JSON.stringify({ licenseKey }),
-    })
-  }
-
-  async getLicensedThemes(): Promise<{ hasPremiumAccess: boolean }> {
-    return this.request("/license/licensed")
-  }
-
-  async getAllLicenses(): Promise<Array<{
-    licenseKey: string
-    productName: string
-    status: string
-    provider?: string
-    createdAt: string
-  }>> {
-    return this.request("/license/licenses")
-  }
-
-  async deleteLicense(licenseKey: string): Promise<{ message: string }> {
-    return this.request(`/license/${licenseKey}`, { method: "DELETE" })
-  }
-
-  async refreshLicenses(): Promise<{ message: string }> {
-    return this.request("/license/refresh", { method: "POST" })
   }
 
   // Preferences endpoints

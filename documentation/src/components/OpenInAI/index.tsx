@@ -52,7 +52,7 @@ function toRawMarkdownUrl(editUrl?: string, source?: string): string | null {
 
   if (source?.startsWith("@site/")) {
     const relativePath = source.replace(/^@site\//, "");
-    return `https://raw.githubusercontent.com/autobrr/qui/main/documentation/${relativePath}`;
+    return `https://raw.githubusercontent.com/autogrr/rui/main/documentation/${relativePath}`;
   }
 
   return null;

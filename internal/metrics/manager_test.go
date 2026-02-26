@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package metrics
 
@@ -10,8 +11,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/autobrr/qui/internal/metrics/collector"
-	"github.com/autobrr/qui/internal/qbittorrent"
+	"github.com/autogrr/rui/internal/metrics/collector"
+	"github.com/autogrr/rui/internal/qbittorrent"
 )
 
 func TestNewMetricsManager(t *testing.T) {

@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2025-2026, s0up and the autobrr contributors.
- * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (c) 2025, s0up and the autobrr contributors.
+ * Copyright (c) 2026, the rui contributors.
+ * SPDX-License-Identifier: AGPL-1.0-or-later
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -13,7 +14,7 @@ import {
   getThemeVariation,
   type ThemeMode
 } from "@/utils/theme";
-import { themes, isThemePremium } from "@/config/themes";
+import { themes } from "@/config/themes";
 import { Sun, Moon, Monitor, Check, Palette, CornerDownRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -26,8 +27,6 @@ import {
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { useHasPremiumAccess } from "@/hooks/useLicense.ts";
-import { canSwitchToPremiumTheme } from "@/lib/license-entitlement";
 
 // Constants
 const THEME_CHANGE_EVENT = "themechange";
@@ -60,23 +59,11 @@ const useThemeChange = () => {
 
 export const ThemeToggle: React.FC = () => {
   const { currentMode, currentTheme, isDark } = useThemeChange();
-  const { hasPremiumAccess, isLoading, isError } = useHasPremiumAccess();
   const [open, setOpen] = useState(false);
   const [activeThemeId, setActiveThemeId] = useState<string | null>(null);
 
-  const canSwitchPremium = canSwitchToPremiumTheme({
-    hasPremiumAccess,
-    isError,
-    isLoading,
-  });
-
   const sortedThemes = useMemo(() => {
-    return [...themes].sort((a, b) => {
-      const aIsPremium = isThemePremium(a.id);
-      const bIsPremium = isThemePremium(b.id);
-      if (aIsPremium === bIsPremium) return 0;
-      return aIsPremium ? 1 : -1;
-    });
+    return [...themes];
   }, []);
 
   const previewColorsCache = useMemo(() => new Map<string, {
@@ -130,38 +117,14 @@ export const ThemeToggle: React.FC = () => {
   }, []);
 
   const handleThemeSelect = useCallback(async (themeId: string) => {
-    const isPremium = isThemePremium(themeId);
-    if (isPremium && !canSwitchPremium) {
-      if (isError) {
-        toast.error("Unable to verify license", {
-          description: "License check failed. Premium theme switching is temporarily unavailable.",
-        });
-      } else {
-        toast.error("This is a premium theme. Open Settings → Themes to activate a license.");
-      }
-      return;
-    }
-
     setOpen(false);
     await setTheme(themeId);
 
     const theme = themes.find(t => t.id === themeId);
     toast.success(`Switched to ${theme?.name || themeId} theme`);
-  }, [canSwitchPremium, isError]);
+  }, []);
 
   const handleVariationSelect = useCallback(async (themeId: string, variationId: string) => {
-    const isPremium = isThemePremium(themeId);
-    if (isPremium && !canSwitchPremium) {
-      if (isError) {
-        toast.error("Unable to verify license", {
-          description: "License check failed. Premium theme switching is temporarily unavailable.",
-        });
-      } else {
-        toast.error("This is a premium theme. Open Settings → Themes to activate a license.");
-      }
-      return;
-    }
-
     await setTheme(themeId);
     await setThemeVariation(variationId);
 
@@ -169,7 +132,7 @@ export const ThemeToggle: React.FC = () => {
     toast.success(`Switched to ${theme?.name || themeId} theme (${variationId})`);
 
     setOpen(false);
-  }, [canSwitchPremium, isError]);
+  }, []);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -219,8 +182,6 @@ export const ThemeToggle: React.FC = () => {
         {/* Theme Selection */}
         <div className="px-2 py-1.5 text-sm font-medium">Theme</div>
         {sortedThemes.map((theme) => {
-          const isPremium = isThemePremium(theme.id);
-          const isLocked = isPremium && !canSwitchPremium;
           const colors = getPreviewColors(theme);
           const showVariations = activeThemeId === theme.id;
           const currentVariation = showVariations ? getThemeVariation(theme.id) : null;
@@ -239,11 +200,7 @@ export const ThemeToggle: React.FC = () => {
                   setActiveThemeId(theme.id);
                 }
               }}
-              className={cn(
-                "flex items-center gap-2",
-                isLocked && "opacity-60"
-              )}
-              disabled={isLocked}
+              className="flex items-center gap-2"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-1">
@@ -257,11 +214,6 @@ export const ThemeToggle: React.FC = () => {
                   />
                   <div className="flex items-center justify-between gap-1.5 flex-1">
                     <span>{theme.name}</span>
-                    {isPremium && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium">
-                        Premium
-                      </span>
-                    )}
                   </div>
                 </div>
 

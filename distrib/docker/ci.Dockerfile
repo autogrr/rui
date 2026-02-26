@@ -12,7 +12,6 @@ ARG VERSION=dev
 ARG BUILDTIME
 ARG REVISION
 ARG BUILDER
-ARG POLAR_ORG_ID=""
 
 # Cross-compilation arguments from Docker BuildKit
 ARG TARGETOS
@@ -45,17 +44,16 @@ RUN case "${TARGETARCH}" in \
 # Build the binary with ldflags for target platform
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="\
     -s -w \
-    -X github.com/autobrr/qui/internal/buildinfo.Version=${VERSION} \
-    -X github.com/autobrr/qui/internal/buildinfo.Date=${BUILDTIME} \
-    -X github.com/autobrr/qui/internal/buildinfo.Commit=${REVISION} \
-    -X main.PolarOrgID=${POLAR_ORG_ID}" \
+    -X github.com/autogrr/rui/internal/buildinfo.Version=${VERSION} \
+    -X github.com/autogrr/rui/internal/buildinfo.Date=${BUILDTIME} \
+    -X github.com/autogrr/rui/internal/buildinfo.Commit=${REVISION}" \
     -o qui ./cmd/qui
 
 # Final stage
 FROM alpine:latest AS runner
 
-LABEL org.opencontainers.image.source="https://github.com/autobrr/qui"
-LABEL org.opencontainers.image.licenses="GPL-2.0-or-later"
+LABEL org.opencontainers.image.source="https://github.com/autogrr/rui"
+LABEL org.opencontainers.image.licenses="AGPL-1.0-or-later"
 LABEL org.opencontainers.image.base.name="alpine:latest"
 
 # Set environment variables for config paths

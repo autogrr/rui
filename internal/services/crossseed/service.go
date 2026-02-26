@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 // Package crossseed provides intelligent cross-seeding functionality for torrents.
 //
@@ -43,22 +44,22 @@ import (
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/autobrr/qui/internal/domain"
-	"github.com/autobrr/qui/internal/models"
-	"github.com/autobrr/qui/internal/pkg/timeouts"
-	"github.com/autobrr/qui/internal/qbittorrent"
-	"github.com/autobrr/qui/internal/services/arr"
-	"github.com/autobrr/qui/internal/services/crossseed/gazellemusic"
-	"github.com/autobrr/qui/internal/services/externalprograms"
-	"github.com/autobrr/qui/internal/services/filesmanager"
-	"github.com/autobrr/qui/internal/services/jackett"
-	"github.com/autobrr/qui/internal/services/notifications"
-	"github.com/autobrr/qui/pkg/fsutil"
-	"github.com/autobrr/qui/pkg/hardlinktree"
-	"github.com/autobrr/qui/pkg/pathcmp"
-	"github.com/autobrr/qui/pkg/pathutil"
-	"github.com/autobrr/qui/pkg/reflinktree"
-	"github.com/autobrr/qui/pkg/stringutils"
+	"github.com/autogrr/rui/internal/domain"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/pkg/timeouts"
+	"github.com/autogrr/rui/internal/qbittorrent"
+	"github.com/autogrr/rui/internal/services/arr"
+	"github.com/autogrr/rui/internal/services/crossseed/gazellemusic"
+	"github.com/autogrr/rui/internal/services/externalprograms"
+	"github.com/autogrr/rui/internal/services/filesmanager"
+	"github.com/autogrr/rui/internal/services/jackett"
+	"github.com/autogrr/rui/internal/services/notifications"
+	"github.com/autogrr/rui/pkg/fsutil"
+	"github.com/autogrr/rui/pkg/hardlinktree"
+	"github.com/autogrr/rui/pkg/pathcmp"
+	"github.com/autogrr/rui/pkg/pathutil"
+	"github.com/autogrr/rui/pkg/reflinktree"
+	"github.com/autogrr/rui/pkg/stringutils"
 )
 
 // instanceProvider captures the instance store methods the service relies on.

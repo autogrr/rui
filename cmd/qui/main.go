@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package main
 
@@ -22,37 +23,29 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/autobrr/qui/internal/api"
-	"github.com/autobrr/qui/internal/auth"
-	"github.com/autobrr/qui/internal/backups"
-	"github.com/autobrr/qui/internal/buildinfo"
-	"github.com/autobrr/qui/internal/config"
-	"github.com/autobrr/qui/internal/database"
-	"github.com/autobrr/qui/internal/dodo"
-	"github.com/autobrr/qui/internal/domain"
-	"github.com/autobrr/qui/internal/metrics"
-	"github.com/autobrr/qui/internal/models"
-	"github.com/autobrr/qui/internal/polar"
-	"github.com/autobrr/qui/internal/qbittorrent"
-	"github.com/autobrr/qui/internal/services/arr"
-	"github.com/autobrr/qui/internal/services/automations"
-	"github.com/autobrr/qui/internal/services/crossseed"
-	"github.com/autobrr/qui/internal/services/dirscan"
-	"github.com/autobrr/qui/internal/services/externalprograms"
-	"github.com/autobrr/qui/internal/services/filesmanager"
-	"github.com/autobrr/qui/internal/services/jackett"
-	"github.com/autobrr/qui/internal/services/license"
-	"github.com/autobrr/qui/internal/services/notifications"
-	"github.com/autobrr/qui/internal/services/orphanscan"
-	"github.com/autobrr/qui/internal/services/reannounce"
-	"github.com/autobrr/qui/internal/services/trackericons"
-	"github.com/autobrr/qui/internal/update"
-	"github.com/autobrr/qui/pkg/sqlite3store"
-)
-
-var (
-	// PolarOrgID Publisher credentials - set during build via ldflags
-	PolarOrgID = "" // Set via: -X main.PolarOrgID=your-org-id
+	"github.com/autogrr/rui/internal/api"
+	"github.com/autogrr/rui/internal/auth"
+	"github.com/autogrr/rui/internal/backups"
+	"github.com/autogrr/rui/internal/buildinfo"
+	"github.com/autogrr/rui/internal/config"
+	"github.com/autogrr/rui/internal/database"
+	"github.com/autogrr/rui/internal/domain"
+	"github.com/autogrr/rui/internal/metrics"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/qbittorrent"
+	"github.com/autogrr/rui/internal/services/arr"
+	"github.com/autogrr/rui/internal/services/automations"
+	"github.com/autogrr/rui/internal/services/crossseed"
+	"github.com/autogrr/rui/internal/services/dirscan"
+	"github.com/autogrr/rui/internal/services/externalprograms"
+	"github.com/autogrr/rui/internal/services/filesmanager"
+	"github.com/autogrr/rui/internal/services/jackett"
+	"github.com/autogrr/rui/internal/services/notifications"
+	"github.com/autogrr/rui/internal/services/orphanscan"
+	"github.com/autogrr/rui/internal/services/reannounce"
+	"github.com/autogrr/rui/internal/services/trackericons"
+	"github.com/autogrr/rui/internal/update"
+	"github.com/autogrr/rui/pkg/sqlite3store"
 )
 
 func main() {
@@ -99,7 +92,7 @@ func RunServeCommand() *cobra.Command {
 	command.Flags().BoolVar(&pprofFlag, "pprof", false, "enable pprof server on :6060")
 
 	command.Run = func(cmd *cobra.Command, args []string) {
-		app := NewApplication(configDir, dataDir, logPath, pprofFlag, PolarOrgID)
+		app := NewApplication(configDir, dataDir, logPath, pprofFlag)
 		app.runServer()
 	}
 
@@ -385,7 +378,7 @@ func RunUpdateCommand() *cobra.Command {
 		DisableFlagsInUseLine: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			updater := update.NewUpdater(update.Config{
-				Repository: "autobrr/qui",
+				Repository: "autogrr/rui",
 				Version:    buildinfo.Version,
 			})
 			return updater.Run(cmd.Context())
@@ -407,18 +400,14 @@ type Application struct {
 	dataDir   string
 	logPath   string
 	pprofFlag bool
-
-	// Publisher credentials - set during build via ldflags
-	polarOrgID string // Set via: -X main.PolarOrgID=your-org-id
 }
 
-func NewApplication(configDir, dataDir, logPath string, pprofFlag bool, polarOrgID string) *Application {
+func NewApplication(configDir, dataDir, logPath string, pprofFlag bool) *Application {
 	return &Application{
-		configDir:  configDir,
-		dataDir:    dataDir,
-		logPath:    logPath,
-		pprofFlag:  pprofFlag,
-		polarOrgID: polarOrgID,
+		configDir: configDir,
+		dataDir:   dataDir,
+		logPath:   logPath,
+		pprofFlag: pprofFlag,
 	}
 }
 
@@ -472,27 +461,6 @@ func (app *Application) runServer() {
 		log.Debug().Bool("enabled", conf.TrackerIconsFetchEnabled).Msg("Tracker icon fetch setting updated")
 	})
 
-	// init polar client
-	polarClient := polar.NewClient(polar.WithOrganizationID(app.polarOrgID), polar.WithEnvironment(os.Getenv("QUI__POLAR_ENVIRONMENT")), polar.WithUserAgent(buildinfo.UserAgent))
-	if app.polarOrgID != "" {
-		log.Trace().Msg("Initializing Polar client for license validation")
-	} else {
-		log.Warn().Msg("No Polar organization ID configured - premium themes will be disabled")
-	}
-
-	dodoEnv := os.Getenv("DODO_PAYMENTS_ENVIRONMENT")
-	if dodoEnv == "" {
-		dodoEnv = os.Getenv("DODO_ENVIRONMENT")
-	}
-	dodoClient := dodo.NewClient(
-		dodo.WithUserAgent(buildinfo.UserAgent),
-		dodo.WithEnvironment(dodoEnv),
-	)
-	log.Info().
-		Str("environment", dodoEnv).
-		Str("base_url", dodoClient.BaseURL()).
-		Msg("Initialized Dodo Payments client")
-
 	// Initialize database
 	db, err := database.New(cfg.GetDatabasePath())
 	if err != nil {
@@ -501,7 +469,6 @@ func (app *Application) runServer() {
 	defer db.Close()
 
 	// Initialize stores
-	licenseRepo := database.NewLicenseRepo(db)
 	instanceStore, err := models.NewInstanceStore(db, cfg.GetEncryptionKey())
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to initialize instance store")
@@ -528,12 +495,6 @@ func (app *Application) runServer() {
 
 	// Initialize services
 	authService := auth.NewService(db)
-	licenseService := license.NewLicenseService(licenseRepo, polarClient, dodoClient, cfg.GetConfigDir())
-
-	go func() {
-		checker := license.NewLicenseChecker(licenseService)
-		checker.StartPeriodicChecks(context.Background())
-	}()
 
 	// Initialize qBittorrent client pool
 	clientPool, err := qbittorrent.NewClientPool(instanceStore, errorStore)
@@ -750,7 +711,6 @@ func (app *Application) runServer() {
 		ExternalProgramService:           externalProgramService,
 		ClientPool:                       clientPool,
 		SyncManager:                      syncManager,
-		LicenseService:                   licenseService,
 		UpdateService:                    updateService,
 		TrackerIconService:               trackerIconService,
 		BackupService:                    backupService,

@@ -13,10 +13,10 @@ import (
 	qbt "github.com/autobrr/go-qbittorrent"
 	_ "modernc.org/sqlite"
 
-	"github.com/autobrr/qui/internal/database"
-	"github.com/autobrr/qui/internal/dbinterface"
-	"github.com/autobrr/qui/internal/models"
-	internalqb "github.com/autobrr/qui/internal/qbittorrent"
+	"github.com/autogrr/rui/internal/database"
+	"github.com/autogrr/rui/internal/dbinterface"
+	"github.com/autogrr/rui/internal/models"
+	internalqb "github.com/autogrr/rui/internal/qbittorrent"
 )
 
 // testQuerier wraps sql.DB to implement dbinterface.Querier for store tests.

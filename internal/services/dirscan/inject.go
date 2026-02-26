@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package dirscan
 
@@ -15,14 +16,14 @@ import (
 	"time"
 
 	qbt "github.com/autobrr/go-qbittorrent"
-	"github.com/autobrr/qui/internal/models"
-	qbsync "github.com/autobrr/qui/internal/qbittorrent"
-	"github.com/autobrr/qui/internal/services/crossseed"
-	"github.com/autobrr/qui/internal/services/jackett"
-	"github.com/autobrr/qui/pkg/fsutil"
-	"github.com/autobrr/qui/pkg/hardlinktree"
-	"github.com/autobrr/qui/pkg/pathutil"
-	"github.com/autobrr/qui/pkg/reflinktree"
+	"github.com/autogrr/rui/internal/models"
+	qbsync "github.com/autogrr/rui/internal/qbittorrent"
+	"github.com/autogrr/rui/internal/services/crossseed"
+	"github.com/autogrr/rui/internal/services/jackett"
+	"github.com/autogrr/rui/pkg/fsutil"
+	"github.com/autogrr/rui/pkg/hardlinktree"
+	"github.com/autogrr/rui/pkg/pathutil"
+	"github.com/autogrr/rui/pkg/reflinktree"
 	"github.com/rs/zerolog/log"
 )
 

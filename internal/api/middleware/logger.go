@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package middleware
 
@@ -11,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
 
-	"github.com/autobrr/qui/pkg/redact"
+	"github.com/autogrr/rui/pkg/redact"
 )
 
 // Logger logs HTTP requests using a local zerolog logger

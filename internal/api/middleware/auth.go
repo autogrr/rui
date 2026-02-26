@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package middleware
 
@@ -11,9 +12,9 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"github.com/rs/zerolog/log"
 
-	"github.com/autobrr/qui/internal/api/ctxkeys"
-	"github.com/autobrr/qui/internal/auth"
-	"github.com/autobrr/qui/internal/domain"
+	"github.com/autogrr/rui/internal/api/ctxkeys"
+	"github.com/autogrr/rui/internal/auth"
+	"github.com/autogrr/rui/internal/domain"
 )
 
 // IsAuthenticated middleware checks if the user is authenticated

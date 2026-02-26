@@ -12,9 +12,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w
-      - -X github.com/autobrr/qui/internal/buildinfo.Version={{.Version}}
-      - -X github.com/autobrr/qui/internal/buildinfo.Date={{.Date}}
-      - -X github.com/autobrr/qui/internal/buildinfo.Commit={{.Commit}}
+      - -X github.com/autogrr/rui/internal/buildinfo.Version={{.Version}}
+      - -X github.com/autogrr/rui/internal/buildinfo.Date={{.Date}}
+      - -X github.com/autogrr/rui/internal/buildinfo.Commit={{.Commit}}
       - -X main.PolarOrgID={{.Env.POLAR_ORG_ID}}
     goos:
       - linux

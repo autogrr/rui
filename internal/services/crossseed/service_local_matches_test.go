@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package crossseed
 
@@ -10,8 +11,8 @@ import (
 	"testing"
 
 	qbt "github.com/autobrr/go-qbittorrent"
-	"github.com/autobrr/qui/internal/qbittorrent"
-	"github.com/autobrr/qui/pkg/stringutils"
+	"github.com/autogrr/rui/internal/qbittorrent"
+	"github.com/autogrr/rui/pkg/stringutils"
 	"github.com/stretchr/testify/require"
 )
 

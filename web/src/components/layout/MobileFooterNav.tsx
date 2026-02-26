@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2025-2026, s0up and the autobrr contributors.
- * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (c) 2025, s0up and the autobrr contributors.
+ * Copyright (c) 2026, the rui contributors.
+ * SPDX-License-Identifier: AGPL-1.0-or-later
  */
 
 import { Badge } from "@/components/ui/badge"
@@ -20,14 +21,10 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { isThemePremium, themes } from "@/config/themes"
+import { themes } from "@/config/themes"
 import { useTorrentSelection } from "@/contexts/TorrentSelectionContext"
 import { useAuth } from "@/hooks/useAuth"
-import { useCrossSeedInstanceState } from "@/hooks/useCrossSeedInstanceState"
-import { useHasPremiumAccess } from "@/hooks/useLicense"
 import { api } from "@/lib/api"
-import { getAppVersion } from "@/lib/build-info"
-import { canSwitchToPremiumTheme } from "@/lib/license-entitlement"
 import {
   encodeUnifiedInstanceIds,
   normalizeUnifiedInstanceIds,
@@ -106,8 +103,6 @@ export function MobileFooterNav() {
   const { logout } = useAuth()
   const { isSelectionMode } = useTorrentSelection()
   const { currentMode, currentTheme } = useThemeChange()
-  const { hasPremiumAccess, isLoading, isError } = useHasPremiumAccess()
-  const canSwitchPremium = canSwitchToPremiumTheme({ hasPremiumAccess, isLoading, isError })
   const [showThemeDialog, setShowThemeDialog] = useState(false)
   const appVersion = getAppVersion()
 
@@ -190,42 +185,18 @@ export function MobileFooterNav() {
   }, [])
 
   const handleThemeSelect = useCallback(async (themeId: string) => {
-    const isPremium = isThemePremium(themeId)
-    if (isPremium && !canSwitchPremium) {
-      if (isError) {
-        toast.error("Unable to verify license", {
-          description: "License check failed. Premium theme switching is temporarily unavailable.",
-        })
-      } else {
-        toast.error("This is a premium theme. Open Settings → Themes to activate a license.")
-      }
-      return
-    }
-
     await setTheme(themeId)
     const theme = themes.find(t => t.id === themeId)
     toast.success(`Switched to ${theme?.name || themeId} theme`)
-  }, [canSwitchPremium, isError])
+  }, [])
 
   const handleVariationSelect = useCallback(async (themeId: string, variationId: string): Promise<boolean> => {
-    const isPremium = isThemePremium(themeId)
-    if (isPremium && !canSwitchPremium) {
-      if (isError) {
-        toast.error("Unable to verify license", {
-          description: "License check failed. Premium theme switching is temporarily unavailable.",
-        })
-      } else {
-        toast.error("This is a premium theme. Open Settings → Themes to activate a license.")
-      }
-      return false
-    }
-
     await setTheme(themeId)
     await setThemeVariation(variationId)
     const theme = themes.find(t => t.id === themeId)
     toast.success(`Switched to ${theme?.name || themeId} theme (${variationId})`)
     return true
-  }, [canSwitchPremium, isError])
+  }, [])
 
   if (isSelectionMode) {
     return null
@@ -577,7 +548,7 @@ export function MobileFooterNav() {
                 </div>
               </div>
               <a
-                href="https://github.com/autobrr/qui"
+                href="https://github.com/autogrr/rui"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="View on GitHub"
@@ -660,15 +631,7 @@ export function MobileFooterNav() {
               <div className="text-sm font-medium mb-2">Theme</div>
               <div className="space-y-1">
                 {themes
-                  .sort((a, b) => {
-                    const aIsPremium = isThemePremium(a.id)
-                    const bIsPremium = isThemePremium(b.id)
-                    if (aIsPremium === bIsPremium) return 0
-                    return aIsPremium ? 1 : -1
-                  })
                   .map((theme) => {
-                    const isPremium = isThemePremium(theme.id)
-                    const isLocked = isPremium && !hasPremiumAccess
                     const colors = getThemeColors(theme)
                     const currentVariation = getThemeVariation(theme.id)
 
@@ -676,16 +639,12 @@ export function MobileFooterNav() {
                       <button
                         key={theme.id}
                         onClick={() => {
-                          if (!isLocked) {
-                            handleThemeSelect(theme.id)
-                            setShowThemeDialog(false)
-                          }
+                          handleThemeSelect(theme.id)
+                          setShowThemeDialog(false)
                         }}
-                        disabled={isLocked}
                         className={cn(
                           "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-                          currentTheme.id === theme.id ? "bg-accent" : "hover:bg-accent/50",
-                          isLocked && "opacity-60 cursor-not-allowed"
+                          currentTheme.id === theme.id ? "bg-accent" : "hover:bg-accent/50"
                         )}
                       >
                         <div className="flex-1">
@@ -700,11 +659,6 @@ export function MobileFooterNav() {
                             />
                             <div className="flex items-center gap-2 flex-1 min-w-0">
                               <span className="truncate">{theme.name}</span>
-                              {isPremium && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-medium flex-shrink-0">
-                                  Premium
-                                </span>
-                              )}
                             </div>
                           </div>
 

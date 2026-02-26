@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package api
 
@@ -19,30 +20,29 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/autobrr/qui/internal/api/handlers"
-	"github.com/autobrr/qui/internal/api/middleware"
-	"github.com/autobrr/qui/internal/auth"
-	"github.com/autobrr/qui/internal/backups"
-	"github.com/autobrr/qui/internal/config"
-	"github.com/autobrr/qui/internal/models"
-	"github.com/autobrr/qui/internal/proxy"
-	"github.com/autobrr/qui/internal/qbittorrent"
-	"github.com/autobrr/qui/internal/services/arr"
-	"github.com/autobrr/qui/internal/services/automations"
-	"github.com/autobrr/qui/internal/services/crossseed"
-	"github.com/autobrr/qui/internal/services/dirscan"
-	"github.com/autobrr/qui/internal/services/externalprograms"
-	"github.com/autobrr/qui/internal/services/filesmanager"
-	"github.com/autobrr/qui/internal/services/jackett"
-	"github.com/autobrr/qui/internal/services/license"
-	"github.com/autobrr/qui/internal/services/notifications"
-	"github.com/autobrr/qui/internal/services/orphanscan"
-	"github.com/autobrr/qui/internal/services/reannounce"
-	"github.com/autobrr/qui/internal/services/trackericons"
-	"github.com/autobrr/qui/internal/update"
-	"github.com/autobrr/qui/internal/web"
-	"github.com/autobrr/qui/internal/web/swagger"
-	webfs "github.com/autobrr/qui/web"
+	"github.com/autogrr/rui/internal/api/handlers"
+	"github.com/autogrr/rui/internal/api/middleware"
+	"github.com/autogrr/rui/internal/auth"
+	"github.com/autogrr/rui/internal/backups"
+	"github.com/autogrr/rui/internal/config"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/proxy"
+	"github.com/autogrr/rui/internal/qbittorrent"
+	"github.com/autogrr/rui/internal/services/arr"
+	"github.com/autogrr/rui/internal/services/automations"
+	"github.com/autogrr/rui/internal/services/crossseed"
+	"github.com/autogrr/rui/internal/services/dirscan"
+	"github.com/autogrr/rui/internal/services/externalprograms"
+	"github.com/autogrr/rui/internal/services/filesmanager"
+	"github.com/autogrr/rui/internal/services/jackett"
+	"github.com/autogrr/rui/internal/services/notifications"
+	"github.com/autogrr/rui/internal/services/orphanscan"
+	"github.com/autogrr/rui/internal/services/reannounce"
+	"github.com/autogrr/rui/internal/services/trackericons"
+	"github.com/autogrr/rui/internal/update"
+	"github.com/autogrr/rui/internal/web"
+	"github.com/autogrr/rui/internal/web/swagger"
+	webfs "github.com/autogrr/rui/web"
 )
 
 type Server struct {
@@ -62,7 +62,6 @@ type Server struct {
 	externalProgramService           *externalprograms.Service
 	clientPool                       *qbittorrent.ClientPool
 	syncManager                      *qbittorrent.SyncManager
-	licenseService                   *license.Service
 	updateService                    *update.Service
 	trackerIconService               *trackericons.Service
 	backupService                    *backups.Service
@@ -101,7 +100,6 @@ type Dependencies struct {
 	ClientPool                       *qbittorrent.ClientPool
 	SyncManager                      *qbittorrent.SyncManager
 	WebHandler                       *web.Handler
-	LicenseService                   *license.Service
 	UpdateService                    *update.Service
 	TrackerIconService               *trackericons.Service
 	BackupService                    *backups.Service
@@ -146,7 +144,6 @@ func NewServer(deps *Dependencies) *Server {
 		reannounceCache:                  deps.ReannounceCache,
 		clientPool:                       deps.ClientPool,
 		syncManager:                      deps.SyncManager,
-		licenseService:                   deps.LicenseService,
 		updateService:                    deps.UpdateService,
 		trackerIconService:               deps.TrackerIconService,
 		backupService:                    deps.BackupService,
@@ -306,7 +303,6 @@ func (s *Server) Handler() (*chi.Mux, error) {
 	backupsHandler := handlers.NewBackupsHandler(s.backupService)
 	trackerIconHandler := handlers.NewTrackerIconHandler(s.trackerIconService)
 	proxyHandler := proxy.NewHandler(s.clientPool, s.clientAPIKeyStore, s.instanceStore, s.syncManager, s.reannounceCache, s.reannounceService, s.config.Config.BaseURL)
-	licenseHandler := handlers.NewLicenseHandler(s.licenseService)
 	crossSeedHandler := handlers.NewCrossSeedHandler(s.crossSeedService, s.instanceCrossSeedCompletionStore, s.instanceStore)
 	automationsHandler := handlers.NewAutomationHandler(s.automationStore, s.automationActivityStore, s.instanceStore, s.externalProgramStore, s.automationService)
 	orphanScanHandler := handlers.NewOrphanScanHandler(s.orphanScanStore, s.instanceStore, s.orphanScanService)
@@ -368,8 +364,6 @@ func (s *Server) Handler() (*chi.Mux, error) {
 			r.Post("/auth/logout", authHandler.Logout)
 			r.Get("/auth/me", authHandler.GetCurrentUser)
 			r.Put("/auth/change-password", authHandler.ChangePassword)
-
-			r.Route("/license", licenseHandler.Routes)
 
 			// Jackett routes (if configured)
 			if jackettHandler != nil {

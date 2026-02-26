@@ -40,7 +40,6 @@ COPY --from=frontend-builder /app/web/dist ./web/dist
 
 # Build arguments
 ARG VERSION=dev
-ARG POLAR_ORG_ID=""
 
 # Set cross-compilation environment variables
 ENV GOOS=${TARGETOS} \
@@ -58,13 +57,13 @@ RUN case "${TARGETARCH}" in \
 
 # Build the application
 RUN CGO_ENABLED=0 go build \
-    -ldflags "-s -w -X github.com/autobrr/qui/internal/buildinfo.Version=${VERSION} -X main.PolarOrgID=${POLAR_ORG_ID}" \
+    -ldflags "-s -w -X github.com/autogrr/rui/internal/buildinfo.Version=${VERSION}" \
     -o qui ./cmd/qui
 
 # Final stage
 FROM alpine:3.22
 
-LABEL org.opencontainers.image.source="https://github.com/autobrr/qui"
+LABEL org.opencontainers.image.source="https://github.com/autogrr/rui"
 
 # Set environment variables for config paths
 ENV HOME="/config" \

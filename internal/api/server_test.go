@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package api
 
@@ -19,20 +20,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 
-	"github.com/autobrr/qui/internal/auth"
-	"github.com/autobrr/qui/internal/backups"
-	"github.com/autobrr/qui/internal/config"
-	"github.com/autobrr/qui/internal/database"
-	"github.com/autobrr/qui/internal/domain"
-	"github.com/autobrr/qui/internal/models"
-	"github.com/autobrr/qui/internal/qbittorrent"
-	"github.com/autobrr/qui/internal/services/dirscan"
-	"github.com/autobrr/qui/internal/services/license"
-	"github.com/autobrr/qui/internal/services/notifications"
-	"github.com/autobrr/qui/internal/services/trackericons"
-	"github.com/autobrr/qui/internal/update"
-	"github.com/autobrr/qui/internal/web"
-	"github.com/autobrr/qui/internal/web/swagger"
+	"github.com/autogrr/rui/internal/auth"
+	"github.com/autogrr/rui/internal/backups"
+	"github.com/autogrr/rui/internal/config"
+	"github.com/autogrr/rui/internal/database"
+	"github.com/autogrr/rui/internal/domain"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/qbittorrent"
+	"github.com/autogrr/rui/internal/services/dirscan"
+	"github.com/autogrr/rui/internal/services/license"
+	"github.com/autogrr/rui/internal/services/notifications"
+	"github.com/autogrr/rui/internal/services/trackericons"
+	"github.com/autogrr/rui/internal/update"
+	"github.com/autogrr/rui/internal/web"
+	"github.com/autogrr/rui/internal/web/swagger"
 )
 
 type routeKey struct {

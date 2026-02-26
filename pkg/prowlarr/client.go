@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package prowlarr
 
@@ -14,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	gojackett "github.com/autobrr/qui/pkg/gojackett"
-	"github.com/autobrr/qui/pkg/redact"
+	gojackett "github.com/autogrr/rui/pkg/gojackett"
+	"github.com/autogrr/rui/pkg/redact"
 )
 
 // Config holds the options for constructing a Client.

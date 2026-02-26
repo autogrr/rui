@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package proxy
 
@@ -24,11 +25,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/autobrr/qui/internal/models"
-	"github.com/autobrr/qui/internal/qbittorrent"
-	"github.com/autobrr/qui/internal/services/reannounce"
-	"github.com/autobrr/qui/pkg/httphelpers"
-	"github.com/autobrr/qui/pkg/redact"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/qbittorrent"
+	"github.com/autogrr/rui/internal/services/reannounce"
+	"github.com/autogrr/rui/pkg/httphelpers"
+	"github.com/autogrr/rui/pkg/redact"
 )
 
 // Handler manages reverse proxy requests to qBittorrent instances

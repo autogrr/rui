@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2025-2026, s0up and the autobrr contributors.
- * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (c) 2025, s0up and the autobrr contributors.
+ * Copyright (c) 2026, the rui contributors.
+ * SPDX-License-Identifier: AGPL-1.0-or-later
  */
 
 import { Outlet } from "@tanstack/react-router"
@@ -15,7 +16,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils"
 import { MobileScrollProvider } from "@/contexts/MobileScrollContext"
 import { TorrentSelectionProvider } from "@/contexts/TorrentSelectionContext"
-import { ThemeValidator } from "@/components/themes/ThemeValidator"
 
 function AppLayoutContent() {
   const [sidebarCollapsed, setSidebarCollapsed] = usePersistedSidebarState(false) // Desktop: persisted state
@@ -73,7 +73,6 @@ function AppLayoutContent() {
 export function AppLayout() {
   return (
     <LayoutRouteProvider>
-      <ThemeValidator />
       <TorrentSelectionProvider>
         <MobileScrollProvider>
           <AppLayoutContent />

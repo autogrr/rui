@@ -1,5 +1,6 @@
 // Copyright (c) 2025, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 // Package externalprograms provides a unified service for executing external programs
 // with torrent data. It is used by automations, cross-seed, and the API handler.
@@ -21,9 +22,9 @@ import (
 	qbt "github.com/autobrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
-	"github.com/autobrr/qui/internal/domain"
-	extargs "github.com/autobrr/qui/internal/externalprograms"
-	"github.com/autobrr/qui/internal/models"
+	"github.com/autogrr/rui/internal/domain"
+	extargs "github.com/autogrr/rui/internal/externalprograms"
+	"github.com/autogrr/rui/internal/models"
 )
 
 // Activity action constant for external program execution.

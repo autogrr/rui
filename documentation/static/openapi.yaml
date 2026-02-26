@@ -4310,7 +4310,7 @@ components:
           type: string
           format: uri
           description: URL to the GitHub release page
-          example: "https://github.com/autobrr/qui/releases/tag/v1.2.3"
+          example: "https://github.com/autogrr/rui/releases/tag/v1.2.3"
         published_at:
           type: string
           format: date-time

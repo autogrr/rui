@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 // Package hardlinktree provides utilities for creating hardlink trees
 // that mirror torrent file layouts for cross-seeding.
@@ -11,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/autobrr/qui/pkg/pathutil"
+	"github.com/autogrr/rui/pkg/pathutil"
 )
 
 // TorrentFile represents a file in a torrent.

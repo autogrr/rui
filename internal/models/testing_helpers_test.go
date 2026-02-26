@@ -1,5 +1,5 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package models
 
@@ -7,7 +7,7 @@ import (
 	"context"
 	"database/sql"
 
-	"github.com/autobrr/qui/internal/dbinterface"
+	"github.com/autogrr/rui/internal/dbinterface"
 )
 
 // mockQuerier wraps sql.DB to implement dbinterface.Querier for tests

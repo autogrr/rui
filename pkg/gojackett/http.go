@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package jackett
 
@@ -14,7 +15,7 @@ import (
 	"github.com/autobrr/go-qbittorrent/errors"
 	"github.com/avast/retry-go"
 
-	"github.com/autobrr/qui/pkg/redact"
+	"github.com/autogrr/rui/pkg/redact"
 )
 
 func (c *Client) getRawCtx(ctx context.Context, reqUrl string) (*http.Response, error) {

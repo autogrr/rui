@@ -10,7 +10,7 @@ description: Install qui on Linux with a single command.
 
 ```bash
 # Download and extract the latest release
-wget $(curl -s https://api.github.com/repos/autobrr/qui/releases/latest | grep browser_download_url | grep linux_x86_64 | cut -d\" -f4)
+wget $(curl -s https://api.github.com/repos/autogrr/rui/releases/latest | grep browser_download_url | grep linux_x86_64 | cut -d\" -f4)
 ```
 
 ### Unpack
@@ -25,7 +25,7 @@ This will extract qui to `/usr/local/bin`. Note: If the command fails, prefix it
 
 ## Manual Download
 
-Download the latest release for your platform from the [releases page](https://github.com/autobrr/qui/releases).
+Download the latest release for your platform from the [releases page](https://github.com/autogrr/rui/releases).
 
 ## Run
 

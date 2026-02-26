@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/autobrr/qui/internal/dbinterface"
-	"github.com/autobrr/qui/internal/models"
+	"github.com/autogrr/rui/internal/dbinterface"
+	"github.com/autogrr/rui/internal/models"
 )
 
 type testDBQuerier struct {

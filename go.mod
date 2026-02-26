@@ -1,4 +1,4 @@
-module github.com/autobrr/qui
+module github.com/autogrr/rui
 
 go 1.25
 

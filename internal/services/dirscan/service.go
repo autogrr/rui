@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 // Package dirscan provides directory scanning functionality to find media files
 // and match them against Torznab indexers for cross-seeding.
@@ -22,12 +23,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"github.com/autobrr/qui/internal/models"
-	"github.com/autobrr/qui/internal/qbittorrent"
-	"github.com/autobrr/qui/internal/services/arr"
-	"github.com/autobrr/qui/internal/services/crossseed"
-	"github.com/autobrr/qui/internal/services/jackett"
-	"github.com/autobrr/qui/internal/services/notifications"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/qbittorrent"
+	"github.com/autogrr/rui/internal/services/arr"
+	"github.com/autogrr/rui/internal/services/crossseed"
+	"github.com/autogrr/rui/internal/services/jackett"
+	"github.com/autogrr/rui/internal/services/notifications"
 )
 
 // Config holds configuration for the directory scanner service.

@@ -1,5 +1,6 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 package jackett
 
@@ -23,11 +24,11 @@ import (
 	"github.com/moistari/rls"
 	"github.com/rs/zerolog/log"
 
-	"github.com/autobrr/qui/internal/models"
-	"github.com/autobrr/qui/internal/pkg/timeouts"
-	"github.com/autobrr/qui/pkg/prowlarr"
-	"github.com/autobrr/qui/pkg/redact"
-	"github.com/autobrr/qui/pkg/releases"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/pkg/timeouts"
+	"github.com/autogrr/rui/pkg/prowlarr"
+	"github.com/autogrr/rui/pkg/redact"
+	"github.com/autogrr/rui/pkg/releases"
 )
 
 // IndexerStore defines the interface for indexer storage operations

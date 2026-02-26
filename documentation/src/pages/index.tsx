@@ -26,7 +26,7 @@ function HeroSection() {
           </Link>
           <Link
             className={styles.buttonSecondary}
-            href="https://github.com/autobrr/qui"
+            href="https://github.com/autogrr/rui"
           >
             <GithubIcon />
             GitHub

@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2025-2026, s0up and the autobrr contributors.
- * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (c) 2025, s0up and the autobrr contributors.
+ * Copyright (c) 2026, the rui contributors.
+ * SPDX-License-Identifier: AGPL-1.0-or-later
  */
 
 import { Button } from "@/components/ui/button"
@@ -26,7 +27,7 @@ export function NotFound() {
           <p>
             feel free to report this to our{" "}
             <a
-              href="https://github.com/autobrr/qui/issues/new?template=bug_report.md"
+              href="https://github.com/autogrr/rui/issues/new?template=bug_report.md"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:text-primary/80 underline font-medium underline-offset-2 transition-colors"

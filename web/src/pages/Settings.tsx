@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2025-2026, s0up and the autobrr contributors.
- * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (c) 2025, s0up and the autobrr contributors.
+ * Copyright (c) 2026, the rui contributors.
+ * SPDX-License-Identifier: AGPL-1.0-or-later
  */
 
 import { IndexersPage } from "@/components/indexers/IndexersPage"
@@ -14,7 +15,6 @@ import { DateTimePreferencesForm } from "@/components/settings/DateTimePreferenc
 import { ExternalProgramsManager } from "@/components/settings/ExternalProgramsManager"
 import { LogSettingsPanel } from "@/components/settings/LogSettingsPanel"
 import { NotificationsManager } from "@/components/settings/NotificationsManager"
-import { LicenseManager } from "@/components/themes/LicenseManager.tsx"
 import { ThemeSelector } from "@/components/themes/ThemeSelector"
 import {
   AlertDialog,
@@ -840,7 +840,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
             <SelectItem value="themes">
               <div className="flex items-center">
                 <Palette className="w-4 h-4 mr-2" />
-                Premium Themes
+                Themes
               </div>
             </SelectItem>
             <SelectItem value="security">
@@ -951,7 +951,7 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
               }`}
             >
               <Palette className="w-4 h-4 mr-2" />
-              Premium Themes
+              Themes
             </button>
             <button
               onClick={() => handleTabChange("security")}
@@ -1117,11 +1117,6 @@ export function Settings({ search, onSearchChange }: SettingsProps) {
 
           {activeTab === "themes" && (
             <div className="space-y-4">
-              <LicenseManager
-                checkoutStatus={search.checkout}
-                checkoutPaymentStatus={search.status}
-                onCheckoutConsumed={() => onSearchChange({ tab: "themes" })}
-              />
               <ThemeSelector />
             </div>
           )}

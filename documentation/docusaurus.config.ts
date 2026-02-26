@@ -95,7 +95,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: "./sidebars.ts",
-          editUrl: "https://github.com/autobrr/qui/tree/main/documentation/",
+          editUrl: "https://github.com/autogrr/rui/tree/main/documentation/",
           routeBasePath: "docs",
         },
         blog: false,
@@ -132,7 +132,7 @@ const config: Config = {
           "aria-label": "Discord",
         },
         {
-          href: "https://github.com/autobrr/qui",
+          href: "https://github.com/autogrr/rui",
           position: "right",
           className: "header-github-link",
           "aria-label": "GitHub",
@@ -168,7 +168,7 @@ const config: Config = {
             },
             {
               label: "GitHub Issues",
-              href: "https://github.com/autobrr/qui/issues",
+              href: "https://github.com/autogrr/rui/issues",
             },
           ],
         },
@@ -177,11 +177,11 @@ const config: Config = {
           items: [
             {
               label: "GitHub",
-              href: "https://github.com/autobrr/qui",
+              href: "https://github.com/autogrr/rui",
             },
             {
               label: "Releases",
-              href: "https://github.com/autobrr/qui/releases",
+              href: "https://github.com/autogrr/rui/releases",
             },
             {
               label: "llms.txt",
@@ -194,7 +194,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright ${new Date().getFullYear()} autobrr`,
+      copyright: `Copyright 2025 s0up and the autobrr contributors. Copyright 2026 the rui contributors.`,
     },
     prism: {
       theme: minimalLightTheme,

@@ -1,5 +1,5 @@
-// Copyright (c) 2025-2026, s0up and the autobrr contributors.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// Copyright (c) 2025, s0up and the autobrr contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
 
 // Package dbinterface provides database interfaces to avoid import cycles.
 // This package has no dependencies and can be imported by both database
