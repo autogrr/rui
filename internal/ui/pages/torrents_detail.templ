@@ -34,6 +34,22 @@ type TorrentDetailProps struct {
 
 	// WebSeeds tab
 	WebSeeds []qbt.WebSeed
+
+	// CrossSeed tab: local matches in other instances
+	CrossSeedMatches []CrossSeedMatch
+}
+
+// CrossSeedMatch is a page-level summary of a cross-seed local match.
+type CrossSeedMatch struct {
+	InstanceName string
+	Name         string
+	Category     string
+	Tags         string
+	State        string
+	SavePath     string
+	MatchType    string
+	Progress     float64
+	Size         int64
 }
 
 // TorrentDetailPanel renders the full detail panel HTML returned as an HTMX partial.
@@ -72,6 +88,7 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 				{"trackers", "Trackers"},
 				{"peers", "Peers"},
 				{"webseeds", "Web Seeds"},
+				{"crossseed", "Cross-Seed"},
 			} {
 				<button
 					@click={ "tab = '" + tb.id + "'" }
@@ -265,6 +282,47 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 											class="text-primary hover:underline break-all"
 										>{ ws.URL }</a>
 									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</div>
+			<!-- CrossSeed tab -->
+			<div x-show="tab === 'crossseed'">
+				if len(p.CrossSeedMatches) == 0 {
+					<p class="p-3 text-muted-foreground">No cross-seed copies found in other instances.</p>
+				} else {
+					<table class="w-full">
+						<thead class="sticky top-0 bg-muted/80 text-left">
+							<tr class="border-b border-border">
+								<th class="px-3 py-1.5 font-medium text-muted-foreground">Name</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground w-24">Instance</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground w-20">State</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-14">Done</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground w-20">Match</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-border">
+							for _, m := range p.CrossSeedMatches {
+								<tr class="hover:bg-muted/40">
+									<td class="px-3 py-1 max-w-xs">
+										<span class="block truncate" title={ m.Name }>{ m.Name }</span>
+										if m.Category != "" {
+											<span class="block text-muted-foreground text-xs truncate">{ m.Category }</span>
+										}
+									</td>
+									<td class="px-3 py-1 text-xs text-muted-foreground whitespace-nowrap">{ m.InstanceName }</td>
+									<td class="px-3 py-1">
+										{{ dlabel, dcls := stateLabel(m.State) }}
+										<span class={ "inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium", dcls }>
+											{ dlabel }
+										</span>
+									</td>
+									<td class="px-3 py-1 text-right tabular-nums">
+										{ fmt.Sprintf("%.0f%%", m.Progress*100) }
+									</td>
+									<td class="px-3 py-1 text-xs text-muted-foreground">{ m.MatchType }</td>
 								</tr>
 							}
 						</tbody>

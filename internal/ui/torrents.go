@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	qbt "github.com/autobrr/go-qbittorrent"
+	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/ui/pages"
 )
@@ -71,6 +72,28 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 	trackers, _ := h.syncManager.GetTorrentTrackers(ctx, targetID, hash)
 	webSeeds, _ := h.syncManager.GetTorrentWebSeeds(ctx, targetID, hash)
 
+	// Fetch cross-seed local matches (best-effort, errors are non-fatal).
+	var crossSeedMatches []pages.CrossSeedMatch
+	if h.crossSeedService != nil {
+		if resp, err := h.crossSeedService.FindLocalMatches(ctx, targetID, hash, false); err == nil && resp != nil {
+			for _, m := range resp.Matches {
+				crossSeedMatches = append(crossSeedMatches, pages.CrossSeedMatch{
+					InstanceName: m.InstanceName,
+					Name:         m.Name,
+					Category:     m.Category,
+					Tags:         m.Tags,
+					State:        m.State,
+					SavePath:     m.SavePath,
+					MatchType:    m.MatchType,
+					Progress:     m.Progress,
+					Size:         m.Size,
+				})
+			}
+		} else if err != nil {
+			log.Debug().Err(err).Str("hash", hash).Msg("ui: cross-seed local match check failed (non-fatal)")
+		}
+	}
+
 	var peers []qbt.TorrentPeer
 	if peersResp, err := h.syncManager.GetTorrentPeers(ctx, targetID, hash); err == nil && peersResp != nil {
 		peers = make([]qbt.TorrentPeer, 0, len(peersResp.Peers))
@@ -87,11 +110,12 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 		State:      state,
 		Category:   category,
 		Tags:       tags,
-		Properties: props,
-		Files:      files,
-		Trackers:   trackers,
-		Peers:      peers,
-		WebSeeds:   webSeeds,
+		Properties:       props,
+		Files:            files,
+		Trackers:         trackers,
+		Peers:            peers,
+		WebSeeds:         webSeeds,
+		CrossSeedMatches: crossSeedMatches,
 	}))
 }
 

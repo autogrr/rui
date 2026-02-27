@@ -105,6 +105,13 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Delete("/partials/settings/api-keys/{id}", h.DeleteAPIKey)
 			r.Post("/partials/settings/security", h.PostChangePassword)
 
+			// Tracker Customizations.
+			r.Get("/partials/settings/trackers/form", h.GetTrackerCustomizationFormNew)
+			r.Get("/partials/settings/trackers/{id}/form", h.GetTrackerCustomizationFormEdit)
+			r.Post("/partials/settings/trackers", h.PostTrackerCustomization)
+			r.Put("/partials/settings/trackers/{id}", h.PutTrackerCustomization)
+			r.Delete("/partials/settings/trackers/{id}", h.DeleteTrackerCustomization)
+
 			// Indexers.
 			r.Get("/partials/settings/indexers", h.GetIndexersListPartial)
 			r.Get("/partials/settings/indexers/form", h.GetIndexerForm)
