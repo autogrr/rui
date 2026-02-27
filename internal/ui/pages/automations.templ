@@ -4,262 +4,321 @@
 package pages
 
 import (
-	"github.com/autogrr/rui/internal/models"
-	"github.com/autogrr/rui/internal/ui/components/card"
-	"github.com/autogrr/rui/internal/ui/layouts"
+"fmt"
+
+"github.com/autogrr/rui/internal/models"
+"github.com/autogrr/rui/internal/ui/components/card"
+"github.com/autogrr/rui/internal/ui/layouts"
 )
 
 // AutomationItem is a page-level automation rule summary.
 type AutomationItem struct {
-	ID             int
-	InstanceID     int
-	InstanceName   string
-	Name           string
-	TrackerPattern string
-	Enabled        bool
-	DryRun         bool
-	SortOrder      int
-	CreatedAt      string
-	UpdatedAt      string
+ID             int
+InstanceID     int
+InstanceName   string
+Name           string
+TrackerPattern string
+Enabled        bool
+DryRun         bool
+SortOrder      int
+CreatedAt      string
+UpdatedAt      string
 }
 
 // AutomationActivityItem is a recent activity entry.
 type AutomationActivityItem struct {
-	ID           int64
-	AutomationID int
-	Name         string
-	TorrentHash  string
-	TorrentName  string
-	Action       string
-	Message      string
-	CreatedAt    string
+ID           int64
+AutomationID int
+Name         string
+TorrentHash  string
+TorrentName  string
+Action       string
+Message      string
+CreatedAt    string
 }
 
 // AutomationsProps holds all data for the full Automations page.
 type AutomationsProps struct {
-	BaseURL   string
-	Username  string
-	Version   string
-	Instances []layouts.Instance
+BaseURL   string
+Username  string
+Version   string
+Instances []layouts.Instance
 
-	// Selected instance for filtering
-	InstanceID int
+// Selected instance for filtering
+InstanceID int
 
-	// Automation rules
-	Automations []AutomationItem
+// Automation rules
+Automations []AutomationItem
 
-	// Recent activity
-	Activity []AutomationActivityItem
+// Recent activity
+Activity []AutomationActivityItem
 
-	// Error message
-	AutomationsError string
+// Error message
+AutomationsError string
+}
+
+// visibleInstances returns the instances to show based on the instance filter.
+func (p AutomationsProps) visibleInstances() []layouts.Instance {
+if p.InstanceID == 0 {
+return p.Instances
+}
+for _, inst := range p.Instances {
+if inst.ID == p.InstanceID {
+return []layouts.Instance{inst}
+}
+}
+return nil
 }
 
 // Automations renders the full Automations page.
 templ Automations(p AutomationsProps) {
-	@layouts.Authenticated(layouts.AuthProps{
-		BaseURL:     p.BaseURL,
-		Title:       "Automations",
-		CurrentPath: "/ui/automations",
-		Username:    p.Username,
-		AppVersion:  p.Version,
-		Instances:   p.Instances,
-	}) {
-		<div class="flex flex-col h-full gap-4">
-			<!-- Page header + instance selector -->
-			<div class="flex flex-wrap items-center justify-between gap-3">
-				<h1 class="text-xl font-bold tracking-tight">Automations</h1>
-				<div class="flex items-center gap-2">
-					<label class="text-sm text-muted-foreground">Filter by instance:</label>
-					<select
-						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-						hx-get={ p.BaseURL + "/ui/partials/automations" }
-						hx-target="#automations-content"
-						hx-swap="innerHTML"
-						name="instance_id"
-					>
-						<option value="0">All instances</option>
-						for _, inst := range p.Instances {
-							if inst.ID == p.InstanceID {
-								<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
-							} else {
-								<option value={ itoa(inst.ID) }>{ inst.Name }</option>
-							}
-						}
-					</select>
-				</div>
-			</div>
+@layouts.Authenticated(layouts.AuthProps{
+BaseURL:     p.BaseURL,
+Title:       "Automations",
+CurrentPath: "/ui/automations",
+Username:    p.Username,
+AppVersion:  p.Version,
+Instances:   p.Instances,
+}) {
+<div class="flex flex-col h-full gap-4">
+<!-- Page header + instance selector -->
+<div class="flex flex-wrap items-center justify-between gap-3">
+<h1 class="text-xl font-bold tracking-tight">Automations</h1>
+<div class="flex items-center gap-2">
+<label class="text-sm text-muted-foreground">Filter by instance:</label>
+<select
+class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+hx-get={ p.BaseURL + "/ui/partials/automations" }
+hx-target="#automations-content"
+hx-swap="innerHTML"
+name="instance_id"
+>
+<option value="0">All instances</option>
+for _, inst := range p.Instances {
+if inst.ID == p.InstanceID {
+<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
+} else {
+<option value={ itoa(inst.ID) }>{ inst.Name }</option>
+}
+}
+</select>
+</div>
+</div>
 
-			if p.AutomationsError != "" {
-				<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
-					{ p.AutomationsError }
-				</div>
-			}
+if p.AutomationsError != "" {
+<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+{ p.AutomationsError }
+</div>
+}
 
-			<div id="automations-content" class="space-y-6">
-				@AutomationsPartial(p)
-			</div>
-		</div>
-	}
+<div id="automations-content" class="space-y-6">
+@AutomationsPartial(p)
+</div>
+</div>
+}
 }
 
 // AutomationsPartial renders the automations list (HTMX partial target).
 templ AutomationsPartial(p AutomationsProps) {
-	<!-- Rules card -->
-	@card.Card(card.Props{}) {
-		@card.Header(card.HeaderProps{}) {
-			@card.Title(card.TitleProps{}) {
-						Automation Rules
-					}
-					@card.Description(card.DescriptionProps{}) {
-						Rules run periodically against all torrents in the selected instance.
-					}
-		}
-		@card.Content(card.ContentProps{}) {
-			if len(p.Automations) == 0 {
-				<div class="py-8 text-center">
-					<p class="text-sm text-muted-foreground">No automation rules configured.</p>
-					<p class="text-xs text-muted-foreground mt-1">
-						Create rules in the individual instance settings to manage torrents automatically.
-					</p>
-				</div>
-			} else {
-				<div class="overflow-x-auto">
-					<table class="w-full text-sm">
-						<thead>
-							<tr class="border-b border-border text-muted-foreground text-xs">
-								<th class="pb-2 text-left font-medium px-3">Name</th>
-								<th class="pb-2 text-left font-medium px-3">Instance</th>
-								<th class="pb-2 text-left font-medium px-3">Tracker Pattern</th>
-								<th class="pb-2 text-left font-medium px-3">Status</th>
-								<th class="pb-2 text-left font-medium px-3">Updated</th>
-								<th class="pb-2 px-3"></th>
-							</tr>
-						</thead>
-						<tbody>
-							for _, a := range p.Automations {
-								@automationRow(a, p.BaseURL)
-							}
-						</tbody>
-					</table>
-				</div>
-			}
-		}
-	}
+<!-- Rules card -->
+@card.Card(card.Props{}) {
+@card.Header(card.HeaderProps{}) {
+@card.Title(card.TitleProps{}) {
+Automation Rules
+}
+@card.Description(card.DescriptionProps{}) {
+Rules run periodically against all torrents in the selected instance.
+}
+}
+@card.Content(card.ContentProps{}) {
+if len(p.Automations) == 0 {
+<div class="py-8 text-center">
+<p class="text-sm text-muted-foreground">No automation rules configured.</p>
+<p class="text-xs text-muted-foreground mt-1">
+Create rules in the individual instance settings to manage torrents automatically.
+</p>
+</div>
+} else {
+<div class="overflow-x-auto">
+<table class="w-full text-sm">
+<thead>
+<tr class="border-b border-border text-muted-foreground text-xs">
+<th class="pb-2 text-left font-medium px-3">Name</th>
+<th class="pb-2 text-left font-medium px-3">Instance</th>
+<th class="pb-2 text-left font-medium px-3">Tracker Pattern</th>
+<th class="pb-2 text-left font-medium px-3">Status</th>
+<th class="pb-2 text-left font-medium px-3">Updated</th>
+<th class="pb-2 px-3"></th>
+</tr>
+</thead>
+<tbody>
+for _, a := range p.Automations {
+@automationRow(a, p.BaseURL)
+}
+</tbody>
+</table>
+</div>
+}
+}
+}
 
-	<!-- Activity card -->
-	@card.Card(card.Props{Class: "mt-6"}) {
-		@card.Header(card.HeaderProps{}) {
-			@card.Title(card.TitleProps{}) {
-						Recent Activity
-					}
-					@card.Description(card.DescriptionProps{}) {
-						Last 50 actions taken by automation rules.
-					}
-		}
-		@card.Content(card.ContentProps{}) {
-			if len(p.Activity) == 0 {
-				<p class="text-sm text-muted-foreground py-4 text-center">No recent activity.</p>
-			} else {
-				<div class="overflow-x-auto">
-					<table class="w-full text-sm">
-						<thead>
-							<tr class="border-b border-border text-muted-foreground text-xs">
-								<th class="pb-2 text-left font-medium px-3">Time</th>
-								<th class="pb-2 text-left font-medium px-3">Rule</th>
-								<th class="pb-2 text-left font-medium px-3">Torrent</th>
-								<th class="pb-2 text-left font-medium px-3">Action</th>
-								<th class="pb-2 text-left font-medium px-3">Message</th>
-							</tr>
-						</thead>
-						<tbody>
-							for _, act := range p.Activity {
-								<tr class="border-b border-border/50 hover:bg-muted/40 transition-colors">
-									<td class="py-1.5 px-3 text-xs text-muted-foreground whitespace-nowrap">{ act.CreatedAt }</td>
-									<td class="py-1.5 px-3 text-xs">{ act.Name }</td>
-									<td class="py-1.5 px-3 text-xs truncate max-w-[200px]" title={ act.TorrentName }>{ act.TorrentName }</td>
-									<td class="py-1.5 px-3">
-										<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">{ act.Action }</span>
-									</td>
-									<td class="py-1.5 px-3 text-xs text-muted-foreground truncate max-w-[300px]" title={ act.Message }>{ act.Message }</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				</div>
-			}
-		}
-	}
+<!-- Activity card -->
+@card.Card(card.Props{Class: "mt-6"}) {
+@card.Header(card.HeaderProps{}) {
+@card.Title(card.TitleProps{}) {
+Recent Activity
+}
+@card.Description(card.DescriptionProps{}) {
+Last 50 actions taken by automation rules.
+}
+}
+@card.Content(card.ContentProps{}) {
+if len(p.Activity) == 0 {
+<p class="text-sm text-muted-foreground py-4 text-center">No recent activity.</p>
+} else {
+<div class="overflow-x-auto">
+<table class="w-full text-sm">
+<thead>
+<tr class="border-b border-border text-muted-foreground text-xs">
+<th class="pb-2 text-left font-medium px-3">Time</th>
+<th class="pb-2 text-left font-medium px-3">Rule</th>
+<th class="pb-2 text-left font-medium px-3">Torrent</th>
+<th class="pb-2 text-left font-medium px-3">Action</th>
+<th class="pb-2 text-left font-medium px-3">Message</th>
+</tr>
+</thead>
+<tbody>
+for _, act := range p.Activity {
+<tr class="border-b border-border/50 hover:bg-muted/40 transition-colors">
+<td class="py-1.5 px-3 text-xs text-muted-foreground whitespace-nowrap">{ act.CreatedAt }</td>
+<td class="py-1.5 px-3 text-xs">{ act.Name }</td>
+<td class="py-1.5 px-3 text-xs truncate max-w-[200px]" title={ act.TorrentName }>{ act.TorrentName }</td>
+<td class="py-1.5 px-3">
+<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">{ act.Action }</span>
+</td>
+<td class="py-1.5 px-3 text-xs text-muted-foreground truncate max-w-[300px]" title={ act.Message }>{ act.Message }</td>
+</tr>
+}
+</tbody>
+</table>
+</div>
+}
+}
+}
+
+<!-- Reannounce + Orphan Scan per-instance sections -->
+@automationsPerInstanceSections(p)
+}
+
+// automationsPerInstanceSections renders reannounce and orphan scan sections for each instance.
+templ automationsPerInstanceSections(p AutomationsProps) {
+for _, inst := range p.visibleInstances() {
+<div class="space-y-4 mt-6">
+<h2 class="text-base font-semibold">{ inst.Name }</h2>
+<!-- Reannounce settings (lazy loaded) -->
+<div
+hx-get={ fmt.Sprintf("%s/ui/partials/automations/reannounce/settings/%d", p.BaseURL, inst.ID) }
+hx-trigger="load"
+hx-swap="outerHTML"
+>
+<div class="animate-pulse h-24 rounded-lg bg-muted"></div>
+</div>
+<!-- Reannounce activity (lazy loaded) -->
+<div
+hx-get={ fmt.Sprintf("%s/ui/partials/automations/reannounce/activity/%d", p.BaseURL, inst.ID) }
+hx-trigger="load"
+hx-swap="outerHTML"
+>
+<div class="animate-pulse h-16 rounded-lg bg-muted"></div>
+</div>
+<!-- Orphan scan settings (lazy loaded) -->
+<div
+hx-get={ fmt.Sprintf("%s/ui/partials/automations/orphan-scan/settings/%d", p.BaseURL, inst.ID) }
+hx-trigger="load"
+hx-swap="outerHTML"
+>
+<div class="animate-pulse h-24 rounded-lg bg-muted"></div>
+</div>
+<!-- Orphan scan runs (lazy loaded) -->
+<div
+hx-get={ fmt.Sprintf("%s/ui/partials/automations/orphan-scan/runs/%d", p.BaseURL, inst.ID) }
+hx-trigger="load"
+hx-swap="outerHTML"
+>
+<div class="animate-pulse h-16 rounded-lg bg-muted"></div>
+</div>
+</div>
+}
 }
 
 // automationStatusBadge renders a status badge for an automation rule.
 templ automationStatusBadge(a AutomationItem) {
-	<div class="flex items-center gap-1.5">
-		if a.Enabled {
-			<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 text-xs">Enabled</span>
-		} else {
-			<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Disabled</span>
-		}
-		if a.DryRun {
-			<span class="inline-flex items-center rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 text-xs">Dry run</span>
-		}
-	</div>
+<div class="flex items-center gap-1.5">
+if a.Enabled {
+<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 text-xs">Enabled</span>
+} else {
+<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Disabled</span>
+}
+if a.DryRun {
+<span class="inline-flex items-center rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 text-xs">Dry run</span>
+}
+</div>
 }
 
 // AutomationFromModel converts a models.Automation to page-level AutomationItem.
 func AutomationFromModel(a *models.Automation, instanceName string) AutomationItem {
-	return AutomationItem{
-		ID:             a.ID,
-		InstanceID:     a.InstanceID,
-		InstanceName:   instanceName,
-		Name:           a.Name,
-		TrackerPattern: a.TrackerPattern,
-		Enabled:        a.Enabled,
-		DryRun:         a.DryRun,
-		SortOrder:      a.SortOrder,
-		CreatedAt:      a.CreatedAt.Format("2006-01-02 15:04"),
-		UpdatedAt:      a.UpdatedAt.Format("2006-01-02 15:04"),
-	}
+return AutomationItem{
+ID:             a.ID,
+InstanceID:     a.InstanceID,
+InstanceName:   instanceName,
+Name:           a.Name,
+TrackerPattern: a.TrackerPattern,
+Enabled:        a.Enabled,
+DryRun:         a.DryRun,
+SortOrder:      a.SortOrder,
+CreatedAt:      a.CreatedAt.Format("2006-01-02 15:04"),
+UpdatedAt:      a.UpdatedAt.Format("2006-01-02 15:04"),
+}
 }
 
 // automationRow renders a single automation rule <tr> element.
 templ automationRow(a AutomationItem, baseURL string) {
-	<tr id={ "automation-" + itoa(a.ID) } class="border-b border-border/50 hover:bg-muted/40 transition-colors">
-		<td class="py-2 px-3 font-medium">{ a.Name }</td>
-		<td class="py-2 px-3 text-muted-foreground">{ a.InstanceName }</td>
-		<td class="py-2 px-3 font-mono text-xs">{ a.TrackerPattern }</td>
-		<td class="py-2 px-3">
-			@automationStatusBadge(a)
-		</td>
-		<td class="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">{ a.UpdatedAt }</td>
-		<td class="py-2 px-3 text-right">
-			<div class="flex items-center justify-end gap-1">
-				<form
-					hx-post={ baseURL + "/ui/partials/automations/" + itoa(a.InstanceID) + "/rules/" + itoa(a.ID) + "/toggle" }
-					hx-target={ "#automation-" + itoa(a.ID) }
-					hx-swap="outerHTML"
-					class="inline"
-				>
-					<input type="hidden" name="instance_id" value={ itoa(a.InstanceID) }/>
-					<input type="hidden" name="automation_id" value={ itoa(a.ID) }/>
-					<button
-						type="submit"
-						class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
-						title={ "Toggle " + a.Name }
-					>
-						if a.Enabled {
-							Disable
-						} else {
-							Enable
-						}
-					</button>
-				</form>
-			</div>
-		</td>
-	</tr>
+<tr id={ "automation-" + itoa(a.ID) } class="border-b border-border/50 hover:bg-muted/40 transition-colors">
+<td class="py-2 px-3 font-medium">{ a.Name }</td>
+<td class="py-2 px-3 text-muted-foreground">{ a.InstanceName }</td>
+<td class="py-2 px-3 font-mono text-xs">{ a.TrackerPattern }</td>
+<td class="py-2 px-3">
+@automationStatusBadge(a)
+</td>
+<td class="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">{ a.UpdatedAt }</td>
+<td class="py-2 px-3 text-right">
+<div class="flex items-center justify-end gap-1">
+<form
+hx-post={ baseURL + "/ui/partials/automations/" + itoa(a.InstanceID) + "/rules/" + itoa(a.ID) + "/toggle" }
+hx-target={ "#automation-" + itoa(a.ID) }
+hx-swap="outerHTML"
+class="inline"
+>
+<input type="hidden" name="instance_id" value={ itoa(a.InstanceID) }/>
+<input type="hidden" name="automation_id" value={ itoa(a.ID) }/>
+<button
+type="submit"
+class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
+title={ "Toggle " + a.Name }
+>
+if a.Enabled {
+Disable
+} else {
+Enable
+}
+</button>
+</form>
+</div>
+</td>
+</tr>
 }
 
 // AutomationRowTempl is the exported entry-point for refreshing a single automation row via HTMX.
 templ AutomationRowTempl(a AutomationItem, baseURL string) {
-	@automationRow(a, baseURL)
+@automationRow(a, baseURL)
 }

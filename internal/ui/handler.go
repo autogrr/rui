@@ -22,9 +22,12 @@ import (
 	"github.com/autogrr/rui/internal/services/arr"
 	"github.com/autogrr/rui/internal/services/automations"
 	"github.com/autogrr/rui/internal/services/crossseed"
+	"github.com/autogrr/rui/internal/services/dirscan"
 	"github.com/autogrr/rui/internal/services/externalprograms"
 	"github.com/autogrr/rui/internal/services/jackett"
 	"github.com/autogrr/rui/internal/services/notifications"
+	"github.com/autogrr/rui/internal/services/orphanscan"
+	"github.com/autogrr/rui/internal/services/reannounce"
 	"github.com/autogrr/rui/internal/ui/pages"
 )
 
@@ -63,6 +66,13 @@ type Handler struct {
 	automationActivityStore *models.AutomationActivityStore
 	backupsService          *backups.Service
 	clientAPIKeyStore       *models.ClientAPIKeyStore
+
+	// Reannounce, orphan-scan and dir-scan services (optional, nil when not configured).
+	reannounceService *reannounce.Service
+	reannounceStore   *models.InstanceReannounceStore
+	orphanScanService *orphanscan.Service
+	orphanScanStore   *models.OrphanScanStore
+	dirScanService    *dirscan.Service
 }
 
 // Dependencies are the inputs required to build a Handler.
@@ -91,6 +101,13 @@ type Dependencies struct {
 	AutomationActivityStore *models.AutomationActivityStore
 	BackupsService          *backups.Service
 	ClientAPIKeyStore       *models.ClientAPIKeyStore
+
+	// Reannounce, orphan-scan and dir-scan — all optional.
+	ReannounceService *reannounce.Service
+	ReannounceStore   *models.InstanceReannounceStore
+	OrphanScanService *orphanscan.Service
+	OrphanScanStore   *models.OrphanScanStore
+	DirScanService    *dirscan.Service
 }
 
 // NewHandler constructs a new UI Handler.
@@ -119,6 +136,12 @@ func NewHandler(deps Dependencies) *Handler {
 		automationActivityStore: deps.AutomationActivityStore,
 		backupsService:          deps.BackupsService,
 		clientAPIKeyStore:       deps.ClientAPIKeyStore,
+
+		reannounceService: deps.ReannounceService,
+		reannounceStore:   deps.ReannounceStore,
+		orphanScanService: deps.OrphanScanService,
+		orphanScanStore:   deps.OrphanScanStore,
+		dirScanService:    deps.DirScanService,
 	}
 }
 

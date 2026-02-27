@@ -659,6 +659,11 @@ func (s *Server) Handler() (*chi.Mux, error) {
 		AutomationActivityStore: s.automationActivityStore,
 		BackupsService:          s.backupService,
 		ClientAPIKeyStore:       s.clientAPIKeyStore,
+		ReannounceService:       s.reannounceService,
+		ReannounceStore:         s.instanceReannounce,
+		OrphanScanService:       s.orphanScanService,
+		OrphanScanStore:         s.orphanScanStore,
+		DirScanService:          s.dirScanService,
 	})
 
 	uiDashboard := strings.TrimSuffix(baseURL, "/") + "/ui/dashboard"

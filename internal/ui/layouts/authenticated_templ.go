@@ -51,6 +51,7 @@ var defaultNavItems = []NavItem{
 	{ID: "dashboard", Title: "Dashboard", Href: "/ui/dashboard", Icon: "house"},
 	{ID: "search", Title: "Search", Href: "/ui/search", Icon: "search"},
 	{ID: "cross-seed", Title: "Cross-seed", Href: "/ui/cross-seed", Icon: "git-branch"},
+	{ID: "dir-scan", Title: "Dir Scan", Href: "/ui/dir-scan", Icon: "folder-search"},
 	{ID: "automations", Title: "Automations", Href: "/ui/automations", Icon: "zap"},
 	{ID: "backups", Title: "Backups", Href: "/ui/backups", Icon: "archive"},
 	{ID: "rss", Title: "RSS", Href: "/ui/rss", Icon: "rss"},
@@ -98,7 +99,7 @@ func Authenticated(p AuthProps) templ.Component {
 			var templ_7745c5c3_Var3 templ.SafeURL
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(p.BaseURL + "/ui/dashboard"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 74, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 75, Col: 57}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -219,7 +220,7 @@ func Authenticated(p AuthProps) templ.Component {
 				var templ_7745c5c3_Var6 templ.SafeURL
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(p.BaseURL + item.Href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 176, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 177, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -249,7 +250,7 @@ func Authenticated(p AuthProps) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 184, Col: 20}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 185, Col: 20}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -336,7 +337,7 @@ func sidebarNavItem(item NavItem, currentPath string, activeInstance *Instance) 
 				var templ_7745c5c3_Var13 templ.SafeURL
 				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(item.Href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 200, Col: 35}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 201, Col: 35}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
@@ -370,7 +371,7 @@ func sidebarNavItem(item NavItem, currentPath string, activeInstance *Instance) 
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 216, Col: 17}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 217, Col: 17}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -405,7 +406,7 @@ func sidebarNavItem(item NavItem, currentPath string, activeInstance *Instance) 
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 221, Col: 15}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 222, Col: 15}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -467,7 +468,7 @@ func instanceSelector(instances []Instance, active *Instance, baseURL string) te
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(active.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 237, Col: 41}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 238, Col: 41}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -490,7 +491,7 @@ func instanceSelector(instances []Instance, active *Instance, baseURL string) te
 			var templ_7745c5c3_Var20 templ.SafeURL
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(baseURL + "/ui/torrents"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 252, Col: 51}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 253, Col: 51}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -516,7 +517,7 @@ func instanceSelector(instances []Instance, active *Instance, baseURL string) te
 				var templ_7745c5c3_Var22 templ.SafeURL
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(baseURL + "/ui/torrents?instance_id=" + itoa(inst.ID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 260, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 261, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
@@ -567,7 +568,7 @@ func instanceSelector(instances []Instance, active *Instance, baseURL string) te
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(inst.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 274, Col: 40}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 275, Col: 40}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -646,7 +647,7 @@ func userMenu(username, baseURL string) templ.Component {
 		var templ_7745c5c3_Var29 string
 		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 334, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 335, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 		if templ_7745c5c3_Err != nil {
@@ -659,7 +660,7 @@ func userMenu(username, baseURL string) templ.Component {
 		var templ_7745c5c3_Var30 string
 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 343, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 344, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 		if templ_7745c5c3_Err != nil {
@@ -672,7 +673,7 @@ func userMenu(username, baseURL string) templ.Component {
 		var templ_7745c5c3_Var31 templ.SafeURL
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(baseURL + "/ui/auth/logout"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 345, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 346, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {

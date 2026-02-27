@@ -1,0 +1,554 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/components/tabs"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// DirScan renders the full Dir Scan page.
+templ DirScan(p DirScanProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Dir Scan",
+		CurrentPath: "/ui/dir-scan",
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		<div class="flex flex-col h-full gap-4">
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<h1 class="text-xl font-bold tracking-tight">Directory Scan</h1>
+			</div>
+
+			if p.Error != "" {
+				<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+					{ p.Error }
+				</div>
+			}
+
+			@tabs.Tabs() {
+				@tabs.List() {
+					@tabs.Trigger(tabs.TriggerProps{Value: "directories", IsActive: p.ActiveTab == "directories" || p.ActiveTab == ""}) {
+						Directories
+					}
+					@tabs.Trigger(tabs.TriggerProps{Value: "settings", IsActive: p.ActiveTab == "settings"}) {
+						Settings
+					}
+				}
+
+				@tabs.Content(tabs.ContentProps{Value: "directories", IsActive: p.ActiveTab == "directories" || p.ActiveTab == ""}) {
+					<div class="space-y-4 pt-2">
+						<div id="dir-scan-directories"
+							hx-get={ p.BaseURL + "/ui/partials/dir-scan/directories" }
+							hx-trigger="load"
+							hx-swap="innerHTML"
+						>
+							<div class="animate-pulse h-32 rounded-lg bg-muted"></div>
+						</div>
+					</div>
+				}
+
+				@tabs.Content(tabs.ContentProps{Value: "settings", IsActive: p.ActiveTab == "settings"}) {
+					<div class="space-y-4 pt-2">
+						<div id="dir-scan-settings"
+							hx-get={ p.BaseURL + "/ui/partials/dir-scan/settings" }
+							hx-trigger="load"
+							hx-swap="innerHTML"
+						>
+							<div class="animate-pulse h-32 rounded-lg bg-muted"></div>
+						</div>
+					</div>
+				}
+			}
+		</div>
+	}
+}
+
+// DirScanDirectoriesPartial renders the directories list + add button.
+templ DirScanDirectoriesPartial(dirs []DirScanDirectoryItem, baseURL string) {
+	<div class="space-y-3">
+		<div class="flex items-center justify-between">
+			<h3 class="text-sm font-semibold">Scan Directories</h3>
+			<button
+				class="h-8 px-3 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+				hx-get={ baseURL + "/ui/partials/dir-scan/directories/form" }
+				hx-target="#dir-scan-directory-form-container"
+				hx-swap="innerHTML"
+			>
+				Add Directory
+			</button>
+		</div>
+
+		<div id="dir-scan-directory-form-container"></div>
+
+		if len(dirs) == 0 {
+			<div class="py-8 text-center">
+				<p class="text-sm text-muted-foreground">No scan directories configured.</p>
+				<p class="text-xs text-muted-foreground mt-1">
+					Add a directory below to start scanning for cross-seed candidates.
+				</p>
+			</div>
+		} else {
+			<div class="space-y-3">
+				for _, dir := range dirs {
+					@dirScanDirectoryCard(dir, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+// dirScanDirectoryCard renders a single directory card.
+templ dirScanDirectoryCard(dir DirScanDirectoryItem, baseURL string) {
+	<div id={ fmt.Sprintf("dir-scan-directory-%d", dir.ID) } class="rounded-lg border border-border bg-card p-4 space-y-3">
+		<div class="flex items-start justify-between gap-2">
+			<div class="space-y-0.5 min-w-0">
+				<div class="flex items-center gap-2">
+					if dir.Enabled {
+						<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 text-xs">Enabled</span>
+					} else {
+						<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Disabled</span>
+					}
+					<span class="text-sm font-medium truncate">{ dir.Path }</span>
+				</div>
+				<div class="text-xs text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 pt-1">
+					if dir.TargetInstanceName != "" {
+						<span>Instance: { dir.TargetInstanceName }</span>
+					}
+					if dir.Category != "" {
+						<span>Category: { dir.Category }</span>
+					}
+					if dir.ScanIntervalMinutes > 0 {
+						<span>Interval: { itoa(dir.ScanIntervalMinutes) } min</span>
+					}
+					if dir.LastScanAt != "" {
+						<span>Last scan: { dir.LastScanAt }</span>
+					}
+				</div>
+			</div>
+			<div class="flex items-center gap-1 shrink-0">
+				<button
+					class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
+					hx-get={ fmt.Sprintf("%s/ui/partials/dir-scan/directories/form/%d", baseURL, dir.ID) }
+					hx-target="#dir-scan-directory-form-container"
+					hx-swap="innerHTML"
+				>
+					Edit
+				</button>
+				<button
+					class="h-7 px-2 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+					hx-post={ fmt.Sprintf("%s/ui/partials/dir-scan/directories/%d/scan", baseURL, dir.ID) }
+					hx-target={ fmt.Sprintf("#dir-scan-runs-%d", dir.ID) }
+					hx-swap="outerHTML"
+				>
+					Scan
+				</button>
+				<button
+					class="h-7 px-2 text-xs rounded-md border border-destructive/50 text-destructive hover:bg-destructive/10 transition-colors"
+					hx-delete={ fmt.Sprintf("%s/ui/partials/dir-scan/directories/%d", baseURL, dir.ID) }
+					hx-target={ fmt.Sprintf("#dir-scan-directory-%d", dir.ID) }
+					hx-swap="outerHTML"
+					hx-confirm={ "Delete directory " + dir.Path + "?" }
+				>
+					Delete
+				</button>
+			</div>
+		</div>
+
+		<!-- Runs section (lazy loaded per directory) -->
+		<div
+			id={ fmt.Sprintf("dir-scan-runs-%d", dir.ID) }
+			hx-get={ fmt.Sprintf("%s/ui/partials/dir-scan/runs/%d", baseURL, dir.ID) }
+			hx-trigger="load"
+			hx-swap="outerHTML"
+		>
+			<div class="animate-pulse h-8 rounded bg-muted"></div>
+		</div>
+	</div>
+}
+
+// DirScanDirectoryForm renders the add/edit form for a directory.
+templ DirScanDirectoryForm(dir *DirScanDirectoryItem, instances []layouts.Instance, baseURL string) {
+	<div id="dir-scan-directory-form" class="rounded-lg border border-border bg-card p-4 space-y-4">
+		<div class="flex items-center justify-between">
+			if dir != nil && dir.ID > 0 {
+				<h3 class="text-sm font-semibold">Edit Directory</h3>
+			} else {
+				<h3 class="text-sm font-semibold">Add Directory</h3>
+			}
+			<button
+				type="button"
+				class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
+				hx-get={ baseURL + "/ui/partials/dir-scan/directories" }
+				hx-target="#dir-scan-directories"
+				hx-swap="innerHTML"
+			>
+				Cancel
+			</button>
+		</div>
+
+		if dir != nil && dir.ID > 0 {
+			<form
+				hx-put={ fmt.Sprintf("%s/ui/partials/dir-scan/directories/%d", baseURL, dir.ID) }
+				hx-target="#dir-scan-directories"
+				hx-swap="innerHTML"
+				class="space-y-4"
+			>
+				@dirScanDirectoryFormFields(dir, instances)
+			</form>
+		} else {
+			<form
+				hx-post={ baseURL + "/ui/partials/dir-scan/directories" }
+				hx-target="#dir-scan-directories"
+				hx-swap="innerHTML"
+				class="space-y-4"
+			>
+				@dirScanDirectoryFormFields(nil, instances)
+			</form>
+		}
+	</div>
+}
+
+// dirScanDirectoryFormFields renders the shared form fields for add/edit.
+templ dirScanDirectoryFormFields(dir *DirScanDirectoryItem, instances []layouts.Instance) {
+	<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+		<div class="space-y-1 sm:col-span-2">
+			<label class="text-xs font-medium text-muted-foreground">Path <span class="text-destructive">*</span></label>
+			<input
+				type="text"
+				name="path"
+				required
+				placeholder="/data/downloads"
+				value={ fieldStr(dir, func(d DirScanDirectoryItem) string { return d.Path }) }
+				class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			/>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">qBittorrent path prefix</label>
+			<input
+				type="text"
+				name="qbit_path_prefix"
+				placeholder="/downloads"
+				value={ fieldStr(dir, func(d DirScanDirectoryItem) string { return d.QbitPathPrefix }) }
+				class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			/>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Scan Interval (minutes)</label>
+			<input
+				type="number"
+				name="scan_interval_minutes"
+				min="0"
+				value={ fieldInt(dir, func(d DirScanDirectoryItem) int { return d.ScanIntervalMinutes }) }
+				class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			/>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Target Instance <span class="text-destructive">*</span></label>
+			<select
+				name="target_instance_id"
+				required
+				class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			>
+				<option value="">Select instance...</option>
+				for _, inst := range instances {
+					if dir != nil && dir.TargetInstanceID == inst.ID {
+						<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
+					} else {
+						<option value={ itoa(inst.ID) }>{ inst.Name }</option>
+					}
+				}
+			</select>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Category</label>
+			<input
+				type="text"
+				name="category"
+				placeholder="cross-seed"
+				value={ fieldStr(dir, func(d DirScanDirectoryItem) string { return d.Category }) }
+				class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			/>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Tags (comma-separated)</label>
+			<input
+				type="text"
+				name="tags"
+				placeholder="tag1, tag2"
+				value={ fieldStr(dir, func(d DirScanDirectoryItem) string { return d.Tags }) }
+				class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			/>
+		</div>
+	</div>
+	<div class="flex items-center gap-6">
+		<label class="flex items-center gap-2 cursor-pointer">
+			<input
+				type="checkbox"
+				name="enabled"
+				class="h-4 w-4 rounded border-input"
+				if dir == nil || dir.Enabled {
+					checked
+				}
+			/>
+			<span class="text-sm font-medium">Enabled</span>
+		</label>
+	</div>
+	<div class="flex justify-end">
+		<button
+			type="submit"
+			class="h-9 px-4 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+		>
+			Save
+		</button>
+	</div>
+}
+
+// DirScanRunsPartial renders the scan runs list for a directory.
+templ DirScanRunsPartial(runs []DirScanRun, dirID int, baseURL string) {
+	<div id={ fmt.Sprintf("dir-scan-runs-%d", dirID) }>
+		if len(runs) == 0 {
+			<p class="text-xs text-muted-foreground">No scan runs yet.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="w-full text-xs">
+					<thead>
+						<tr class="border-b border-border text-muted-foreground">
+							<th class="pb-1.5 text-left font-medium px-2">Started</th>
+							<th class="pb-1.5 text-left font-medium px-2">Trigger</th>
+							<th class="pb-1.5 text-left font-medium px-2">Status</th>
+							<th class="pb-1.5 text-right font-medium px-2">Files</th>
+							<th class="pb-1.5 text-right font-medium px-2">Matches</th>
+							<th class="pb-1.5 text-right font-medium px-2">Added</th>
+							<th class="pb-1.5 px-2"></th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, run := range runs {
+							@dirScanRunRow(run, baseURL)
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+// dirScanRunRow renders a single dir scan run row.
+templ dirScanRunRow(run DirScanRun, baseURL string) {
+	<tr class="border-b border-border/50 hover:bg-muted/40 transition-colors">
+		<td class="py-1 px-2 text-muted-foreground whitespace-nowrap">{ run.StartedAt }</td>
+		<td class="py-1 px-2">{ run.TriggeredBy }</td>
+		<td class="py-1 px-2">
+			@dirScanRunStatusBadge(run.Status, run.IsActive)
+		</td>
+		<td class="py-1 px-2 text-right">{ itoa(run.FilesFound) }</td>
+		<td class="py-1 px-2 text-right">{ itoa(run.MatchesFound) }</td>
+		<td class="py-1 px-2 text-right">{ itoa(run.TorrentsAdded) }</td>
+		<td class="py-1 px-2 text-right">
+			if run.IsActive {
+				<button
+					class="h-6 px-1.5 text-xs rounded border border-destructive/50 text-destructive hover:bg-destructive/10 transition-colors"
+					hx-post={ fmt.Sprintf("%s/ui/partials/dir-scan/directories/%d/cancel", baseURL, run.DirectoryID) }
+					hx-target={ fmt.Sprintf("#dir-scan-runs-%d", run.DirectoryID) }
+					hx-swap="outerHTML"
+				>
+					Cancel
+				</button>
+			}
+		</td>
+	</tr>
+}
+
+// dirScanRunStatusBadge renders a status badge for a dir scan run.
+templ dirScanRunStatusBadge(status string, active bool) {
+	if active {
+		<span class="inline-flex items-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 px-1.5 py-0.5">{ status }</span>
+	} else if status == "success" {
+		<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-1.5 py-0.5">Success</span>
+	} else if status == "failed" {
+		<span class="inline-flex items-center rounded-full bg-destructive/10 text-destructive px-1.5 py-0.5">Failed</span>
+	} else if status == "canceled" {
+		<span class="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">Canceled</span>
+	} else {
+		<span class="inline-flex items-center rounded-full bg-muted px-1.5 py-0.5 text-muted-foreground">{ status }</span>
+	}
+}
+
+// DirScanSettingsPartial renders the global settings form.
+templ DirScanSettingsPartial(s DirScanSettings, baseURL string) {
+	<div id="dir-scan-settings-card">
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Global Dir Scan Settings
+				}
+				@card.Description(card.DescriptionProps{}) {
+					These settings apply to all scan directories.
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				<form
+					hx-post={ baseURL + "/ui/partials/dir-scan/settings" }
+					hx-target="#dir-scan-settings-card"
+					hx-swap="outerHTML"
+					class="space-y-4"
+				>
+					<!-- Toggle row -->
+					<div class="flex flex-wrap gap-6">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="enabled"
+								class="h-4 w-4 rounded border-input"
+								if s.Enabled {
+									checked
+								}
+							/>
+							<span class="text-sm font-medium">Enabled</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="allow_partial"
+								class="h-4 w-4 rounded border-input"
+								if s.AllowPartial {
+									checked
+								}
+							/>
+							<span class="text-sm font-medium">Allow partial matches</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="start_paused"
+								class="h-4 w-4 rounded border-input"
+								if s.StartPaused {
+									checked
+								}
+							/>
+							<span class="text-sm font-medium">Start paused</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="skip_piece_boundary_safety_check"
+								class="h-4 w-4 rounded border-input"
+								if s.SkipPieceBoundarySafetyCheck {
+									checked
+								}
+							/>
+							<span class="text-sm font-medium">Skip piece boundary check</span>
+						</label>
+					</div>
+					<!-- Numeric / select settings -->
+					<div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Match mode</label>
+							<select
+								name="match_mode"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							>
+								<option value="strict" if s.MatchMode == "strict" { selected }>Strict</option>
+								<option value="flexible" if s.MatchMode == "flexible" { selected }>Flexible</option>
+							</select>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Size tolerance (%)</label>
+							<input
+								type="number"
+								name="size_tolerance_percent"
+								value={ fmt.Sprintf("%.1f", s.SizeTolerancePercent) }
+								min="0"
+								step="0.1"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Min piece ratio (%)</label>
+							<input
+								type="number"
+								name="min_piece_ratio"
+								value={ fmt.Sprintf("%.1f", s.MinPieceRatio) }
+								min="0"
+								max="100"
+								step="0.1"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Max searchees/run</label>
+							<input
+								type="number"
+								name="max_searchees_per_run"
+								value={ itoa(s.MaxSearcheesPerRun) }
+								min="0"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Max searchee age (days)</label>
+							<input
+								type="number"
+								name="max_searchee_age_days"
+								value={ itoa(s.MaxSearcheeAgeDays) }
+								min="0"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Category</label>
+							<input
+								type="text"
+								name="category"
+								value={ s.Category }
+								placeholder="cross-seed"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+					</div>
+					<div class="space-y-1">
+						<label class="text-xs font-medium text-muted-foreground">Tags (comma-separated)</label>
+						<input
+							type="text"
+							name="tags"
+							value={ s.Tags }
+							placeholder="tag1, tag2"
+							class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						/>
+					</div>
+					<div class="flex justify-end">
+						<button
+							type="submit"
+							class="h-9 px-4 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+						>
+							Save
+						</button>
+					</div>
+				</form>
+			}
+		}
+	</div>
+}
+
+// fieldStr safely extracts a string field from a nullable DirScanDirectoryItem pointer.
+func fieldStr(dir *DirScanDirectoryItem, fn func(DirScanDirectoryItem) string) string {
+	if dir == nil {
+		return ""
+	}
+	return fn(*dir)
+}
+
+// fieldInt safely extracts an int field from a nullable DirScanDirectoryItem pointer.
+func fieldInt(dir *DirScanDirectoryItem, fn func(DirScanDirectoryItem) int) string {
+	if dir == nil {
+		return "0"
+	}
+	return itoa(fn(*dir))
+}

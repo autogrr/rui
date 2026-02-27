@@ -1,0 +1,228 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+
+	"github.com/autogrr/rui/internal/ui/components/card"
+)
+
+// ReannounceSettingsCard renders the settings form for a single instance's reannounce config.
+templ ReannounceSettingsCard(p ReannounceSettingsProps) {
+	<div id={ fmt.Sprintf("reannounce-settings-%d", p.InstanceID) }>
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Reannounce Settings
+				}
+				@card.Description(card.DescriptionProps{}) {
+					Configure automatic reannounce behaviour for this instance.
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				if p.Error != "" {
+					<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive mb-4">
+						{ p.Error }
+					</div>
+				}
+				if p.Success && p.Error == "" {
+					<div class="rounded-md bg-green-500/10 border border-green-500/30 px-4 py-3 text-sm text-green-600 dark:text-green-400 mb-4">
+						Settings saved.
+					</div>
+				}
+				<form
+					hx-post={ fmt.Sprintf("%s/ui/partials/automations/reannounce/settings/%d", p.BaseURL, p.InstanceID) }
+					hx-target={ fmt.Sprintf("#reannounce-settings-%d", p.InstanceID) }
+					hx-swap="outerHTML"
+					class="space-y-4"
+				>
+					<!-- Enabled + MonitorAll -->
+					<div class="flex flex-wrap gap-6">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="enabled"
+								class="h-4 w-4 rounded border-input"
+								if p.Settings.Enabled {
+									checked
+								}
+							/>
+							<span class="text-sm font-medium">Enabled</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="monitor_all"
+								class="h-4 w-4 rounded border-input"
+								if p.Settings.MonitorAll {
+									checked
+								}
+							/>
+							<span class="text-sm font-medium">Monitor all torrents</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="aggressive"
+								class="h-4 w-4 rounded border-input"
+								if p.Settings.Aggressive {
+									checked
+								}
+							/>
+							<span class="text-sm font-medium">Aggressive mode</span>
+						</label>
+					</div>
+					<!-- Timing settings -->
+					<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Initial wait (s)</label>
+							<input
+								type="number"
+								name="initial_wait_seconds"
+								value={ itoa(p.Settings.InitialWaitSeconds) }
+								min="0"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Reannounce interval (s)</label>
+							<input
+								type="number"
+								name="reannounce_interval_seconds"
+								value={ itoa(p.Settings.ReannounceIntervalSeconds) }
+								min="1"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Max age (s)</label>
+							<input
+								type="number"
+								name="max_age_seconds"
+								value={ itoa(p.Settings.MaxAgeSeconds) }
+								min="0"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Max retries</label>
+							<input
+								type="number"
+								name="max_retries"
+								value={ itoa(p.Settings.MaxRetries) }
+								min="0"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+					</div>
+					<!-- Filter lists -->
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+						@reannounceFilterList("categories", "Categories", p.Settings.ExcludeCategories, p.Settings.Categories)
+						@reannounceFilterList("tags", "Tags", p.Settings.ExcludeTags, p.Settings.Tags)
+						@reannounceFilterList("trackers", "Trackers", p.Settings.ExcludeTrackers, p.Settings.Trackers)
+					</div>
+					<div class="flex justify-end">
+						<button
+							type="submit"
+							class="h-9 px-4 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+						>
+							Save
+						</button>
+					</div>
+				</form>
+			}
+		}
+	</div>
+}
+
+// reannounceFilterList renders a textarea + exclude checkbox for a filter list.
+templ reannounceFilterList(name, label string, exclude bool, value string) {
+	<div class="space-y-1">
+		<div class="flex items-center justify-between">
+			<label class="text-xs font-medium text-muted-foreground">{ label }</label>
+			<label class="flex items-center gap-1 text-xs cursor-pointer">
+				<input
+					type="checkbox"
+					name={ "exclude_" + name }
+					class="h-3.5 w-3.5 rounded border-input"
+					if exclude {
+						checked
+					}
+				/>
+				<span>Exclude</span>
+			</label>
+		</div>
+		<textarea
+			name={ name }
+			rows="3"
+			placeholder={ "One " + label + " per line" }
+			class="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+		>{ value }</textarea>
+	</div>
+}
+
+// ReannounceActivityPartial renders the recent reannounce activity list.
+templ ReannounceActivityPartial(p ReannounceActivityProps) {
+	<div id={ fmt.Sprintf("reannounce-activity-%d", p.InstanceID) } class="space-y-2">
+		<div class="flex items-center justify-between">
+			<h3 class="text-sm font-semibold">Recent Reannounce Activity</h3>
+			<button
+				class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
+				hx-get={ fmt.Sprintf("%s/ui/partials/automations/reannounce/activity/%d", p.BaseURL, p.InstanceID) }
+				hx-target={ fmt.Sprintf("#reannounce-activity-%d", p.InstanceID) }
+				hx-swap="outerHTML"
+			>
+				Refresh
+			</button>
+		</div>
+		if len(p.Events) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No recent reannounce activity.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-border text-muted-foreground text-xs">
+							<th class="pb-2 text-left font-medium px-2">Time</th>
+							<th class="pb-2 text-left font-medium px-2">Torrent</th>
+							<th class="pb-2 text-left font-medium px-2">Trackers</th>
+							<th class="pb-2 text-left font-medium px-2">Outcome</th>
+							<th class="pb-2 text-left font-medium px-2">Reason</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, ev := range p.Events {
+							@reannounceActivityRow(ev)
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+// reannounceActivityRow renders a single row of activity.
+templ reannounceActivityRow(ev ReannounceActivityEvent) {
+	<tr class="border-b border-border/50 hover:bg-muted/40 transition-colors">
+		<td class="py-1.5 px-2 text-xs text-muted-foreground whitespace-nowrap">{ ev.Timestamp }</td>
+		<td class="py-1.5 px-2 text-xs max-w-[200px] truncate" title={ ev.TorrentName }>{ ev.TorrentName }</td>
+		<td class="py-1.5 px-2 text-xs text-muted-foreground truncate max-w-[150px]" title={ ev.Trackers }>{ ev.Trackers }</td>
+		<td class="py-1.5 px-2">
+			@reannounceOutcomeBadge(ev.Outcome)
+		</td>
+		<td class="py-1.5 px-2 text-xs text-muted-foreground truncate max-w-[250px]" title={ ev.Reason }>{ ev.Reason }</td>
+	</tr>
+}
+
+// reannounceOutcomeBadge renders the outcome badge with appropriate colour.
+templ reannounceOutcomeBadge(outcome string) {
+	switch outcome {
+		case "succeeded":
+			<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 text-xs">Succeeded</span>
+		case "failed":
+			<span class="inline-flex items-center rounded-full bg-destructive/10 text-destructive px-2 py-0.5 text-xs">Failed</span>
+		default:
+			<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{ outcome }</span>
+	}
+}

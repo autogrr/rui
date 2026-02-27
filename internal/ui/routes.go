@@ -80,6 +80,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Get("/settings", h.GetSettings)
 			r.Get("/settings/{section}", h.GetSettings)
 			r.Get("/instances", h.GetInstances)
+			r.Get("/dir-scan", h.GetDirScan)
 
 			// Instance CRUD (HTMX-driven).
 			r.Post("/instances", h.PostInstance)
@@ -183,6 +184,30 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			// Automations.
 			r.Get("/partials/automations", h.GetAutomationsPartial)
 			r.Post("/partials/automations/{instanceId}/rules/{id}/toggle", h.PostAutomationToggle)
+
+			// Reannounce (per-instance monitoring on Automations page).
+			r.Get("/partials/automations/reannounce/settings/{instanceId}", h.GetReannounceSettingsPartial)
+			r.Post("/partials/automations/reannounce/settings/{instanceId}", h.PostReannounceSettings)
+			r.Get("/partials/automations/reannounce/activity/{instanceId}", h.GetReannounceActivityPartial)
+
+			// Orphan Scan (per-instance on Automations page).
+			r.Get("/partials/automations/orphan-scan/settings/{instanceId}", h.GetOrphanScanSettingsPartial)
+			r.Post("/partials/automations/orphan-scan/settings/{instanceId}", h.PostOrphanScanSettings)
+			r.Get("/partials/automations/orphan-scan/runs/{instanceId}", h.GetOrphanScanRunsPartial)
+			r.Post("/partials/automations/orphan-scan/trigger/{instanceId}", h.PostTriggerOrphanScan)
+
+			// Dir Scan page and partials.
+			r.Get("/partials/dir-scan/settings", h.GetDirScanSettingsPartial)
+			r.Post("/partials/dir-scan/settings", h.PostDirScanSettings)
+			r.Get("/partials/dir-scan/directories", h.GetDirScanDirectoriesPartial)
+			r.Get("/partials/dir-scan/directories/form", h.GetDirScanDirectoryForm)
+			r.Get("/partials/dir-scan/directories/form/{id}", h.GetDirScanDirectoryForm)
+			r.Post("/partials/dir-scan/directories", h.PostDirScanDirectory)
+			r.Put("/partials/dir-scan/directories/{id}", h.PutDirScanDirectory)
+			r.Delete("/partials/dir-scan/directories/{id}", h.DeleteDirScanDirectory)
+			r.Post("/partials/dir-scan/directories/{id}/scan", h.PostDirScanTrigger)
+			r.Post("/partials/dir-scan/directories/{id}/cancel", h.PostDirScanCancel)
+			r.Get("/partials/dir-scan/runs/{id}", h.GetDirScanRunsPartial)
 
 			// Backups.
 			r.Get("/partials/backups/settings/{instanceId}", h.GetBackupSettingsPartial)

@@ -1,0 +1,216 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+
+	"github.com/autogrr/rui/internal/ui/components/card"
+)
+
+// OrphanScanSettingsCard renders the settings form for an instance's orphan scan config.
+templ OrphanScanSettingsCard(p OrphanScanProps) {
+	<div id={ fmt.Sprintf("orphan-scan-settings-%d", p.InstanceID) }>
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Orphan Scan Settings
+				}
+				@card.Description(card.DescriptionProps{}) {
+					Detect and optionally clean up files not linked to any torrent.
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				if p.Error != "" {
+					<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive mb-4">
+						{ p.Error }
+					</div>
+				}
+				if p.Success && p.Error == "" {
+					<div class="rounded-md bg-green-500/10 border border-green-500/30 px-4 py-3 text-sm text-green-600 dark:text-green-400 mb-4">
+						Settings saved.
+					</div>
+				}
+				<form
+					hx-post={ fmt.Sprintf("%s/ui/partials/automations/orphan-scan/settings/%d", p.BaseURL, p.InstanceID) }
+					hx-target={ fmt.Sprintf("#orphan-scan-settings-%d", p.InstanceID) }
+					hx-swap="outerHTML"
+					class="space-y-4"
+				>
+					<!-- Toggle row -->
+					<div class="flex flex-wrap gap-6">
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="enabled"
+								class="h-4 w-4 rounded border-input"
+								if p.Settings.Enabled {
+									checked
+								}
+							/>
+							<span class="text-sm font-medium">Enabled</span>
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="auto_cleanup_enabled"
+								class="h-4 w-4 rounded border-input"
+								if p.Settings.AutoCleanupEnabled {
+									checked
+								}
+							/>
+							<span class="text-sm font-medium">Auto cleanup</span>
+						</label>
+					</div>
+					<!-- Numeric settings -->
+					<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Grace period (min)</label>
+							<input
+								type="number"
+								name="grace_period_minutes"
+								value={ itoa(p.Settings.GracePeriodMinutes) }
+								min="0"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Scan interval (hrs)</label>
+							<input
+								type="number"
+								name="scan_interval_hours"
+								value={ itoa(p.Settings.ScanIntervalHours) }
+								min="0"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Max files/run</label>
+							<input
+								type="number"
+								name="max_files_per_run"
+								value={ itoa(p.Settings.MaxFilesPerRun) }
+								min="0"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+						<div class="space-y-1">
+							<label class="text-xs text-muted-foreground">Auto cleanup max files</label>
+							<input
+								type="number"
+								name="auto_cleanup_max_files"
+								value={ itoa(p.Settings.AutoCleanupMaxFiles) }
+								min="0"
+								class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+					</div>
+					<!-- Ignore paths -->
+					<div class="space-y-1">
+						<label class="text-xs font-medium text-muted-foreground">Ignore paths</label>
+						<textarea
+							name="ignore_paths"
+							rows="3"
+							placeholder="One path per line"
+							class="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+						>{ p.Settings.IgnorePaths }</textarea>
+					</div>
+					<div class="flex justify-end">
+						<button
+							type="submit"
+							class="h-9 px-4 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+						>
+							Save
+						</button>
+					</div>
+				</form>
+			}
+		}
+	</div>
+}
+
+// OrphanScanRunsPartial renders the recent orphan scan runs list + trigger button.
+templ OrphanScanRunsPartial(p OrphanScanProps) {
+	<div id={ fmt.Sprintf("orphan-scan-runs-%d", p.InstanceID) } class="space-y-3">
+		<div class="flex items-center justify-between">
+			<h3 class="text-sm font-semibold">Scan Runs</h3>
+			<div class="flex items-center gap-2">
+				<button
+					class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
+					hx-get={ fmt.Sprintf("%s/ui/partials/automations/orphan-scan/runs/%d", p.BaseURL, p.InstanceID) }
+					hx-target={ fmt.Sprintf("#orphan-scan-runs-%d", p.InstanceID) }
+					hx-swap="outerHTML"
+				>
+					Refresh
+				</button>
+				<button
+					class="h-7 px-2 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+					hx-post={ fmt.Sprintf("%s/ui/partials/automations/orphan-scan/trigger/%d", p.BaseURL, p.InstanceID) }
+					hx-target={ fmt.Sprintf("#orphan-scan-runs-%d", p.InstanceID) }
+					hx-swap="outerHTML"
+					hx-confirm="Start an orphan scan for this instance?"
+				>
+					Trigger Scan
+				</button>
+			</div>
+		</div>
+		if p.Error != "" {
+			<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+				{ p.Error }
+			</div>
+		}
+		if len(p.Runs) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No scan runs yet.</p>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b border-border text-muted-foreground text-xs">
+							<th class="pb-2 text-left font-medium px-2">Started</th>
+							<th class="pb-2 text-left font-medium px-2">Trigger</th>
+							<th class="pb-2 text-left font-medium px-2">Status</th>
+							<th class="pb-2 text-right font-medium px-2">Files found</th>
+							<th class="pb-2 text-right font-medium px-2">Deleted</th>
+							<th class="pb-2 text-right font-medium px-2">Reclaimed</th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, run := range p.Runs {
+							@orphanScanRunRow(run)
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+// orphanScanRunRow renders a single run row.
+templ orphanScanRunRow(run OrphanScanRun) {
+	<tr class="border-b border-border/50 hover:bg-muted/40 transition-colors">
+		<td class="py-1.5 px-2 text-xs text-muted-foreground whitespace-nowrap">{ run.StartedAt }</td>
+		<td class="py-1.5 px-2 text-xs">{ run.TriggeredBy }</td>
+		<td class="py-1.5 px-2">
+			@orphanScanStatusBadge(run.Status, run.IsActive)
+		</td>
+		<td class="py-1.5 px-2 text-xs text-right">{ itoa(run.FilesFound) }</td>
+		<td class="py-1.5 px-2 text-xs text-right">{ itoa(run.FilesDeleted) }</td>
+		<td class="py-1.5 px-2 text-xs text-right">{ formatBytes(uint64(run.BytesReclaimed)) }</td>
+	</tr>
+}
+
+// orphanScanStatusBadge renders a status badge for an orphan scan run.
+templ orphanScanStatusBadge(status string, active bool) {
+	if active {
+		<span class="inline-flex items-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-xs">{ status }</span>
+	} else if status == "completed" {
+		<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 text-xs">Completed</span>
+	} else if status == "failed" {
+		<span class="inline-flex items-center rounded-full bg-destructive/10 text-destructive px-2 py-0.5 text-xs">Failed</span>
+	} else if status == "canceled" {
+		<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Canceled</span>
+	} else {
+		<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{ status }</span>
+	}
+}
