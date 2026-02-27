@@ -1,0 +1,735 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"strings"
+
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/components/tabs"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// RSSFeedItem is a page-level representation of one RSS feed.
+type RSSFeedItem struct {
+	Path        string // full path, e.g. "Folder/MyFeed"
+	Name        string // display name
+	URL         string
+	Title       string
+	HasError    bool
+	IsLoading   bool
+	ArticleCount int
+}
+
+// RSSArticleItem is a page-level representation of one RSS article.
+type RSSArticleItem struct {
+	ID          string
+	Date        string
+	Title       string
+	Author      string
+	Description string
+	TorrentURL  string
+	Link        string
+	IsRead      bool
+	FeedPath    string
+}
+
+// RSSRuleItem is a page-level representation of one RSS auto-download rule.
+type RSSRuleItem struct {
+	Name           string
+	Enabled        bool
+	Priority       int
+	MustContain    string
+	MustNotContain string
+	UseRegex       bool
+	SmartFilter    bool
+	AffectedFeeds  []string
+	LastMatch      string
+	Category       string
+	SavePath       string
+	IgnoreDays     int
+}
+
+// RSSProps holds all data for the full RSS page.
+type RSSProps struct {
+	BaseURL   string
+	Username  string
+	Version   string
+	Instances []layouts.Instance
+
+	// Selected instance.
+	InstanceID int
+
+	// Active tab: "feeds" or "rules"
+	ActiveTab string
+
+	// Feed list (flat, includes items inside folders).
+	Feeds []RSSFeedItem
+
+	// Selected feed path (for article display).
+	SelectedFeedPath string
+
+	// Articles for the selected feed.
+	Articles []RSSArticleItem
+
+	// Auto-download rules.
+	Rules []RSSRuleItem
+
+	// Selected rule name (for edit form).
+	SelectedRuleName string
+
+	// Error message.
+	RSSError string
+}
+
+// RSS renders the full RSS page.
+templ RSS(p RSSProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "RSS",
+		CurrentPath: "/ui/rss",
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		<div class="flex flex-col h-full gap-4">
+			<!-- Page header + instance selector -->
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<h1 class="text-xl font-bold tracking-tight">RSS</h1>
+				<div class="flex items-center gap-2">
+					<label class="text-sm text-muted-foreground">Instance:</label>
+					<select
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						hx-get={ p.BaseURL + "/ui/rss" }
+						hx-target="body"
+						hx-push-url="true"
+						name="instance_id"
+						onchange="this.form && htmx.trigger(this, 'change')"
+					>
+						for _, inst := range p.Instances {
+							if inst.ID == p.InstanceID {
+								<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
+							} else {
+								<option value={ itoa(inst.ID) }>{ inst.Name }</option>
+							}
+						}
+					</select>
+				</div>
+			</div>
+
+			if p.RSSError != "" {
+				<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+					{ p.RSSError }
+				</div>
+			}
+
+			<!-- Tabs: Feeds / Rules -->
+			@tabs.Tabs() {
+				@tabs.List() {
+					@tabs.Trigger(tabs.TriggerProps{Value: "feeds", IsActive: p.ActiveTab == "feeds" || p.ActiveTab == ""}) {
+						Feeds
+					}
+					@tabs.Trigger(tabs.TriggerProps{Value: "rules", IsActive: p.ActiveTab == "rules"}) {
+						Auto-Download Rules
+					}
+				}
+
+				<!-- Feeds tab -->
+				@tabs.Content(tabs.ContentProps{Value: "feeds", IsActive: p.ActiveTab == "feeds" || p.ActiveTab == ""}) {
+					<div class="mt-4 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 min-h-0">
+						<!-- Feed tree panel -->
+						@rssFeedPanel(p)
+						<!-- Articles panel -->
+						@rssArticlePanel(p)
+					</div>
+				}
+
+				<!-- Rules tab -->
+				@tabs.Content(tabs.ContentProps{Value: "rules", IsActive: p.ActiveTab == "rules"}) {
+					<div class="mt-4 space-y-4">
+						@rssRulesPanel(p)
+					</div>
+				}
+			}
+		</div>
+	}
+}
+
+// rssFeedPanel renders the feed/folder list column.
+templ rssFeedPanel(p RSSProps) {
+	@card.Card(card.Props{Class: "flex flex-col"}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-center justify-between">
+				<h2 class="font-semibold text-sm">Feeds</h2>
+				<div class="flex items-center gap-1">
+					<!-- Add folder button -->
+					<button
+						type="button"
+						class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+						title="Add folder"
+						hx-get={ p.BaseURL + "/ui/partials/rss/feeds/folder-form" }
+						hx-target="#rss-feed-form-slot"
+						hx-swap="innerHTML"
+						hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `"}` }
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+					</button>
+					<!-- Add feed button -->
+					<button
+						type="button"
+						class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+						title="Add feed"
+						hx-get={ p.BaseURL + "/ui/partials/rss/feeds/add-form" }
+						hx-target="#rss-feed-form-slot"
+						hx-swap="innerHTML"
+						hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `"}` }
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					</button>
+				</div>
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<!-- Form slot for add/edit operations -->
+			<div id="rss-feed-form-slot" class="mb-3"></div>
+
+			if len(p.Feeds) == 0 {
+				<p class="text-sm text-muted-foreground py-4 text-center">
+					No feeds configured. Add one to get started.
+				</p>
+			} else {
+				<div class="space-y-0.5" id="rss-feed-list">
+					for _, feed := range p.Feeds {
+						@rssFeedRow(feed, p)
+					}
+				</div>
+			}
+		}
+	}
+}
+
+// rssFeedRow renders a single feed row in the feed list.
+templ rssFeedRow(feed RSSFeedItem, p RSSProps) {
+	<div
+		id={ "feed-" + strings.ReplaceAll(feed.Path, "/", "-") }
+		class={
+			"flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors group",
+			templ.KV("bg-accent text-accent-foreground", p.SelectedFeedPath == feed.Path),
+			templ.KV("hover:bg-accent/50", p.SelectedFeedPath != feed.Path),
+		}
+		hx-get={ p.BaseURL + "/ui/partials/rss/articles" }
+		hx-target="#rss-articles"
+		hx-swap="innerHTML"
+		hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `","feed_path":"` + feed.Path + `"}` }
+	>
+		<!-- Feed icon -->
+		if feed.HasError {
+			<svg class="h-4 w-4 shrink-0 text-destructive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+		} else {
+			<svg class="h-4 w-4 shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 019 9M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>
+		}
+		<!-- Name -->
+		<span class="flex-1 text-sm truncate" title={ feed.Title }>{ feed.Name }</span>
+		<!-- Article count badge -->
+		if feed.ArticleCount > 0 {
+			<span class="shrink-0 text-xs text-muted-foreground tabular-nums">{ itoa(feed.ArticleCount) }</span>
+		}
+		<!-- Loading indicator -->
+		if feed.IsLoading {
+			<svg class="h-3 w-3 animate-spin shrink-0 text-muted-foreground" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+		}
+		<!-- Row actions (visible on hover) -->
+		<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+			<!-- Refresh -->
+			<button
+				type="button"
+				class="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-background/80 transition-colors"
+				title="Refresh feed"
+				hx-post={ p.BaseURL + "/ui/partials/rss/feeds/refresh" }
+				hx-target={ "#feed-" + strings.ReplaceAll(feed.Path, "/", "-") }
+				hx-swap="outerHTML"
+				hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `","path":"` + feed.Path + `"}` }
+				@click.stop
+			>
+				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 019-9 9.75 9.75 0 017.33 3.32M21 12a9 9 0 01-9 9 9.75 9.75 0 01-7.33-3.32M3 12H1m20 0h-2M3 12l3-3m-3 3l3 3M21 12l-3 3m3-3l-3-3"/></svg>
+			</button>
+			<!-- Delete -->
+			<button
+				type="button"
+				class="h-5 w-5 inline-flex items-center justify-center rounded hover:bg-destructive/10 text-destructive transition-colors"
+				title="Remove feed"
+				hx-delete={ p.BaseURL + "/ui/partials/rss/feeds" }
+				hx-target={ "#feed-" + strings.ReplaceAll(feed.Path, "/", "-") }
+				hx-swap="outerHTML"
+				hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `","path":"` + feed.Path + `"}` }
+				hx-confirm={ "Remove feed \"" + feed.Name + "\"?" }
+				@click.stop
+			>
+				<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+			</button>
+		</div>
+	</div>
+}
+
+// rssArticlePanel renders the article list for the selected feed.
+templ rssArticlePanel(p RSSProps) {
+	@card.Card(card.Props{Class: "min-h-[300px] flex flex-col"}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-center justify-between">
+				<h2 class="font-semibold text-sm">
+					if p.SelectedFeedPath != "" {
+						{ p.SelectedFeedPath }
+					} else {
+						Articles
+					}
+				</h2>
+				if p.SelectedFeedPath != "" && len(p.Articles) > 0 {
+					<button
+						type="button"
+						class="text-xs text-muted-foreground hover:text-foreground transition-colors"
+						hx-post={ p.BaseURL + "/ui/partials/rss/articles/mark-all-read" }
+						hx-target="#rss-articles"
+						hx-swap="innerHTML"
+						hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `","feed_path":"` + p.SelectedFeedPath + `"}` }
+					>
+						Mark all read
+					</button>
+				}
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<div id="rss-articles">
+				@RSSArticlesPartial(p)
+			</div>
+		}
+	}
+}
+
+// RSSArticlesPartial renders the articles list (HTMX partial swap target).
+templ RSSArticlesPartial(p RSSProps) {
+	if p.SelectedFeedPath == "" {
+		<p class="text-sm text-muted-foreground py-6 text-center">Select a feed to view articles.</p>
+	} else if len(p.Articles) == 0 {
+		<p class="text-sm text-muted-foreground py-6 text-center">No articles in this feed.</p>
+	} else {
+		<div class="space-y-0.5">
+			for _, article := range p.Articles {
+				<div
+					class={
+						"flex items-start gap-3 px-2 py-2 rounded-md group",
+						templ.KV("opacity-60", article.IsRead),
+					}
+				>
+					<!-- Read/unread dot -->
+					if !article.IsRead {
+						<span class="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5"></span>
+					} else {
+						<span class="h-2 w-2 shrink-0 mt-1.5"></span>
+					}
+					<div class="flex-1 min-w-0">
+						<div class="flex items-start justify-between gap-2">
+							<span class="text-sm font-medium truncate">{ article.Title }</span>
+							<span class="text-xs text-muted-foreground shrink-0 whitespace-nowrap">{ article.Date }</span>
+						</div>
+						if article.Author != "" {
+							<span class="text-xs text-muted-foreground">{ article.Author }</span>
+						}
+					</div>
+					<!-- Article actions -->
+					<div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+						if article.TorrentURL != "" {
+							<form
+								hx-post={ p.BaseURL + "/ui/partials/rss/articles/download" }
+								hx-target="closest div"
+								hx-swap="outerHTML"
+								class="inline"
+							>
+								<input type="hidden" name="instance_id" value={ itoa(p.InstanceID) }/>
+								<input type="hidden" name="url" value={ article.TorrentURL }/>
+								<input type="hidden" name="title" value={ article.Title }/>
+								<input type="hidden" name="feed_path" value={ article.FeedPath }/>
+								<input type="hidden" name="article_id" value={ article.ID }/>
+								<button
+									type="submit"
+									class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-accent transition-colors"
+									title="Add to qBittorrent"
+								>
+									<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+								</button>
+							</form>
+						}
+						if !article.IsRead {
+							<button
+								type="button"
+								class="h-6 w-6 inline-flex items-center justify-center rounded hover:bg-accent transition-colors"
+								title="Mark as read"
+								hx-post={ p.BaseURL + "/ui/partials/rss/articles/mark-read" }
+								hx-target="closest div"
+								hx-swap="outerHTML"
+								hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `","feed_path":"` + article.FeedPath + `","article_id":"` + article.ID + `"}` }
+							>
+								<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+							</button>
+						}
+					</div>
+				</div>
+			}
+		</div>
+	}
+}
+
+// rssRulesPanel renders the auto-download rules section.
+templ rssRulesPanel(p RSSProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-center justify-between">
+				<div>
+					<h2 class="font-semibold">Auto-Download Rules</h2>
+					<p class="text-sm text-muted-foreground mt-0.5">Rules are applied against new articles in selected feeds.</p>
+				</div>
+				<button
+					type="button"
+					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					hx-get={ p.BaseURL + "/ui/partials/rss/rules/form" }
+					hx-target="#rss-rule-form-slot"
+					hx-swap="innerHTML"
+					hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `"}` }
+				>
+					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					New Rule
+				</button>
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<!-- Rule form slot -->
+			<div id="rss-rule-form-slot" class="mb-4"></div>
+
+			@RSSRulesListPartial(p)
+		}
+	}
+}
+
+// RSSRulesListPartial renders the rules list (HTMX partial target).
+templ RSSRulesListPartial(p RSSProps) {
+	<div id="rss-rules-list">
+		if len(p.Rules) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No rules configured. Create rules to auto-download matching articles.</p>
+		} else {
+			<div class="space-y-2">
+				for _, rule := range p.Rules {
+					@rssRuleRow(rule, p)
+				}
+			</div>
+		}
+	</div>
+}
+
+// rssRuleRow renders a single rule row.
+templ rssRuleRow(rule RSSRuleItem, p RSSProps) {
+	<div
+		id={ "rule-" + strings.ReplaceAll(rule.Name, " ", "-") }
+		class="flex items-start gap-4 rounded-lg border border-border bg-card p-4"
+	>
+		<!-- Enable toggle -->
+		<div class="flex flex-col gap-1 items-center shrink-0 pt-0.5">
+			<input
+				type="checkbox"
+				title={ "Enable " + rule.Name }
+				if rule.Enabled {
+					checked
+				}
+				hx-post={ p.BaseURL + "/ui/partials/rss/rules/toggle" }
+				hx-target={ "#rule-" + strings.ReplaceAll(rule.Name, " ", "-") }
+				hx-swap="outerHTML"
+				hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `","rule_name":"` + rule.Name + `"}` }
+				class="rounded border-input cursor-pointer"
+			/>
+		</div>
+		<!-- Rule info -->
+		<div class="flex-1 min-w-0 space-y-1">
+			<div class="flex items-center gap-2 flex-wrap">
+				<span class="font-medium text-sm">{ rule.Name }</span>
+				if rule.UseRegex {
+					<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">regex</span>
+				}
+				if rule.SmartFilter {
+					<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">smart</span>
+				}
+			</div>
+			if rule.MustContain != "" {
+				<div class="text-xs text-muted-foreground">
+					Must contain: <span class="font-mono text-foreground">{ rule.MustContain }</span>
+				</div>
+			}
+			if rule.MustNotContain != "" {
+				<div class="text-xs text-muted-foreground">
+					Must not contain: <span class="font-mono text-foreground">{ rule.MustNotContain }</span>
+				</div>
+			}
+			if len(rule.AffectedFeeds) > 0 {
+				<div class="text-xs text-muted-foreground">
+					Feeds: { strings.Join(rule.AffectedFeeds, ", ") }
+				</div>
+			}
+			if rule.LastMatch != "" {
+				<div class="text-xs text-muted-foreground">Last match: { rule.LastMatch }</div>
+			}
+		</div>
+		<!-- Rule actions -->
+		<div class="flex items-center gap-1 shrink-0">
+			<button
+				type="button"
+				class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-accent transition-colors"
+				title="Edit rule"
+				hx-get={ p.BaseURL + "/ui/partials/rss/rules/form" }
+				hx-target="#rss-rule-form-slot"
+				hx-swap="innerHTML"
+				hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `","rule_name":"` + rule.Name + `"}` }
+			>
+				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+			</button>
+			<button
+				type="button"
+				class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 text-destructive transition-colors"
+				title="Delete rule"
+				hx-delete={ p.BaseURL + "/ui/partials/rss/rules" }
+				hx-target={ "#rule-" + strings.ReplaceAll(rule.Name, " ", "-") }
+				hx-swap="outerHTML"
+				hx-vals={ `{"instance_id":"` + itoa(p.InstanceID) + `","rule_name":"` + rule.Name + `"}` }
+				hx-confirm={ "Delete rule \"" + rule.Name + "\"?" }
+			>
+				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+			</button>
+		</div>
+	</div>
+}
+
+// RSSRuleFormPartial renders the create/edit form for a rule.
+templ RSSRuleFormPartial(rule *RSSRuleItem, instanceID int, baseURL string) {
+	<div id="rss-rule-form-container" class="rounded-lg border border-border bg-muted/30 p-4 mb-4">
+		<form
+			if rule == nil {
+				hx-post={ baseURL + "/ui/partials/rss/rules" }
+				hx-vals={ `{"instance_id":"` + itoa(instanceID) + `"}` }
+			} else {
+				hx-put={ baseURL + "/ui/partials/rss/rules" }
+				hx-vals={ `{"instance_id":"` + itoa(instanceID) + `","rule_name":"` + rule.Name + `"}` }
+			}
+			hx-target="#rss-rule-form-slot"
+			hx-swap="innerHTML"
+			class="space-y-4"
+		>
+			<h3 class="font-semibold text-sm">
+				if rule == nil {
+					New Auto-Download Rule
+				} else {
+					Edit Rule: { rule.Name }
+				}
+			</h3>
+
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+				<!-- Rule name -->
+				<div class="flex flex-col gap-1.5">
+					<label class="text-xs font-medium">Rule Name <span class="text-destructive">*</span></label>
+					<input
+						type="text"
+						name="rule_name"
+						if rule != nil {
+							value={ rule.Name }
+						}
+						placeholder="My Rule"
+						required
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					/>
+				</div>
+
+				<!-- Category -->
+				<div class="flex flex-col gap-1.5">
+					<label class="text-xs font-medium">Category</label>
+					<input
+						type="text"
+						name="category"
+						if rule != nil {
+							value={ rule.Category }
+						}
+						placeholder="movies"
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					/>
+				</div>
+
+				<!-- Must contain -->
+				<div class="flex flex-col gap-1.5">
+					<label class="text-xs font-medium">Must contain</label>
+					<input
+						type="text"
+						name="must_contain"
+						if rule != nil {
+							value={ rule.MustContain }
+						}
+						placeholder="1080p"
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					/>
+				</div>
+
+				<!-- Must not contain -->
+				<div class="flex flex-col gap-1.5">
+					<label class="text-xs font-medium">Must not contain</label>
+					<input
+						type="text"
+						name="must_not_contain"
+						if rule != nil {
+							value={ rule.MustNotContain }
+						}
+						placeholder="CAM"
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					/>
+				</div>
+
+				<!-- Save path -->
+				<div class="flex flex-col gap-1.5">
+					<label class="text-xs font-medium">Save path (optional)</label>
+					<input
+						type="text"
+						name="save_path"
+						if rule != nil {
+							value={ rule.SavePath }
+						}
+						placeholder="/downloads/tv"
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					/>
+				</div>
+
+				<!-- Ignore days -->
+				<div class="flex flex-col gap-1.5">
+					<label class="text-xs font-medium">Ignore days (re-download interval)</label>
+					<input
+						type="number"
+						name="ignore_days"
+						if rule != nil {
+							value={ itoa(rule.IgnoreDays) }
+						} else {
+							value="0"
+						}
+						min="0"
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					/>
+				</div>
+			</div>
+
+			<!-- Checkboxes row -->
+			<div class="flex gap-4 flex-wrap">
+				<label class="flex items-center gap-2 text-sm cursor-pointer">
+					<input
+						type="checkbox"
+						name="use_regex"
+						if rule != nil && rule.UseRegex {
+							checked
+						}
+						class="rounded border-input"
+					/>
+					Use regex
+				</label>
+				<label class="flex items-center gap-2 text-sm cursor-pointer">
+					<input
+						type="checkbox"
+						name="smart_filter"
+						if rule != nil && rule.SmartFilter {
+							checked
+						}
+						class="rounded border-input"
+					/>
+					Smart episode filter
+				</label>
+				<label class="flex items-center gap-2 text-sm cursor-pointer">
+					<input
+						type="checkbox"
+						name="enabled"
+						if rule == nil || rule.Enabled {
+							checked
+						}
+						class="rounded border-input"
+					/>
+					Enabled
+				</label>
+			</div>
+
+			<div class="flex justify-end gap-2">
+				<button
+					type="button"
+					class="h-8 rounded-md border border-input px-4 text-sm hover:bg-accent transition-colors"
+					hx-get="about:blank"
+					hx-target="#rss-rule-form-slot"
+					hx-swap="innerHTML"
+					onclick="document.getElementById('rss-rule-form-slot').innerHTML = ''"
+				>
+					Cancel
+				</button>
+				<button
+					type="submit"
+					class="h-8 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+				>
+					if rule == nil {
+						Create Rule
+					} else {
+						Save Changes
+					}
+				</button>
+			</div>
+		</form>
+	</div>
+}
+
+// RSSAddFeedFormPartial renders the add-feed form fragment.
+templ RSSAddFeedFormPartial(instanceID int, baseURL string) {
+	<div id="rss-add-feed-form" class="rounded-lg border border-border bg-muted/30 p-4 mb-3">
+		<form
+			hx-post={ baseURL + "/ui/partials/rss/feeds" }
+			hx-target="#rss-feed-list"
+			hx-swap="outerHTML"
+			class="space-y-3"
+		>
+			<input type="hidden" name="instance_id" value={ itoa(instanceID) }/>
+			<h3 class="font-semibold text-sm">Add Feed</h3>
+			<div class="flex flex-col gap-1.5">
+				<label class="text-xs font-medium">Feed URL <span class="text-destructive">*</span></label>
+				<input type="url" name="url" placeholder="https://example.com/rss" required class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-full"/>
+			</div>
+			<div class="flex flex-col gap-1.5">
+				<label class="text-xs font-medium">Path (optional, e.g. Folder/FeedName)</label>
+				<input type="text" name="path" placeholder="News/TechFeeds" class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-full"/>
+			</div>
+			<div class="flex justify-end gap-2">
+				<button type="button" class="h-8 rounded-md border border-input px-3 text-sm hover:bg-accent transition-colors" onclick="document.getElementById('rss-feed-form-slot').innerHTML=''">Cancel</button>
+				<button type="submit" class="h-8 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Add Feed</button>
+			</div>
+		</form>
+	</div>
+}
+
+// RSSAddFolderFormPartial renders the add-folder form fragment.
+templ RSSAddFolderFormPartial(instanceID int, baseURL string) {
+	<div id="rss-add-folder-form" class="rounded-lg border border-border bg-muted/30 p-4 mb-3">
+		<form
+			hx-post={ baseURL + "/ui/partials/rss/folders" }
+			hx-target="#rss-feed-list"
+			hx-swap="outerHTML"
+			class="space-y-3"
+		>
+			<input type="hidden" name="instance_id" value={ itoa(instanceID) }/>
+			<h3 class="font-semibold text-sm">Add Folder</h3>
+			<div class="flex flex-col gap-1.5">
+				<label class="text-xs font-medium">Folder name <span class="text-destructive">*</span></label>
+				<input type="text" name="path" placeholder="MyFeeds" required class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-full"/>
+			</div>
+			<div class="flex justify-end gap-2">
+				<button type="button" class="h-8 rounded-md border border-input px-3 text-sm hover:bg-accent transition-colors" onclick="document.getElementById('rss-feed-form-slot').innerHTML=''">Cancel</button>
+				<button type="submit" class="h-8 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Create Folder</button>
+			</div>
+		</form>
+	</div>
+}
+// RSSFeedRowTempl is the exported entry-point for refreshing a single feed row via HTMX.
+templ RSSFeedRowTempl(feed RSSFeedItem, p RSSProps) {
+	@rssFeedRow(feed, p)
+}

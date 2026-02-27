@@ -1,0 +1,507 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/components/tabs"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// CrossSeedRunItem is a page-level cross-seed run summary.
+type CrossSeedRunItem struct {
+	ID               int64
+	TriggeredBy      string
+	Mode             string
+	Status           string
+	StartedAt        string
+	CompletedAt      string
+	TotalFeedItems   int
+	CandidatesFound  int
+	TorrentsAdded    int
+	TorrentsFailed   int
+	TorrentsSkipped  int
+	Message          string
+	ErrorMessage     string
+}
+
+// CrossSeedBlocklistItem is a page-level blocklist entry.
+type CrossSeedBlocklistItem struct {
+	InstanceID int
+	InfoHash   string
+	// Name is optional, may be empty.
+	Name string
+}
+
+// CrossSeedProps holds all data for the full Cross-seed page.
+type CrossSeedProps struct {
+	BaseURL   string
+	Username  string
+	Version   string
+	Instances []layouts.Instance
+
+	// Active tab: "settings", "runs", "blocklist"
+	ActiveTab string
+
+	// Automation settings
+	AutomationSettings *models.CrossSeedAutomationSettings
+
+	// Search settings
+	SearchSettings *models.CrossSeedSearchSettings
+
+	// Runs list
+	Runs      []CrossSeedRunItem
+	RunsTotal int
+	RunsPage  int
+
+	// Blocklist
+	Blocklist      []CrossSeedBlocklistItem
+	BlocklistTotal int
+
+	// Instance filter for blocklist/runs
+	InstanceID int
+
+	// Error message
+	CrossSeedError string
+}
+
+// CrossSeed renders the full Cross-seed page.
+templ CrossSeed(p CrossSeedProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Cross-seed",
+		CurrentPath: "/ui/cross-seed",
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		<div class="flex flex-col h-full gap-4">
+			<!-- Page header -->
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<h1 class="text-xl font-bold tracking-tight">Cross-seed</h1>
+			</div>
+
+			if p.CrossSeedError != "" {
+				<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+					{ p.CrossSeedError }
+				</div>
+			}
+
+			@tabs.Tabs() {
+				@tabs.List() {
+					@tabs.Trigger(tabs.TriggerProps{Value: "settings", IsActive: p.ActiveTab == "settings" || p.ActiveTab == ""}) {
+						Settings
+					}
+					@tabs.Trigger(tabs.TriggerProps{Value: "runs", IsActive: p.ActiveTab == "runs"}) {
+						Run History
+					}
+					@tabs.Trigger(tabs.TriggerProps{Value: "blocklist", IsActive: p.ActiveTab == "blocklist"}) {
+						Blocklist
+					}
+				}
+
+				@tabs.Content(tabs.ContentProps{Value: "settings", IsActive: p.ActiveTab == "settings" || p.ActiveTab == ""}) {
+					<div class="mt-4 space-y-6">
+						@crossSeedAutomationSettings(p)
+						@crossSeedSearchSettings(p)
+					</div>
+				}
+
+				@tabs.Content(tabs.ContentProps{Value: "runs", IsActive: p.ActiveTab == "runs"}) {
+					<div class="mt-4">
+						@CrossSeedRunsPartial(p)
+					</div>
+				}
+
+				@tabs.Content(tabs.ContentProps{Value: "blocklist", IsActive: p.ActiveTab == "blocklist"}) {
+					<div class="mt-4">
+						@CrossSeedBlocklistPartial(p)
+					</div>
+				}
+			}
+		</div>
+	}
+}
+
+// CrossSeedAutomationSettingsCard renders the automation settings card.
+templ CrossSeedAutomationSettingsCard(p CrossSeedProps) {
+	@crossSeedAutomationSettings(p)
+}
+
+// CrossSeedSearchSettingsCard renders the search settings card.
+templ CrossSeedSearchSettingsCard(p CrossSeedProps) {
+	@crossSeedSearchSettings(p)
+}
+
+// crossSeedAutomationSettings renders the automation settings card.
+templ crossSeedAutomationSettings(p CrossSeedProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+						Automation Settings
+					}
+					@card.Description(card.DescriptionProps{}) {
+						Configure automated cross-seed scanning.
+					}
+		}
+		@card.Content(card.ContentProps{}) {
+			<div id="cs-automation-feedback" class="mb-2"></div>
+			<form
+				id="cross-seed-automation-form"
+				hx-post={ p.BaseURL + "/ui/partials/cross-seed/automation-settings" }
+				hx-target="#cs-automation-feedback"
+				hx-swap="innerHTML"
+				class="space-y-4"
+			>
+				<!-- Enable / interval row -->
+				<div class="flex flex-wrap items-center gap-6">
+					<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+						<input
+							type="checkbox"
+							name="enabled"
+							if p.AutomationSettings != nil && p.AutomationSettings.Enabled {
+								checked
+							}
+							class="rounded border-input"
+						/>
+						Enable automated cross-seeding
+					</label>
+
+					<div class="flex items-center gap-2">
+						<label class="text-sm text-muted-foreground shrink-0">Interval (minutes):</label>
+						<input
+							type="number"
+							name="run_interval_minutes"
+							if p.AutomationSettings != nil {
+								value={ itoa(p.AutomationSettings.RunIntervalMinutes) }
+							} else {
+								value="60"
+							}
+							min="1"
+							class="h-8 w-24 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						/>
+					</div>
+				</div>
+
+				<!-- Size mismatch tolerance -->
+				<div class="flex items-center gap-2">
+					<label class="text-sm text-muted-foreground shrink-0">Size mismatch tolerance (%):</label>
+					<input
+						type="number"
+						name="size_mismatch_tolerance_percent"
+						if p.AutomationSettings != nil {
+							value={ fmt.Sprintf("%.1f", p.AutomationSettings.SizeMismatchTolerancePercent) }
+						} else {
+							value="1.0"
+						}
+						min="0"
+						step="0.1"
+						class="h-8 w-24 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					/>
+				</div>
+
+				<!-- Category toggles -->
+				<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+					<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+						<input
+							type="checkbox"
+							name="use_category_from_indexer"
+							if p.AutomationSettings != nil && p.AutomationSettings.UseCategoryFromIndexer {
+								checked
+							}
+							class="rounded border-input"
+						/>
+						Use category from indexer
+					</label>
+					<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+						<input
+							type="checkbox"
+							name="use_custom_category"
+							if p.AutomationSettings != nil && p.AutomationSettings.UseCustomCategory {
+								checked
+							}
+							class="rounded border-input"
+						/>
+						Use custom category
+					</label>
+					if p.AutomationSettings != nil && p.AutomationSettings.UseCustomCategory {
+						<input
+							type="text"
+							name="custom_category"
+							value={ p.AutomationSettings.CustomCategory }
+							placeholder="cross-seed"
+							class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						/>
+					}
+				</div>
+
+				<!-- Gazelle keys -->
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+					<div class="flex flex-col gap-1.5">
+						<label class="text-xs font-medium">Redacted API key</label>
+						<input
+							type="password"
+							name="redacted_api_key"
+							if p.AutomationSettings != nil && p.AutomationSettings.RedactedAPIKey != "" {
+								value={ p.AutomationSettings.RedactedAPIKey }
+							}
+							placeholder="••••••••"
+							autocomplete="new-password"
+							class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						/>
+					</div>
+					<div class="flex flex-col gap-1.5">
+						<label class="text-xs font-medium">Orpheus API key</label>
+						<input
+							type="password"
+							name="orpheus_api_key"
+							if p.AutomationSettings != nil && p.AutomationSettings.OrpheusAPIKey != "" {
+								value={ p.AutomationSettings.OrpheusAPIKey }
+							}
+							placeholder="••••••••"
+							autocomplete="new-password"
+							class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						/>
+					</div>
+				</div>
+
+				<div class="flex justify-between items-center pt-2">
+					<!-- Trigger manual run -->
+					<button
+						type="button"
+						class="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+						hx-post={ p.BaseURL + "/ui/partials/cross-seed/run" }
+						hx-target="#cross-seed-run-toast"
+						hx-swap="innerHTML"
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+						Run Now
+					</button>
+					<div id="cross-seed-run-toast"></div>
+
+					<button
+						type="submit"
+						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					>
+						Save Settings
+					</button>
+				</div>
+			</form>
+		}
+	}
+}
+
+// crossSeedSearchSettings renders the search (indexer) settings card.
+templ crossSeedSearchSettings(p CrossSeedProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+						Search Settings
+					}
+					@card.Description(card.DescriptionProps{}) {
+						Configure which indexers to use for cross-seed matching.
+					}
+		}
+		@card.Content(card.ContentProps{}) {
+			<div id="cs-search-feedback" class="mb-2"></div>
+			<form
+				id="cross-seed-search-form"
+				hx-post={ p.BaseURL + "/ui/partials/cross-seed/search-settings" }
+				hx-target="#cs-search-feedback"
+				hx-swap="innerHTML"
+				class="space-y-4"
+			>
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+						<input
+							type="checkbox"
+							name="find_individual_episodes"
+							if p.AutomationSettings != nil && p.AutomationSettings.FindIndividualEpisodes {
+								checked
+							}
+							class="rounded border-input"
+						/>
+						Find individual episodes
+					</label>
+				</div>
+
+				<div class="flex justify-end pt-2">
+					<button
+						type="submit"
+						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					>
+						Save
+					</button>
+				</div>
+			</form>
+		}
+	}
+}
+
+// CrossSeedRunsPartial renders the run history table.
+templ CrossSeedRunsPartial(p CrossSeedProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+				Run History
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			if len(p.Runs) == 0 {
+				<p class="text-sm text-muted-foreground py-6 text-center">No cross-seed runs yet.</p>
+			} else {
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-border text-muted-foreground text-xs">
+								<th class="pb-2 text-left font-medium px-3">Started</th>
+								<th class="pb-2 text-left font-medium px-3">Mode</th>
+								<th class="pb-2 text-left font-medium px-3">Triggered by</th>
+								<th class="pb-2 text-right font-medium px-3">Candidates</th>
+								<th class="pb-2 text-right font-medium px-3">Added</th>
+								<th class="pb-2 text-right font-medium px-3">Skipped</th>
+								<th class="pb-2 text-right font-medium px-3">Failed</th>
+								<th class="pb-2 text-left font-medium px-3">Status</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, run := range p.Runs {
+								<tr class="border-b border-border/50 hover:bg-muted/40 transition-colors">
+									<td class="py-2 px-3 whitespace-nowrap text-muted-foreground">{ run.StartedAt }</td>
+									<td class="py-2 px-3">
+										<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">{ run.Mode }</span>
+									</td>
+									<td class="py-2 px-3 text-muted-foreground">{ run.TriggeredBy }</td>
+									<td class="py-2 px-3 text-right tabular-nums">{ itoa(run.CandidatesFound) }</td>
+									<td class="py-2 px-3 text-right tabular-nums text-green-600 dark:text-green-400">{ itoa(run.TorrentsAdded) }</td>
+									<td class="py-2 px-3 text-right tabular-nums text-muted-foreground">{ itoa(run.TorrentsSkipped) }</td>
+									<td class="py-2 px-3 text-right tabular-nums text-destructive">{ itoa(run.TorrentsFailed) }</td>
+									<td class="py-2 px-3">
+										@crossSeedStatusBadge(run.Status)
+									</td>
+								</tr>
+								if run.ErrorMessage != "" {
+									<tr class="border-b border-border/50">
+										<td colspan="8" class="py-1 px-3 text-xs text-destructive">{ run.ErrorMessage }</td>
+									</tr>
+								}
+							}
+						</tbody>
+					</table>
+				</div>
+				if p.RunsTotal > len(p.Runs) {
+					<div class="mt-4 flex justify-center">
+						<button
+							type="button"
+							class="text-sm text-muted-foreground hover:text-foreground transition-colors"
+							hx-get={ p.BaseURL + "/ui/partials/cross-seed/runs" }
+							hx-target="#cross-seed-runs-table"
+							hx-swap="innerHTML"
+							hx-vals={ fmt.Sprintf(`{"page":"%d"}`, p.RunsPage+1) }
+						>
+							Load more
+						</button>
+					</div>
+				}
+			}
+		}
+	}
+}
+
+// crossSeedStatusBadge renders a colored status badge.
+templ crossSeedStatusBadge(status string) {
+	switch status {
+		case "success":
+			<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 text-xs">Success</span>
+		case "running":
+			<span class="inline-flex items-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-xs">Running</span>
+		case "failed":
+			<span class="inline-flex items-center rounded-full bg-destructive/10 text-destructive px-2 py-0.5 text-xs">Failed</span>
+		case "pending":
+			<span class="inline-flex items-center rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 text-xs">Pending</span>
+		default:
+			<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{ status }</span>
+	}
+}
+
+// CrossSeedBlocklistPartial renders the blocklist table.
+templ CrossSeedBlocklistPartial(p CrossSeedProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-center justify-between">
+				<div>
+							@card.Title(card.TitleProps{}) {
+								Blocklist
+							}
+							@card.Description(card.DescriptionProps{}) {
+								Torrents blocked from cross-seed matching.
+							}
+				</div>
+				<!-- Instance selector for blocklist -->
+				<div class="flex items-center gap-2">
+					<label class="text-sm text-muted-foreground">Instance:</label>
+					<select
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						hx-get={ p.BaseURL + "/ui/partials/cross-seed/blocklist" }
+						hx-target="#cross-seed-blocklist-table"
+						hx-swap="outerHTML"
+						name="instance_id"
+					>
+						for _, inst := range p.Instances {
+							if inst.ID == p.InstanceID {
+								<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
+							} else {
+								<option value={ itoa(inst.ID) }>{ inst.Name }</option>
+							}
+						}
+					</select>
+				</div>
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<div id="cross-seed-blocklist-table">
+				if len(p.Blocklist) == 0 {
+					<p class="text-sm text-muted-foreground py-6 text-center">No blocklist entries for this instance.</p>
+				} else {
+					<div class="overflow-x-auto">
+						<table class="w-full text-sm">
+							<thead>
+								<tr class="border-b border-border text-muted-foreground text-xs">
+									<th class="pb-2 text-left font-medium px-3">Info Hash</th>
+									<th class="pb-2 text-left font-medium px-3">Name</th>
+									<th class="pb-2 px-3"></th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, entry := range p.Blocklist {
+									<tr id={ "blocklist-" + entry.InfoHash } class="border-b border-border/50 hover:bg-muted/40 transition-colors">
+										<td class="py-2 px-3 font-mono text-xs">{ entry.InfoHash }</td>
+										<td class="py-2 px-3 text-muted-foreground">{ entry.Name }</td>
+										<td class="py-2 px-3 text-right">
+											<button
+												type="button"
+												class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 text-destructive transition-colors"
+												title="Remove from blocklist"
+												hx-delete={ p.BaseURL + "/ui/partials/cross-seed/blocklist" }
+												hx-target={ "#blocklist-" + entry.InfoHash }
+												hx-swap="outerHTML"
+												hx-vals={ fmt.Sprintf(`{"instance_id":"%d","info_hash":"%s"}`, entry.InstanceID, entry.InfoHash) }
+												hx-confirm={ "Remove " + entry.InfoHash + " from blocklist?" }
+											>
+												<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+											</button>
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+		}
+	}
+}

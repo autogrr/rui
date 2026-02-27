@@ -146,6 +146,46 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			// Logs.
 			r.Post("/partials/settings/logs", h.PostLogSettings)
 			r.Get("/partials/settings/logs/stream", h.GetLogsStream)
+
+			// Search.
+			r.Get("/partials/search", h.GetSearchPartial)
+			r.Post("/partials/search/download", h.PostSearchDownload)
+
+			// RSS.
+			r.Get("/partials/rss/articles", h.GetRSSArticlesPartial)
+			r.Post("/partials/rss/feeds", h.PostRSSFeed)
+			r.Post("/partials/rss/folders", h.PostRSSFolder)
+			r.Delete("/partials/rss/feeds", h.DeleteRSSItem)
+			r.Post("/partials/rss/feeds/refresh", h.PostRSSRefresh)
+			r.Post("/partials/rss/articles/mark-read", h.PostRSSMarkRead)
+			r.Post("/partials/rss/articles/mark-all-read", h.PostRSSMarkAllRead)
+			r.Post("/partials/rss/articles/download", h.PostRSSArticleDownload)
+			r.Get("/partials/rss/rules", h.GetRSSRulesPartial)
+			r.Post("/partials/rss/rules", h.PostRSSRule)
+			r.Put("/partials/rss/rules", h.PutRSSRule)
+			r.Delete("/partials/rss/rules", h.DeleteRSSRule)
+			r.Get("/partials/rss/rules/form", h.GetRSSRuleForm)
+			r.Get("/partials/rss/feeds/add-form", h.GetRSSAddFeedForm)
+			r.Get("/partials/rss/feeds/folder-form", h.GetRSSAddFolderForm)
+
+			// Cross-seed.
+			r.Get("/partials/cross-seed/runs", h.GetCrossSeedRunsPartial)
+			r.Get("/partials/cross-seed/blocklist", h.GetCrossSeedBlocklistPartial)
+			r.Post("/partials/cross-seed/automation-settings", h.PostCrossSeedAutomationSettings)
+			r.Post("/partials/cross-seed/search-settings", h.PostCrossSeedSearchSettings)
+			r.Post("/partials/cross-seed/run", h.PostCrossSeedRun)
+			r.Delete("/partials/cross-seed/blocklist", h.DeleteCrossSeedBlocklistEntry)
+
+			// Automations.
+			r.Get("/partials/automations", h.GetAutomationsPartial)
+			r.Post("/partials/automations/{instanceId}/rules/{id}/toggle", h.PostAutomationToggle)
+
+			// Backups.
+			r.Get("/partials/backups/settings/{instanceId}", h.GetBackupSettingsPartial)
+			r.Post("/partials/backups/settings/{instanceId}", h.PostBackupSettings)
+			r.Get("/partials/backups/runs/{instanceId}", h.GetBackupRunsPartial)
+			r.Post("/partials/backups/runs/{instanceId}/trigger", h.PostTriggerBackup)
+			r.Delete("/partials/backups/runs/{runId}", h.DeleteBackupRun)
 		})
 	})
 

@@ -1,0 +1,452 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/components/tabs"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// BackupRunItem is a page-level backup run summary.
+type BackupRunItem struct {
+	ID           int64
+	InstanceID   int
+	Kind         string
+	Status       string
+	RequestedBy  string
+	RequestedAt  string
+	StartedAt    string
+	CompletedAt  string
+	TorrentCount int
+	TotalMB      float64
+	ErrorMessage string
+	ArchivePath  string
+}
+
+// BackupsProps holds all data for the full Backups page.
+type BackupsProps struct {
+	BaseURL   string
+	Username  string
+	Version   string
+	Instances []layouts.Instance
+
+	// Active tab: "settings" or "history"
+	ActiveTab string
+
+	// Selected instance
+	InstanceID int
+
+	// Backup settings for selected instance
+	Settings *models.BackupSettings
+
+	// Backup runs
+	Runs      []BackupRunItem
+	RunsTotal int
+	RunsPage  int
+
+	// Error
+	BackupsError string
+}
+
+// Backups renders the full Backups page.
+templ Backups(p BackupsProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Backups",
+		CurrentPath: "/ui/backups",
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		<div class="flex flex-col h-full gap-4">
+			<!-- Page header + instance selector -->
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<h1 class="text-xl font-bold tracking-tight">Backups</h1>
+				<div class="flex items-center gap-2">
+					<label class="text-sm text-muted-foreground">Instance:</label>
+					<select
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						hx-get={ p.BaseURL + "/ui/backups" }
+						hx-target="body"
+						hx-push-url="true"
+						name="instance_id"
+					>
+						for _, inst := range p.Instances {
+							if inst.ID == p.InstanceID {
+								<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
+							} else {
+								<option value={ itoa(inst.ID) }>{ inst.Name }</option>
+							}
+						}
+					</select>
+				</div>
+			</div>
+
+			if p.BackupsError != "" {
+				<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+					{ p.BackupsError }
+				</div>
+			}
+
+			@tabs.Tabs() {
+				@tabs.List() {
+					@tabs.Trigger(tabs.TriggerProps{Value: "settings", IsActive: p.ActiveTab == "settings" || p.ActiveTab == ""}) {
+						Settings
+					}
+					@tabs.Trigger(tabs.TriggerProps{Value: "history", IsActive: p.ActiveTab == "history"}) {
+						Backup History
+					}
+				}
+
+				@tabs.Content(tabs.ContentProps{Value: "settings", IsActive: p.ActiveTab == "settings" || p.ActiveTab == ""}) {
+					<div class="mt-4">
+						@BackupSettingsPartial(p)
+					</div>
+				}
+
+				@tabs.Content(tabs.ContentProps{Value: "history", IsActive: p.ActiveTab == "history"}) {
+					<div class="mt-4">
+						@BackupRunsPartial(p)
+					</div>
+				}
+			}
+		</div>
+	}
+}
+
+// BackupSettingsPartial renders the backup settings card (HTMX partial target).
+templ BackupSettingsPartial(p BackupsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+						Backup Settings
+					}
+					@card.Description(card.DescriptionProps{}) {
+						Configure scheduled backups for this qBittorrent instance.
+					}
+		}
+		@card.Content(card.ContentProps{}) {
+			<form
+				id={ "backup-settings-form-" + itoa(p.InstanceID) }
+				hx-post={ p.BaseURL + "/ui/partials/backups/settings/" + itoa(p.InstanceID) }
+				hx-target={ "#backup-settings-form-" + itoa(p.InstanceID) }
+				hx-swap="outerHTML"
+				class="space-y-5"
+			>
+				<!-- Enable backup -->
+				<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+					<input
+						type="checkbox"
+						name="enabled"
+						if p.Settings != nil && p.Settings.Enabled {
+							checked
+						}
+						class="rounded border-input"
+					/>
+					Enable automated backups
+				</label>
+
+				<!-- Schedule row -->
+				<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+					<!-- Hourly -->
+					<div class="rounded-lg border border-border p-3 space-y-2">
+						<label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
+							<input
+								type="checkbox"
+								name="hourly_enabled"
+								if p.Settings != nil && p.Settings.HourlyEnabled {
+									checked
+								}
+								class="rounded border-input"
+							/>
+							Hourly
+						</label>
+						<div class="flex flex-col gap-1">
+							<label class="text-xs text-muted-foreground">Keep</label>
+							<input
+								type="number"
+								name="keep_hourly"
+								if p.Settings != nil {
+									value={ itoa(p.Settings.KeepHourly) }
+								} else {
+									value="0"
+								}
+								min="0"
+								class="h-7 w-full rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+					</div>
+					<!-- Daily -->
+					<div class="rounded-lg border border-border p-3 space-y-2">
+						<label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
+							<input
+								type="checkbox"
+								name="daily_enabled"
+								if p.Settings != nil && p.Settings.DailyEnabled {
+									checked
+								}
+								class="rounded border-input"
+							/>
+							Daily
+						</label>
+						<div class="flex flex-col gap-1">
+							<label class="text-xs text-muted-foreground">Keep</label>
+							<input
+								type="number"
+								name="keep_daily"
+								if p.Settings != nil {
+									value={ itoa(p.Settings.KeepDaily) }
+								} else {
+									value="7"
+								}
+								min="0"
+								class="h-7 w-full rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+					</div>
+					<!-- Weekly -->
+					<div class="rounded-lg border border-border p-3 space-y-2">
+						<label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
+							<input
+								type="checkbox"
+								name="weekly_enabled"
+								if p.Settings != nil && p.Settings.WeeklyEnabled {
+									checked
+								}
+								class="rounded border-input"
+							/>
+							Weekly
+						</label>
+						<div class="flex flex-col gap-1">
+							<label class="text-xs text-muted-foreground">Keep</label>
+							<input
+								type="number"
+								name="keep_weekly"
+								if p.Settings != nil {
+									value={ itoa(p.Settings.KeepWeekly) }
+								} else {
+									value="4"
+								}
+								min="0"
+								class="h-7 w-full rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+					</div>
+					<!-- Monthly -->
+					<div class="rounded-lg border border-border p-3 space-y-2">
+						<label class="flex items-center gap-2 text-sm font-medium cursor-pointer">
+							<input
+								type="checkbox"
+								name="monthly_enabled"
+								if p.Settings != nil && p.Settings.MonthlyEnabled {
+									checked
+								}
+								class="rounded border-input"
+							/>
+							Monthly
+						</label>
+						<div class="flex flex-col gap-1">
+							<label class="text-xs text-muted-foreground">Keep</label>
+							<input
+								type="number"
+								name="keep_monthly"
+								if p.Settings != nil {
+									value={ itoa(p.Settings.KeepMonthly) }
+								} else {
+									value="12"
+								}
+								min="0"
+								class="h-7 w-full rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							/>
+						</div>
+					</div>
+				</div>
+
+				<!-- Options row -->
+				<div class="flex gap-4 flex-wrap">
+					<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+						<input
+							type="checkbox"
+							name="include_categories"
+							if p.Settings != nil && p.Settings.IncludeCategories {
+								checked
+							}
+							class="rounded border-input"
+						/>
+						Include categories
+					</label>
+					<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+						<input
+							type="checkbox"
+							name="include_tags"
+							if p.Settings != nil && p.Settings.IncludeTags {
+								checked
+							}
+							class="rounded border-input"
+						/>
+						Include tags
+					</label>
+				</div>
+
+				<!-- Custom path -->
+				<div class="flex flex-col gap-1.5">
+					<label class="text-xs font-medium">Custom backup path (optional)</label>
+					<input
+						type="text"
+						name="custom_path"
+						if p.Settings != nil && p.Settings.CustomPath != nil {
+							value={ *p.Settings.CustomPath }
+						}
+						placeholder="/backups/qbittorrent"
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					/>
+				</div>
+
+				<!-- Actions row -->
+				<div class="flex justify-between items-center pt-2">
+					<div class="flex items-center gap-2">
+						<!-- Manual trigger -->
+						<button
+							type="button"
+							class="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent transition-colors"
+							hx-post={ p.BaseURL + "/ui/partials/backups/runs/" + itoa(p.InstanceID) + "/trigger" }
+							hx-target="#backup-trigger-toast"
+							hx-swap="innerHTML"
+							hx-vals={ `{"requested_by":"manual"}` }
+						>
+							<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+							Back up now
+						</button>
+						<div id="backup-trigger-toast"></div>
+					</div>
+					<button
+						type="submit"
+						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					>
+						Save Settings
+					</button>
+				</div>
+			</form>
+		}
+	}
+}
+
+// BackupRunsPartial renders the backup run history table (HTMX partial target).
+templ BackupRunsPartial(p BackupsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+				Backup History
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			if len(p.Runs) == 0 {
+				<p class="text-sm text-muted-foreground py-6 text-center">No backup runs yet.</p>
+			} else {
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-border text-muted-foreground text-xs">
+								<th class="pb-2 text-left font-medium px-3">Started</th>
+								<th class="pb-2 text-left font-medium px-3">Kind</th>
+								<th class="pb-2 text-left font-medium px-3">Requested by</th>
+								<th class="pb-2 text-right font-medium px-3">Torrents</th>
+								<th class="pb-2 text-right font-medium px-3">Size</th>
+								<th class="pb-2 text-left font-medium px-3">Status</th>
+								<th class="pb-2 px-3"></th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, run := range p.Runs {
+								<tr id={ "backup-run-" + fmt.Sprintf("%d", run.ID) } class="border-b border-border/50 hover:bg-muted/40 transition-colors">
+									<td class="py-2 px-3 whitespace-nowrap text-muted-foreground text-xs">{ run.StartedAt }</td>
+									<td class="py-2 px-3">
+										<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">{ run.Kind }</span>
+									</td>
+									<td class="py-2 px-3 text-muted-foreground">{ run.RequestedBy }</td>
+									<td class="py-2 px-3 text-right tabular-nums">{ itoa(run.TorrentCount) }</td>
+									<td class="py-2 px-3 text-right tabular-nums text-muted-foreground">
+										if run.TotalMB > 0 {
+											{ fmt.Sprintf("%.1f MB", run.TotalMB) }
+										}
+									</td>
+									<td class="py-2 px-3">
+										@backupStatusBadge(run.Status)
+									</td>
+									<td class="py-2 px-3 text-right">
+										<button
+											type="button"
+											class="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-destructive/10 text-destructive transition-colors"
+											title="Delete run"
+											hx-delete={ p.BaseURL + "/ui/partials/backups/runs/" + fmt.Sprintf("%d", run.ID) }
+											hx-target={ "#backup-run-" + fmt.Sprintf("%d", run.ID) }
+											hx-swap="outerHTML"
+											hx-confirm="Delete this backup run?"
+										>
+											<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+										</button>
+									</td>
+								</tr>
+								if run.ErrorMessage != "" {
+									<tr class="border-b border-border/50">
+										<td colspan="7" class="py-1 px-3 text-xs text-destructive">{ run.ErrorMessage }</td>
+									</tr>
+								}
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		}
+	}
+}
+
+// backupStatusBadge renders a colored status badge for backup runs.
+templ backupStatusBadge(status string) {
+	switch status {
+		case "success":
+			<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 text-xs">Success</span>
+		case "running":
+			<span class="inline-flex items-center rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-xs">Running</span>
+		case "failed":
+			<span class="inline-flex items-center rounded-full bg-destructive/10 text-destructive px-2 py-0.5 text-xs">Failed</span>
+		case "pending":
+			<span class="inline-flex items-center rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 text-xs">Pending</span>
+		case "canceled":
+			<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Canceled</span>
+		default:
+			<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">{ status }</span>
+	}
+}
+
+// BackupRunFromModel converts a models.BackupRun to page-level BackupRunItem.
+func BackupRunFromModel(r *models.BackupRun) BackupRunItem {
+	item := BackupRunItem{
+		ID:           r.ID,
+		InstanceID:   r.InstanceID,
+		Kind:         string(r.Kind),
+		Status:       string(r.Status),
+		RequestedBy:  r.RequestedBy,
+		RequestedAt:  r.RequestedAt.Format("2006-01-02 15:04"),
+		TorrentCount: r.TorrentCount,
+		TotalMB:      float64(r.TotalBytes) / (1024 * 1024),
+	}
+	if r.StartedAt != nil {
+		item.StartedAt = r.StartedAt.Format("2006-01-02 15:04")
+	}
+	if r.CompletedAt != nil {
+		item.CompletedAt = r.CompletedAt.Format("2006-01-02 15:04")
+	}
+	if r.ErrorMessage != nil {
+		item.ErrorMessage = *r.ErrorMessage
+	}
+	if r.ArchivePath != nil {
+		item.ArchivePath = *r.ArchivePath
+	}
+	return item
+}

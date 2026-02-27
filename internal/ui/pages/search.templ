@@ -1,0 +1,641 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/services/jackett"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// SearchResult is a page-level copy of a jackett.SearchResult for rendering.
+type SearchResultRow struct {
+	GUID        string
+	Title       string
+	Indexer     string
+	IndexerID   int
+	CategoryID  int
+	CategoryName string
+	Size        int64
+	Seeders     int
+	Leechers    int
+	PublishDate time.Time
+	DownloadURL string
+	InfoURL     string
+	Source      string
+	Collection  string
+	Group       string
+}
+
+// SearchProps holds all data for the search page.
+type SearchProps struct {
+	BaseURL   string
+	Username  string
+	Version   string
+	Instances []layouts.Instance
+
+	// Configured indexers for the indexer selector sheet.
+	Indexers []*models.TorznabIndexer
+
+	// Results from a completed search.
+	Results    []SearchResultRow
+	Total      int
+	IsSearched bool
+
+	// Current query parameters.
+	Query             string
+	SearchType        string
+	SelectedIndexerIDs []int
+
+	// Sorting.
+	SortBy  string // "title","indexer","size","seeders","published"
+	SortDir string // "asc","desc"
+
+	// Advanced params.
+	IMDbID  string
+	TVDbID  string
+	Year    string
+	Season  string
+	Episode string
+	Artist  string
+	Album   string
+
+	// Cache metadata.
+	CacheHit  bool
+	CachedAt  *time.Time
+	ExpiresAt *time.Time
+
+	// Recent searches (loaded via Alpine fetch on mount).
+	RecentSearches []*models.TorznabRecentSearch
+
+	// Error message.
+	SearchError string
+}
+
+// SearchResultRowFromJackett converts a jackett.SearchResult to a SearchResultRow.
+func SearchResultRowFromJackett(r jackett.SearchResult) SearchResultRow {
+	return SearchResultRow{
+		GUID:         r.GUID,
+		Title:        r.Title,
+		Indexer:      r.Indexer,
+		IndexerID:    r.IndexerID,
+		CategoryID:   r.CategoryID,
+		CategoryName: r.CategoryName,
+		Size:         r.Size,
+		Seeders:      r.Seeders,
+		Leechers:     r.Leechers,
+		PublishDate:  r.PublishDate,
+		DownloadURL:  r.DownloadURL,
+		InfoURL:      r.InfoURL,
+		Source:       r.Source,
+		Collection:   r.Collection,
+		Group:        r.Group,
+	}
+}
+
+// searchSortVals returns hx-vals JSON to re-sort the results.
+func searchSortVals(p SearchProps, col string) string {
+	dir := "desc"
+	if p.SortBy == col && p.SortDir == "desc" {
+		dir = "asc"
+	}
+	return fmt.Sprintf(`{"sort":"%s","dir":"%s"}`, col, dir)
+}
+
+// searchSortArrow returns "↑", "↓", or "" for a column header.
+func searchSortArrow(p SearchProps, col string) string {
+	if p.SortBy != col {
+		return ""
+	}
+	if p.SortDir == "asc" {
+		return " ↑"
+	}
+	return " ↓"
+}
+
+var searchTypeOptions = []struct{ val, label string }{
+	{"", "Auto"},
+	{"movies", "Movies"},
+	{"tv", "TV"},
+	{"music", "Music"},
+	{"books", "Books"},
+	{"apps", "Apps"},
+	{"xxx", "XXX"},
+}
+
+// Search renders the full search page.
+templ Search(p SearchProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Search",
+		CurrentPath: "/ui/search",
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		<div
+			class="flex flex-col h-full gap-4"
+			x-data="searchPage()"
+			x-init="init()"
+		>
+			<!-- Page header -->
+			<div class="flex items-center justify-between">
+				<h1 class="text-xl font-bold tracking-tight">Search</h1>
+				if p.CacheHit && p.CachedAt != nil {
+					<span class="text-xs text-muted-foreground">
+						Cached at { p.CachedAt.Format("15:04:05") }
+					</span>
+				}
+			</div>
+
+			<!-- Search form -->
+			<form
+				id="search-form"
+				hx-get={ p.BaseURL + "/ui/partials/search" }
+				hx-target="#search-results"
+				hx-swap="innerHTML"
+				hx-push-url="false"
+				hx-indicator="#search-spinner"
+				class="flex flex-col gap-3"
+			>
+				<!-- Primary search row -->
+				<div class="flex flex-wrap items-center gap-2">
+					<!-- Query input with recent searches suggestion dropdown -->
+					<div class="relative flex-1 min-w-64" x-data="{open: false}">
+						<input
+							type="search"
+							name="q"
+							id="search-input"
+							value={ p.Query }
+							placeholder="Search releases…"
+							autocomplete="off"
+							class="w-full h-9 rounded-md border border-input bg-background pl-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							@focus="open = recentSearches.length > 0"
+							@blur="setTimeout(() => open = false, 150)"
+						/>
+						<!-- Spinner indicator -->
+						<span id="search-spinner" class="htmx-indicator absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+							<svg class="animate-spin h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.84 3 7.938l3-2.647z"/>
+							</svg>
+						</span>
+						<!-- Recent searches dropdown -->
+						<div
+							x-show="open && recentSearches.length > 0"
+							x-cloak
+							class="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border border-border bg-popover shadow-md"
+						>
+							<template x-for="s in recentSearches" :key="s.cacheKey">
+								<button
+									type="button"
+									class="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center justify-between gap-2"
+									@click="selectRecent(s); open = false"
+								>
+									<span x-text="s.query" class="truncate"></span>
+									<span class="text-xs text-muted-foreground tabular-nums shrink-0" x-text="s.totalResults + ' results'"></span>
+								</button>
+							</template>
+						</div>
+					</div>
+
+					<!-- Search type selector -->
+					<select
+						name="type"
+						class="h-9 rounded-md border border-input bg-background pl-3 pr-7 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					>
+						for _, opt := range searchTypeOptions {
+							if p.SearchType == opt.val {
+								<option value={ opt.val } selected>{ opt.label }</option>
+							} else {
+								<option value={ opt.val }>{ opt.label }</option>
+							}
+						}
+					</select>
+
+					<!-- Indexer selector toggle -->
+					<button
+						type="button"
+						class="h-9 inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+						@click="indexerSheetOpen = true"
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+						Indexers
+						if len(p.SelectedIndexerIDs) > 0 {
+							<span class="ml-0.5 rounded-full bg-primary text-primary-foreground text-xs px-1.5 py-0.5">
+								{ itoa(len(p.SelectedIndexerIDs)) }
+							</span>
+						}
+					</button>
+
+					<!-- Advanced params toggle -->
+					<button
+						type="button"
+						class="h-9 inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent transition-colors"
+						@click="showAdvanced = !showAdvanced"
+						:class="showAdvanced ? 'bg-accent text-accent-foreground' : ''"
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+						Advanced
+					</button>
+
+					<!-- Submit -->
+					<button
+						type="submit"
+						class="h-9 inline-flex items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+						Search
+					</button>
+
+					<!-- Bypass-cache refresh (only shown after a search) -->
+					if p.IsSearched {
+						<button
+							type="submit"
+							name="cache_mode"
+							value="bypass"
+							class="h-9 inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent transition-colors"
+							title="Force re-fetch, bypassing cache"
+						>
+							<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+						</button>
+					}
+
+					<!-- Hidden sort params preserved across searches -->
+					<input type="hidden" name="sort" value={ p.SortBy }/>
+					<input type="hidden" name="dir" value={ p.SortDir }/>
+
+					<!-- Hidden selected indexer IDs (managed by Alpine) -->
+					<div id="selected-indexer-inputs">
+						for _, id := range p.SelectedIndexerIDs {
+							<input type="hidden" name="indexer_id" value={ itoa(id) }/>
+						}
+					</div>
+				</div>
+
+				<!-- Advanced params panel (collapsible) -->
+				<div
+					x-show="showAdvanced"
+					x-cloak
+					x-transition
+					class="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-md border border-border bg-muted/30"
+				>
+					<div class="flex flex-col gap-1">
+						<label class="text-xs font-medium text-muted-foreground">IMDb ID</label>
+						<input type="text" name="imdb_id" value={ p.IMDbID } placeholder="tt1234567" class="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-xs font-medium text-muted-foreground">TVDb ID</label>
+						<input type="text" name="tvdb_id" value={ p.TVDbID } placeholder="12345" class="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-xs font-medium text-muted-foreground">Year</label>
+						<input type="number" name="year" value={ p.Year } placeholder="2024" min="1900" max="2100" class="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-xs font-medium text-muted-foreground">Season</label>
+						<input type="number" name="season" value={ p.Season } placeholder="1" min="0" class="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-xs font-medium text-muted-foreground">Episode</label>
+						<input type="number" name="episode" value={ p.Episode } placeholder="2" min="0" class="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-xs font-medium text-muted-foreground">Artist</label>
+						<input type="text" name="artist" value={ p.Artist } placeholder="Artist Name" class="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-xs font-medium text-muted-foreground">Album</label>
+						<input type="text" name="album" value={ p.Album } placeholder="Album Title" class="h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+					</div>
+				</div>
+			</form>
+
+			<!-- Error banner -->
+			if p.SearchError != "" {
+				<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+					{ p.SearchError }
+				</div>
+			}
+
+			<!-- Results area -->
+			<div id="search-results" class="flex-1 flex flex-col gap-3 min-h-0">
+				@SearchResultsContent(p)
+			</div>
+
+			<!-- Indexer selection sheet -->
+			@SearchIndexerSheet(p)
+		</div>
+
+		<script>
+			function searchPage() {
+				return {
+					query: '',
+					showAdvanced: false,
+					indexerSheetOpen: false,
+					recentSearches: [],
+					selectedIDs: [],
+
+					init() {
+						this.query = document.getElementById('search-input')?.value || '';
+						this.selectedIDs = Array.from(
+							document.querySelectorAll('#selected-indexer-inputs input[name="indexer_id"]')
+						).map(el => parseInt(el.value));
+						this.loadRecent();
+					},
+
+					async loadRecent() {
+						try {
+							const r = await fetch('/api/v1/search/recent?scope=generic&limit=8');
+							if (r.ok) this.recentSearches = await r.json() || [];
+						} catch(_) {}
+					},
+
+					selectRecent(s) {
+						const inp = document.getElementById('search-input');
+						if (inp) inp.value = s.query;
+						htmx.trigger(document.getElementById('search-form'), 'submit');
+					},
+
+					toggleIndexer(id) {
+						const idx = this.selectedIDs.indexOf(id);
+						if (idx >= 0) this.selectedIDs.splice(idx, 1);
+						else this.selectedIDs.push(id);
+						this.syncInputs();
+					},
+
+					isSelected(id) { return this.selectedIDs.includes(id); },
+
+					selectAll() {
+						this.selectedIDs = Array.from(
+							document.querySelectorAll('[data-indexer-id]')
+						).map(el => parseInt(el.dataset.indexerId));
+						this.syncInputs();
+					},
+
+					clearAll() {
+						this.selectedIDs = [];
+						this.syncInputs();
+					},
+
+					syncInputs() {
+						const c = document.getElementById('selected-indexer-inputs');
+						if (!c) return;
+						c.innerHTML = '';
+						this.selectedIDs.forEach(id => {
+							const inp = document.createElement('input');
+							inp.type = 'hidden';
+							inp.name = 'indexer_id';
+							inp.value = id;
+							c.appendChild(inp);
+						});
+					},
+				};
+			}
+		</script>
+	}
+}
+
+// SearchResultsContent renders the results section (empty state or table).
+templ SearchResultsContent(p SearchProps) {
+	if !p.IsSearched {
+		<div class="flex flex-col items-center justify-center min-h-[40vh] gap-3 text-center text-muted-foreground">
+			<svg class="h-12 w-12 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+				<circle cx="11" cy="11" r="8"/>
+				<path d="m21 21-4.35-4.35"/>
+			</svg>
+			<p class="text-sm">Enter a query and press Search.</p>
+		</div>
+	} else {
+		<div class="flex items-center justify-between">
+			<span class="text-sm text-muted-foreground">
+				{ itoa(p.Total) } result(s)
+				if p.CacheHit {
+					· <span class="italic">cached</span>
+				}
+			</span>
+		</div>
+		@SearchResultsTable(p)
+	}
+}
+
+// SearchResultsTable renders the sortable results table.
+templ SearchResultsTable(p SearchProps) {
+	if len(p.Results) == 0 {
+		<div class="rounded-md border border-border px-4 py-12 text-center text-sm text-muted-foreground">
+			No results found. Try a different query or indexer.
+		</div>
+	} else {
+		<div class="overflow-auto rounded-md border border-border">
+			<table class="w-full text-sm">
+				<thead class="sticky top-0 z-10 bg-muted/80 backdrop-blur border-b border-border">
+					<tr>
+						<th class="px-3 py-2 text-left font-medium text-muted-foreground">
+							<button
+								type="button"
+								class="inline-flex items-center gap-0.5 hover:text-foreground transition-colors"
+								hx-get={ p.BaseURL + "/ui/partials/search" }
+								hx-target="#search-results"
+								hx-swap="innerHTML"
+								hx-vals={ searchSortVals(p, "title") }
+								hx-include="#search-form"
+							>
+								Title{ searchSortArrow(p, "title") }
+							</button>
+						</th>
+						<th class="px-3 py-2 text-left font-medium text-muted-foreground w-28">Indexer</th>
+						<th class="px-3 py-2 text-left font-medium text-muted-foreground w-28">Category</th>
+						<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20">
+							<button
+								type="button"
+								class="inline-flex items-center gap-0.5 hover:text-foreground transition-colors"
+								hx-get={ p.BaseURL + "/ui/partials/search" }
+								hx-target="#search-results"
+								hx-swap="innerHTML"
+								hx-vals={ searchSortVals(p, "size") }
+								hx-include="#search-form"
+							>
+								Size{ searchSortArrow(p, "size") }
+							</button>
+						</th>
+						<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20">
+							<button
+								type="button"
+								class="inline-flex items-center gap-0.5 hover:text-foreground transition-colors"
+								hx-get={ p.BaseURL + "/ui/partials/search" }
+								hx-target="#search-results"
+								hx-swap="innerHTML"
+								hx-vals={ searchSortVals(p, "seeders") }
+								hx-include="#search-form"
+							>
+								Seeds{ searchSortArrow(p, "seeders") }
+							</button>
+						</th>
+						<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16">Peers</th>
+						<th class="px-3 py-2 text-left font-medium text-muted-foreground w-28">
+							<button
+								type="button"
+								class="inline-flex items-center gap-0.5 hover:text-foreground transition-colors"
+								hx-get={ p.BaseURL + "/ui/partials/search" }
+								hx-target="#search-results"
+								hx-swap="innerHTML"
+								hx-vals={ searchSortVals(p, "published") }
+								hx-include="#search-form"
+							>
+								Published{ searchSortArrow(p, "published") }
+							</button>
+						</th>
+						<th class="px-3 py-2 w-10"></th>
+					</tr>
+				</thead>
+				<tbody class="divide-y divide-border">
+					for _, r := range p.Results {
+						<tr class="hover:bg-muted/50 transition-colors group">
+							<td class="px-3 py-2 max-w-xs">
+								<div class="flex items-start gap-1">
+									<span class="block truncate font-medium" title={ r.Title }>{ r.Title }</span>
+									if r.InfoURL != "" {
+										<a
+											href={ templ.SafeURL(r.InfoURL) }
+											target="_blank"
+											rel="noopener noreferrer"
+											class="shrink-0 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-0.5"
+										>
+											<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+										</a>
+									}
+								</div>
+								if r.Source != "" || r.Group != "" || r.Collection != "" {
+									<div class="flex gap-1 mt-0.5 flex-wrap">
+										if r.Source != "" {
+											<span class="text-xs text-muted-foreground bg-muted px-1.5 rounded">{ r.Source }</span>
+										}
+										if r.Collection != "" {
+											<span class="text-xs text-muted-foreground bg-muted px-1.5 rounded">{ r.Collection }</span>
+										}
+										if r.Group != "" {
+											<span class="text-xs text-muted-foreground bg-muted px-1.5 rounded">{ r.Group }</span>
+										}
+									</div>
+								}
+							</td>
+							<td class="px-3 py-2 whitespace-nowrap">
+								<span class="text-xs text-muted-foreground">{ r.Indexer }</span>
+							</td>
+							<td class="px-3 py-2 whitespace-nowrap">
+								<span class="text-xs text-muted-foreground">{ r.CategoryName }</span>
+							</td>
+							<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground">
+								{ formatBytes(uint64(r.Size)) }
+							</td>
+							<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-green-600 dark:text-green-400">
+								{ itoa(r.Seeders) }
+							</td>
+							<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground">
+								{ itoa(r.Leechers) }
+							</td>
+							<td class="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">
+								{ r.PublishDate.Format("2006-01-02") }
+							</td>
+							<td class="px-3 py-2 text-right">
+								if r.DownloadURL != "" {
+									<form
+										hx-post={ p.BaseURL + "/ui/partials/search/download" }
+										hx-target="closest tr"
+										hx-swap="outerHTML"
+										class="inline"
+									>
+										<input type="hidden" name="url" value={ r.DownloadURL }/>
+										<input type="hidden" name="title" value={ r.Title }/>
+										<button
+											type="submit"
+											class="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors opacity-0 group-hover:opacity-100"
+											title="Add to qBittorrent"
+										>
+											<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+										</button>
+									</form>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+// SearchIndexerSheet renders the slide-over indexer selector panel.
+templ SearchIndexerSheet(p SearchProps) {
+	<div
+		x-show="indexerSheetOpen"
+		x-cloak
+		class="fixed inset-0 z-50 flex"
+	>
+		<!-- Backdrop -->
+		<div
+			class="absolute inset-0 bg-black/50"
+			@click="indexerSheetOpen = false"
+		></div>
+		<!-- Panel -->
+		<div class="relative ml-auto h-full w-80 bg-background shadow-xl border-l border-border flex flex-col">
+			<div class="flex items-center justify-between px-4 py-3 border-b border-border">
+				<h2 class="font-semibold text-sm">Select Indexers</h2>
+				<div class="flex items-center gap-3">
+					<button type="button" class="text-xs text-muted-foreground hover:text-foreground" @click="selectAll()">All</button>
+					<button type="button" class="text-xs text-muted-foreground hover:text-foreground" @click="clearAll()">None</button>
+					<button
+						type="button"
+						class="h-6 w-6 rounded-sm hover:bg-accent inline-flex items-center justify-center"
+						@click="indexerSheetOpen = false"
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+					</button>
+				</div>
+			</div>
+			<div class="flex-1 overflow-y-auto p-2 space-y-0.5">
+				if len(p.Indexers) == 0 {
+					<p class="text-sm text-muted-foreground px-2 py-6 text-center">
+						No indexers configured.
+						<br/>
+						<a
+							href={ templ.SafeURL(p.BaseURL + "/ui/settings/indexers") }
+							class="underline hover:text-foreground"
+						>
+							Add one in Settings →
+						</a>
+					</p>
+				} else {
+					for _, idx := range p.Indexers {
+						<label
+							class="flex items-center gap-2.5 px-2 py-1.5 rounded-md cursor-pointer hover:bg-accent transition-colors"
+							data-indexer-id={ itoa(idx.ID) }
+						>
+							<input
+								type="checkbox"
+								:checked={ fmt.Sprintf("isSelected(%d)", idx.ID) }
+								class="rounded border-input"
+								@change={ fmt.Sprintf("toggleIndexer(%d)", idx.ID) }
+							/>
+							<span class="text-sm flex-1 truncate">{ idx.Name }</span>
+							<span class="text-xs text-muted-foreground shrink-0">{ string(idx.Backend) }</span>
+						</label>
+					}
+				}
+			</div>
+			<div class="border-t border-border px-4 py-3">
+				<button
+					type="button"
+					class="w-full h-9 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+					@click="indexerSheetOpen = false"
+				>
+					Done
+				</button>
+			</div>
+		</div>
+	</div>
+}

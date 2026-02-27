@@ -23,30 +23,8 @@ import (
 )
 
 // ------------------------------------------------------------------
-// Stub pages (not yet migrated to full implementations)
-// ------------------------------------------------------------------
-
-func (h *Handler) GetSearch(w http.ResponseWriter, r *http.Request) {
-	h.renderStub(w, r, "Search", "/ui/search")
-}
-
-func (h *Handler) GetCrossSeed(w http.ResponseWriter, r *http.Request) {
-	h.renderStub(w, r, "Cross-seed", "/ui/cross-seed")
-}
-
-func (h *Handler) GetAutomations(w http.ResponseWriter, r *http.Request) {
-	h.renderStub(w, r, "Automations", "/ui/automations")
-}
-
-func (h *Handler) GetBackups(w http.ResponseWriter, r *http.Request) {
-	h.renderStub(w, r, "Backups", "/ui/backups")
-}
-
-func (h *Handler) GetRSS(w http.ResponseWriter, r *http.Request) {
-	h.renderStub(w, r, "RSS", "/ui/rss")
-}
-
 // renderStub is a shared helper for stub page handlers.
+// ------------------------------------------------------------------
 func (h *Handler) renderStub(w http.ResponseWriter, r *http.Request, title, path string) {
 	username := UsernameFromContext(r.Context())
 
