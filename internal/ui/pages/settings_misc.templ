@@ -1,0 +1,372 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"github.com/autogrr/rui/internal/config"
+	"github.com/autogrr/rui/internal/ui/components/button"
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/components/separator"
+)
+
+// ──────────────────────────────────────────────────────────────────
+// Date & Time section (client-side only, stored in localStorage)
+// ──────────────────────────────────────────────────────────────────
+
+// SettingsDatetimeSection renders the date & time preferences section.
+templ SettingsDatetimeSection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+				Date & Time
+			}
+			@card.Description(card.DescriptionProps{}) {
+				Preferences are stored in your browser and do not affect other users.
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			<div x-data="datetimePrefs()" x-init="init()" class="space-y-6">
+				<!-- Timezone -->
+				<div class="space-y-2">
+					<label class="text-sm font-medium" for="tz-select">Timezone</label>
+					<select
+						id="tz-select"
+						x-model="timezone"
+						@change="save()"
+						class="flex h-9 w-full max-w-sm rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					>
+						@timezoneOptions()
+					</select>
+					<p class="text-xs text-muted-foreground">Override the timezone used when displaying dates and times. "Browser" uses your system timezone.</p>
+				</div>
+				@separator.Separator(separator.Props{})
+				<!-- Date format -->
+				<div class="space-y-2">
+					<label class="text-sm font-medium">Date Format</label>
+					<div class="flex flex-wrap gap-3">
+						@dateFormatOption("MMM D, YYYY", "Apr 10, 2025")
+						@dateFormatOption("YYYY-MM-DD", "2025-04-10")
+						@dateFormatOption("DD/MM/YYYY", "10/04/2025")
+						@dateFormatOption("MM/DD/YYYY", "04/10/2025")
+					</div>
+				</div>
+				@separator.Separator(separator.Props{})
+				<!-- Time format -->
+				<div class="space-y-2">
+					<label class="text-sm font-medium">Time Format</label>
+					<div class="flex flex-wrap gap-3">
+						<label class="flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 text-sm" :class="{'border-primary bg-primary/5': timeFormat === '24h', 'border-input': timeFormat !== '24h'}">
+							<input type="radio" name="time-format" value="24h" x-model="timeFormat" @change="save()" class="sr-only"/>
+							24-hour (14:30)
+						</label>
+						<label class="flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 text-sm" :class="{'border-primary bg-primary/5': timeFormat === '12h', 'border-input': timeFormat !== '12h'}">
+							<input type="radio" name="time-format" value="12h" x-model="timeFormat" @change="save()" class="sr-only"/>
+							12-hour (2:30 PM)
+						</label>
+					</div>
+				</div>
+				<p class="text-xs text-muted-foreground">Saved automatically. Refresh the page to see the effect on existing values.</p>
+			</div>
+		}
+	}
+	<script>
+		function datetimePrefs() {
+			return {
+				timezone: 'browser',
+				dateFormat: 'MMM D, YYYY',
+				timeFormat: '24h',
+				init() {
+					this.timezone   = localStorage.getItem('qui:tz')         || 'browser';
+					this.dateFormat = localStorage.getItem('qui:dateFormat') || 'MMM D, YYYY';
+					this.timeFormat = localStorage.getItem('qui:timeFormat') || '24h';
+				},
+				save() {
+					localStorage.setItem('qui:tz',         this.timezone);
+					localStorage.setItem('qui:dateFormat', this.dateFormat);
+					localStorage.setItem('qui:timeFormat', this.timeFormat);
+				},
+			};
+		}
+	</script>
+}
+
+// timezoneOptions renders a hard-coded subset of common zone options.
+templ timezoneOptions() {
+	<option value="browser">Browser timezone</option>
+	<optgroup label="UTC">
+		<option value="UTC">UTC</option>
+	</optgroup>
+	<optgroup label="Americas">
+		<option value="America/New_York">Eastern Time (New York)</option>
+		<option value="America/Chicago">Central Time (Chicago)</option>
+		<option value="America/Denver">Mountain Time (Denver)</option>
+		<option value="America/Los_Angeles">Pacific Time (Los Angeles)</option>
+		<option value="America/Anchorage">Alaska (Anchorage)</option>
+		<option value="America/Honolulu">Hawaii (Honolulu)</option>
+		<option value="America/Toronto">Toronto</option>
+		<option value="America/Vancouver">Vancouver</option>
+		<option value="America/Sao_Paulo">São Paulo</option>
+		<option value="America/Argentina/Buenos_Aires">Buenos Aires</option>
+	</optgroup>
+	<optgroup label="Europe">
+		<option value="Europe/London">London</option>
+		<option value="Europe/Dublin">Dublin</option>
+		<option value="Europe/Paris">Paris / Berlin / Madrid</option>
+		<option value="Europe/Amsterdam">Amsterdam</option>
+		<option value="Europe/Helsinki">Helsinki / Kyiv / Tallinn</option>
+		<option value="Europe/Istanbul">Istanbul</option>
+		<option value="Europe/Moscow">Moscow</option>
+	</optgroup>
+	<optgroup label="Asia &amp; Pacific">
+		<option value="Asia/Dubai">Dubai</option>
+		<option value="Asia/Kolkata">India (Kolkata)</option>
+		<option value="Asia/Dhaka">Dhaka</option>
+		<option value="Asia/Bangkok">Bangkok / Jakarta</option>
+		<option value="Asia/Singapore">Singapore</option>
+		<option value="Asia/Shanghai">China (Shanghai)</option>
+		<option value="Asia/Tokyo">Japan (Tokyo)</option>
+		<option value="Asia/Seoul">Korea (Seoul)</option>
+		<option value="Australia/Sydney">Australia (Sydney)</option>
+		<option value="Pacific/Auckland">New Zealand (Auckland)</option>
+	</optgroup>
+	<optgroup label="Africa">
+		<option value="Africa/Johannesburg">Johannesburg</option>
+		<option value="Africa/Cairo">Cairo</option>
+		<option value="Africa/Lagos">Lagos</option>
+	</optgroup>
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Themes section (client-side only)
+// ──────────────────────────────────────────────────────────────────
+
+// SettingsThemesSection renders the theme / appearance section.
+templ SettingsThemesSection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+				Appearance
+			}
+			@card.Description(card.DescriptionProps{}) {
+				Choose the color scheme. Stored in your browser.
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			<div x-data="themePrefs()" x-init="init()" class="space-y-6">
+				<!-- Color scheme -->
+				<div class="space-y-3">
+					<label class="text-sm font-medium">Color Scheme</label>
+					<div class="flex flex-wrap gap-3">
+						@themeOptionCard("system", "System", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`)
+						@themeOptionCard("light", "Light", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`)
+						@themeOptionCard("dark", "Dark", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`)
+					</div>
+				</div>
+				<p class="text-xs text-muted-foreground">The selection is applied immediately. No page reload required.</p>
+			</div>
+		}
+	}
+	<script>
+		function themePrefs() {
+			return {
+				scheme: 'system',
+				init() {
+					this.scheme = localStorage.getItem('qui:theme') || 'system';
+				},
+				select(value) {
+					this.scheme = value;
+					localStorage.setItem('qui:theme', value);
+					applyTheme(value);
+				},
+			};
+		}
+
+		function applyTheme(scheme) {
+			const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+			const dark = scheme === 'dark' || (scheme === 'system' && prefersDark);
+			document.documentElement.classList.toggle('dark', dark);
+		}
+
+		// Apply on page load
+		(function() {
+			const stored = localStorage.getItem('qui:theme') || 'system';
+			applyTheme(stored);
+		})();
+	</script>
+}
+
+templ dateFormatOption(value, example string) {
+	<label
+		class="flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 text-sm"
+		:class={ "{'border-primary bg-primary/5': dateFormat === '" + value + "', 'border-input': dateFormat !== '" + value + "'}" }
+	>
+		<input type="radio" name="date-format" value={ value } x-model="dateFormat" @change="save()" class="sr-only"/>
+		{ example }
+	</label>
+}
+
+templ themeOptionCard(value, label, iconSVG string) {
+	<button
+		type="button"
+		class="rounded-lg border p-4 w-28 text-center text-sm transition-colors hover:border-primary cursor-pointer"
+		:class={ "{'border-primary bg-primary/5 font-medium': scheme === '" + value + "', 'border-input': scheme !== '" + value + "'}" }
+		@click={ "select('" + value + "')" }
+	>
+		@templ.Raw(iconSVG)
+		{ label }
+	</button>
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Logs section
+// ──────────────────────────────────────────────────────────────────
+
+// LogsProps carries log state into the section.
+type LogsProps struct {
+	Settings *config.LogSettingsResponse
+}
+
+// SettingsLogsSection renders the log settings + live stream section.
+templ SettingsLogsSection(p SettingsProps) {
+	@settingsLogsContent(p)
+}
+
+templ settingsLogsContent(p SettingsProps) {
+	<div class="space-y-6">
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Log Settings
+				}
+				@card.Description(card.DescriptionProps{}) {
+					Configure log level and file rotation. Changes take effect immediately.
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				<div id="log-settings-result" class="mb-4"></div>
+				<form
+					hx-post={ p.BaseURL + "/ui/partials/settings/logs" }
+					hx-target="#log-settings-result"
+					hx-swap="innerHTML"
+					class="space-y-4"
+				>
+					<div class="grid gap-4 sm:grid-cols-2">
+						<div class="space-y-1.5">
+							<label class="text-sm font-medium" for="log-level">Log Level</label>
+							<select id="log-level" name="level"
+								class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+								for _, lvl := range []string{"trace", "debug", "info", "warn", "error"} {
+									<option value={ lvl }>{ lvl }</option>
+								}
+							</select>
+						</div>
+						<div class="space-y-1.5">
+							<label class="text-sm font-medium" for="log-max-size">Max File Size (MB)</label>
+							<input id="log-max-size" name="max_size" type="number" min="1"
+								class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+								placeholder="50"/>
+						</div>
+					</div>
+					<div class="grid gap-4 sm:grid-cols-2">
+						<div class="space-y-1.5">
+							<label class="text-sm font-medium" for="log-max-backups">Max Backups</label>
+							<input id="log-max-backups" name="max_backups" type="number" min="0"
+								class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+								placeholder="3"/>
+						</div>
+						<div class="space-y-1.5">
+							<label class="text-sm font-medium" for="log-path">Log File Path (optional)</label>
+							<input id="log-path" name="path" type="text"
+								class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+								placeholder="/var/log/qui/qui.log"/>
+						</div>
+					</div>
+					@button.Button(button.Props{Type: button.TypeSubmit}) {
+						Save Log Settings
+					}
+				</form>
+			}
+		}
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				<div class="flex items-center justify-between">
+					@card.Title(card.TitleProps{}) {
+						Live Log Stream
+					}
+					<button
+						type="button"
+						id="log-stream-toggle"
+						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+						onclick="toggleLogStream(this)"
+					>
+						<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+						Start Stream
+					</button>
+				</div>
+			}
+			@card.Content(card.ContentProps{}) {
+				<div
+					id="log-stream-container"
+					data-stream-url={ p.BaseURL + "/ui/partials/settings/logs/stream" }
+					class="rounded-md bg-black/90 text-green-400 font-mono text-xs p-4 h-96 overflow-y-auto space-y-0.5 hidden"
+					role="log"
+					aria-live="polite"
+					aria-label="Live log stream"
+				>
+					<p class="text-muted-foreground">Connecting to log stream...</p>
+				</div>
+			}
+		}
+	</div>
+	<script>
+		(function() {
+			let es = null;
+
+			window.toggleLogStream = function(btn) {
+				const container = document.getElementById('log-stream-container');
+				if (es) {
+					es.close();
+					es = null;
+					btn.innerHTML = '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Stream';
+					container.classList.add('hidden');
+					return;
+				}
+
+				container.classList.remove('hidden');
+				container.innerHTML = '<p class="text-muted-foreground">Connecting...</p>';
+				btn.innerHTML = '<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Stop Stream';
+
+				const streamURL = container.dataset.streamUrl;
+				es = new EventSource(streamURL);
+				es.onopen = function() {
+					container.innerHTML = '';
+				};
+				es.onmessage = function(e) {
+					const line = document.createElement('p');
+					line.textContent = e.data;
+					container.appendChild(line);
+					container.scrollTop = container.scrollHeight;
+					while (container.children.length > 2000) {
+						container.removeChild(container.firstChild);
+					}
+				};
+				es.onerror = function() {
+					const line = document.createElement('p');
+					line.className = 'text-red-400';
+					line.textContent = '[stream error — reconnecting…]';
+					container.appendChild(line);
+				};
+			};
+		})();
+	</script>
+}
+
+// LogSettingsResultPartial is returned after saving log settings.
+templ LogSettingsResultPartial(ok bool, msg string) {
+	if ok {
+		<p class="text-sm text-green-700 dark:text-green-400">{ msg }</p>
+	} else {
+		<p class="text-sm text-destructive">{ msg }</p>
+	}
+}

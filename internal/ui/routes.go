@@ -99,6 +99,53 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Post("/partials/settings/api-keys", h.PostAPIKey)
 			r.Delete("/partials/settings/api-keys/{id}", h.DeleteAPIKey)
 			r.Post("/partials/settings/security", h.PostChangePassword)
+
+			// Indexers.
+			r.Get("/partials/settings/indexers", h.GetIndexersListPartial)
+			r.Get("/partials/settings/indexers/form", h.GetIndexerForm)
+			r.Get("/partials/settings/indexers/form/{id}", h.GetIndexerForm)
+			r.Post("/partials/settings/indexers", h.PostIndexer)
+			r.Put("/partials/settings/indexers/{id}", h.PutIndexer)
+			r.Delete("/partials/settings/indexers/{id}", h.DeleteIndexer)
+			r.Post("/partials/settings/indexers/{id}/test", h.PostIndexerTest)
+
+			// Search Cache.
+			r.Post("/partials/settings/search-cache", h.PostSearchCacheTTL)
+
+			// *arr Integrations.
+			r.Get("/partials/settings/integrations", h.GetIntegrationsListPartial)
+			r.Get("/partials/settings/integrations/form", h.GetIntegrationForm)
+			r.Get("/partials/settings/integrations/form/{id}", h.GetIntegrationForm)
+			r.Post("/partials/settings/integrations", h.PostIntegration)
+			r.Put("/partials/settings/integrations/{id}", h.PutIntegration)
+			r.Delete("/partials/settings/integrations/{id}", h.DeleteIntegration)
+			r.Post("/partials/settings/integrations/{id}/test", h.PostIntegrationTest)
+
+			// Client API Keys.
+			r.Get("/partials/settings/client-api/form", h.GetClientAPIKeyForm)
+			r.Post("/partials/settings/client-api", h.PostClientAPIKey)
+			r.Delete("/partials/settings/client-api/{id}", h.DeleteClientAPIKey)
+
+			// External Programs.
+			r.Get("/partials/settings/external-programs", h.GetExtProgramsListPartial)
+			r.Get("/partials/settings/external-programs/form", h.GetExtProgramForm)
+			r.Get("/partials/settings/external-programs/form/{id}", h.GetExtProgramForm)
+			r.Post("/partials/settings/external-programs", h.PostExtProgram)
+			r.Put("/partials/settings/external-programs/{id}", h.PutExtProgram)
+			r.Delete("/partials/settings/external-programs/{id}", h.DeleteExtProgram)
+
+			// Notifications.
+			r.Get("/partials/settings/notifications", h.GetNotificationsListPartial)
+			r.Get("/partials/settings/notifications/form", h.GetNotificationForm)
+			r.Get("/partials/settings/notifications/form/{id}", h.GetNotificationForm)
+			r.Post("/partials/settings/notifications", h.PostNotification)
+			r.Put("/partials/settings/notifications/{id}", h.PutNotification)
+			r.Delete("/partials/settings/notifications/{id}", h.DeleteNotification)
+			r.Post("/partials/settings/notifications/{id}/test", h.PostNotificationTest)
+
+			// Logs.
+			r.Post("/partials/settings/logs", h.PostLogSettings)
+			r.Get("/partials/settings/logs/stream", h.GetLogsStream)
 		})
 	})
 

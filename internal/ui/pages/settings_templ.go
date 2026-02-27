@@ -28,11 +28,20 @@ import (
 
 // SettingsSection names for tab routing.
 const (
-	SettingsSectionGeneral  = "general"
-	SettingsSectionAuth     = "auth"
-	SettingsSectionAdvanced = "advanced"
-	SettingsSectionAPIKeys  = "api-keys"
-	SettingsSectionSecurity = "security"
+	SettingsSectionGeneral       = "general"
+	SettingsSectionAuth          = "auth"
+	SettingsSectionAdvanced      = "advanced"
+	SettingsSectionAPIKeys       = "api-keys"
+	SettingsSectionSecurity      = "security"
+	SettingsSectionIndexers      = "indexers"
+	SettingsSectionSearchCache   = "search-cache"
+	SettingsSectionIntegrations  = "integrations"
+	SettingsSectionClientAPI     = "client-api"
+	SettingsSectionExtPrograms   = "external-programs"
+	SettingsSectionNotifications = "notifications"
+	SettingsSectionDatetime      = "datetime"
+	SettingsSectionThemes        = "themes"
+	SettingsSectionLogs          = "logs"
 )
 
 // SettingsProps holds data for the settings page.
@@ -43,7 +52,20 @@ type SettingsProps struct {
 	Instances []layouts.Instance
 	Section   string // which section is active
 	Config    *domain.Config
-	APIKeys   []*models.APIKey
+	// api-keys section
+	APIKeys []*models.APIKey
+	// indexers section
+	Indexers []*models.TorznabIndexer
+	// search-cache section
+	SearchCacheStats *models.TorznabSearchCacheStats
+	// integrations section
+	ArrInstances []*models.ArrInstance
+	// client-api section
+	ClientAPIKeys []*models.ClientAPIKey
+	// external-programs section
+	ExtPrograms []*models.ExternalProgram
+	// notifications section
+	NotificationTargets []*models.NotificationTarget
 }
 
 // settingsNavItem describes one settings navigation entry.
@@ -89,10 +111,19 @@ func Settings(p SettingsProps) templ.Component {
 			ctx = templ.InitializeContext(ctx)
 			items := []settingsNavItem{
 				{ID: SettingsSectionGeneral, Label: "General", Href: p.BaseURL + "/ui/settings/" + SettingsSectionGeneral},
-				{ID: SettingsSectionAuth, Label: "Auth & Security", Href: p.BaseURL + "/ui/settings/" + SettingsSectionAuth},
-				{ID: SettingsSectionAdvanced, Label: "Advanced", Href: p.BaseURL + "/ui/settings/" + SettingsSectionAdvanced},
+				{ID: SettingsSectionIndexers, Label: "Indexers", Href: p.BaseURL + "/ui/settings/" + SettingsSectionIndexers},
+				{ID: SettingsSectionSearchCache, Label: "Search Cache", Href: p.BaseURL + "/ui/settings/" + SettingsSectionSearchCache},
+				{ID: SettingsSectionIntegrations, Label: "Integrations", Href: p.BaseURL + "/ui/settings/" + SettingsSectionIntegrations},
+				{ID: SettingsSectionClientAPI, Label: "Client API", Href: p.BaseURL + "/ui/settings/" + SettingsSectionClientAPI},
 				{ID: SettingsSectionAPIKeys, Label: "API Keys", Href: p.BaseURL + "/ui/settings/" + SettingsSectionAPIKeys},
+				{ID: SettingsSectionExtPrograms, Label: "Ext. Programs", Href: p.BaseURL + "/ui/settings/" + SettingsSectionExtPrograms},
+				{ID: SettingsSectionNotifications, Label: "Notifications", Href: p.BaseURL + "/ui/settings/" + SettingsSectionNotifications},
+				{ID: SettingsSectionAuth, Label: "Auth", Href: p.BaseURL + "/ui/settings/" + SettingsSectionAuth},
+				{ID: SettingsSectionAdvanced, Label: "Advanced", Href: p.BaseURL + "/ui/settings/" + SettingsSectionAdvanced},
 				{ID: SettingsSectionSecurity, Label: "Security", Href: p.BaseURL + "/ui/settings/" + SettingsSectionSecurity},
+				{ID: SettingsSectionDatetime, Label: "Date & Time", Href: p.BaseURL + "/ui/settings/" + SettingsSectionDatetime},
+				{ID: SettingsSectionThemes, Label: "Themes", Href: p.BaseURL + "/ui/settings/" + SettingsSectionThemes},
+				{ID: SettingsSectionLogs, Label: "Logs", Href: p.BaseURL + "/ui/settings/" + SettingsSectionLogs},
 			}
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex flex-col md:flex-row gap-6\"><!-- Left nav --><aside class=\"md:w-44 shrink-0\"><nav class=\"flex md:flex-col gap-1\">")
 			if templ_7745c5c3_Err != nil {
@@ -114,7 +145,7 @@ func Settings(p SettingsProps) templ.Component {
 				var templ_7745c5c3_Var4 templ.SafeURL
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(item.Href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 70, Col: 38}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 101, Col: 38}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -140,7 +171,7 @@ func Settings(p SettingsProps) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 77, Col: 19}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 108, Col: 19}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -181,6 +212,51 @@ func Settings(p SettingsProps) templ.Component {
 				}
 			case SettingsSectionSecurity:
 				templ_7745c5c3_Err = settingsSecuritySection(p).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			case SettingsSectionIndexers:
+				templ_7745c5c3_Err = SettingsIndexersSection(p).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			case SettingsSectionSearchCache:
+				templ_7745c5c3_Err = SettingsSearchCacheSection(p).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			case SettingsSectionIntegrations:
+				templ_7745c5c3_Err = SettingsIntegrationsSection(p).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			case SettingsSectionClientAPI:
+				templ_7745c5c3_Err = SettingsClientAPISection(p).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			case SettingsSectionExtPrograms:
+				templ_7745c5c3_Err = SettingsExtProgramsSection(p).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			case SettingsSectionNotifications:
+				templ_7745c5c3_Err = SettingsNotificationsSection(p).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			case SettingsSectionDatetime:
+				templ_7745c5c3_Err = SettingsDatetimeSection(p).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			case SettingsSectionThemes:
+				templ_7745c5c3_Err = SettingsThemesSection(p).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			case SettingsSectionLogs:
+				templ_7745c5c3_Err = SettingsLogsSection(p).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -261,7 +337,7 @@ func settingsRow(label, value string) templ.Component {
 		var templ_7745c5c3_Var8 string
 		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 129, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 178, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
@@ -274,7 +350,7 @@ func settingsRow(label, value string) templ.Component {
 		var templ_7745c5c3_Var9 string
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 130, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 179, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -1138,7 +1214,7 @@ func apiKeyRow(k *models.APIKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var40 string
 		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs("api-key-" + strconv.Itoa(k.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 259, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 308, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
@@ -1151,7 +1227,7 @@ func apiKeyRow(k *models.APIKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var41 string
 		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(k.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 264, Col: 47}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 313, Col: 47}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 		if templ_7745c5c3_Err != nil {
@@ -1176,7 +1252,7 @@ func apiKeyRow(k *models.APIKey, baseURL string) templ.Component {
 			var templ_7745c5c3_Var43 string
 			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs("ID: " + strconv.Itoa(k.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 266, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 315, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 			if templ_7745c5c3_Err != nil {
@@ -1195,7 +1271,7 @@ func apiKeyRow(k *models.APIKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var44 string
 		templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(k.CreatedAt.Format("Jan 2, 2006 15:04"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 270, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 319, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 		if templ_7745c5c3_Err != nil {
@@ -1209,7 +1285,7 @@ func apiKeyRow(k *models.APIKey, baseURL string) templ.Component {
 			var templ_7745c5c3_Var45 string
 			templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(" · Last used " + k.LastUsedAt.Format("Jan 2, 2006"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 272, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 321, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 			if templ_7745c5c3_Err != nil {
@@ -1223,7 +1299,7 @@ func apiKeyRow(k *models.APIKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var46 string
 		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(baseURL + "/ui/partials/settings/api-keys/" + strconv.Itoa(k.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 278, Col: 79}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 327, Col: 79}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 		if templ_7745c5c3_Err != nil {
@@ -1236,7 +1312,7 @@ func apiKeyRow(k *models.APIKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var47 string
 		templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs("#api-key-" + strconv.Itoa(k.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 279, Col: 47}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 328, Col: 47}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 		if templ_7745c5c3_Err != nil {
@@ -1249,7 +1325,7 @@ func apiKeyRow(k *models.APIKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var48 string
 		templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs("Revoke API key \"" + k.Name + "\"? Any scripts using this key will stop working.")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 281, Col: 98}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 330, Col: 98}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 		if templ_7745c5c3_Err != nil {
@@ -1292,7 +1368,7 @@ func APIKeyCreatedBanner(name, rawKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var50 string
 		templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 293, Col: 83}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 342, Col: 83}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 		if templ_7745c5c3_Err != nil {
@@ -1305,7 +1381,7 @@ func APIKeyCreatedBanner(name, rawKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var51 string
 		templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(rawKey)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 301, Col: 13}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 350, Col: 13}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 		if templ_7745c5c3_Err != nil {
@@ -1318,7 +1394,7 @@ func APIKeyCreatedBanner(name, rawKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var52 string
 		templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs("navigator.clipboard.writeText($refs.keycode.textContent)")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 305, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 354, Col: 72}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 		if templ_7745c5c3_Err != nil {
@@ -1331,7 +1407,7 @@ func APIKeyCreatedBanner(name, rawKey, baseURL string) templ.Component {
 		var templ_7745c5c3_Var53 string
 		templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(baseURL + "/ui/partials/settings/api-keys")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 322, Col: 53}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 371, Col: 53}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 		if templ_7745c5c3_Err != nil {
@@ -1445,7 +1521,7 @@ func settingsAPIKeysSection(p SettingsProps) templ.Component {
 				var templ_7745c5c3_Var59 string
 				templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/settings/api-keys/form")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 342, Col: 63}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 391, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
 				if templ_7745c5c3_Err != nil {
@@ -1535,7 +1611,7 @@ func APIKeyFormPartial(baseURL, errMsg string) templ.Component {
 			var templ_7745c5c3_Var62 string
 			templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 365, Col: 47}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 414, Col: 47}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 			if templ_7745c5c3_Err != nil {
@@ -1553,7 +1629,7 @@ func APIKeyFormPartial(baseURL, errMsg string) templ.Component {
 		var templ_7745c5c3_Var63 string
 		templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(baseURL + "/ui/partials/settings/api-keys")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 368, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 417, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
 		if templ_7745c5c3_Err != nil {
@@ -1663,7 +1739,7 @@ func ChangePasswordFormPartial(baseURL string, result *ChangePasswordResult) tem
 		var templ_7745c5c3_Var67 string
 		templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(baseURL + "/ui/partials/settings/security")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 414, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 463, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
 		if templ_7745c5c3_Err != nil {
@@ -1687,7 +1763,7 @@ func ChangePasswordFormPartial(baseURL string, result *ChangePasswordResult) tem
 			var templ_7745c5c3_Var68 string
 			templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(result.Error)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 425, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings.templ`, Line: 474, Col: 53}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
 			if templ_7745c5c3_Err != nil {

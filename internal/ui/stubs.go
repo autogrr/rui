@@ -258,5 +258,35 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Load section-specific data for the new settings sections.
+	switch section {
+	case pages.SettingsSectionIndexers:
+		if idxs, err := h.indexerStore.List(ctx); err == nil {
+			props.Indexers = idxs
+		}
+	case pages.SettingsSectionSearchCache:
+		if h.jackettService != nil {
+			if stats, err := h.jackettService.GetSearchCacheStats(ctx); err == nil {
+				props.SearchCacheStats = stats
+			}
+		}
+	case pages.SettingsSectionIntegrations:
+		if insts, err := h.arrInstanceStore.List(ctx); err == nil {
+			props.ArrInstances = insts
+		}
+	case pages.SettingsSectionClientAPI:
+		if keys, err := h.clientAPIKeyStore.GetAll(ctx); err == nil {
+			props.ClientAPIKeys = keys
+		}
+	case pages.SettingsSectionExtPrograms:
+		if progs, err := h.extProgramStore.List(ctx); err == nil {
+			props.ExtPrograms = progs
+		}
+	case pages.SettingsSectionNotifications:
+		if targets, err := h.notificationTargetStore.List(ctx); err == nil {
+			props.NotificationTargets = targets
+		}
+	}
+
 	render(w, r, http.StatusOK, pages.Settings(props))
 }

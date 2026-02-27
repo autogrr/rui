@@ -7,7 +7,33 @@ import (
 	"strconv"
 
 	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/ui/components/button"
+	"github.com/autogrr/rui/internal/ui/components/card"
 )
+
+// apiKeyPlaceholder returns a placeholder hint for edit forms.
+func apiKeyPlaceholder(isEdit bool) string {
+	if isEdit {
+		return "leave blank to keep current"
+	}
+	return ""
+}
+
+// timeoutDefault formats a timeout value with a fallback.
+func timeoutDefault(v int, fallback string) string {
+	if v > 0 {
+		return strconv.Itoa(v)
+	}
+	return fallback
+}
+
+// intOrStr returns the string of v if v > 0, otherwise dflt.
+func intOrStr(v int, dflt string) string {
+	if v > 0 {
+		return strconv.Itoa(v)
+	}
+	return dflt
+}
 
 // ──────────────────────────────────────────────────────────────────
 // Indexers section (Jackett / Prowlarr / Native Torznab)
@@ -202,7 +228,7 @@ templ indexerFormCard(idx models.TorznabIndexer, baseURL, action, method, errMsg
 					<label class="text-xs font-medium text-muted-foreground">API Key</label>
 					<input name="api_key" type="password" autocomplete="off"
 						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-						placeholder={ if method == "PUT" { "leave blank to keep current" } else { "" } }/>
+					placeholder={ apiKeyPlaceholder(method == "PUT") }/>
 				</div>
 			</div>
 			<div class="grid gap-3 sm:grid-cols-2">
@@ -213,7 +239,7 @@ templ indexerFormCard(idx models.TorznabIndexer, baseURL, action, method, errMsg
 				</div>
 				<div class="space-y-1.5">
 					<label class="text-xs font-medium text-muted-foreground">Timeout (seconds)</label>
-					<input name="timeout_seconds" type="number" min="1" value={ if idx.TimeoutSeconds > 0 { strconv.Itoa(idx.TimeoutSeconds) } else { "30" } }
+					<input name="timeout_seconds" type="number" min="1" value={ intOrStr(idx.TimeoutSeconds, "30") }
 						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
 				</div>
 			</div>
@@ -299,8 +325,8 @@ templ SettingsSearchCacheSection(p SettingsProps) {
 				<p class="text-sm text-muted-foreground">Search cache data unavailable. Make sure at least one indexer is configured.</p>
 			} else {
 				<div class="grid gap-3 sm:grid-cols-3 mb-6">
-					@searchCacheStatCard("Cached Entries", strconv.Itoa(p.SearchCacheStats.Entries))
-					@searchCacheStatCard("Cache Hits", strconv.Itoa(p.SearchCacheStats.TotalHits))
+					@searchCacheStatCard("Cached Entries", strconv.FormatInt(p.SearchCacheStats.Entries, 10))
+					@searchCacheStatCard("Cache Hits", strconv.FormatInt(p.SearchCacheStats.TotalHits, 10))
 					@searchCacheStatCard("TTL", strconv.Itoa(p.SearchCacheStats.TTLMinutes)+" min")
 				</div>
 				<div id="search-cache-result" class="mb-4"></div>

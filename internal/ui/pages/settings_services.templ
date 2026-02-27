@@ -1,0 +1,886 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/ui/components/button"
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// ──────────────────────────────────────────────────────────────────
+// Integrations (*arr) section
+// ──────────────────────────────────────────────────────────────────
+
+// SettingsIntegrationsSection renders the *arr integrations management section.
+templ SettingsIntegrationsSection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-start justify-between">
+				<div class="space-y-1.5">
+					@card.Title(card.TitleProps{}) {
+						*arr Integrations
+					}
+					@card.Description(card.DescriptionProps{}) {
+						Connect Sonarr and Radarr for media ID lookups used in cross-seed matching.
+					}
+				</div>
+				<button
+					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+					hx-get={ p.BaseURL + "/ui/partials/settings/integrations/form" }
+					hx-target="#integration-form-slot"
+					hx-swap="innerHTML"
+				>
+					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					Add Integration
+				</button>
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<div id="integration-form-slot" class="mb-4"></div>
+			@ArrInstanceListPartial(p.ArrInstances, p.BaseURL)
+		}
+	}
+}
+
+// ArrInstanceListPartial renders the arr instance rows (OOB swap target).
+templ ArrInstanceListPartial(instances []*models.ArrInstance, baseURL string) {
+	<div id="integration-list">
+		if len(instances) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No *arr integrations configured. Add one to enable media ID lookups.</p>
+		} else {
+			<div class="space-y-2">
+				for _, inst := range instances {
+					@arrInstanceRow(inst, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+// arrInstanceRow renders a single arr instance row.
+templ arrInstanceRow(inst *models.ArrInstance, baseURL string) {
+	<div
+		id={ "integration-" + strconv.Itoa(inst.ID) }
+		class="flex items-center gap-4 rounded-lg border bg-card p-4"
+	>
+		<div class="flex-1 min-w-0 space-y-1">
+			<div class="flex items-center gap-2 flex-wrap">
+				<span class="font-medium truncate">{ inst.Name }</span>
+				<span class={ "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+					templ.KV("bg-muted text-muted-foreground", !inst.Enabled),
+					templ.KV("bg-green-500/15 text-green-700 dark:text-green-400", inst.Enabled),
+				}>
+					if inst.Enabled {
+						Enabled
+					} else {
+						Disabled
+					}
+				</span>
+				<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
+					{ string(inst.Type) }
+				</span>
+				if inst.LastTestStatus == "passed" {
+					<span class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+						OK
+					</span>
+				} else if inst.LastTestStatus == "failed" {
+					<span class="inline-flex items-center gap-1 text-xs text-destructive">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+						Failed
+					</span>
+				}
+			</div>
+			<p class="text-xs text-muted-foreground truncate">{ inst.BaseURL }</p>
+		</div>
+		<div class="flex items-center gap-1.5 shrink-0">
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+				hx-post={ baseURL + "/ui/partials/settings/integrations/" + strconv.Itoa(inst.ID) + "/test" }
+				hx-target={ "#integration-" + strconv.Itoa(inst.ID) }
+				hx-swap="outerHTML"
+				title="Test connection"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 15l-2 5L9 9l11 4-5 2z"/></svg>
+			</button>
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+				hx-get={ baseURL + "/ui/partials/settings/integrations/form/" + strconv.Itoa(inst.ID) }
+				hx-target="#integration-form-slot"
+				hx-swap="innerHTML"
+				title="Edit"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+			</button>
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+				hx-delete={ baseURL + "/ui/partials/settings/integrations/" + strconv.Itoa(inst.ID) }
+				hx-target={ "#integration-" + strconv.Itoa(inst.ID) }
+				hx-swap="outerHTML"
+				hx-confirm={ "Delete integration \"" + inst.Name + "\"?" }
+				title="Delete"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+			</button>
+		</div>
+	</div>
+}
+
+// IntegrationFormNew renders the add-integration form.
+templ IntegrationFormNew(baseURL, errMsg string) {
+	@arrInstanceFormCard(models.ArrInstance{}, baseURL, "/ui/partials/settings/integrations", "POST", errMsg)
+}
+
+// IntegrationFormEdit renders the edit-integration form.
+templ IntegrationFormEdit(inst models.ArrInstance, baseURL, errMsg string) {
+	@arrInstanceFormCard(inst, baseURL, "/ui/partials/settings/integrations/"+strconv.Itoa(inst.ID), "PUT", errMsg)
+}
+
+templ arrInstanceFormCard(inst models.ArrInstance, baseURL, action, method, errMsg string) {
+	<div class="rounded-lg border bg-muted/40 p-4 space-y-4 mb-4">
+		<div class="flex items-center justify-between">
+			<p class="text-sm font-medium">
+				if method == "POST" {
+					Add Integration
+				} else {
+					Edit Integration
+				}
+			</p>
+			<button
+				class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html,"
+				hx-target="#integration-form-slot"
+				hx-swap="innerHTML"
+			>✕</button>
+		</div>
+		if errMsg != "" {
+			<p class="text-xs text-destructive">{ errMsg }</p>
+		}
+		<form
+			if method == "POST" {
+				hx-post={ baseURL + action }
+			} else {
+				hx-put={ baseURL + action }
+			}
+			hx-target="#integration-form-slot"
+			hx-swap="innerHTML"
+			class="space-y-3"
+		>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Name</label>
+					<input name="name" type="text" required value={ inst.Name }
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder="e.g., My Sonarr"/>
+				</div>
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Type</label>
+					<select name="type" class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+						<option value="sonarr" selected?={ string(inst.Type) == "sonarr" || inst.Type == "" }>Sonarr</option>
+						<option value="radarr" selected?={ string(inst.Type) == "radarr" }>Radarr</option>
+					</select>
+				</div>
+			</div>
+			<div class="space-y-1.5">
+				<label class="text-xs font-medium text-muted-foreground">Base URL</label>
+				<input name="base_url" type="url" required value={ inst.BaseURL }
+					class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					placeholder="e.g., http://localhost:8989"/>
+			</div>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">API Key</label>
+					<input name="api_key" type="password" autocomplete="off"
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					placeholder={ apiKeyPlaceholder(method == "PUT") }/>
+				</div>
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Timeout (seconds)</label>
+					<input name="timeout_seconds" type="number" min="1" value={ intOrStr(inst.TimeoutSeconds, "30") }
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				<input id="int-enabled" name="enabled" type="checkbox" checked?={ inst.Enabled || method == "POST" }
+					class="h-4 w-4 rounded border-input"/>
+				<label for="int-enabled" class="text-sm">Enabled</label>
+			</div>
+			<div class="flex items-center gap-2 pt-1">
+				@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+					if method == "POST" {
+						Add Integration
+					} else {
+						Save Changes
+					}
+				}
+				@button.Button(button.Props{
+					Type:    button.TypeButton,
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Attributes: templ.Attributes{
+						"hx-get":    "data:text/html,",
+						"hx-target": "#integration-form-slot",
+						"hx-swap":   "innerHTML",
+					},
+				}) {
+					Cancel
+				}
+			</div>
+		</form>
+	</div>
+}
+
+// IntegrationFormSuccess clears form slot + OOB-updates list.
+templ IntegrationFormSuccess(instances []*models.ArrInstance, baseURL string) {
+	<div id="integration-list" hx-swap-oob="innerHTML">
+		if len(instances) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No *arr integrations configured.</p>
+		} else {
+			<div class="space-y-2">
+				for _, inst := range instances {
+					@arrInstanceRow(inst, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Client API section
+// ──────────────────────────────────────────────────────────────────
+
+// SettingsClientAPISection renders the client API keys section.
+templ SettingsClientAPISection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-start justify-between">
+				<div class="space-y-1.5">
+					@card.Title(card.TitleProps{}) {
+						Client API Keys
+					}
+					@card.Description(card.DescriptionProps{}) {
+						API keys for the qBittorrent companion client plugin.
+					}
+				</div>
+				<button
+					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+					hx-get={ p.BaseURL + "/ui/partials/settings/client-api/form" }
+					hx-target="#client-api-form-slot"
+					hx-swap="innerHTML"
+				>
+					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					Generate Key
+				</button>
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<div id="client-api-form-slot" class="mb-4"></div>
+			@ClientAPIKeyListPartial(p.ClientAPIKeys, p.BaseURL)
+		}
+	}
+}
+
+// ClientAPIKeyListPartial renders the client API key rows.
+templ ClientAPIKeyListPartial(keys []*models.ClientAPIKey, baseURL string) {
+	<div id="client-api-list">
+		if len(keys) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No client API keys. Generate one above.</p>
+		} else {
+			<div class="space-y-2">
+				for _, k := range keys {
+					@clientAPIKeyRow(k, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+templ clientAPIKeyRow(k *models.ClientAPIKey, baseURL string) {
+	<div
+		id={ "client-api-key-" + strconv.Itoa(k.ID) }
+		class="flex items-center gap-4 rounded-lg border bg-card p-4"
+	>
+		<div class="flex-1 min-w-0 space-y-0.5">
+			<p class="font-medium text-sm">{ k.ClientName }</p>
+			<p class="text-xs text-muted-foreground">
+				Created { k.CreatedAt.Format("Jan 2, 2006") }
+				if k.LastUsedAt != nil {
+					· Last used { k.LastUsedAt.Format("Jan 2, 2006") }
+				}
+			</p>
+		</div>
+		<button
+			class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+			hx-delete={ baseURL + "/ui/partials/settings/client-api/" + strconv.Itoa(k.ID) }
+			hx-target={ "#client-api-key-" + strconv.Itoa(k.ID) }
+			hx-swap="outerHTML"
+			hx-confirm={ "Revoke key for \"" + k.ClientName + "\"?" }
+			title="Revoke"
+		>
+			<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+		</button>
+	</div>
+}
+
+// ClientAPIKeyFormNew renders the generate-key form.
+templ ClientAPIKeyFormNew(instances []layouts.Instance, baseURL, errMsg string) {
+	<div class="rounded-lg border bg-muted/40 p-4 space-y-4 mb-4">
+		<div class="flex items-center justify-between">
+			<p class="text-sm font-medium">Generate Client API Key</p>
+			<button
+				class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html,"
+				hx-target="#client-api-form-slot"
+				hx-swap="innerHTML"
+			>✕</button>
+		</div>
+		if errMsg != "" {
+			<p class="text-xs text-destructive">{ errMsg }</p>
+		}
+		<form
+			hx-post={ baseURL + "/ui/partials/settings/client-api" }
+			hx-target="#client-api-form-slot"
+			hx-swap="innerHTML"
+			class="space-y-3"
+		>
+			<div class="space-y-1.5">
+				<label class="text-xs font-medium text-muted-foreground">Client Name</label>
+				<input name="client_name" type="text" required
+					class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					placeholder="e.g., My Browser"/>
+			</div>
+			<div class="space-y-1.5">
+				<label class="text-xs font-medium text-muted-foreground">qBittorrent Instance</label>
+				<select name="instance_id"
+					class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+				>
+					for _, inst := range instances {
+						<option value={ strconv.Itoa(inst.ID) }>{ inst.Name }</option>
+					}
+				</select>
+			</div>
+			<div class="flex items-center gap-2 pt-1">
+				@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+					Generate
+				}
+				@button.Button(button.Props{
+					Type:    button.TypeButton,
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Attributes: templ.Attributes{
+						"hx-get":    "data:text/html,",
+						"hx-target": "#client-api-form-slot",
+						"hx-swap":   "innerHTML",
+					},
+				}) {
+					Cancel
+				}
+			</div>
+		</form>
+	</div>
+}
+
+// ClientAPIKeyCreated shows the new key (one-time display) and refreshes the list OOB.
+templ ClientAPIKeyCreated(rawKey string, keys []*models.ClientAPIKey, baseURL string) {
+	<div class="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-4 space-y-3 mb-4">
+		<div class="flex items-start gap-2">
+			<svg class="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+			<div>
+				<p class="text-sm font-medium text-amber-800 dark:text-amber-200">Save this key — it won't be shown again.</p>
+				<p class="text-xs text-amber-700 dark:text-amber-300 mt-0.5">Copy and configure it in the qBittorrent plugin settings.</p>
+			</div>
+		</div>
+		<div class="flex items-center gap-2">
+			<code class="flex-1 rounded bg-amber-100 dark:bg-amber-900/50 px-3 py-2 text-xs font-mono break-all select-all">{ rawKey }</code>
+			<button
+				class="shrink-0 rounded-md border border-amber-300 bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-950/50 transition-colors"
+				onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent)"
+				type="button"
+			>Copy</button>
+		</div>
+	</div>
+	<div id="client-api-list" hx-swap-oob="innerHTML">
+		if len(keys) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No client API keys.</p>
+		} else {
+			<div class="space-y-2">
+				for _, k := range keys {
+					@clientAPIKeyRow(k, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+// ──────────────────────────────────────────────────────────────────
+// External Programs section
+// ──────────────────────────────────────────────────────────────────
+
+// SettingsExtProgramsSection renders the external programs section.
+templ SettingsExtProgramsSection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-start justify-between">
+				<div class="space-y-1.5">
+					@card.Title(card.TitleProps{}) {
+						External Programs
+					}
+					@card.Description(card.DescriptionProps{}) {
+						Define programs that can be triggered from the torrent context menu.
+					}
+				</div>
+				<button
+					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+					hx-get={ p.BaseURL + "/ui/partials/settings/external-programs/form" }
+					hx-target="#ext-prog-form-slot"
+					hx-swap="innerHTML"
+				>
+					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					Add Program
+				</button>
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<div id="ext-prog-form-slot" class="mb-4"></div>
+			@ExtProgramListPartial(p.ExtPrograms, p.BaseURL)
+		}
+	}
+}
+
+// ExtProgramListPartial renders the external program rows.
+templ ExtProgramListPartial(progs []*models.ExternalProgram, baseURL string) {
+	<div id="ext-prog-list">
+		if len(progs) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No external programs configured.</p>
+		} else {
+			<div class="space-y-2">
+				for _, prog := range progs {
+					@extProgramRow(prog, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+templ extProgramRow(prog *models.ExternalProgram, baseURL string) {
+	<div
+		id={ "ext-prog-" + strconv.Itoa(prog.ID) }
+		class="flex items-center gap-4 rounded-lg border bg-card p-4"
+	>
+		<div class="flex-1 min-w-0 space-y-1">
+			<div class="flex items-center gap-2 flex-wrap">
+				<span class="font-medium truncate">{ prog.Name }</span>
+				<span class={ "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+					templ.KV("bg-muted text-muted-foreground", !prog.Enabled),
+					templ.KV("bg-green-500/15 text-green-700 dark:text-green-400", prog.Enabled),
+				}>
+					if prog.Enabled {
+						Enabled
+					} else {
+						Disabled
+					}
+				</span>
+				if prog.UseTerminal {
+					<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Terminal</span>
+				}
+			</div>
+			<p class="text-xs text-muted-foreground font-mono truncate">{ prog.Path }</p>
+		</div>
+		<div class="flex items-center gap-1.5 shrink-0">
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+				hx-get={ baseURL + "/ui/partials/settings/external-programs/form/" + strconv.Itoa(prog.ID) }
+				hx-target="#ext-prog-form-slot"
+				hx-swap="innerHTML"
+				title="Edit"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+			</button>
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+				hx-delete={ baseURL + "/ui/partials/settings/external-programs/" + strconv.Itoa(prog.ID) }
+				hx-target={ "#ext-prog-" + strconv.Itoa(prog.ID) }
+				hx-swap="outerHTML"
+				hx-confirm={ "Delete program \"" + prog.Name + "\"?" }
+				title="Delete"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+			</button>
+		</div>
+	</div>
+}
+
+// ExtProgramFormNew renders the add-program form.
+templ ExtProgramFormNew(baseURL, errMsg string) {
+	@extProgramFormCard(models.ExternalProgram{}, baseURL, "/ui/partials/settings/external-programs", "POST", errMsg)
+}
+
+// ExtProgramFormEdit renders the edit-program form.
+templ ExtProgramFormEdit(prog models.ExternalProgram, baseURL, errMsg string) {
+	@extProgramFormCard(prog, baseURL, "/ui/partials/settings/external-programs/"+strconv.Itoa(prog.ID), "PUT", errMsg)
+}
+
+templ extProgramFormCard(prog models.ExternalProgram, baseURL, action, method, errMsg string) {
+	<div class="rounded-lg border bg-muted/40 p-4 space-y-4 mb-4">
+		<div class="flex items-center justify-between">
+			<p class="text-sm font-medium">
+				if method == "POST" {
+					Add External Program
+				} else {
+					Edit External Program
+				}
+			</p>
+			<button
+				class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html,"
+				hx-target="#ext-prog-form-slot"
+				hx-swap="innerHTML"
+			>✕</button>
+		</div>
+		if errMsg != "" {
+			<p class="text-xs text-destructive">{ errMsg }</p>
+		}
+		<form
+			if method == "POST" {
+				hx-post={ baseURL + action }
+			} else {
+				hx-put={ baseURL + action }
+			}
+			hx-target="#ext-prog-form-slot"
+			hx-swap="innerHTML"
+			class="space-y-3"
+		>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Name</label>
+					<input name="name" type="text" required value={ prog.Name }
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder="e.g., Extract Here"/>
+				</div>
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Executable Path</label>
+					<input name="path" type="text" required value={ prog.Path }
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder="/usr/bin/unrar"/>
+				</div>
+			</div>
+			<div class="space-y-1.5">
+				<label class="text-xs font-medium text-muted-foreground">Arguments Template</label>
+				<input name="args_template" type="text" value={ prog.ArgsTemplate }
+					class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+					placeholder="e -o{{.SavePath}} {{.ContentPath}}"/>
+				<p class="text-xs text-muted-foreground">Available variables: <code class="text-xs">&#123;&#123;.ContentPath&#125;&#125;</code>, <code class="text-xs">&#123;&#123;.SavePath&#125;&#125;</code>, <code class="text-xs">&#123;&#123;.Name&#125;&#125;</code>, <code class="text-xs">&#123;&#123;.Hash&#125;&#125;</code></p>
+			</div>
+			<div class="flex items-center gap-6">
+				<div class="flex items-center gap-2">
+					<input id="prog-enabled" name="enabled" type="checkbox" checked?={ prog.Enabled || method == "POST" }
+						class="h-4 w-4 rounded border-input"/>
+					<label for="prog-enabled" class="text-sm">Enabled</label>
+				</div>
+				<div class="flex items-center gap-2">
+					<input id="prog-terminal" name="use_terminal" type="checkbox" checked?={ prog.UseTerminal }
+						class="h-4 w-4 rounded border-input"/>
+					<label for="prog-terminal" class="text-sm">Show in terminal</label>
+				</div>
+			</div>
+			<div class="flex items-center gap-2 pt-1">
+				@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+					if method == "POST" {
+						Add Program
+					} else {
+						Save Changes
+					}
+				}
+				@button.Button(button.Props{
+					Type:    button.TypeButton,
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Attributes: templ.Attributes{
+						"hx-get":    "data:text/html,",
+						"hx-target": "#ext-prog-form-slot",
+						"hx-swap":   "innerHTML",
+					},
+				}) {
+					Cancel
+				}
+			</div>
+		</form>
+	</div>
+}
+
+// ExtProgramFormSuccess clears form slot + OOB-updates list.
+templ ExtProgramFormSuccess(progs []*models.ExternalProgram, baseURL string) {
+	<div id="ext-prog-list" hx-swap-oob="innerHTML">
+		if len(progs) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No external programs configured.</p>
+		} else {
+			<div class="space-y-2">
+				for _, prog := range progs {
+					@extProgramRow(prog, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Notifications section
+// ──────────────────────────────────────────────────────────────────
+
+// all known notification event types for the multi-checkbox.
+var notificationEventTypes = []struct {
+	Value string
+	Label string
+}{
+	{"torrent_added", "Torrent added"},
+	{"torrent_completed", "Torrent completed"},
+	{"backup_succeeded", "Backup succeeded"},
+	{"backup_failed", "Backup failed"},
+	{"dir_scan_completed", "Dir scan completed"},
+	{"dir_scan_failed", "Dir scan failed"},
+	{"orphan_scan_completed", "Orphan scan completed"},
+	{"orphan_scan_failed", "Orphan scan failed"},
+	{"cross_seed_automation_succeeded", "Cross-seed RSS automation succeeded"},
+	{"cross_seed_automation_failed", "Cross-seed RSS automation failed"},
+	{"cross_seed_search_succeeded", "Cross-seed search succeeded"},
+	{"cross_seed_search_failed", "Cross-seed search failed"},
+	{"cross_seed_completion_succeeded", "Cross-seed completion succeeded"},
+	{"cross_seed_completion_failed", "Cross-seed completion failed"},
+	{"cross_seed_webhook_succeeded", "Cross-seed webhook succeeded"},
+	{"cross_seed_webhook_failed", "Cross-seed webhook failed"},
+	{"automations_actions_applied", "Automations actions applied"},
+	{"automations_run_failed", "Automations run failed"},
+}
+
+// SettingsNotificationsSection renders the notification targets section.
+templ SettingsNotificationsSection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-start justify-between">
+				<div class="space-y-1.5">
+					@card.Title(card.TitleProps{}) {
+						Notification Targets
+					}
+					@card.Description(card.DescriptionProps{}) {
+						Send event notifications via Discord, Notifiarr, or any shoutrrr-compatible URL.
+					}
+				</div>
+				<button
+					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+					hx-get={ p.BaseURL + "/ui/partials/settings/notifications/form" }
+					hx-target="#notification-form-slot"
+					hx-swap="innerHTML"
+				>
+					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					Add Target
+				</button>
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<div id="notification-form-slot" class="mb-4"></div>
+			@NotificationListPartial(p.NotificationTargets, p.BaseURL)
+		}
+	}
+}
+
+// NotificationListPartial renders the notification target rows.
+templ NotificationListPartial(targets []*models.NotificationTarget, baseURL string) {
+	<div id="notification-list">
+		if len(targets) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No notification targets configured.</p>
+		} else {
+			<div class="space-y-2">
+				for _, t := range targets {
+					@notificationTargetRow(t, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+templ notificationTargetRow(t *models.NotificationTarget, baseURL string) {
+	<div
+		id={ "notification-target-" + strconv.Itoa(t.ID) }
+		class="flex items-center gap-4 rounded-lg border bg-card p-4"
+	>
+		<div class="flex-1 min-w-0 space-y-1">
+			<div class="flex items-center gap-2 flex-wrap">
+				<span class="font-medium truncate">{ t.Name }</span>
+				<span class={ "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+					templ.KV("bg-muted text-muted-foreground", !t.Enabled),
+					templ.KV("bg-green-500/15 text-green-700 dark:text-green-400", t.Enabled),
+				}>
+					if t.Enabled {
+						Enabled
+					} else {
+						Disabled
+					}
+				</span>
+				if len(t.EventTypes) == 0 {
+					<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">All events</span>
+				} else {
+					<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{ strconv.Itoa(len(t.EventTypes)) } event(s)</span>
+				}
+			</div>
+			<p class="text-xs text-muted-foreground truncate">{ t.URL }</p>
+		</div>
+		<div class="flex items-center gap-1.5 shrink-0">
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+				hx-post={ baseURL + "/ui/partials/settings/notifications/" + strconv.Itoa(t.ID) + "/test" }
+				hx-target={ "#notification-target-" + strconv.Itoa(t.ID) }
+				hx-swap="none"
+				title="Send test notification"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 15l-2 5L9 9l11 4-5 2z"/></svg>
+			</button>
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+				hx-get={ baseURL + "/ui/partials/settings/notifications/form/" + strconv.Itoa(t.ID) }
+				hx-target="#notification-form-slot"
+				hx-swap="innerHTML"
+				title="Edit"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+			</button>
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+				hx-delete={ baseURL + "/ui/partials/settings/notifications/" + strconv.Itoa(t.ID) }
+				hx-target={ "#notification-target-" + strconv.Itoa(t.ID) }
+				hx-swap="outerHTML"
+				hx-confirm={ "Delete notification target \"" + t.Name + "\"?" }
+				title="Delete"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+			</button>
+		</div>
+	</div>
+}
+
+// NotificationFormNew renders the add-target form.
+templ NotificationFormNew(baseURL, errMsg string) {
+	@notificationFormCard(models.NotificationTarget{}, baseURL, "/ui/partials/settings/notifications", "POST", errMsg)
+}
+
+// NotificationFormEdit renders the edit-target form.
+templ NotificationFormEdit(t models.NotificationTarget, baseURL, errMsg string) {
+	@notificationFormCard(t, baseURL, "/ui/partials/settings/notifications/"+strconv.Itoa(t.ID), "PUT", errMsg)
+}
+
+templ notificationFormCard(t models.NotificationTarget, baseURL, action, method, errMsg string) {
+	<div class="rounded-lg border bg-muted/40 p-4 space-y-4 mb-4">
+		<div class="flex items-center justify-between">
+			<p class="text-sm font-medium">
+				if method == "POST" {
+					Add Notification Target
+				} else {
+					Edit Notification Target
+				}
+			</p>
+			<button
+				class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html,"
+				hx-target="#notification-form-slot"
+				hx-swap="innerHTML"
+			>✕</button>
+		</div>
+		if errMsg != "" {
+			<p class="text-xs text-destructive">{ errMsg }</p>
+		}
+		<form
+			if method == "POST" {
+				hx-post={ baseURL + action }
+			} else {
+				hx-put={ baseURL + action }
+			}
+			hx-target="#notification-form-slot"
+			hx-swap="innerHTML"
+			class="space-y-3"
+		>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Name</label>
+					<input name="name" type="text" required value={ t.Name }
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder="e.g., Discord #alerts"/>
+				</div>
+				<div class="flex items-center gap-2 self-end pb-1">
+					<input id="notif-enabled" name="enabled" type="checkbox" checked?={ t.Enabled || method == "POST" }
+						class="h-4 w-4 rounded border-input"/>
+					<label for="notif-enabled" class="text-sm">Enabled</label>
+				</div>
+			</div>
+			<div class="space-y-1.5">
+				<label class="text-xs font-medium text-muted-foreground">Webhook URL</label>
+				<input name="url" type="url" required value={ t.URL }
+					class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					placeholder="discord://webhooks/…   or  notifiarr://…"/>
+				<p class="text-xs text-muted-foreground">Discord webhook URL, Notifiarr passthrough URL, or any <a href="https://containrrr.dev/shoutrrr/services/overview/" class="underline" target="_blank" rel="noopener noreferrer">shoutrrr</a> service URL.</p>
+			</div>
+			<div class="space-y-2">
+				<p class="text-xs font-medium text-muted-foreground">Events (leave all unchecked to receive all events)</p>
+				<div class="grid gap-2 sm:grid-cols-2">
+					for _, evt := range notificationEventTypes {
+						<label class="flex items-center gap-2 cursor-pointer">
+							<input
+								type="checkbox"
+								name="event_types"
+								value={ evt.Value }
+								checked?={ notifEventChecked(t.EventTypes, evt.Value) }
+								class="h-3.5 w-3.5 rounded border-input"
+							/>
+							<span class="text-xs">{ evt.Label }</span>
+						</label>
+					}
+				</div>
+			</div>
+			<div class="flex items-center gap-2 pt-1">
+				@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+					if method == "POST" {
+						Add Target
+					} else {
+						Save Changes
+					}
+				}
+				@button.Button(button.Props{
+					Type:    button.TypeButton,
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Attributes: templ.Attributes{
+						"hx-get":    "data:text/html,",
+						"hx-target": "#notification-form-slot",
+						"hx-swap":   "innerHTML",
+					},
+				}) {
+					Cancel
+				}
+			</div>
+		</form>
+	</div>
+}
+
+// notifEventChecked returns true if the event type is in the list of selected event types.
+func notifEventChecked(selected []string, value string) bool {
+	return strings.Contains(strings.Join(selected, ","), value)
+}
+
+// NotificationFormSuccess clears form slot + OOB-updates list.
+templ NotificationFormSuccess(targets []*models.NotificationTarget, baseURL string) {
+	<div id="notification-list" hx-swap-oob="innerHTML">
+		if len(targets) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No notification targets configured.</p>
+		} else {
+			<div class="space-y-2">
+				for _, t := range targets {
+					@notificationTargetRow(t, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
