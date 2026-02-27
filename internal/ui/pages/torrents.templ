@@ -4,6 +4,7 @@
 package pages
 
 import (
+"encoding/json"
 "fmt"
 "net/url"
 "strconv"
@@ -56,8 +57,6 @@ Instances  []layouts.Instance
 InstanceID int // currently selected instance (0 = all)
 Rows       []TorrentRow
 Total      int
-Page       int // 1-based
-PageSize   int
 Search     string
 Status     string // active status filter, e.g. "downloading"
 Category   string // active category filter
@@ -69,21 +68,6 @@ Expr       string // optional expr-lang filter expression
 // Sidebar data (populated for full page renders only)
 Categories []string
 Tags       []string
-}
-
-// totalPages computes how many pages are needed.
-func totalPages(total, pageSize int) int {
-if pageSize <= 0 {
-return 1
-}
-pages := total / pageSize
-if total%pageSize != 0 {
-pages++
-}
-if pages == 0 {
-return 1
-}
-return pages
 }
 
 // stateLabel maps a qBittorrent torrent state to a human-readable badge label + CSS class.
@@ -180,17 +164,6 @@ return host
 return rawURL
 }
 
-// sortArrow returns the sort-direction indicator arrow for a column header.
-func sortArrow(currentSort, col, order string) string {
-if currentSort != col {
-return ""
-}
-if order == "asc" {
-return " ↑"
-}
-return " ↓"
-}
-
 // isDownloading reports whether the torrent state is an active-download state.
 func isDownloading(state string) bool {
 	switch state {
@@ -237,8 +210,9 @@ var torrentColumnDefs = []torrentColDef{
 	{ID: "availability", Label: "Avail.", Default: false},
 }
 
-// colDefaultsJSON returns an inline JS object literal like {status:true,size:true,...}
-// for bootstrapping client-side column visibility state.
+// colDefaultsJSON returns a valid JSON object like {"status":true,"size":true,...}
+// for bootstrapping client-side column visibility state. Keys are double-quoted
+// so the output can be parsed with JSON.parse().
 func colDefaultsJSON() string {
 	var b strings.Builder
 	b.WriteString("{")
@@ -246,8 +220,9 @@ func colDefaultsJSON() string {
 		if i > 0 {
 			b.WriteString(",")
 		}
+		b.WriteString(`"`)
 		b.WriteString(c.ID)
-		b.WriteString(":")
+		b.WriteString(`":`)
 		if c.Default {
 			b.WriteString("true")
 		} else {
@@ -256,6 +231,27 @@ func colDefaultsJSON() string {
 	}
 	b.WriteString("}")
 	return b.String()
+}
+
+// torrentsToJSON serialises props into a compact JSON blob for the virtual
+// scroll renderer. Safe to embed in <script type="application/json">.
+func torrentsToJSON(p TorrentsProps) string {
+	type payload struct {
+		Rows       []TorrentRow `json:"rows"`
+		BaseURL    string       `json:"baseURL"`
+		InstanceID int          `json:"instanceID"`
+		Total      int          `json:"total"`
+	}
+	b, _ := json.Marshal(payload{
+		Rows:       p.Rows,
+		BaseURL:    p.BaseURL,
+		InstanceID: p.InstanceID,
+		Total:      p.Total,
+	})
+	s := string(b)
+	s = strings.ReplaceAll(s, "</script>", `<\/script>`)
+	s = strings.ReplaceAll(s, "<!--", `<\!--`)
+	return s
 }
 
 // torrentsActiveInstance returns the layouts.Instance matching p.InstanceID, or
@@ -306,10 +302,10 @@ for _, sf := range []struct{ val, label string }{
 <li>
 <button
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-vals={ `{"status":"` + sf.val + `","page":"1"}` }
+hx-vals={ `{"status":"` + sf.val + `"}` }
 hx-include="#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
 class={
 "w-full text-left px-2 py-1 rounded-md transition-colors",
@@ -331,10 +327,10 @@ if len(p.Categories) > 0 {
 <li>
 <button
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-vals={ `{"category":"","page":"1"}` }
+hx-vals={ `{"category":""}` }
 hx-include="#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
 class={
 "w-full text-left px-2 py-1 rounded-md transition-colors",
@@ -349,10 +345,10 @@ for _, cat := range p.Categories {
 <li>
 <button
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-vals={ `{"category":"` + cat + `","page":"1"}` }
+hx-vals={ `{"category":"` + cat + `"}` }
 hx-include="#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
 class={
 "w-full text-left px-2 py-1 rounded-md truncate transition-colors",
@@ -376,10 +372,10 @@ if len(p.Tags) > 0 {
 <li>
 <button
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-vals={ `{"tag":"","page":"1"}` }
+hx-vals={ `{"tag":""}` }
 hx-include="#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
 class={
 "w-full text-left px-2 py-1 rounded-md transition-colors",
@@ -394,10 +390,10 @@ for _, tag := range p.Tags {
 <li>
 <button
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-vals={ `{"tag":"` + tag + `","page":"1"}` }
+hx-vals={ `{"tag":"` + tag + `"}` }
 hx-include="#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
 class={
 "w-full text-left px-2 py-1 rounded-md truncate transition-colors",
@@ -439,32 +435,66 @@ placeholder="Search torrents…"
 class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48 md:w-64"
 hx-trigger="keyup changed delay:400ms, search"
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-include="#current-status,#current-category,#current-tag,#current-page,#current-instance,#current-sort,#current-order,#current-expr"
+hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr"
+hx-on::after-request="renderFilterChips()"
 />
-<!-- Expr filter -->
+<!-- Filter builder popover -->
+<div class="relative" x-data="{ builderOpen: false }">
+<button
+@click="builderOpen = !builderOpen"
+class="inline-flex items-center gap-1 h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+title="Add a filter condition"
+>
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+Filter
+</button>
+<div
+x-show="builderOpen"
+x-cloak
+@click.outside="builderOpen = false"
+class="absolute left-0 top-full mt-1 z-30 rounded-lg border border-border bg-background shadow-lg p-3 space-y-2 min-w-max"
+>
+<p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add Condition</p>
+<div class="flex items-center gap-1.5 flex-wrap">
+<select id="eb-field" onchange="exprBuilderFieldChanged()" class="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring">
+<!-- populated by initExprBuilder() -->
+</select>
+<select id="eb-op" class="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring">
+<!-- populated by exprBuilderFieldChanged() -->
+</select>
+<div id="eb-val-container">
+<input id="eb-val" type="text" placeholder="value" class="h-7 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" onkeydown="if(event.key==='Enter'){event.preventDefault();exprBuilderAdd();}"/>
+</div>
+<button onclick="exprBuilderAdd()" class="h-7 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">+ Add</button>
+</div>
+<div class="border-t border-border pt-2 flex items-center gap-2">
+<label class="text-xs text-muted-foreground shrink-0" for="current-expr">Custom expr:</label>
 <input
 id="current-expr"
 type="text"
 name="expr"
 value={ p.Expr }
-placeholder='Filter expr… e.g. Ratio &lt; 1'
-title="expr-lang expression evaluated against torrent fields. Example: Ratio < 1 && State == &#34;downloading&#34;"
-class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-40 md:w-56"
-hx-trigger="keyup changed delay:600ms, search"
+placeholder='e.g. Ratio &lt; 1 &amp;&amp; State == "downloading"'
+title="expr-lang fields: Name, State, Category, Tags, Ratio, Size, DlSpeed, UpSpeed, Uploaded, Downloaded, SeedingTime, TimeActive, Priority, SavePath, Tracker, Progress, Availability"
+class="h-7 flex-1 min-w-56 rounded-md border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+hx-trigger="keyup changed delay:600ms"
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-include="#current-status,#current-category,#current-tag,#current-page,#current-instance,#current-sort,#current-order,#torrents-search"
+hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#torrents-search"
+hx-on::after-request="renderFilterChips()"
 />
+</div>
+</div>
+</div>
 <!-- Hidden filter state inputs -->
 <input type="hidden" id="current-status" name="status" value={ p.Status }/>
 <input type="hidden" id="current-category" name="category" value={ p.Category }/>
 <input type="hidden" id="current-tag" name="tag" value={ p.Tag }/>
-<input type="hidden" id="current-page" name="page" value={ itoa(p.Page) }/>
 <input type="hidden" id="current-instance" name="instance_id" value={ itoa(p.InstanceID) }/>
 <input type="hidden" id="current-sort" name="sort" value={ p.Sort }/>
 <input type="hidden" id="current-order" name="order" value={ p.Order }/>
@@ -473,43 +503,17 @@ hx-include="#current-status,#current-category,#current-tag,#current-page,#curren
 id="sort-trigger"
 style="display:none"
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-include="#current-status,#current-category,#current-tag,#current-page,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
+hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
+hx-on::after-request="renderFilterChips()"
 ></button>
-<!-- Active filter chips -->
-if p.Category != "" {
-<span class="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium">
-{ p.Category }
-<button
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-vals={ `{"category":"","page":"1"}` }
-hx-include="#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
-class="ml-0.5 text-primary/70 hover:text-primary"
->×</button>
-</span>
-}
-if p.Tag != "" {
-<span class="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium">
-#{ p.Tag }
-<button
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-vals={ `{"tag":"","page":"1"}` }
-hx-include="#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
-class="ml-0.5 text-primary/70 hover:text-primary"
->×</button>
-</span>
-}
+<!-- Filter chips (JS-managed, shows active conditions as expr-style pills) -->
+<div id="filter-chips" class="flex flex-wrap gap-1"></div>
 <!-- Spacer -->
 <div class="flex-1"></div>
-<span class="text-xs text-muted-foreground tabular-nums">{ itoa(p.Total) } torrent(s)</span>
+<span id="torrent-count" class="text-xs text-muted-foreground tabular-nums">{ itoa(p.Total) } torrent(s)</span>
 <!-- SSE live indicator -->
 <span
 id="sse-indicator"
@@ -561,13 +565,25 @@ Add
 
 <!-- Table + detail panel row -->
 <div class="flex flex-1 min-h-0 gap-2">
-<!-- Table + bulk bar wrapper (hx-ext="sse" so tbody can listen for live updates) -->
+<!-- Table + bulk bar wrapper (hx-ext="sse" so vt-data-slot can listen for live updates) -->
 <div
 class="flex flex-col flex-1 min-w-0"
 hx-ext="sse"
 sse-connect={ p.BaseURL + "/ui/sse/torrents?instance_id=" + itoa(p.InstanceID) }
 >
-<div class="flex-1 overflow-auto rounded-lg border border-border">
+<!-- vt-data-slot: hidden; receives HTMX swaps; JS reads embedded JSON to populate virtual table -->
+<div
+id="vt-data-slot"
+style="display:none"
+hx-trigger="sse:torrent-update throttle:8s"
+hx-get={ p.BaseURL + "/ui/partials/torrents" }
+hx-swap="innerHTML"
+hx-push-url="false"
+hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
+>
+@TorrentsTableBody(p)
+</div>
+<div id="torrents-scroll-container" class="flex-1 overflow-auto rounded-lg border border-border">
 <table class="w-full text-sm">
 <thead class="sticky top-0 z-10 bg-muted/80 backdrop-blur border-b border-border">
 <tr>
@@ -576,39 +592,31 @@ sse-connect={ p.BaseURL + "/ui/sse/torrents?instance_id=" + itoa(p.InstanceID) }
 type="checkbox"
 id="select-all"
 class="rounded"
-onchange="
-const checked = this.checked;
-document.querySelectorAll('[name=hashes]').forEach(cb => cb.checked = checked);
-const count = document.querySelectorAll('[name=hashes]:checked').length;
-const bar = document.getElementById('bulk-action-bar');
-if (bar) { count > 0 ? bar.classList.remove('hidden') : bar.classList.add('hidden'); }
-const cnt = document.getElementById('bulk-count');
-if (cnt) cnt.textContent = count + ' selected';
-"
+onchange="selectAll(this.checked)"
 />
 </th>
-<th class="px-3 py-2 text-left font-medium text-muted-foreground"><button class="hover:text-foreground" onclick="sortBy('name')">Name{ sortArrow(p.Sort, "name", p.Order) }</button></th>
-<th class="px-3 py-2 text-left font-medium text-muted-foreground w-24" data-col="status"><button class="hover:text-foreground" onclick="sortBy('state')">Status{ sortArrow(p.Sort, "state", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="size"><button class="hover:text-foreground" onclick="sortBy('size')">Size{ sortArrow(p.Sort, "size", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="total_size"><button class="hover:text-foreground" onclick="sortBy('total_size')">Total{ sortArrow(p.Sort, "total_size", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16" data-col="progress"><button class="hover:text-foreground" onclick="sortBy('progress')">Done{ sortArrow(p.Sort, "progress", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="dlspeed"><button class="hover:text-foreground" onclick="sortBy('dlspeed')">&#x2193;{ sortArrow(p.Sort, "dlspeed", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="upspeed"><button class="hover:text-foreground" onclick="sortBy('upspeed')">&#x2191;{ sortArrow(p.Sort, "upspeed", p.Order) }</button></th>
+<th class="px-3 py-2 text-left font-medium text-muted-foreground"><button class="hover:text-foreground" data-sort-col="name" onclick="sortBy('name')">Name</button></th>
+<th class="px-3 py-2 text-left font-medium text-muted-foreground w-24" data-col="status"><button class="hover:text-foreground" data-sort-col="state" onclick="sortBy('state')">Status</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="size"><button class="hover:text-foreground" data-sort-col="size" onclick="sortBy('size')">Size</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="total_size"><button class="hover:text-foreground" data-sort-col="total_size" onclick="sortBy('total_size')">Total</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16" data-col="progress"><button class="hover:text-foreground" data-sort-col="progress" onclick="sortBy('progress')">Done</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="dlspeed"><button class="hover:text-foreground" data-sort-col="dlspeed" onclick="sortBy('dlspeed')">&#x2193;</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="upspeed"><button class="hover:text-foreground" data-sort-col="upspeed" onclick="sortBy('upspeed')">&#x2191;</button></th>
 <th class="px-3 py-2 text-right font-medium text-muted-foreground w-16" data-col="eta">ETA</th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16" data-col="ratio"><button class="hover:text-foreground" onclick="sortBy('ratio')">Ratio{ sortArrow(p.Sort, "ratio", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="uploaded"><button class="hover:text-foreground" onclick="sortBy('uploaded')">Uploaded{ sortArrow(p.Sort, "uploaded", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="downloaded"><button class="hover:text-foreground" onclick="sortBy('downloaded')">Downloaded{ sortArrow(p.Sort, "downloaded", p.Order) }</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16" data-col="ratio"><button class="hover:text-foreground" data-sort-col="ratio" onclick="sortBy('ratio')">Ratio</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="uploaded"><button class="hover:text-foreground" data-sort-col="uploaded" onclick="sortBy('uploaded')">Uploaded</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="downloaded"><button class="hover:text-foreground" data-sort-col="downloaded" onclick="sortBy('downloaded')">Downloaded</button></th>
 <th class="px-3 py-2 text-right font-medium text-muted-foreground w-20" data-col="amount_left">Remaining</th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-14" data-col="seeds"><button class="hover:text-foreground" onclick="sortBy('num_seeds')">Seeds{ sortArrow(p.Sort, "num_seeds", p.Order) }</button></th>
-<th class="px-3 py-2 text-left font-medium text-muted-foreground w-28" data-col="category"><button class="hover:text-foreground" onclick="sortBy('category')">Category{ sortArrow(p.Sort, "category", p.Order) }</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-14" data-col="seeds"><button class="hover:text-foreground" data-sort-col="num_seeds" onclick="sortBy('num_seeds')">Seeds</button></th>
+<th class="px-3 py-2 text-left font-medium text-muted-foreground w-28" data-col="category"><button class="hover:text-foreground" data-sort-col="category" onclick="sortBy('category')">Category</button></th>
 <th class="px-3 py-2 text-left font-medium text-muted-foreground w-32" data-col="tags">Tags</th>
 <th class="px-3 py-2 text-left font-medium text-muted-foreground w-24" data-col="tracker">Tracker</th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-28" data-col="added_on"><button class="hover:text-foreground" onclick="sortBy('added_on')">Added{ sortArrow(p.Sort, "added_on", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-28" data-col="completion_on"><button class="hover:text-foreground" onclick="sortBy('completion_on')">Completed{ sortArrow(p.Sort, "completion_on", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-24" data-col="seeding_time"><button class="hover:text-foreground" onclick="sortBy('seeding_time')">Seeding{ sortArrow(p.Sort, "seeding_time", p.Order) }</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-28" data-col="added_on"><button class="hover:text-foreground" data-sort-col="added_on" onclick="sortBy('added_on')">Added</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-28" data-col="completion_on"><button class="hover:text-foreground" data-sort-col="completion_on" onclick="sortBy('completion_on')">Completed</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-24" data-col="seeding_time"><button class="hover:text-foreground" data-sort-col="seeding_time" onclick="sortBy('seeding_time')">Seeding</button></th>
 <th class="px-3 py-2 text-right font-medium text-muted-foreground w-24" data-col="time_active">Time Active</th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-28" data-col="last_activity"><button class="hover:text-foreground" onclick="sortBy('last_activity')">Last Activity{ sortArrow(p.Sort, "last_activity", p.Order) }</button></th>
-<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16" data-col="priority"><button class="hover:text-foreground" onclick="sortBy('priority')">Queue{ sortArrow(p.Sort, "priority", p.Order) }</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-28" data-col="last_activity"><button class="hover:text-foreground" data-sort-col="last_activity" onclick="sortBy('last_activity')">Last Activity</button></th>
+<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16" data-col="priority"><button class="hover:text-foreground" data-sort-col="priority" onclick="sortBy('priority')">Queue</button></th>
 <th class="px-3 py-2 text-left font-medium text-muted-foreground" data-col="save_path">Save Path</th>
 <th class="px-3 py-2 text-left font-medium text-muted-foreground w-32" data-col="infohash">Info Hash</th>
 <th class="px-3 py-2 text-right font-medium text-muted-foreground w-14" data-col="availability">Avail.</th>
@@ -617,21 +625,14 @@ if (cnt) cnt.textContent = count + ' selected';
 <tbody
 id="torrents-table-body"
 class="divide-y divide-border"
-hx-trigger="sse:torrent-update"
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-include="#current-status,#current-category,#current-tag,#current-page,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
 >
-@TorrentsTableBody(p)
 </tbody>
 </table>
 </div>
 
-@TorrentsPagination(p)
-
 <!-- Bulk action bar (hidden until rows are selected) -->
+<!-- Bulk selection: _checkedHashes Set tracks checked hashes; prepareBulkHashes() injects hidden inputs before submit -->
+<div id="bulk-hashes-hidden" style="display:none"></div>
 <div
 id="bulk-action-bar"
 class="hidden mt-2 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 shadow-md"
@@ -647,18 +648,19 @@ for _, act := range []struct{ action, label, cls string }{
 } {
 <button
 hx-post={ p.BaseURL + "/ui/partials/torrents/action" }
-hx-include="[name='hashes']:checked,[name='instance_id']"
+hx-include="#bulk-hashes-hidden,[name='instance_id']"
 hx-vals={ `{"action":"` + act.action + `"}` }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
-hx-on::after-request="document.getElementById('select-all').checked=false; document.querySelectorAll('[name=hashes]').forEach(cb=>cb.checked=false); document.getElementById('bulk-action-bar').classList.add('hidden');"
+hx-on::before-request="prepareBulkHashes()"
+hx-on::after-request="selectAll(false)"
 class={ "rounded-md px-2.5 py-1 text-xs font-medium transition-colors", act.cls }
 >
 { act.label }
 </button>
 }
 <button
-onclick="document.getElementById('select-all').checked=false; document.querySelectorAll('[name=hashes]').forEach(cb=>cb.checked=false); document.getElementById('bulk-action-bar').classList.add('hidden');"
+onclick="selectAll(false)"
 class="ml-auto rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
 >
 ✕ Clear
@@ -704,7 +706,7 @@ class="rounded-md p-1 text-muted-foreground hover:bg-accent transition-colors"
 <form
 id="add-torrent-form"
 hx-post={ p.BaseURL + "/ui/partials/torrents/add" }
-hx-target="#torrents-table-body"
+hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-on::after-request="if(event.detail.successful){ addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false; document.getElementById('add-torrent-form').reset(); document.getElementById('add-file-lbl').textContent = 'No files selected'; }"
 class="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0"
@@ -971,311 +973,532 @@ class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foregrou
 </div>
 </div>
 
-<!-- Checkbox selection + detail panel JS helpers -->
+<!-- Column defaults JSON (read by JS below; Go expressions can't appear inside <script> text) -->
+@TorrentsColDefaults()
+<!-- Virtual scroll + sort arrows + filter chips + expr builder JS -->
 <script>
+// ── Expr field definitions ──────────────────────────────────────────────────
+var _exprFields = [
+  { id: 'Name',        label: 'Name',         type: 'text' },
+  { id: 'State',       label: 'State',        type: 'enum', values: ['downloading','uploading','stalledDL','stalledUP','pausedDL','pausedUP','stoppedDL','stoppedUP','error','missingFiles','checkingUP','checkingDL','forcedUP','forcedDL','metaDL','allocating','moving','queuedDL','queuedUP'] },
+  { id: 'Category',    label: 'Category',     type: 'text' },
+  { id: 'Tags',        label: 'Tags',         type: 'text' },
+  { id: 'SavePath',    label: 'Save Path',    type: 'text' },
+  { id: 'Tracker',     label: 'Tracker',      type: 'text' },
+  { id: 'Ratio',       label: 'Ratio',        type: 'number' },
+  { id: 'Progress',    label: 'Progress (0-1)', type: 'number' },
+  { id: 'Size',        label: 'Size (bytes)', type: 'number' },
+  { id: 'TotalSize',   label: 'Total Size',   type: 'number' },
+  { id: 'DlSpeed',     label: 'DL Speed (B/s)', type: 'number' },
+  { id: 'UpSpeed',     label: 'UP Speed (B/s)', type: 'number' },
+  { id: 'Uploaded',    label: 'Uploaded',     type: 'number' },
+  { id: 'Downloaded',  label: 'Downloaded',   type: 'number' },
+  { id: 'NumSeeds',    label: 'Seeds',        type: 'number' },
+  { id: 'NumLeechs',   label: 'Leechers',     type: 'number' },
+  { id: 'SeedingTime', label: 'Seeding Time (s)', type: 'number' },
+  { id: 'TimeActive',  label: 'Time Active (s)',  type: 'number' },
+  { id: 'AmountLeft',  label: 'Amount Left',  type: 'number' },
+  { id: 'Priority',    label: 'Priority',     type: 'number' },
+  { id: 'Availability',label: 'Availability', type: 'number' },
+  { id: 'NumComplete', label: 'Total Seeds',  type: 'number' },
+  { id: 'NumIncomplete',label: 'Total Peers', type: 'number' },
+];
+var _exprOpsText   = ['contains','==','!=','startsWith','endsWith'];
+var _exprOpsNumber = ['<','<=','>','>=','==','!='];
+var _exprOpsEnum   = ['==','!='];
+var _stateLabels   = {
+  'downloading':'Downloading', 'uploading':'Seeding', 'stalledDL':'Stalled↓', 'stalledUP':'Stalled↑',
+  'pausedDL':'Paused↓', 'pausedUP':'Paused↑', 'stoppedDL':'Stopped↓', 'stoppedUP':'Stopped↑',
+  'error':'Error', 'missingFiles':'Missing Files', 'checkingUP':'Checking', 'checkingDL':'Checking',
+  'forcedUP':'Forced UP', 'forcedDL':'Forced DL', 'metaDL':'Getting Metadata',
+  'allocating':'Allocating', 'moving':'Moving', 'queuedDL':'Queued↓', 'queuedUP':'Queued↑',
+};
+
+// ── Expr builder init ───────────────────────────────────────────────────────
+function initExprBuilder() {
+  var sel = document.getElementById('eb-field');
+  if (!sel || sel.options.length > 0) return;
+  sel.innerHTML = _exprFields.map(function(f){ return '<option value="'+f.id+'">'+f.label+'</option>'; }).join('');
+  exprBuilderFieldChanged();
+}
+
+function exprBuilderFieldChanged() {
+  var sel = document.getElementById('eb-field');
+  if (!sel) return;
+  var field = _exprFields.find(function(f){ return f.id === sel.value; });
+  if (!field) return;
+  var opSel = document.getElementById('eb-op');
+  var valContainer = document.getElementById('eb-val-container');
+  if (!opSel || !valContainer) return;
+  var ops = field.type === 'number' ? _exprOpsNumber : field.type === 'enum' ? _exprOpsEnum : _exprOpsText;
+  opSel.innerHTML = ops.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('');
+  if (field.type === 'enum') {
+    valContainer.innerHTML = '<select id="eb-val" class="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring">' +
+      field.values.map(function(v){ return '<option value="'+v+'">'+(_stateLabels[v]||v)+'</option>'; }).join('') + '</select>';
+  } else if (field.type === 'number') {
+    valContainer.innerHTML = '<input id="eb-val" type="number" step="any" placeholder="value" class="h-7 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" onkeydown="if(event.key===\'Enter\'){event.preventDefault();exprBuilderAdd();}"/>';
+  } else {
+    valContainer.innerHTML = '<input id="eb-val" type="text" placeholder="value" class="h-7 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" onkeydown="if(event.key===\'Enter\'){event.preventDefault();exprBuilderAdd();}"/>';
+  }
+}
+
+function exprBuilderAdd() {
+  var fieldSel = document.getElementById('eb-field');
+  var opSel    = document.getElementById('eb-op');
+  var valEl    = document.getElementById('eb-val');
+  if (!fieldSel || !opSel || !valEl) return;
+  var field = _exprFields.find(function(f){ return f.id === fieldSel.value; });
+  if (!field) return;
+  var op  = opSel.value;
+  var val = valEl.value.trim();
+  if (val === '') return;
+  var cond;
+  if (op === 'contains')    cond = field.id + ' contains "' + val + '"';
+  else if (op === 'startsWith') cond = field.id + ' startsWith "' + val + '"';
+  else if (op === 'endsWith')   cond = field.id + ' endsWith "' + val + '"';
+  else if (field.type === 'text' || field.type === 'enum') cond = field.id + ' ' + op + ' "' + val + '"';
+  else cond = field.id + ' ' + op + ' ' + val;
+  var exprEl = document.getElementById('current-expr');
+  if (exprEl) { exprEl.value = exprEl.value ? exprEl.value + ' && ' + cond : cond; }
+  valEl.value = '';
+  renderFilterChips();
+  triggerTableRefresh();
+}
+
+// ── Filter chips ────────────────────────────────────────────────────────────
+function _escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderFilterChips() {
+  var chips = document.getElementById('filter-chips');
+  if (!chips) return;
+  var status   = (document.getElementById('current-status')   || {value:''}).value || '';
+  var category = (document.getElementById('current-category') || {value:''}).value || '';
+  var tag      = (document.getElementById('current-tag')      || {value:''}).value || '';
+  var search   = (document.getElementById('torrents-search')  || {value:''}).value || '';
+  var expr     = (document.getElementById('current-expr')     || {value:''}).value || '';
+  var parts = [];
+  if (status)   parts.push({ label: 'State == "' + (_stateLabels[status] || status) + '"', rawLabel: 'State == "' + status + '"', clear: 'status' });
+  if (category) parts.push({ label: 'Category == "' + category + '"', clear: 'category' });
+  if (tag)      parts.push({ label: 'Tags contains "' + tag + '"', clear: 'tag' });
+  if (search)   parts.push({ label: 'Name ~ "' + search + '"', clear: 'search' });
+  if (expr)     parts.push({ label: expr.length>50 ? expr.substring(0,50)+'…' : expr, title: expr, clear: 'expr' });
+  chips.innerHTML = parts.map(function(p) {
+    return '<span class="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium font-mono" title="'+ _escHtml(p.title||p.label) +'">' +
+      '<span>'+_escHtml(p.label)+'</span>' +
+      '<button type="button" onclick="clearFilter(\''+p.clear+'\')" class="ml-0.5 text-primary/70 hover:text-primary leading-none" aria-label="Remove filter">\xd7</button>' +
+      '</span>';
+  }).join('');
+}
+
+function clearFilter(type) {
+  var map = { status:'current-status', category:'current-category', tag:'current-tag', search:'torrents-search', expr:'current-expr' };
+  var el = document.getElementById(map[type]);
+  if (el) el.value = '';
+  renderFilterChips();
+  triggerTableRefresh();
+}
+
+function triggerTableRefresh() {
+  var btn = document.getElementById('sort-trigger');
+  if (btn && window.htmx) htmx.trigger(btn, 'click');
+}
+
+// ── Sort arrows ─────────────────────────────────────────────────────────────
+function applySortArrows() {
+  var sort  = (document.getElementById('current-sort')  || {value:''}).value || '';
+  var order = (document.getElementById('current-order') || {value:'desc'}).value || 'desc';
+  document.querySelectorAll('[data-sort-col]').forEach(function(btn) {
+    btn.querySelectorAll('.sort-arrow').forEach(function(s){ s.parentNode.removeChild(s); });
+    if (btn.dataset.sortCol === sort) {
+      var sp = document.createElement('span');
+      sp.className = 'sort-arrow';
+      sp.textContent = order === 'asc' ? ' \u2191' : ' \u2193';
+      btn.appendChild(sp);
+    }
+  });
+}
+
+// ── Virtual scroll ──────────────────────────────────────────────────────────
+// _vlRows holds all torrent data as plain JS objects from the server JSON.
+// Only rows that are visible in the scroll viewport are inserted into the DOM,
+// keeping the DOM small regardless of torrent count.
+var _vlRows      = [];
+var _vlRowHeight = 40;
+var _vlListening = false;
+var _vlNodeCache = {};
+var _vtBaseURL   = '';
+var _vtInstanceID = 0;
+
+function initVirtualScroll() {
+  var dataEl    = document.getElementById('vt-rows-json');
+  var container = document.getElementById('torrents-scroll-container');
+  var tbody     = document.getElementById('torrents-table-body');
+  if (!dataEl || !container || !tbody) return;
+
+  var data;
+  try { data = JSON.parse(dataEl.textContent); }
+  catch(e) { console.error('vt: JSON parse failed', e); return; }
+
+  _vtBaseURL    = data.baseURL    || '';
+  _vtInstanceID = data.instanceID || 0;
+  _vlRows       = data.rows       || [];
+  _vlNodeCache  = {};
+
+  var countEl = document.getElementById('torrent-count');
+  if (countEl) countEl.textContent = (data.total || _vlRows.length) + ' torrent(s)';
+
+  ['vl-top-spacer','vl-bot-spacer'].forEach(function(id) {
+    var old = document.getElementById(id);
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+  });
+  var mkSpacer = function(id) {
+    var tr = document.createElement('tr'); tr.id = id;
+    var td = document.createElement('td'); td.setAttribute('colspan','30');
+    td.style.padding = '0'; td.style.height = '0px';
+    tr.appendChild(td); return tr;
+  };
+  var top = mkSpacer('vl-top-spacer');
+  var bot = mkSpacer('vl-bot-spacer');
+  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+  tbody.appendChild(top);
+  tbody.appendChild(bot);
+
+  if (!_vlListening) {
+    container.addEventListener('scroll', function(){ _vlRender(); }, { passive: true });
+    _vlListening = true;
+  }
+
+  // Defer first render until the scroll container has a real measured height.
+  // On initial page load, clientHeight is 0 because layout hasn't completed;
+  // a ResizeObserver fires once the browser has performed layout.
+  if (container.clientHeight > 0) {
+    _vlRender();
+  } else if (typeof ResizeObserver !== 'undefined') {
+    var _vlRO = new ResizeObserver(function() {
+      if (container.clientHeight > 0) { _vlRO.disconnect(); _vlRender(); }
+    });
+    _vlRO.observe(container);
+  } else {
+    setTimeout(_vlRender, 100);
+  }
+}
+
+function _vlRender() {
+  var tbody     = document.getElementById('torrents-table-body');
+  var container = document.getElementById('torrents-scroll-container');
+  var top = document.getElementById('vl-top-spacer');
+  var bot = document.getElementById('vl-bot-spacer');
+  if (!tbody || !container || !top || !bot) return;
+  if (_vlRows.length === 0) {
+    var node = top.nextSibling;
+    while (node && node !== bot) { var nxt = node.nextSibling; tbody.removeChild(node); node = nxt; }
+    var emptyTr = document.createElement('tr');
+    emptyTr.innerHTML = '<td colspan="30" class="px-3 py-12 text-center text-sm text-muted-foreground">No torrents match your filters.</td>';
+    tbody.insertBefore(emptyTr, bot);
+    top.firstChild.style.height = '0px';
+    bot.firstChild.style.height = '0px';
+    return;
+  }
+
+  var total     = _vlRows.length;
+  var rh        = _vlRowHeight;
+  var scrollTop = container.scrollTop;
+  var viewH     = container.clientHeight;
+  var overscan  = 5;
+
+  var startIdx = Math.max(0, Math.floor(scrollTop / rh) - overscan);
+  var endIdx   = Math.min(total, Math.ceil((scrollTop + viewH) / rh) + overscan);
+
+  top.firstChild.style.height = (startIdx * rh) + 'px';
+  bot.firstChild.style.height = ((total - endIdx) * rh) + 'px';
+
+  var node = top.nextSibling;
+  while (node && node !== bot) {
+    var nxt = node.nextSibling;
+    tbody.removeChild(node);
+    node = nxt;
+  }
+  var frag = document.createDocumentFragment();
+  for (var i = startIdx; i < endIdx; i++) { frag.appendChild(_vtGetRow(i)); }
+  tbody.insertBefore(frag, bot);
+
+  if (_vlRowHeight === 40) {
+    var first = top.nextSibling;
+    if (first && first !== bot) {
+      var h = first.getBoundingClientRect().height;
+      if (h > 4) _vlRowHeight = h;
+    }
+  }
+  _restoreCheckboxes();
+  applyTblCols();
+}
+
+function _vtGetRow(i) {
+  if (!_vlNodeCache[i]) _vlNodeCache[i] = _createRow(_vlRows[i]);
+  return _vlNodeCache[i];
+}
+
+// ── Row renderer ─────────────────────────────────────────────────────────────
+function _vtStateLabel(state) {
+  var m = {
+    'downloading':['Downloading','bg-blue-500/15 text-blue-700 dark:text-blue-400'],
+    'metaDL':     ['Downloading','bg-blue-500/15 text-blue-700 dark:text-blue-400'],
+    'allocating': ['Downloading','bg-blue-500/15 text-blue-700 dark:text-blue-400'],
+    'uploading':  ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],
+    'stalledUP':  ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],
+    'forcedUP':   ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],
+    'queuedUP':   ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],
+    'pausedDL':   ['Paused','bg-muted text-muted-foreground'],
+    'stoppedDL':  ['Paused','bg-muted text-muted-foreground'],
+    'pausedUP':   ['Completed','bg-muted text-muted-foreground'],
+    'stoppedUP':  ['Completed','bg-muted text-muted-foreground'],
+    'error':      ['Error','bg-red-500/15 text-red-700 dark:text-red-400'],
+    'missingFiles':['Error','bg-red-500/15 text-red-700 dark:text-red-400'],
+    'checkingUP': ['Checking','bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'],
+    'checkingDL': ['Checking','bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'],
+    'checkingResumeData':['Checking','bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'],
+  };
+  return m[state] || [state||'Unknown','bg-muted text-muted-foreground'];
+}
+function _vtFmtBytes(n) {
+  if (!n || n <= 0) return '\u2014';
+  var u = ['B','KiB','MiB','GiB','TiB'], i = 0, v = +n;
+  while (v >= 1024 && i < u.length-1) { v /= 1024; i++; }
+  return (i > 0 ? v.toFixed(1) : Math.round(v)) + '\u202f' + u[i];
+}
+function _vtFmtBps(n) { return n > 0 ? _vtFmtBytes(n) + '/s' : '\u2014'; }
+function _vtFmtPct(p) { return ((p||0)*100).toFixed(1) + '%'; }
+function _vtFmtRatio(r) { return r >= 100 ? '>100' : (r||0).toFixed(2); }
+function _vtFmtETA(s) {
+  if (!s || s < 0 || s > 8640000) return '\u221e';
+  var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m';
+  if (m > 0) return m+'m'+String(sec).padStart(2,'0')+'s';
+  return sec+'s';
+}
+function _vtFmtTs(t) {
+  if (!t || t <= 0) return '\u2014';
+  var d = new Date(t*1000);
+  var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return mo[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear()+' '+
+    String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function _vtFmtSeedTime(s) {
+  if (!s || s <= 0) return '\u2014';
+  var d = Math.floor(s/86400), h = Math.floor((s%86400)/3600);
+  if (d > 0) return d+'d '+h+'h';
+  var m = Math.floor((s%3600)/60);
+  return h > 0 ? h+'h '+m+'m' : m+'m';
+}
+function _vtTrackerHost(url) {
+  if (!url) return '';
+  try {
+    var parts = new URL(url).hostname.split('.');
+    return parts.length >= 2 ? parts[parts.length-2]+'.'+parts[parts.length-1] : parts[0];
+  } catch(e) { return url; }
+}
+function _vtEsc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _vtIsDownloading(state) {
+  return ['downloading','metaDL','allocating','checkingDL','forcedDL'].indexOf(state) >= 0;
+}
+
+function _createRow(t) {
+  var sl = _vtStateLabel(t.State||''), label = sl[0], badge = sl[1];
+  var hash = t.Hash || '';
+  var h = '';
+  h += '<td class="px-2 py-2 w-8" onclick="event.stopPropagation()"><input type="checkbox" name="hashes" value="'+_vtEsc(hash)+'" class="rounded" onclick="event.stopPropagation()"/></td>';
+  h += '<td class="px-3 py-2 max-w-xs"><span class="block truncate font-medium" title="'+_vtEsc(t.Name)+'">'+_vtEsc(t.Name)+'</span></td>';
+  h += '<td class="px-3 py-2 whitespace-nowrap" data-col="status"><span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium '+badge+'">'+label+'</span></td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="size">'+_vtFmtBytes(t.SizeB)+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="total_size">'+(t.TotalSizeB > 0 ? _vtFmtBytes(t.TotalSizeB) : '<span class="text-muted-foreground/50">\u2014</span>')+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums" data-col="progress">'+_vtFmtPct(t.Progress)+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-blue-600 dark:text-blue-400" data-col="dlspeed">'+(t.DlSpeed > 0 ? _vtFmtBps(t.DlSpeed) : '<span class="text-muted-foreground">\u2014</span>')+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-green-600 dark:text-green-400" data-col="upspeed">'+(t.UpSpeed > 0 ? _vtFmtBps(t.UpSpeed) : '<span class="text-muted-foreground">\u2014</span>')+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="eta">'+(_vtIsDownloading(t.State) ? _vtFmtETA(t.ETA) : '\u2014')+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums" data-col="ratio">'+_vtFmtRatio(t.Ratio)+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="uploaded">'+(t.Uploaded > 0 ? _vtFmtBytes(t.Uploaded) : '<span class="text-muted-foreground/50">\u2014</span>')+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="downloaded">'+(t.Downloaded > 0 ? _vtFmtBytes(t.Downloaded) : '<span class="text-muted-foreground/50">\u2014</span>')+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="amount_left">'+(t.AmountLeft > 0 ? _vtFmtBytes(t.AmountLeft) : '<span class="text-muted-foreground/50">\u2014</span>')+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="seeds">'+(t.NumSeeds||0)+'<span class="text-muted-foreground/60">/'+(t.NumLeechs||0)+'</span></td>';
+  h += '<td class="px-3 py-2 max-w-[7rem]" data-col="category"><span class="block truncate text-muted-foreground text-xs" title="'+_vtEsc(t.Category)+'">'+(t.Category ? _vtEsc(t.Category) : '<span class="italic">none</span>')+'</span></td>';
+  h += '<td class="px-3 py-2 max-w-[8rem]" data-col="tags">'+(t.Tags ? '<span class="block truncate text-muted-foreground text-xs" title="'+_vtEsc(t.Tags)+'">'+_vtEsc(t.Tags)+'</span>' : '<span class="text-muted-foreground/50 text-xs">\u2014</span>')+'</td>';
+  h += '<td class="px-3 py-2 max-w-[6rem]" data-col="tracker"><span class="block truncate text-muted-foreground text-xs" title="'+_vtEsc(t.Tracker)+'">'+_vtEsc(_vtTrackerHost(t.Tracker))+'</span></td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="added_on">'+_vtFmtTs(t.AddedOn)+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="completion_on">'+_vtFmtTs(t.CompletionOn)+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="seeding_time">'+_vtFmtSeedTime(t.SeedingTime)+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="time_active">'+_vtFmtSeedTime(t.TimeActive)+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="last_activity">'+_vtFmtTs(t.LastActivity)+'</td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="priority">'+(t.Priority > 0 ? t.Priority : '\u2014')+'</td>';
+  h += '<td class="px-3 py-2" data-col="save_path"><span class="block truncate text-muted-foreground text-xs max-w-[12rem]" title="'+_vtEsc(t.SavePath)+'">'+_vtEsc(t.SavePath)+'</span></td>';
+  var ih = t.InfohashV1 || t.InfohashV2 || hash;
+  h += '<td class="px-3 py-2" data-col="infohash"><span class="block truncate font-mono text-muted-foreground text-xs max-w-[8rem]" title="'+_vtEsc(ih)+'">'+_vtEsc(ih)+'</span></td>';
+  h += '<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="availability">'+(t.Availability > 0 ? (t.Availability*100).toFixed(1)+'%' : '\u2014')+'</td>';
+
+  var tr = document.createElement('tr');
+  tr.className = 'hover:bg-muted/50 transition-colors cursor-pointer';
+  tr.setAttribute('hx-get', _vtBaseURL + '/ui/partials/torrents/' + hash + '?instance_id=' + _vtInstanceID);
+  tr.setAttribute('hx-target', '#torrent-detail-panel');
+  tr.setAttribute('hx-swap', 'innerHTML');
+  tr.innerHTML = h;
+  if (window.htmx) htmx.process(tr);
+  return tr;
+}
+
+// ── Checkbox tracking (virtual-scroll-aware) ────────────────────────────────
+var _checkedHashes = new Set();
+
+function _restoreCheckboxes() {
+  document.querySelectorAll('[name=hashes]').forEach(function(cb) {
+    cb.checked = _checkedHashes.has(cb.value);
+  });
+}
+
+function _updateBulkBar() {
+  var count = _checkedHashes.size;
+  var bar = document.getElementById('bulk-action-bar');
+  if (bar) { count > 0 ? bar.classList.remove('hidden') : bar.classList.add('hidden'); }
+  var cnt = document.getElementById('bulk-count');
+  if (cnt) cnt.textContent = count + ' selected';
+}
+
+function _updateSelectAll() {
+  var total = _vlRows.length;
+  var count = _checkedHashes.size;
+  var sa = document.getElementById('select-all');
+  if (!sa) return;
+  sa.checked = count > 0 && count === total;
+  sa.indeterminate = count > 0 && count < total;
+}
+
+function selectAll(checked) {
+  _checkedHashes = new Set();
+  if (checked) {
+    _vlRows.forEach(function(row) { if (row.Hash) _checkedHashes.add(row.Hash); });
+  }
+  _restoreCheckboxes();
+  _updateBulkBar();
+  var sa = document.getElementById('select-all');
+  if (sa) { sa.checked = checked && _vlRows.length > 0; sa.indeterminate = false; }
+}
+
+// Populate #bulk-hashes-hidden before bulk action submit.
+function prepareBulkHashes() {
+  var container = document.getElementById('bulk-hashes-hidden');
+  if (!container) return;
+  container.innerHTML = '';
+  _checkedHashes.forEach(function(hash) {
+    var inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'hashes'; inp.value = hash;
+    container.appendChild(inp);
+  });
+}
+
 document.addEventListener('change', function(e) {
-if (e.target && e.target.name === 'hashes') {
-const count = document.querySelectorAll('[name=hashes]:checked').length;
-const total = document.querySelectorAll('[name=hashes]').length;
-const bar = document.getElementById('bulk-action-bar');
-if (bar) { count > 0 ? bar.classList.remove('hidden') : bar.classList.add('hidden'); }
-const cnt = document.getElementById('bulk-count');
-if (cnt) cnt.textContent = count + ' selected';
-const sa = document.getElementById('select-all');
-if (sa) {
-sa.checked = count === total && total > 0;
-sa.indeterminate = count > 0 && count < total;
-}
-}
+  if (!e.target || e.target.name !== 'hashes') return;
+  if (e.target.checked) { _checkedHashes.add(e.target.value); }
+  else { _checkedHashes.delete(e.target.value); }
+  _updateBulkBar();
+  _updateSelectAll();
 });
-document.body.addEventListener('htmx:afterSwap', function(e) {
-if (e.detail.target && e.detail.target.id === 'torrent-detail-panel') {
-const outer = document.getElementById('torrent-detail-outer');
-if (outer) outer.style.display = 'flex';
-}
-});
-document.body.addEventListener('torrent-detail-close', function() {
-const outer = document.getElementById('torrent-detail-outer');
-if (outer) outer.style.display = 'none';
-});
-// sortBy: update hidden sort inputs then fire the hidden sort-trigger button.
-function sortBy(col) {
-const sortInput = document.getElementById('current-sort');
-const orderInput = document.getElementById('current-order');
-if (!sortInput || !orderInput) return;
-const descDefault = ['added_on','completion_on','last_activity','seeding_time','ratio','uploaded','downloaded','size','total_size','time_active'];
-if (sortInput.value === col) {
-orderInput.value = orderInput.value === 'asc' ? 'desc' : 'asc';
-} else {
-sortInput.value = col;
-orderInput.value = descDefault.includes(col) ? 'desc' : 'asc';
-}
-document.getElementById('current-page').value = '1';
-document.getElementById('sort-trigger').click();
-}
-// ── Column visibility ─────────────────────────────────────────────────────
-var _tblColDefaults = { colDefaultsJSON() };
+
+// ── Column visibility ────────────────────────────────────────────────────────
+var _tblColDefaults = JSON.parse(document.getElementById('col-defaults-json').textContent);
 var _tblCols = (function() {
-try {
-var saved = JSON.parse(localStorage.getItem('qui_tbl_cols') || '{}');
-return Object.assign({}, _tblColDefaults, saved);
-} catch(e) { return Object.assign({}, _tblColDefaults); }
+  try { var s = JSON.parse(localStorage.getItem('qui_tbl_cols')||'{}'); return Object.assign({},_tblColDefaults,s); }
+  catch(e) { return Object.assign({},_tblColDefaults); }
 })();
 function applyTblCols() {
-Object.keys(_tblCols).forEach(function(col) {
-document.querySelectorAll('[data-col="' + col + '"]').forEach(function(el) {
-if (_tblCols[col]) el.classList.remove('hidden');
-else el.classList.add('hidden');
-});
-});
-Object.keys(_tblCols).forEach(function(col) {
-var cb = document.getElementById('col-toggle-' + col);
-if (cb) cb.checked = !!_tblCols[col];
-});
+  Object.keys(_tblCols).forEach(function(col) {
+    document.querySelectorAll('[data-col="'+col+'"]').forEach(function(el) {
+      if (_tblCols[col]) el.classList.remove('hidden'); else el.classList.add('hidden');
+    });
+  });
+  Object.keys(_tblCols).forEach(function(col) {
+    var cb = document.getElementById('col-toggle-'+col); if (cb) cb.checked = !!_tblCols[col];
+  });
 }
 function toggleTblCol(col) {
-_tblCols[col] = !_tblCols[col];
-localStorage.setItem('qui_tbl_cols', JSON.stringify(_tblCols));
-applyTblCols();
+  _tblCols[col] = !_tblCols[col];
+  localStorage.setItem('qui_tbl_cols', JSON.stringify(_tblCols));
+  applyTblCols();
 }
 function resetTblCols() {
-_tblCols = Object.assign({}, _tblColDefaults);
-localStorage.removeItem('qui_tbl_cols');
-applyTblCols();
+  _tblCols = Object.assign({},_tblColDefaults);
+  localStorage.removeItem('qui_tbl_cols');
+  applyTblCols();
 }
-applyTblCols();
+
+// ── sortBy ───────────────────────────────────────────────────────────────────
+function sortBy(col) {
+  var si = document.getElementById('current-sort');
+  var oi = document.getElementById('current-order');
+  if (!si || !oi) return;
+  var descDefault = ['added_on','completion_on','last_activity','seeding_time','ratio','uploaded','downloaded','size','total_size','time_active'];
+  if (si.value === col) { oi.value = oi.value === 'asc' ? 'desc' : 'asc'; }
+  else { si.value = col; oi.value = descDefault.indexOf(col) >= 0 ? 'desc' : 'asc'; }
+  applySortArrows();
+  document.getElementById('sort-trigger').click();
+}
+
+// ── HTMX lifecycle ───────────────────────────────────────────────────────────
+// Sync sidebar hx-vals params (status/category/tag) back to hidden inputs so
+// renderFilterChips() always reflects the active filter state.
+document.body.addEventListener('htmx:configRequest', function(e) {
+  if (!e.detail || !e.detail.parameters) return;
+  var p = e.detail.parameters;
+  var map = { status: 'current-status', category: 'current-category', tag: 'current-tag' };
+  Object.keys(map).forEach(function(k) {
+    if (Object.prototype.hasOwnProperty.call(p, k)) {
+      var el = document.getElementById(map[k]);
+      if (el) el.value = p[k];
+    }
+  });
+});
+
 document.body.addEventListener('htmx:afterSwap', function(e) {
-if (e.detail.target && e.detail.target.id === 'torrents-table-body') { applyTblCols(); }
+  if (!e.detail || !e.detail.target) return;
+  var id = e.detail.target.id;
+  if (id === 'torrent-detail-panel') {
+    var outer = document.getElementById('torrent-detail-outer');
+    if (outer) outer.style.display = 'flex';
+  }
+  if (id === 'vt-data-slot') {
+    _checkedHashes = new Set();
+    _updateBulkBar();
+    var sa = document.getElementById('select-all');
+    if (sa) { sa.checked = false; sa.indeterminate = false; }
+    initVirtualScroll();
+    applySortArrows();
+    renderFilterChips();
+  }
 });
-// ── SSE live indicator ──────────────────────────────────────────────────────
-document.body.addEventListener('htmx:sseOpen', function() {
-var ind = document.getElementById('sse-indicator'); if (ind) ind.classList.remove('hidden');
+document.body.addEventListener('torrent-detail-close', function() {
+  var outer = document.getElementById('torrent-detail-outer');
+  if (outer) outer.style.display = 'none';
 });
-document.body.addEventListener('htmx:sseClose', function() {
-var ind = document.getElementById('sse-indicator'); if (ind) ind.classList.add('hidden');
+
+// ── SSE indicators ───────────────────────────────────────────────────────────
+document.body.addEventListener('htmx:sseOpen',  function() { var i=document.getElementById('sse-indicator'); if(i) i.classList.remove('hidden'); });
+document.body.addEventListener('htmx:sseClose', function() { var i=document.getElementById('sse-indicator'); if(i) i.classList.add('hidden');    });
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+// Wrap in DOMContentLoaded so defer'd scripts (htmx, alpine) are fully
+// executed before we call initVirtualScroll → _createRow → htmx.process.
+document.addEventListener('DOMContentLoaded', function() {
+  applyTblCols();
+  applySortArrows();
+  renderFilterChips();
+  initExprBuilder();
+  initVirtualScroll();
 });
 </script>
 }
 }
 
-// TorrentsTableBody renders only the <tr> rows — used for HTMX partial swap.
-templ TorrentsTableBody(p TorrentsProps) {
-if len(p.Rows) == 0 {
-<tr>
-<td colspan="30" class="px-3 py-12 text-center text-sm text-muted-foreground">
-No torrents match your filters.
-</td>
-</tr>
-} else {
-for _, t := range p.Rows {
-{{ label, cls := stateLabel(t.State) }}
-<tr
-class="hover:bg-muted/50 transition-colors cursor-pointer"
-hx-get={ p.BaseURL + "/ui/partials/torrents/" + t.Hash + "?instance_id=" + itoa(p.InstanceID) }
-hx-target="#torrent-detail-panel"
-hx-swap="innerHTML"
->
-<!-- Checkbox -->
-<td class="px-2 py-2 w-8" onclick="event.stopPropagation()">
-<input type="checkbox" name="hashes" value={ t.Hash } class="rounded" onclick="event.stopPropagation()"/>
-</td>
-<!-- Name (always visible) -->
-<td class="px-3 py-2 max-w-xs">
-<span class="block truncate font-medium" title={ t.Name }>{ t.Name }</span>
-</td>
-<!-- Status -->
-<td class="px-3 py-2 whitespace-nowrap" data-col="status">
-<span class={ "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", cls }>
-{ label }
-</span>
-</td>
-<!-- Size -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="size">
-{ formatBytes(uint64(t.SizeB)) }
-</td>
-<!-- Total Size -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="total_size">
-if t.TotalSizeB > 0 {
-{ formatBytes(uint64(t.TotalSizeB)) }
-} else {
-<span class="text-muted-foreground/50">—</span>
-}
-</td>
-<!-- Progress -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums" data-col="progress">
-{ formatPercent(t.Progress) }
-</td>
-<!-- Down speed -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-blue-600 dark:text-blue-400" data-col="dlspeed">
-if t.DlSpeed > 0 {
-{ formatBytesPerSec(uint64(t.DlSpeed)) }
-} else {
-<span class="text-muted-foreground">—</span>
-}
-</td>
-<!-- Up speed -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-green-600 dark:text-green-400" data-col="upspeed">
-if t.UpSpeed > 0 {
-{ formatBytesPerSec(uint64(t.UpSpeed)) }
-} else {
-<span class="text-muted-foreground">—</span>
-}
-</td>
-<!-- ETA -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="eta">
-if isDownloading(t.State) {
-{ formatETA(t.ETA) }
-} else {
-<span>—</span>
-}
-</td>
-<!-- Ratio -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums" data-col="ratio">
-{ formatRatio(t.Ratio) }
-</td>
-<!-- Uploaded -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="uploaded">
-if t.Uploaded > 0 {
-{ formatBytes(uint64(t.Uploaded)) }
-} else {
-<span class="text-muted-foreground/50">—</span>
-}
-</td>
-<!-- Downloaded -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="downloaded">
-if t.Downloaded > 0 {
-{ formatBytes(uint64(t.Downloaded)) }
-} else {
-<span class="text-muted-foreground/50">—</span>
-}
-</td>
-<!-- Remaining -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="amount_left">
-if t.AmountLeft > 0 {
-{ formatBytes(uint64(t.AmountLeft)) }
-} else {
-<span class="text-muted-foreground/50">—</span>
-}
-</td>
-<!-- Seeds / Leeches -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground" data-col="seeds">
-{ itoa(int(t.NumSeeds)) }<span class="text-muted-foreground/60">/{ itoa(int(t.NumLeechs)) }</span>
-</td>
-<!-- Category -->
-<td class="px-3 py-2 max-w-[7rem]" data-col="category">
-<span class="block truncate text-muted-foreground text-xs" title={ t.Category }>
-if t.Category == "" {
-<span class="italic">none</span>
-} else {
-{ t.Category }
-}
-</span>
-</td>
-<!-- Tags -->
-<td class="px-3 py-2 max-w-[8rem]" data-col="tags">
-if t.Tags != "" {
-<span class="block truncate text-muted-foreground text-xs" title={ t.Tags }>{ t.Tags }</span>
-} else {
-<span class="text-muted-foreground/50 text-xs">—</span>
-}
-</td>
-<!-- Tracker -->
-<td class="px-3 py-2 max-w-[6rem]" data-col="tracker">
-<span class="block truncate text-muted-foreground text-xs" title={ t.Tracker }>
-{ trackerHost(t.Tracker) }
-</span>
-</td>
-<!-- Added On -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="added_on">
-{ formatTimestamp(t.AddedOn) }
-</td>
-<!-- Completed On -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="completion_on">
-{ formatTimestamp(t.CompletionOn) }
-</td>
-<!-- Seeding Time -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="seeding_time">
-{ formatSeedingTime(t.SeedingTime) }
-</td>
-<!-- Time Active -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="time_active">
-{ formatSeedingTime(t.TimeActive) }
-</td>
-<!-- Last Activity -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="last_activity">
-{ formatTimestamp(t.LastActivity) }
-</td>
-<!-- Queue Priority -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="priority">
-if t.Priority > 0 {
-{ itoa(int(t.Priority)) }
-} else {
-<span>—</span>
-}
-</td>
-<!-- Save Path -->
-<td class="px-3 py-2" data-col="save_path">
-<span class="block truncate text-muted-foreground text-xs max-w-[12rem]" title={ t.SavePath }>
-{ t.SavePath }
-</span>
-</td>
-<!-- Info Hash -->
-<td class="px-3 py-2" data-col="infohash">
-if t.InfohashV1 != "" {
-<span class="block truncate font-mono text-muted-foreground text-xs max-w-[8rem]" title={ t.InfohashV1 }>{ t.InfohashV1 }</span>
-} else if t.InfohashV2 != "" {
-<span class="block truncate font-mono text-muted-foreground text-xs max-w-[8rem]" title={ t.InfohashV2 }>{ t.InfohashV2 }</span>
-} else {
-<span class="block truncate font-mono text-muted-foreground text-xs max-w-[8rem]" title={ t.Hash }>{ t.Hash }</span>
-}
-</td>
-<!-- Availability -->
-<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs" data-col="availability">
-if t.Availability > 0 {
-{ fmt.Sprintf("%.1f%%", t.Availability*100) }
-} else {
-<span>—</span>
-}
-</td>
-</tr>
-}
-}
-}
 
-// TorrentsPagination renders prev/next page controls.
-templ TorrentsPagination(p TorrentsProps) {
-{{ pages := totalPages(p.Total, p.PageSize) }}
-if pages > 1 {
-<div class="flex items-center justify-between py-2 px-1 text-sm shrink-0">
-<span class="text-muted-foreground">
-Page { itoa(p.Page) } of { itoa(pages) }
-</span>
-<div class="flex items-center gap-1">
-if p.Page > 1 {
-<button
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-vals={ `{"page":"` + itoa(p.Page-1) + `"}` }
-hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"class="rounded-md border border-input bg-background px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
->
-← Prev
-</button>
-}
-if p.Page < pages {
-<button
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#torrents-table-body"
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-vals={ `{"page":"` + itoa(p.Page+1) + `"}` }
-hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"class="rounded-md border border-input bg-background px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
->
-Next →
-</button>
-}
-</div>
-</div>
-}
-}
+// TorrentsTableBody is implemented as a plain Go ComponentFunc in
+// torrents_data.go so the JSON can be written directly without templ escaping.

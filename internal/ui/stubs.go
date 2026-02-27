@@ -52,8 +52,6 @@ func (h *Handler) renderStub(w http.ResponseWriter, r *http.Request, title, path
 // Torrents page
 // ------------------------------------------------------------------
 
-const defaultPageSize = 50
-
 // GetTorrents renders the full torrents list page.
 func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 	username := UsernameFromContext(r.Context())
@@ -74,7 +72,6 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 	status := q.Get("status")
 	category := q.Get("category")
 	tag := q.Get("tag")
-	page := intParam(q.Get("page"), 1)
 	instanceID := intParam(q.Get("instance_id"), 0)
 	expr := strings.TrimSpace(q.Get("expr"))
 	sortCol := q.Get("sort")
@@ -86,7 +83,7 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 		sortOrder = "desc"
 	}
 
-	rows, total, targetID := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status, category, tag, expr, sortCol, sortOrder)
+	rows, total, targetID := h.fetchTorrentRows(ctx, instanceID, search, status, category, tag, expr, sortCol, sortOrder)
 
 	// Load sidebar data (categories and tags) for the full page render.
 	var cats []string
@@ -115,8 +112,6 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 		Sort:       sortCol,
 		Order:      sortOrder,
 		Expr:       expr,
-		Page:       page,
-		PageSize:   defaultPageSize,
 		Rows:       rows,
 		Total:      total,
 		Categories: cats,
@@ -134,7 +129,6 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 	status := q.Get("status")
 	category := q.Get("category")
 	tag := q.Get("tag")
-	page := intParam(q.Get("page"), 1)
 	instanceID := intParam(q.Get("instance_id"), 0)
 	expr := strings.TrimSpace(q.Get("expr"))
 	sortCol := q.Get("sort")
@@ -146,13 +140,11 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 		sortOrder = "desc"
 	}
 
-	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status, category, tag, expr, sortCol, sortOrder)
+	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, search, status, category, tag, expr, sortCol, sortOrder)
 
 	render(w, r, http.StatusOK, pages.TorrentsTableBody(pages.TorrentsProps{
 		Rows:       rows,
 		Total:      total,
-		Page:       page,
-		PageSize:   defaultPageSize,
 		Search:     search,
 		Status:     status,
 		Category:   category,
@@ -168,7 +160,8 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 // fetchTorrentRows queries SyncManager and maps the result to []TorrentRow.
 // instanceID == 0 means "first active instance" (fallback when none selected).
 // Returns rows, total count, and the resolved instance ID used for the query.
-func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSize int, search, status, category, tag, expr, sortCol, sortOrder string) ([]pages.TorrentRow, int, int) {
+// limit=0 means unbounded (all matching torrents).
+func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID int, search, status, category, tag, expr, sortCol, sortOrder string) ([]pages.TorrentRow, int, int) {
 	if h.syncManager == nil {
 		return nil, 0, 0
 	}
@@ -211,12 +204,8 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSi
 		sortOrder = "desc"
 	}
 
-	offset := (page - 1) * pageSize
-	if offset < 0 {
-		offset = 0
-	}
-
-	resp, err := h.syncManager.GetTorrentsWithFilters(ctx, targetID, pageSize, offset, sortCol, sortOrder, search, filters)
+	// limit=0 means unbounded — virtual scroll handles rendering
+	resp, err := h.syncManager.GetTorrentsWithFilters(ctx, targetID, 0, 0, sortCol, sortOrder, search, filters)
 	if err != nil || resp == nil {
 		return nil, 0, targetID
 	}

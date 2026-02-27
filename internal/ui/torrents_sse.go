@@ -83,11 +83,13 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 		}
 
 		h64 := fnv.New64a()
+		// Only track torrent-count + state changes — not speeds, which change
+		// every second and would trigger constant full-table re-renders.
 		fmt.Fprintf(h64, "%d", len(torrents)) //nolint:errcheck // hash writes never fail
 		limit := min(20, len(torrents))
 		for i := range limit {
 			t := &torrents[i]
-			fmt.Fprintf(h64, "%s%s%d%d", t.Hash, t.State, t.DlSpeed, t.UpSpeed) //nolint:errcheck
+			fmt.Fprintf(h64, "%s%s", t.Hash, t.State) //nolint:errcheck
 		}
 		return fmt.Sprintf("%x", h64.Sum64())
 	}
@@ -105,7 +107,7 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 
-	pollTicker := time.NewTicker(3 * time.Second)
+	pollTicker := time.NewTicker(5 * time.Second)
 	keepaliveTicker := time.NewTicker(15 * time.Second)
 	defer pollTicker.Stop()
 	defer keepaliveTicker.Stop()
