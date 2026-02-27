@@ -66,8 +66,12 @@ Order      string // "asc" or "desc"
 Expr       string // optional expr-lang filter expression
 
 // Sidebar data (populated for full page renders only)
-Categories []string
-Tags       []string
+Categories    []string
+Tags          []string
+Trackers      []string // unique tracker domains, sorted
+SavePaths     []string // unique save paths, sorted
+FilterTracker  string
+FilterSavePath string
 }
 
 // stateLabel maps a qBittorrent torrent state to a human-readable badge label + CSS class.
@@ -306,7 +310,7 @@ hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
 hx-vals={ `{"status":"` + sf.val + `"}` }
-hx-include="#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
+hx-include="#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr,#torrents-search"
 class={
 "w-full text-left px-2 py-1 rounded-md transition-colors",
 templ.KV("bg-primary/10 text-primary font-medium", p.Status == sf.val),
@@ -319,96 +323,34 @@ templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Status
 }
 </ul>
 </div>
-<!-- Categories section -->
-if len(p.Categories) > 0 {
-<div>
+<!-- Categories section (JS-populated via VirtualList from vt-sidebar-json) -->
+<div id="vt-sidebar-cats-section" class="hidden">
 <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Categories</p>
-<ul class="space-y-0.5">
-<li>
-<button
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#vt-data-slot"
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-vals={ `{"category":""}` }
-hx-include="#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
-class={
-"w-full text-left px-2 py-1 rounded-md transition-colors",
-templ.KV("bg-primary/10 text-primary font-medium", p.Category == ""),
-templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Category != ""),
-}
->
-All
-</button>
-</li>
-for _, cat := range p.Categories {
-<li>
-<button
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#vt-data-slot"
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-vals={ `{"category":"` + cat + `"}` }
-hx-include="#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
-class={
-"w-full text-left px-2 py-1 rounded-md truncate transition-colors",
-templ.KV("bg-primary/10 text-primary font-medium", p.Category == cat),
-templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Category != cat),
-}
-title={ cat }
->
-{ cat }
-</button>
-</li>
-}
-</ul>
+<div id="vt-cat-scroll" class="max-h-48 overflow-y-auto">
+<ul id="vt-sidebar-cats" class="space-y-0.5"></ul>
 </div>
-}
-<!-- Tags section -->
-if len(p.Tags) > 0 {
-<div>
+</div>
+<!-- Tags section (JS-populated) -->
+<div id="vt-sidebar-tags-section" class="hidden">
 <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Tags</p>
-<ul class="space-y-0.5">
-<li>
-<button
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#vt-data-slot"
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-vals={ `{"tag":""}` }
-hx-include="#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
-class={
-"w-full text-left px-2 py-1 rounded-md transition-colors",
-templ.KV("bg-primary/10 text-primary font-medium", p.Tag == ""),
-templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Tag != ""),
-}
->
-All
-</button>
-</li>
-for _, tag := range p.Tags {
-<li>
-<button
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-target="#vt-data-slot"
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-vals={ `{"tag":"` + tag + `"}` }
-hx-include="#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
-class={
-"w-full text-left px-2 py-1 rounded-md truncate transition-colors",
-templ.KV("bg-primary/10 text-primary font-medium", p.Tag == tag),
-templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Tag != tag),
-}
-title={ tag }
->
-{ tag }
-</button>
-</li>
-}
-</ul>
+<div id="vt-tag-scroll" class="max-h-36 overflow-y-auto">
+<ul id="vt-sidebar-tags" class="space-y-0.5"></ul>
 </div>
-}
+</div>
+<!-- Trackers section (JS-populated) -->
+<div id="vt-sidebar-trackers-section" class="hidden">
+<p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Trackers</p>
+<div id="vt-tracker-scroll" class="max-h-36 overflow-y-auto">
+<ul id="vt-sidebar-trackers" class="space-y-0.5"></ul>
+</div>
+</div>
+<!-- Save Paths section (JS-populated) -->
+<div id="vt-sidebar-savepaths-section" class="hidden">
+<p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Save Paths</p>
+<div id="vt-savepath-scroll" class="max-h-36 overflow-y-auto">
+<ul id="vt-sidebar-savepaths" class="space-y-0.5"></ul>
+</div>
+</div>
 </div>
 </div>
 
@@ -438,7 +380,7 @@ hx-get={ p.BaseURL + "/ui/partials/torrents" }
 hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr"
+hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr"
 hx-on::after-request="renderFilterChips()"
 />
 <!-- Filter builder popover -->
@@ -485,7 +427,7 @@ hx-get={ p.BaseURL + "/ui/partials/torrents" }
 hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#torrents-search"
+hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#torrents-search"
 hx-on::after-request="renderFilterChips()"
 />
 </div>
@@ -495,6 +437,8 @@ hx-on::after-request="renderFilterChips()"
 <input type="hidden" id="current-status" name="status" value={ p.Status }/>
 <input type="hidden" id="current-category" name="category" value={ p.Category }/>
 <input type="hidden" id="current-tag" name="tag" value={ p.Tag }/>
+<input type="hidden" id="current-tracker" name="tracker" value={ p.FilterTracker }/>
+<input type="hidden" id="current-savepath" name="savepath" value={ p.FilterSavePath }/>
 <input type="hidden" id="current-instance" name="instance_id" value={ itoa(p.InstanceID) }/>
 <input type="hidden" id="current-sort" name="sort" value={ p.Sort }/>
 <input type="hidden" id="current-order" name="order" value={ p.Order }/>
@@ -509,7 +453,7 @@ hx-get={ p.BaseURL + "/ui/partials/torrents" }
 hx-target="#vt-data-slot"
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
+hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr,#torrents-search"
 hx-on::after-request="renderFilterChips()"
 ></button>
 <!-- Filter chips (JS-managed, shows active conditions as expr-style pills) -->
@@ -582,7 +526,7 @@ hx-trigger="sse:torrent-update throttle:8s"
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
 hx-swap="innerHTML"
 hx-push-url="false"
-hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search"
+hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr,#torrents-search"
 >
 @TorrentsTableBody(p)
 </div>
@@ -978,6 +922,8 @@ class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foregrou
 
 <!-- Column defaults JSON (read by JS below; Go expressions can't appear inside <script> text) -->
 @TorrentsColDefaults()
+<!-- Sidebar filter lists JSON (categories, tags, trackers, save paths) -->
+@TorrentsSidebarJSON(p)
 <!-- Virtual scroll + sort arrows + filter chips + expr builder JS -->
 <script>
 // ── Expr field definitions ──────────────────────────────────────────────────
@@ -1096,9 +1042,15 @@ function renderFilterChips() {
 }
 
 function clearFilter(type) {
-  var map = { status:'current-status', category:'current-category', tag:'current-tag', search:'torrents-search', expr:'current-expr' };
+  var map = { status:'current-status', category:'current-category', tag:'current-tag', tracker:'current-tracker', savepath:'current-savepath', search:'torrents-search', expr:'current-expr' };
   var el = document.getElementById(map[type]);
   if (el) el.value = '';
+  // Invalidate the matching sidebar list so "All" gets re-highlighted
+  var sidebarKey = { category:'cats', tag:'tags', tracker:'trackers', savepath:'savepaths' }[type];
+  if (sidebarKey && _vtSidebarLists[sidebarKey]) {
+    _vtSidebarLists[sidebarKey].invalidate();
+    _vtSidebarLists[sidebarKey].render();
+  }
   renderFilterChips();
   triggerTableRefresh();
 }
@@ -1111,7 +1063,73 @@ function triggerTableRefresh() {
   if (btn && window.htmx) htmx.trigger(btn, 'tbl-refresh');
 }
 
-// ── Sort arrows ─────────────────────────────────────────────────────────────
+// ── Sidebar filter lists ─────────────────────────────────────────────────────
+// Each section (categories, tags, trackers, save paths) uses VirtualList in
+// ul/li mode so only visible items occupy the DOM regardless of list size.
+var _vtSidebarLists = {};
+
+function initSidebars() {
+  var el = document.getElementById('vt-sidebar-json');
+  if (!el) return;
+  var data;
+  try { data = JSON.parse(el.textContent); } catch(e) { return; }
+
+  _initSidebarSection('cats',      'vt-sidebar-cats-section', 'vt-cat-scroll',      'vt-sidebar-cats',      [''].concat(data.categories || []), 'category',  'current-category');
+  _initSidebarSection('tags',      'vt-sidebar-tags-section', 'vt-tag-scroll',      'vt-sidebar-tags',      [''].concat(data.tags       || []), 'tag',       'current-tag');
+  _initSidebarSection('trackers',  'vt-sidebar-trackers-section', 'vt-tracker-scroll', 'vt-sidebar-trackers', [''].concat(data.trackers  || []), 'tracker',   'current-tracker');
+  _initSidebarSection('savepaths', 'vt-sidebar-savepaths-section','vt-savepath-scroll','vt-sidebar-savepaths',[''].concat(data.savePaths || []), 'savepath',  'current-savepath');
+}
+
+function _initSidebarSection(key, sectionId, scrollId, ulId, items, filterType, inputId) {
+  var section = document.getElementById(sectionId);
+  if (!section) return;
+  // Hide section if only the synthetic "All" item exists (server had no data)
+  if (items.length <= 1) { section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+  var makeItem = function(val) { return _makeSidebarBtn(val, filterType, inputId, key); };
+  if (_vtSidebarLists[key]) {
+    // Re-use existing instance; update render fn (active item may have changed)
+    _vtSidebarLists[key]._renderRow = makeItem;
+    _vtSidebarLists[key].load(items);
+    return;
+  }
+  _vtSidebarLists[key] = new VirtualList({
+    containerId : scrollId,
+    tbodyId     : ulId,
+    rowTag      : 'li',
+    colSpan     : 1,
+    renderRow   : makeItem,
+    emptyText   : '',
+    rowHeight   : 29,
+  });
+  _vtSidebarLists[key].load(items);
+}
+
+function _makeSidebarBtn(val, filterType, inputId, listKey) {
+  var label   = val || 'All';
+  var activeEl = document.getElementById(inputId);
+  var isActive = (activeEl ? activeEl.value : '') === val;
+  var li = document.createElement('li');
+  li.style.listStyle = 'none';
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.title = label;
+  btn.className = 'w-full text-left px-2 py-1 rounded-md truncate transition-colors ' +
+    (isActive ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground');
+  btn.textContent = label;
+  btn.addEventListener('click', function() {
+    if (activeEl) activeEl.value = val;
+    // Refresh sidebar to update active highlight on visible rows
+    var list = _vtSidebarLists[listKey];
+    if (list) { list.invalidate(); list.render(); }
+    triggerTableRefresh();
+    renderFilterChips();
+  });
+  li.appendChild(btn);
+  return li;
+}
+
+// ── Sort arrows ──────────────────────────────────────────────────────────────
 function applySortArrows() {
   var sort  = (document.getElementById('current-sort')  || {value:''}).value || '';
   var order = (document.getElementById('current-order') || {value:'desc'}).value || 'desc';
@@ -1127,21 +1145,15 @@ function applySortArrows() {
 }
 
 // ── Virtual scroll ──────────────────────────────────────────────────────────
-// _vlRows holds all torrent data as plain JS objects from the server JSON.
-// Only rows that are visible in the scroll viewport are inserted into the DOM,
-// keeping the DOM small regardless of torrent count.
-var _vlRows      = [];
-var _vlRowHeight = 40;
-var _vlListening = false;
-var _vlNodeCache = {};
-var _vtBaseURL   = '';
+// Uses the generic VirtualList class from virtual-list.js.
+// Only visible rows are in the DOM; _vtList.rows holds the full data set.
+var _vtList       = null;
+var _vtBaseURL    = '';
 var _vtInstanceID = 0;
 
 function initVirtualScroll() {
-  var dataEl    = document.getElementById('vt-rows-json');
-  var container = document.getElementById('torrents-scroll-container');
-  var tbody     = document.getElementById('torrents-table-body');
-  if (!dataEl || !container || !tbody) return;
+  var dataEl = document.getElementById('vt-rows-json');
+  if (!dataEl) return;
 
   var data;
   try { data = JSON.parse(dataEl.textContent); }
@@ -1149,101 +1161,22 @@ function initVirtualScroll() {
 
   _vtBaseURL    = data.baseURL    || '';
   _vtInstanceID = data.instanceID || 0;
-  _vlRows       = data.rows       || [];
-  _vlNodeCache  = {};
 
   var countEl = document.getElementById('torrent-count');
-  if (countEl) countEl.textContent = (data.total || _vlRows.length) + ' torrent(s)';
+  if (countEl) countEl.textContent = (data.total || (data.rows||[]).length) + ' torrent(s)';
 
-  ['vl-top-spacer','vl-bot-spacer'].forEach(function(id) {
-    var old = document.getElementById(id);
-    if (old && old.parentNode) old.parentNode.removeChild(old);
-  });
-  var mkSpacer = function(id) {
-    var tr = document.createElement('tr'); tr.id = id;
-    var td = document.createElement('td'); td.setAttribute('colspan','30');
-    td.style.padding = '0'; td.style.height = '0px';
-    tr.appendChild(td); return tr;
-  };
-  var top = mkSpacer('vl-top-spacer');
-  var bot = mkSpacer('vl-bot-spacer');
-  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-  tbody.appendChild(top);
-  tbody.appendChild(bot);
-
-  if (!_vlListening) {
-    container.addEventListener('scroll', function(){ _vlRender(); }, { passive: true });
-    _vlListening = true;
-  }
-
-  // Defer first render until the scroll container has a real measured height.
-  // On initial page load, clientHeight is 0 because layout hasn't completed;
-  // a ResizeObserver fires once the browser has performed layout.
-  if (container.clientHeight > 0) {
-    _vlRender();
-  } else if (typeof ResizeObserver !== 'undefined') {
-    var _vlRO = new ResizeObserver(function() {
-      if (container.clientHeight > 0) { _vlRO.disconnect(); _vlRender(); }
+  // Create the VirtualList instance once; reuse across SSE-driven reloads.
+  if (!_vtList) {
+    _vtList = new VirtualList({
+      containerId : 'torrents-scroll-container',
+      tbodyId     : 'torrents-table-body',
+      colSpan     : 30,
+      renderRow   : _createRow,
+      emptyText   : 'No torrents match your filters.',
+      afterRender : function() { _restoreCheckboxes(); applyTblCols(); },
     });
-    _vlRO.observe(container);
-  } else {
-    setTimeout(_vlRender, 100);
   }
-}
-
-function _vlRender() {
-  var tbody     = document.getElementById('torrents-table-body');
-  var container = document.getElementById('torrents-scroll-container');
-  var top = document.getElementById('vl-top-spacer');
-  var bot = document.getElementById('vl-bot-spacer');
-  if (!tbody || !container || !top || !bot) return;
-  if (_vlRows.length === 0) {
-    var node = top.nextSibling;
-    while (node && node !== bot) { var nxt = node.nextSibling; tbody.removeChild(node); node = nxt; }
-    var emptyTr = document.createElement('tr');
-    emptyTr.innerHTML = '<td colspan="30" class="px-3 py-12 text-center text-sm text-muted-foreground">No torrents match your filters.</td>';
-    tbody.insertBefore(emptyTr, bot);
-    top.firstChild.style.height = '0px';
-    bot.firstChild.style.height = '0px';
-    return;
-  }
-
-  var total     = _vlRows.length;
-  var rh        = _vlRowHeight;
-  var scrollTop = container.scrollTop;
-  var viewH     = container.clientHeight;
-  var overscan  = 5;
-
-  var startIdx = Math.max(0, Math.floor(scrollTop / rh) - overscan);
-  var endIdx   = Math.min(total, Math.ceil((scrollTop + viewH) / rh) + overscan);
-
-  top.firstChild.style.height = (startIdx * rh) + 'px';
-  bot.firstChild.style.height = ((total - endIdx) * rh) + 'px';
-
-  var node = top.nextSibling;
-  while (node && node !== bot) {
-    var nxt = node.nextSibling;
-    tbody.removeChild(node);
-    node = nxt;
-  }
-  var frag = document.createDocumentFragment();
-  for (var i = startIdx; i < endIdx; i++) { frag.appendChild(_vtGetRow(i)); }
-  tbody.insertBefore(frag, bot);
-
-  if (_vlRowHeight === 40) {
-    var first = top.nextSibling;
-    if (first && first !== bot) {
-      var h = first.getBoundingClientRect().height;
-      if (h > 4) _vlRowHeight = h;
-    }
-  }
-  _restoreCheckboxes();
-  applyTblCols();
-}
-
-function _vtGetRow(i) {
-  if (!_vlNodeCache[i]) _vlNodeCache[i] = _createRow(_vlRows[i]);
-  return _vlNodeCache[i];
+  _vtList.load(data.rows || []);
 }
 
 // ── Row renderer ─────────────────────────────────────────────────────────────
@@ -1372,7 +1305,7 @@ function _updateBulkBar() {
 }
 
 function _updateSelectAll() {
-  var total = _vlRows.length;
+  var total = _vtList ? _vtList.rows.length : 0;
   var count = _checkedHashes.size;
   var sa = document.getElementById('select-all');
   if (!sa) return;
@@ -1382,13 +1315,13 @@ function _updateSelectAll() {
 
 function selectAll(checked) {
   _checkedHashes = new Set();
-  if (checked) {
-    _vlRows.forEach(function(row) { if (row.Hash) _checkedHashes.add(row.Hash); });
+  if (checked && _vtList) {
+    _vtList.rows.forEach(function(row) { if (row.Hash) _checkedHashes.add(row.Hash); });
   }
   _restoreCheckboxes();
   _updateBulkBar();
   var sa = document.getElementById('select-all');
-  if (sa) { sa.checked = checked && _vlRows.length > 0; sa.indeterminate = false; }
+  if (sa) { sa.checked = checked && _vtList && _vtList.rows.length > 0; sa.indeterminate = false; }
 }
 
 // Populate #bulk-hashes-hidden before bulk action submit.
@@ -1457,7 +1390,7 @@ function sortBy(col) {
 document.body.addEventListener('htmx:configRequest', function(e) {
   if (!e.detail || !e.detail.parameters) return;
   var p = e.detail.parameters;
-  var map = { status: 'current-status', category: 'current-category', tag: 'current-tag' };
+  var map = { status: 'current-status', category: 'current-category', tag: 'current-tag', tracker: 'current-tracker', savepath: 'current-savepath' };
   Object.keys(map).forEach(function(k) {
     if (Object.prototype.hasOwnProperty.call(p, k)) {
       var el = document.getElementById(map[k]);
@@ -1501,6 +1434,7 @@ document.addEventListener('DOMContentLoaded', function() {
   renderFilterChips();
   initExprBuilder();
   initVirtualScroll();
+  initSidebars();
 });
 </script>
 }

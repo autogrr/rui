@@ -11,6 +11,7 @@ package ui
 import (
 	"context"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -72,6 +73,8 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 	status := q.Get("status")
 	category := q.Get("category")
 	tag := q.Get("tag")
+	tracker := q.Get("tracker")
+	savepath := q.Get("savepath")
 	instanceID := intParam(q.Get("instance_id"), 0)
 	expr := strings.TrimSpace(q.Get("expr"))
 	sortCol := q.Get("sort")
@@ -83,39 +86,71 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 		sortOrder = "desc"
 	}
 
-	rows, total, targetID := h.fetchTorrentRows(ctx, instanceID, search, status, category, tag, expr, sortCol, sortOrder)
+	rows, total, targetID := h.fetchTorrentRows(ctx, instanceID, search, status, category, tag, tracker, savepath, expr, sortCol, sortOrder)
 
-	// Load sidebar data (categories and tags) for the full page render.
+	// Load sidebar data for the full page render.
 	var cats []string
 	var tagList []string
+	var trackers []string
+	var savepaths []string
 	if targetID > 0 && h.syncManager != nil {
 		if catMap, err := h.syncManager.GetCategories(ctx, targetID); err == nil {
 			for name := range catMap {
 				cats = append(cats, name)
 			}
+			sort.Strings(cats)
 		}
 		if t, err := h.syncManager.GetTags(ctx, targetID); err == nil {
 			tagList = t
+			sort.Strings(tagList)
+		}
+		// Derive unique tracker domains and save paths from the full unfiltered list.
+		if all, err := h.syncManager.GetAllTorrents(ctx, targetID); err == nil {
+			trackerSet := make(map[string]struct{}, 64)
+			savepathSet := make(map[string]struct{}, 64)
+			for _, t := range all {
+				if t.Tracker != "" {
+					if domain := h.syncManager.ExtractDomainFromURL(t.Tracker); domain != "" && domain != "Unknown" {
+						trackerSet[domain] = struct{}{}
+					}
+				}
+				if t.SavePath != "" {
+					sp := strings.ReplaceAll(t.SavePath, "\\\\", "/")
+					savepathSet[sp] = struct{}{}
+				}
+			}
+			for k := range trackerSet {
+				trackers = append(trackers, k)
+			}
+			for k := range savepathSet {
+				savepaths = append(savepaths, k)
+			}
+			sort.Strings(trackers)
+			sort.Strings(savepaths)
 		}
 	}
 
 	render(w, r, http.StatusOK, pages.Torrents(pages.TorrentsProps{
-		BaseURL:    h.baseURL(),
-		Username:   username,
-		Version:    h.version,
-		Instances:  navInsts,
-		InstanceID: targetID,
-		Search:     search,
-		Status:     status,
-		Category:   category,
-		Tag:        tag,
-		Sort:       sortCol,
-		Order:      sortOrder,
-		Expr:       expr,
-		Rows:       rows,
-		Total:      total,
-		Categories: cats,
-		Tags:       tagList,
+		BaseURL:       h.baseURL(),
+		Username:      username,
+		Version:       h.version,
+		Instances:     navInsts,
+		InstanceID:    targetID,
+		Search:        search,
+		Status:        status,
+		Category:      category,
+		Tag:           tag,
+		Sort:          sortCol,
+		Order:         sortOrder,
+		Expr:          expr,
+		Rows:          rows,
+		Total:         total,
+		Categories:    cats,
+		Tags:          tagList,
+		Trackers:      trackers,
+		SavePaths:     savepaths,
+		FilterTracker: tracker,
+		FilterSavePath: savepath,
 	}))
 }
 
@@ -129,6 +164,8 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 	status := q.Get("status")
 	category := q.Get("category")
 	tag := q.Get("tag")
+	tracker := q.Get("tracker")
+	savepath := q.Get("savepath")
 	instanceID := intParam(q.Get("instance_id"), 0)
 	expr := strings.TrimSpace(q.Get("expr"))
 	sortCol := q.Get("sort")
@@ -140,20 +177,22 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 		sortOrder = "desc"
 	}
 
-	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, search, status, category, tag, expr, sortCol, sortOrder)
+	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, search, status, category, tag, tracker, savepath, expr, sortCol, sortOrder)
 
 	render(w, r, http.StatusOK, pages.TorrentsTableBody(pages.TorrentsProps{
-		Rows:       rows,
-		Total:      total,
-		Search:     search,
-		Status:     status,
-		Category:   category,
-		Tag:        tag,
-		Sort:       sortCol,
-		Order:      sortOrder,
-		Expr:       expr,
-		InstanceID: instanceID,
-		BaseURL:    h.baseURL(),
+		Rows:           rows,
+		Total:          total,
+		Search:         search,
+		Status:         status,
+		Category:       category,
+		Tag:            tag,
+		Sort:           sortCol,
+		Order:          sortOrder,
+		Expr:           expr,
+		FilterTracker:  tracker,
+		FilterSavePath: savepath,
+		InstanceID:     instanceID,
+		BaseURL:        h.baseURL(),
 	}))
 }
 
@@ -161,7 +200,7 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 // instanceID == 0 means "first active instance" (fallback when none selected).
 // Returns rows, total count, and the resolved instance ID used for the query.
 // limit=0 means unbounded (all matching torrents).
-func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID int, search, status, category, tag, expr, sortCol, sortOrder string) ([]pages.TorrentRow, int, int) {
+func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID int, search, status, category, tag, tracker, savepath, expr, sortCol, sortOrder string) ([]pages.TorrentRow, int, int) {
 	if h.syncManager == nil {
 		return nil, 0, 0
 	}
@@ -192,6 +231,12 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID int, search, 
 	}
 	if tag != "" {
 		filters.Tags = []string{tag}
+	}
+	if tracker != "" {
+		filters.Trackers = []string{tracker}
+	}
+	if savepath != "" {
+		filters.SavePaths = []string{savepath}
 	}
 	if expr != "" {
 		filters.Expr = expr

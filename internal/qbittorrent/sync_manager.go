@@ -4139,6 +4139,21 @@ torrentsLoop:
 			}
 		}
 
+		// SavePath filter (normalise separators for cross-platform paths)
+		if len(filters.SavePaths) > 0 {
+			norm := strings.ReplaceAll(torrent.SavePath, "\\", "/")
+			matched := false
+			for _, sp := range filters.SavePaths {
+				if strings.ReplaceAll(sp, "\\", "/") == norm {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+		}
+
 		// If we reach here, torrent passed all active filters
 		filtered = append(filtered, torrent)
 	}
@@ -4154,6 +4169,7 @@ torrentsLoop:
 		Int("excludeTagFilters", len(filters.ExcludeTags)).
 		Int("trackerFilters", len(filters.Trackers)).
 		Int("excludeTrackerFilters", len(filters.ExcludeTrackers)).
+		Int("savePathFilters", len(filters.SavePaths)).
 		Msg("Applied manual filtering with multiple selections")
 
 	return filtered

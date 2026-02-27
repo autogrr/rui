@@ -153,7 +153,7 @@ func (h *Handler) PostTorrentsAction(w http.ResponseWriter, r *http.Request) {
 
 	// Re-render the table body with the current instance (no filters — bulk bar
 	// does not carry filter state).
-	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, "", "", "", "", "", "added_on", "desc")
+	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, "", "", "", "", "", "", "", "added_on", "desc")
 	render(w, r, http.StatusOK, pages.TorrentsTableBody(pages.TorrentsProps{
 		BaseURL:    h.baseURL(),
 		InstanceID: instanceID,
@@ -285,7 +285,7 @@ func (h *Handler) PostAddTorrent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, "", "", "", "", "", "added_on", "desc")
+	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, "", "", "", "", "", "", "", "added_on", "desc")
 	render(w, r, http.StatusOK, pages.TorrentsTableBody(pages.TorrentsProps{
 		BaseURL:    h.baseURL(),
 		InstanceID: instanceID,

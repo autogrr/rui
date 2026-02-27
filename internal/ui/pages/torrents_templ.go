@@ -75,8 +75,12 @@ type TorrentsProps struct {
 	Expr       string // optional expr-lang filter expression
 
 	// Sidebar data (populated for full page renders only)
-	Categories []string
-	Tags       []string
+	Categories     []string
+	Tags           []string
+	Trackers       []string // unique tracker domains, sorted
+	SavePaths      []string // unique save paths, sorted
+	FilterTracker  string
+	FilterSavePath string
 }
 
 // stateLabel maps a qBittorrent torrent state to a human-readable badge label + CSS class.
@@ -339,7 +343,7 @@ func Torrents(p TorrentsProps) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 304, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 308, Col: 44}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -352,13 +356,13 @@ func Torrents(p TorrentsProps) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(`{"status":"` + sf.val + `"}`)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 308, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 312, Col: 39}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" hx-include=\"#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" hx-include=\"#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr,#torrents-search\" class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -378,7 +382,7 @@ func Torrents(p TorrentsProps) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(sf.label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 316, Col: 10}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 320, Col: 10}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -389,534 +393,264 @@ func Torrents(p TorrentsProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</ul></div><!-- Categories section -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</ul></div><!-- Categories section (JS-populated via VirtualList from vt-sidebar-json) --><div id=\"vt-sidebar-cats-section\" class=\"hidden\"><p class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1\">Categories</p><div id=\"vt-cat-scroll\" class=\"max-h-48 overflow-y-auto\"><ul id=\"vt-sidebar-cats\" class=\"space-y-0.5\"></ul></div></div><!-- Tags section (JS-populated) --><div id=\"vt-sidebar-tags-section\" class=\"hidden\"><p class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1\">Tags</p><div id=\"vt-tag-scroll\" class=\"max-h-36 overflow-y-auto\"><ul id=\"vt-sidebar-tags\" class=\"space-y-0.5\"></ul></div></div><!-- Trackers section (JS-populated) --><div id=\"vt-sidebar-trackers-section\" class=\"hidden\"><p class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1\">Trackers</p><div id=\"vt-tracker-scroll\" class=\"max-h-36 overflow-y-auto\"><ul id=\"vt-sidebar-trackers\" class=\"space-y-0.5\"></ul></div></div><!-- Save Paths section (JS-populated) --><div id=\"vt-sidebar-savepaths-section\" class=\"hidden\"><p class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1\">Save Paths</p><div id=\"vt-savepath-scroll\" class=\"max-h-36 overflow-y-auto\"><ul id=\"vt-sidebar-savepaths\" class=\"space-y-0.5\"></ul></div></div></div></div><!-- Main content (toolbar + table + pagination) --><div class=\"flex flex-col flex-1 min-w-0 gap-2 p-2 overflow-hidden\"><!-- Toolbar --><div class=\"flex flex-wrap items-center gap-2 shrink-0\"><!-- Sidebar toggle --><button @click=\"sidebarOpen = !sidebarOpen\" class=\"p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors\" title=\"Toggle filter sidebar\"><svg class=\"h-4 w-4\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"3\" y1=\"12\" x2=\"21\" y2=\"12\"></line><line x1=\"3\" y1=\"6\" x2=\"21\" y2=\"6\"></line><line x1=\"3\" y1=\"18\" x2=\"21\" y2=\"18\"></line></svg></button><h1 class=\"text-lg font-bold tracking-tight\">Torrents</h1><!-- Search --><input id=\"torrents-search\" type=\"search\" name=\"search\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if len(p.Categories) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div><p class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1\">Categories</p><ul class=\"space-y-0.5\"><li>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var8 = []any{"w-full text-left px-2 py-1 rounded-md transition-colors",
-					templ.KV("bg-primary/10 text-primary font-medium", p.Category == ""),
-					templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Category != ""),
-				}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var8...)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<button hx-get=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var9 string
-				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 329, Col: 44}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var10 string
-				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(`{"category":""}`)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 333, Col: 27}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" hx-include=\"#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var11 string
-				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var8).String())
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1, Col: 0}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\">All</button></li>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				for _, cat := range p.Categories {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<li>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var12 = []any{"w-full text-left px-2 py-1 rounded-md truncate transition-colors",
-						templ.KV("bg-primary/10 text-primary font-medium", p.Category == cat),
-						templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Category != cat),
-					}
-					templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var12...)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<button hx-get=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var13 string
-					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 347, Col: 44}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var14 string
-					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(`{"category":"` + cat + `"}`)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 351, Col: 38}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" hx-include=\"#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var15 string
-					templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var12).String())
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1, Col: 0}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" title=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var16 string
-					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(cat)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 358, Col: 11}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var17 string
-					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(cat)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 360, Col: 5}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</button></li>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</ul></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
+			var templ_7745c5c3_Var8 string
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(p.Search)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 375, Col: 16}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<!-- Tags section -->")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if len(p.Tags) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div><p class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1\">Tags</p><ul class=\"space-y-0.5\"><li>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var18 = []any{"w-full text-left px-2 py-1 rounded-md transition-colors",
-					templ.KV("bg-primary/10 text-primary font-medium", p.Tag == ""),
-					templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Tag != ""),
-				}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var18...)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<button hx-get=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var19 string
-				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 374, Col: 44}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var20 string
-				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(`{"tag":""}`)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 378, Col: 22}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" hx-include=\"#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var21 string
-				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var18).String())
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1, Col: 0}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\">All</button></li>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				for _, tag := range p.Tags {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<li>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var22 = []any{"w-full text-left px-2 py-1 rounded-md truncate transition-colors",
-						templ.KV("bg-primary/10 text-primary font-medium", p.Tag == tag),
-						templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Tag != tag),
-					}
-					templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var22...)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<button hx-get=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var23 string
-					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 392, Col: 44}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var24 string
-					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(`{"tag":"` + tag + `"}`)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 396, Col: 33}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" hx-include=\"#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var25 string
-					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var22).String())
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1, Col: 0}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" title=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var26 string
-					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 403, Col: 11}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var27 string
-					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 405, Col: 5}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "</button></li>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</ul></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</div></div><!-- Main content (toolbar + table + pagination) --><div class=\"flex flex-col flex-1 min-w-0 gap-2 p-2 overflow-hidden\"><!-- Toolbar --><div class=\"flex flex-wrap items-center gap-2 shrink-0\"><!-- Sidebar toggle --><button @click=\"sidebarOpen = !sidebarOpen\" class=\"p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors\" title=\"Toggle filter sidebar\"><svg class=\"h-4 w-4\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"3\" y1=\"12\" x2=\"21\" y2=\"12\"></line><line x1=\"3\" y1=\"6\" x2=\"21\" y2=\"6\"></line><line x1=\"3\" y1=\"18\" x2=\"21\" y2=\"18\"></line></svg></button><h1 class=\"text-lg font-bold tracking-tight\">Torrents</h1><!-- Search --><input id=\"torrents-search\" type=\"search\" name=\"search\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" placeholder=\"Search torrents…\" class=\"h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48 md:w-64\" hx-trigger=\"keyup changed delay:400ms, search\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var28 string
-			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(p.Search)
+			var templ_7745c5c3_Var9 string
+			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 433, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 379, Col: 44}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\" placeholder=\"Search torrents…\" class=\"h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48 md:w-64\" hx-trigger=\"keyup changed delay:400ms, search\" hx-get=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var29 string
-			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 437, Col: 44}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr\" hx-on::after-request=\"renderFilterChips()\"><!-- Filter builder popover --><div class=\"relative\" x-data=\"{ builderOpen: false }\"><button @click=\"builderOpen = !builderOpen\" class=\"inline-flex items-center gap-1 h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors\" title=\"Add a filter condition\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M7 12h10M11 18h2\"></path></svg> Filter</button><div x-show=\"builderOpen\" x-cloak @click.outside=\"builderOpen = false\" class=\"absolute left-0 top-full mt-1 z-30 rounded-lg border border-border bg-background shadow-lg p-3 space-y-2 min-w-max\"><p class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider\">Add Condition</p><div class=\"flex items-center gap-1.5 flex-wrap\"><select id=\"eb-field\" onchange=\"exprBuilderFieldChanged()\" class=\"h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\"><!-- populated by initExprBuilder() --></select> <select id=\"eb-op\" class=\"h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\"><!-- populated by exprBuilderFieldChanged() --></select><div id=\"eb-val-container\"><input id=\"eb-val\" type=\"text\" placeholder=\"value\" class=\"h-7 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\" onkeydown=\"if(event.key==='Enter'){event.preventDefault();exprBuilderAdd();}\"></div><button onclick=\"exprBuilderAdd()\" class=\"h-7 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors\">+ Add</button></div><div class=\"border-t border-border pt-2 flex items-center gap-2\"><label class=\"text-xs text-muted-foreground shrink-0\" for=\"current-expr\">Custom expr:</label> <input id=\"current-expr\" type=\"text\" name=\"expr\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr\" hx-on::after-request=\"renderFilterChips()\"><!-- Filter builder popover --><div class=\"relative\" x-data=\"{ builderOpen: false }\"><button @click=\"builderOpen = !builderOpen\" class=\"inline-flex items-center gap-1 h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors\" title=\"Add a filter condition\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M7 12h10M11 18h2\"></path></svg> Filter</button><div x-show=\"builderOpen\" x-cloak @click.outside=\"builderOpen = false\" class=\"absolute left-0 top-full mt-1 z-30 rounded-lg border border-border bg-background shadow-lg p-3 space-y-2 min-w-max\"><p class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider\">Add Condition</p><div class=\"flex items-center gap-1.5 flex-wrap\"><select id=\"eb-field\" onchange=\"exprBuilderFieldChanged()\" class=\"h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\"><!-- populated by initExprBuilder() --></select> <select id=\"eb-op\" class=\"h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\"><!-- populated by exprBuilderFieldChanged() --></select><div id=\"eb-val-container\"><input id=\"eb-val\" type=\"text\" placeholder=\"value\" class=\"h-7 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\" onkeydown=\"if(event.key==='Enter'){event.preventDefault();exprBuilderAdd();}\"></div><button onclick=\"exprBuilderAdd()\" class=\"h-7 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors\">+ Add</button></div><div class=\"border-t border-border pt-2 flex items-center gap-2\"><label class=\"text-xs text-muted-foreground shrink-0\" for=\"current-expr\">Custom expr:</label> <input id=\"current-expr\" type=\"text\" name=\"expr\" value=\"")
+			var templ_7745c5c3_Var10 string
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(p.Expr)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 421, Col: 14}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var30 string
-			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(p.Expr)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 479, Col: 14}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" placeholder='e.g. Ratio &lt; 1 &amp;&amp; State == \"downloading\"' title=\"expr-lang fields: Name, State, Category, Tags, Ratio, Size, DlSpeed, UpSpeed, Uploaded, Downloaded, SeedingTime, TimeActive, Priority, SavePath, Tracker, Progress, Availability\" class=\"h-7 flex-1 min-w-56 rounded-md border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring\" hx-trigger=\"keyup changed delay:600ms\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" placeholder='e.g. Ratio &lt; 1 &amp;&amp; State == \"downloading\"' title=\"expr-lang fields: Name, State, Category, Tags, Ratio, Size, DlSpeed, UpSpeed, Uploaded, Downloaded, SeedingTime, TimeActive, Priority, SavePath, Tracker, Progress, Availability\" class=\"h-7 flex-1 min-w-56 rounded-md border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring\" hx-trigger=\"keyup changed delay:600ms\" hx-get=\"")
+			var templ_7745c5c3_Var11 string
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 426, Col: 44}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var31 string
-			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 484, Col: 44}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#torrents-search\" hx-on::after-request=\"renderFilterChips()\"></div></div></div><!-- Hidden filter state inputs --><input type=\"hidden\" id=\"current-status\" name=\"status\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#torrents-search\" hx-on::after-request=\"renderFilterChips()\"></div></div></div><!-- Hidden filter state inputs --><input type=\"hidden\" id=\"current-status\" name=\"status\" value=\"")
+			var templ_7745c5c3_Var12 string
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(p.Status)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 437, Col: 71}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var32 string
-			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(p.Status)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 495, Col: 71}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\"> <input type=\"hidden\" id=\"current-category\" name=\"category\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"> <input type=\"hidden\" id=\"current-category\" name=\"category\" value=\"")
+			var templ_7745c5c3_Var13 string
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(p.Category)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 438, Col: 77}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var33 string
-			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(p.Category)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 496, Col: 77}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\"> <input type=\"hidden\" id=\"current-tag\" name=\"tag\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\"> <input type=\"hidden\" id=\"current-tag\" name=\"tag\" value=\"")
+			var templ_7745c5c3_Var14 string
+			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(p.Tag)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 439, Col: 62}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var34 string
-			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(p.Tag)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 497, Col: 62}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"> <input type=\"hidden\" id=\"current-tracker\" name=\"tracker\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\"> <input type=\"hidden\" id=\"current-instance\" name=\"instance_id\" value=\"")
+			var templ_7745c5c3_Var15 string
+			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(p.FilterTracker)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 440, Col: 80}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var35 string
-			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.InstanceID))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 498, Col: 88}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\"> <input type=\"hidden\" id=\"current-savepath\" name=\"savepath\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\"> <input type=\"hidden\" id=\"current-sort\" name=\"sort\" value=\"")
+			var templ_7745c5c3_Var16 string
+			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(p.FilterSavePath)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 441, Col: 83}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var36 string
-			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(p.Sort)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 499, Col: 65}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"> <input type=\"hidden\" id=\"current-instance\" name=\"instance_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\"> <input type=\"hidden\" id=\"current-order\" name=\"order\" value=\"")
+			var templ_7745c5c3_Var17 string
+			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.InstanceID))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 442, Col: 88}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var37 string
-			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(p.Order)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 500, Col: 68}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"> <input type=\"hidden\" id=\"current-sort\" name=\"sort\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\"><!-- Hidden sort trigger button (invoked by sortBy() / triggerTableRefresh()) --><!-- Uses custom event 'tbl-refresh' so synthetic dispatches do not bubble as\n     a DOM click and accidentally close Alpine @click.outside popovers. --><button id=\"sort-trigger\" style=\"display:none\" hx-trigger=\"tbl-refresh\" hx-get=\"")
+			var templ_7745c5c3_Var18 string
+			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(p.Sort)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 443, Col: 65}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var38 string
-			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 508, Col: 44}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\"> <input type=\"hidden\" id=\"current-order\" name=\"order\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" hx-on::after-request=\"renderFilterChips()\"></button><!-- Filter chips (JS-managed, shows active conditions as expr-style pills) --><div id=\"filter-chips\" class=\"flex flex-wrap gap-1\"></div><!-- Spacer --><div class=\"flex-1\"></div><span id=\"torrent-count\" class=\"text-xs text-muted-foreground tabular-nums\">")
+			var templ_7745c5c3_Var19 string
+			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(p.Order)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 444, Col: 68}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var39 string
-			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.Total))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 519, Col: 91}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\"><!-- Hidden sort trigger button (invoked by sortBy() / triggerTableRefresh()) --><!-- Uses custom event 'tbl-refresh' so synthetic dispatches do not bubble as\n     a DOM click and accidentally close Alpine @click.outside popovers. --><button id=\"sort-trigger\" style=\"display:none\" hx-trigger=\"tbl-refresh\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, " torrent(s)</span><!-- SSE live indicator --><span id=\"sse-indicator\" class=\"hidden w-2 h-2 rounded-full bg-green-500 flex-shrink-0\" title=\"Live updates active\"></span><!-- Columns toggle dropdown --><div class=\"relative\" x-data=\"{ colsOpen: false }\"><button @click=\"colsOpen = !colsOpen\" class=\"inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors\" title=\"Toggle column visibility\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01\"></path></svg> Columns</button><div x-show=\"colsOpen\" x-cloak @click.outside=\"colsOpen = false\" class=\"absolute right-0 top-full mt-1 z-30 w-52 rounded-lg border border-border bg-background shadow-lg py-2 max-h-80 overflow-y-auto\"><div class=\"px-3 pb-1.5 border-b border-border mb-1.5 flex justify-between items-center\"><span class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider\">Columns</span> <button onclick=\"resetTblCols()\" class=\"text-xs text-muted-foreground hover:text-foreground\">Reset</button></div>")
+			var templ_7745c5c3_Var20 string
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 452, Col: 44}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr,#torrents-search\" hx-on::after-request=\"renderFilterChips()\"></button><!-- Filter chips (JS-managed, shows active conditions as expr-style pills) --><div id=\"filter-chips\" class=\"flex flex-wrap gap-1\"></div><!-- Spacer --><div class=\"flex-1\"></div><span id=\"torrent-count\" class=\"text-xs text-muted-foreground tabular-nums\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var21 string
+			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.Total))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 463, Col: 91}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, " torrent(s)</span><!-- SSE live indicator --><span id=\"sse-indicator\" class=\"hidden w-2 h-2 rounded-full bg-green-500 flex-shrink-0\" title=\"Live updates active\"></span><!-- Columns toggle dropdown --><div class=\"relative\" x-data=\"{ colsOpen: false }\"><button @click=\"colsOpen = !colsOpen\" class=\"inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors\" title=\"Toggle column visibility\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01\"></path></svg> Columns</button><div x-show=\"colsOpen\" x-cloak @click.outside=\"colsOpen = false\" class=\"absolute right-0 top-full mt-1 z-30 w-52 rounded-lg border border-border bg-background shadow-lg py-2 max-h-80 overflow-y-auto\"><div class=\"px-3 pb-1.5 border-b border-border mb-1.5 flex justify-between items-center\"><span class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider\">Columns</span> <button onclick=\"resetTblCols()\" class=\"text-xs text-muted-foreground hover:text-foreground\">Reset</button></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			for _, col := range torrentColumnDefs {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<label class=\"flex items-center gap-2 px-3 py-1 hover:bg-accent cursor-pointer text-sm select-none\"><input type=\"checkbox\" id=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<label class=\"flex items-center gap-2 px-3 py-1 hover:bg-accent cursor-pointer text-sm select-none\"><input type=\"checkbox\" id=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var40 string
-				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs("col-toggle-" + col.ID)
+				var templ_7745c5c3_Var22 string
+				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs("col-toggle-" + col.ID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 550, Col: 27}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 494, Col: 27}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\" class=\"rounded\" data-col-toggle=\"")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var41 string
-				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(col.ID)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 552, Col: 24}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" class=\"rounded\" data-col-toggle=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\" onchange=\"toggleTblCol(this.dataset.colToggle)\"> ")
+				var templ_7745c5c3_Var23 string
+				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(col.ID)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 496, Col: 24}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var42 string
-				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(col.Label)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 555, Col: 11}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" onchange=\"toggleTblCol(this.dataset.colToggle)\"> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</label>")
+				var templ_7745c5c3_Var24 string
+				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(col.Label)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 499, Col: 11}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</label>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</div></div><button @click=\"addOpen = true\" class=\"inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><path d=\"M12 5v14M5 12h14\"></path></svg> Add</button></div><!-- Table + detail panel row --><div class=\"flex flex-1 min-h-0 gap-2\"><!-- Table + bulk bar wrapper (hx-ext=\"sse\" so vt-data-slot can listen for live updates) --><div class=\"flex flex-col flex-1 min-w-0\" hx-ext=\"sse\" sse-connect=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</div></div><button @click=\"addOpen = true\" class=\"inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><path d=\"M12 5v14M5 12h14\"></path></svg> Add</button></div><!-- Table + detail panel row --><div class=\"flex flex-1 min-h-0 gap-2\"><!-- Table + bulk bar wrapper (hx-ext=\"sse\" so vt-data-slot can listen for live updates) --><div class=\"flex flex-col flex-1 min-w-0\" hx-ext=\"sse\" sse-connect=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var43 string
-			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/sse/torrents?instance_id=" + itoa(p.InstanceID))
+			var templ_7745c5c3_Var25 string
+			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/sse/torrents?instance_id=" + itoa(p.InstanceID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 575, Col: 78}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 519, Col: 78}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "\"><!-- vt-data-slot: hidden; receives HTMX swaps; JS reads embedded JSON to populate virtual table --><div id=\"vt-data-slot\" style=\"display:none\" hx-trigger=\"sse:torrent-update throttle:8s\" hx-get=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var44 string
-			templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 582, Col: 44}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\"><!-- vt-data-slot: hidden; receives HTMX swaps; JS reads embedded JSON to populate virtual table --><div id=\"vt-data-slot\" style=\"display:none\" hx-trigger=\"sse:torrent-update throttle:8s\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\">")
+			var templ_7745c5c3_Var26 string
+			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 526, Col: 44}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr,#torrents-search\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -924,7 +658,7 @@ func Torrents(p TorrentsProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "</div><div id=\"torrents-scroll-container\" class=\"flex-1 overflow-auto rounded-lg border border-border\"><table class=\"w-full text-sm\"><thead class=\"sticky top-0 z-10 bg-muted/80 backdrop-blur border-b border-border\"><tr><th class=\"px-2 py-2 w-8\"><input type=\"checkbox\" id=\"select-all\" class=\"rounded\" onchange=\"selectAll(this.checked)\"></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground\"><button class=\"hover:text-foreground\" data-sort-col=\"name\" onclick=\"sortBy('name')\">Name</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-24\" data-col=\"status\"><button class=\"hover:text-foreground\" data-sort-col=\"state\" onclick=\"sortBy('state')\">Status</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"size\"><button class=\"hover:text-foreground\" data-sort-col=\"size\" onclick=\"sortBy('size')\">Size</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"total_size\"><button class=\"hover:text-foreground\" data-sort-col=\"total_size\" onclick=\"sortBy('total_size')\">Total</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"progress\"><button class=\"hover:text-foreground\" data-sort-col=\"progress\" onclick=\"sortBy('progress')\">Done</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"dlspeed\"><button class=\"hover:text-foreground\" data-sort-col=\"dlspeed\" onclick=\"sortBy('dlspeed')\">&#x2193;</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"upspeed\"><button class=\"hover:text-foreground\" data-sort-col=\"upspeed\" onclick=\"sortBy('upspeed')\">&#x2191;</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"eta\">ETA</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"ratio\"><button class=\"hover:text-foreground\" data-sort-col=\"ratio\" onclick=\"sortBy('ratio')\">Ratio</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"uploaded\"><button class=\"hover:text-foreground\" data-sort-col=\"uploaded\" onclick=\"sortBy('uploaded')\">Uploaded</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"downloaded\"><button class=\"hover:text-foreground\" data-sort-col=\"downloaded\" onclick=\"sortBy('downloaded')\">Downloaded</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"amount_left\">Remaining</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-14\" data-col=\"seeds\"><button class=\"hover:text-foreground\" data-sort-col=\"num_seeds\" onclick=\"sortBy('num_seeds')\">Seeds</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-28\" data-col=\"category\"><button class=\"hover:text-foreground\" data-sort-col=\"category\" onclick=\"sortBy('category')\">Category</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-32\" data-col=\"tags\">Tags</th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-24\" data-col=\"tracker\">Tracker</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-28\" data-col=\"added_on\"><button class=\"hover:text-foreground\" data-sort-col=\"added_on\" onclick=\"sortBy('added_on')\">Added</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-28\" data-col=\"completion_on\"><button class=\"hover:text-foreground\" data-sort-col=\"completion_on\" onclick=\"sortBy('completion_on')\">Completed</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-24\" data-col=\"seeding_time\"><button class=\"hover:text-foreground\" data-sort-col=\"seeding_time\" onclick=\"sortBy('seeding_time')\">Seeding</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-24\" data-col=\"time_active\">Time Active</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-28\" data-col=\"last_activity\"><button class=\"hover:text-foreground\" data-sort-col=\"last_activity\" onclick=\"sortBy('last_activity')\">Last Activity</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"priority\"><button class=\"hover:text-foreground\" data-sort-col=\"priority\" onclick=\"sortBy('priority')\">Queue</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground\" data-col=\"save_path\">Save Path</th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-32\" data-col=\"infohash\">Info Hash</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-14\" data-col=\"availability\">Avail.</th></tr></thead> <tbody id=\"torrents-table-body\" class=\"divide-y divide-border\"></tbody></table></div><!-- Bulk action bar (hidden until rows are selected) --><!-- Bulk selection: _checkedHashes Set tracks checked hashes; prepareBulkHashes() injects hidden inputs before submit --><div id=\"bulk-hashes-hidden\" style=\"display:none\"></div><div id=\"bulk-action-bar\" class=\"hidden mt-2 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 shadow-md\"><span id=\"bulk-count\" class=\"text-xs text-muted-foreground mr-2\">0 selected</span> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</div><div id=\"torrents-scroll-container\" class=\"flex-1 overflow-auto rounded-lg border border-border\"><table class=\"w-full text-sm\"><thead class=\"sticky top-0 z-10 bg-muted/80 backdrop-blur border-b border-border\"><tr><th class=\"px-2 py-2 w-8\"><input type=\"checkbox\" id=\"select-all\" class=\"rounded\" onchange=\"selectAll(this.checked)\"></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground\"><button class=\"hover:text-foreground\" data-sort-col=\"name\" onclick=\"sortBy('name')\">Name</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-24\" data-col=\"status\"><button class=\"hover:text-foreground\" data-sort-col=\"state\" onclick=\"sortBy('state')\">Status</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"size\"><button class=\"hover:text-foreground\" data-sort-col=\"size\" onclick=\"sortBy('size')\">Size</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"total_size\"><button class=\"hover:text-foreground\" data-sort-col=\"total_size\" onclick=\"sortBy('total_size')\">Total</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"progress\"><button class=\"hover:text-foreground\" data-sort-col=\"progress\" onclick=\"sortBy('progress')\">Done</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"dlspeed\"><button class=\"hover:text-foreground\" data-sort-col=\"dlspeed\" onclick=\"sortBy('dlspeed')\">&#x2193;</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"upspeed\"><button class=\"hover:text-foreground\" data-sort-col=\"upspeed\" onclick=\"sortBy('upspeed')\">&#x2191;</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"eta\">ETA</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"ratio\"><button class=\"hover:text-foreground\" data-sort-col=\"ratio\" onclick=\"sortBy('ratio')\">Ratio</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"uploaded\"><button class=\"hover:text-foreground\" data-sort-col=\"uploaded\" onclick=\"sortBy('uploaded')\">Uploaded</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"downloaded\"><button class=\"hover:text-foreground\" data-sort-col=\"downloaded\" onclick=\"sortBy('downloaded')\">Downloaded</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"amount_left\">Remaining</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-14\" data-col=\"seeds\"><button class=\"hover:text-foreground\" data-sort-col=\"num_seeds\" onclick=\"sortBy('num_seeds')\">Seeds</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-28\" data-col=\"category\"><button class=\"hover:text-foreground\" data-sort-col=\"category\" onclick=\"sortBy('category')\">Category</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-32\" data-col=\"tags\">Tags</th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-24\" data-col=\"tracker\">Tracker</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-28\" data-col=\"added_on\"><button class=\"hover:text-foreground\" data-sort-col=\"added_on\" onclick=\"sortBy('added_on')\">Added</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-28\" data-col=\"completion_on\"><button class=\"hover:text-foreground\" data-sort-col=\"completion_on\" onclick=\"sortBy('completion_on')\">Completed</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-24\" data-col=\"seeding_time\"><button class=\"hover:text-foreground\" data-sort-col=\"seeding_time\" onclick=\"sortBy('seeding_time')\">Seeding</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-24\" data-col=\"time_active\">Time Active</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-28\" data-col=\"last_activity\"><button class=\"hover:text-foreground\" data-sort-col=\"last_activity\" onclick=\"sortBy('last_activity')\">Last Activity</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"priority\"><button class=\"hover:text-foreground\" data-sort-col=\"priority\" onclick=\"sortBy('priority')\">Queue</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground\" data-col=\"save_path\">Save Path</th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-32\" data-col=\"infohash\">Info Hash</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-14\" data-col=\"availability\">Avail.</th></tr></thead> <tbody id=\"torrents-table-body\" class=\"divide-y divide-border\"></tbody></table></div><!-- Bulk action bar (hidden until rows are selected) --><!-- Bulk selection: _checkedHashes Set tracks checked hashes; prepareBulkHashes() injects hidden inputs before submit --><div id=\"bulk-hashes-hidden\" style=\"display:none\"></div><div id=\"bulk-action-bar\" class=\"hidden mt-2 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 shadow-md\"><span id=\"bulk-count\" class=\"text-xs text-muted-foreground mr-2\">0 selected</span> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -936,161 +670,161 @@ func Torrents(p TorrentsProps) templ.Component {
 				{"deleteWithFiles", "Delete+Files", "text-destructive border border-destructive/30 hover:bg-destructive hover:text-destructive-foreground"},
 				{"delete", "Delete", "text-destructive border border-destructive/30 hover:bg-destructive hover:text-destructive-foreground"},
 			} {
-				var templ_7745c5c3_Var45 = []any{"rounded-md px-2.5 py-1 text-xs font-medium transition-colors", act.cls}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var45...)
+				var templ_7745c5c3_Var27 = []any{"rounded-md px-2.5 py-1 text-xs font-medium transition-colors", act.cls}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var27...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<button hx-post=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<button hx-post=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var46 string
-				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/action")
+				var templ_7745c5c3_Var28 string
+				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/action")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 653, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 597, Col: 52}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "\" hx-include=\"#bulk-hashes-hidden,[name='instance_id']\" hx-vals=\"")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var47 string
-				templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(`{"action":"` + act.action + `"}`)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 655, Col: 43}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\" hx-include=\"#bulk-hashes-hidden,[name='instance_id']\" hx-vals=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-on::before-request=\"prepareBulkHashes()\" hx-on::after-request=\"selectAll(false)\" class=\"")
+				var templ_7745c5c3_Var29 string
+				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(`{"action":"` + act.action + `"}`)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 599, Col: 43}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var48 string
-				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var45).String())
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-on::before-request=\"prepareBulkHashes()\" hx-on::after-request=\"selectAll(false)\" class=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var30 string
+				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var27).String())
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1, Col: 0}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var49 string
-				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(act.label)
+				var templ_7745c5c3_Var31 string
+				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(act.label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 662, Col: 11}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 606, Col: 11}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "</button> ")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</button> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<button onclick=\"selectAll(false)\" class=\"ml-auto rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors\">✕ Clear</button></div></div><!-- Right detail panel (shown when a torrent row is clicked) --><div id=\"torrent-detail-outer\" style=\"display:none\" class=\"w-96 shrink-0 rounded-lg border border-border bg-background overflow-hidden flex flex-col\"><div id=\"torrent-detail-panel\" class=\"h-full overflow-hidden flex flex-col\"><!-- Loaded via HTMX when a row is clicked --></div></div></div></div><!-- Add Torrent dialog (Alpine.js modal) --><div x-show=\"addOpen\" x-cloak class=\"fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm\" @keydown.escape.window=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\"><div class=\"w-full max-w-lg rounded-xl border border-border bg-background shadow-xl flex flex-col max-h-[90vh]\" @click.outside=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\"><!-- Header --><div class=\"flex items-center justify-between px-5 py-4 border-b border-border shrink-0\"><h2 class=\"text-base font-semibold\">Add Torrent</h2><button @click=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\" class=\"rounded-md p-1 text-muted-foreground hover:bg-accent transition-colors\"><svg class=\"h-4 w-4\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></div><!-- Scrollable form body --><form id=\"add-torrent-form\" hx-post=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<button onclick=\"selectAll(false)\" class=\"ml-auto rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors\">✕ Clear</button></div></div><!-- Right detail panel (shown when a torrent row is clicked) --><div id=\"torrent-detail-outer\" style=\"display:none\" class=\"w-96 shrink-0 rounded-lg border border-border bg-background overflow-hidden flex flex-col\"><div id=\"torrent-detail-panel\" class=\"h-full overflow-hidden flex flex-col\"><!-- Loaded via HTMX when a row is clicked --></div></div></div></div><!-- Add Torrent dialog (Alpine.js modal) --><div x-show=\"addOpen\" x-cloak class=\"fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm\" @keydown.escape.window=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\"><div class=\"w-full max-w-lg rounded-xl border border-border bg-background shadow-xl flex flex-col max-h-[90vh]\" @click.outside=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\"><!-- Header --><div class=\"flex items-center justify-between px-5 py-4 border-b border-border shrink-0\"><h2 class=\"text-base font-semibold\">Add Torrent</h2><button @click=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\" class=\"rounded-md p-1 text-muted-foreground hover:bg-accent transition-colors\"><svg class=\"h-4 w-4\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></div><!-- Scrollable form body --><form id=\"add-torrent-form\" hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var50 string
-			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/add")
+			var templ_7745c5c3_Var32 string
+			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/add")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 711, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 655, Col: 49}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-on::after-request=\"if(event.detail.successful){ addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false; document.getElementById('add-torrent-form').reset(); document.getElementById('add-file-lbl').textContent = 'No files selected'; }\" class=\"flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0\" enctype=\"multipart/form-data\"><input type=\"hidden\" name=\"instance_id\" value=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var51 string
-			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.InstanceID))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 718, Col: 66}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\" hx-target=\"#vt-data-slot\" hx-swap=\"innerHTML\" hx-on::after-request=\"if(event.detail.successful){ addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false; document.getElementById('add-torrent-form').reset(); document.getElementById('add-file-lbl').textContent = 'No files selected'; }\" class=\"flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0\" enctype=\"multipart/form-data\"><input type=\"hidden\" name=\"instance_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\"><!-- Source tabs: File / URL --><div class=\"flex rounded-md bg-muted p-1 gap-1\"><button type=\"button\" @click=\"addTab = 'file'\" :class=\"addTab === 'file' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'\" class=\"flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"></path></svg> Upload File</button> <button type=\"button\" @click=\"addTab = 'url'\" :class=\"addTab === 'url' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'\" class=\"flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"></path><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"></path></svg> URL / Magnet</button></div><!-- File drop zone (visible when addTab === 'file') --><div x-show=\"addTab === 'file'\"><div class=\"border-2 border-dashed border-border rounded-md p-6 text-center cursor-pointer transition-colors hover:border-primary/40 hover:bg-accent/30\" @click=\"document.getElementById('add-torrent-file-input').click()\" @dragover.prevent=\"$el.classList.add('border-primary','bg-accent/20')\" @dragleave.self=\"$el.classList.remove('border-primary','bg-accent/20')\" @drop.prevent=\"\nconst dt = new DataTransfer();\nconst inp = document.getElementById('add-torrent-file-input');\nArray.from(inp.files || []).forEach(f => dt.items.add(f));\nArray.from($event.dataTransfer.files).filter(f => f.name.endsWith('.torrent')).forEach(f => dt.items.add(f));\ninp.files = dt.files;\n$el.classList.remove('border-primary','bg-accent/20');\ndocument.getElementById('add-file-lbl').textContent = dt.files.length + ' file(s) selected';\n\"><svg class=\"h-8 w-8 mx-auto mb-2 text-muted-foreground\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"></path></svg><p class=\"text-sm font-medium\">Drag &amp; drop .torrent files here</p><p class=\"text-xs text-muted-foreground mt-0.5\">or click to browse · multiple files supported</p></div><input id=\"add-torrent-file-input\" type=\"file\" name=\"torrentfile\" accept=\".torrent\" multiple class=\"hidden\" @change=\"document.getElementById('add-file-lbl').textContent = $event.target.files.length + ' file(s) selected'\"> <span id=\"add-file-lbl\" class=\"text-xs text-muted-foreground mt-1 block\">No files selected</span></div><!-- URL / magnet textarea (visible when addTab === 'url') --><div x-show=\"addTab === 'url'\" x-cloak><label class=\"block text-xs font-medium text-muted-foreground mb-1\">URLs / Magnet links (one per line)</label> <textarea name=\"urls\" rows=\"4\" placeholder=\"magnet:?xt=urn:btih:…&#10;https://example.com/file.torrent\" class=\"w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none\"></textarea></div><!-- Category + Tags --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Category</label> <input type=\"text\" name=\"category\" list=\"add-dialog-categories\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"none\"> ")
+			var templ_7745c5c3_Var33 string
+			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.InstanceID))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 662, Col: 66}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\"><!-- Source tabs: File / URL --><div class=\"flex rounded-md bg-muted p-1 gap-1\"><button type=\"button\" @click=\"addTab = 'file'\" :class=\"addTab === 'file' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'\" class=\"flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"></path></svg> Upload File</button> <button type=\"button\" @click=\"addTab = 'url'\" :class=\"addTab === 'url' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'\" class=\"flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"></path><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"></path></svg> URL / Magnet</button></div><!-- File drop zone (visible when addTab === 'file') --><div x-show=\"addTab === 'file'\"><div class=\"border-2 border-dashed border-border rounded-md p-6 text-center cursor-pointer transition-colors hover:border-primary/40 hover:bg-accent/30\" @click=\"document.getElementById('add-torrent-file-input').click()\" @dragover.prevent=\"$el.classList.add('border-primary','bg-accent/20')\" @dragleave.self=\"$el.classList.remove('border-primary','bg-accent/20')\" @drop.prevent=\"\nconst dt = new DataTransfer();\nconst inp = document.getElementById('add-torrent-file-input');\nArray.from(inp.files || []).forEach(f => dt.items.add(f));\nArray.from($event.dataTransfer.files).filter(f => f.name.endsWith('.torrent')).forEach(f => dt.items.add(f));\ninp.files = dt.files;\n$el.classList.remove('border-primary','bg-accent/20');\ndocument.getElementById('add-file-lbl').textContent = dt.files.length + ' file(s) selected';\n\"><svg class=\"h-8 w-8 mx-auto mb-2 text-muted-foreground\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"></path></svg><p class=\"text-sm font-medium\">Drag &amp; drop .torrent files here</p><p class=\"text-xs text-muted-foreground mt-0.5\">or click to browse · multiple files supported</p></div><input id=\"add-torrent-file-input\" type=\"file\" name=\"torrentfile\" accept=\".torrent\" multiple class=\"hidden\" @change=\"document.getElementById('add-file-lbl').textContent = $event.target.files.length + ' file(s) selected'\"> <span id=\"add-file-lbl\" class=\"text-xs text-muted-foreground mt-1 block\">No files selected</span></div><!-- URL / magnet textarea (visible when addTab === 'url') --><div x-show=\"addTab === 'url'\" x-cloak><label class=\"block text-xs font-medium text-muted-foreground mb-1\">URLs / Magnet links (one per line)</label> <textarea name=\"urls\" rows=\"4\" placeholder=\"magnet:?xt=urn:btih:…&#10;https://example.com/file.torrent\" class=\"w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none\"></textarea></div><!-- Category + Tags --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Category</label> <input type=\"text\" name=\"category\" list=\"add-dialog-categories\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"none\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(p.Categories) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<datalist id=\"add-dialog-categories\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<datalist id=\"add-dialog-categories\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, cat := range p.Categories {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<option value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<option value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var52 string
-					templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(cat)
+					var templ_7745c5c3_Var34 string
+					templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(cat)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 796, Col: 19}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 740, Col: 19}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "\"></option>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"></option>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</datalist>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</datalist>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "</div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Tags (comma-separated)</label> <input type=\"text\" name=\"tags\" list=\"add-dialog-tags\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"e.g. hd, seedbox\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Tags (comma-separated)</label> <input type=\"text\" name=\"tags\" list=\"add-dialog-tags\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"e.g. hd, seedbox\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(p.Tags) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "<datalist id=\"add-dialog-tags\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<datalist id=\"add-dialog-tags\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, tag := range p.Tags {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<option value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<option value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var53 string
-					templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
+					var templ_7745c5c3_Var35 string
+					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 813, Col: 19}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 757, Col: 19}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "\"></option>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\"></option>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "</datalist>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "</datalist>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</div></div><!-- Basic toggles --><div class=\"flex flex-wrap items-center gap-x-5 gap-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"paused\" value=\"true\" class=\"rounded\"> Start paused</label> <label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"skip_hash_check\" value=\"true\" class=\"rounded\"> Skip hash check</label></div><!-- Advanced options collapsible --><div><button type=\"button\" @click=\"addAdv = !addAdv\" class=\"flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors w-full text-left\"><svg class=\"h-3.5 w-3.5 transition-transform duration-150\" :class=\"addAdv ? 'rotate-90' : ''\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><path d=\"M9 18l6-6-6-6\"></path></svg> Advanced options</button><div x-show=\"addAdv\" x-cloak class=\"mt-3 space-y-3 pl-3 border-l border-border\"><!-- Auto TMM --><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"auto_tmm\" value=\"true\" class=\"rounded\"> Automatic Torrent Management</label><!-- Save path --><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Save path</label> <input type=\"text\" name=\"savepath\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"Leave empty for default\"></div><!-- Temporary download path --><div class=\"space-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"use_download_path\" value=\"true\" class=\"rounded\" x-model=\"useTmpPath\"> Use temporary download path</label> <input type=\"text\" name=\"download_path\" :disabled=\"!useTmpPath\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-40 disabled:cursor-not-allowed\" placeholder=\"Temporary download path\"></div><!-- Content layout + rename --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Content layout</label> <select name=\"content_layout\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\"><option value=\"\">Use global setting</option> <option value=\"Original\">Original</option> <option value=\"Subfolder\">Create subfolder</option> <option value=\"NoSubfolder\">No subfolder</option></select></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Rename torrent</label> <input type=\"text\" name=\"rename\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"Leave empty for original name\"></div></div><!-- Sequential + first/last piece --><div class=\"flex flex-wrap items-center gap-x-5 gap-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"sequential_download\" value=\"true\" class=\"rounded\"> Sequential download</label> <label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"first_last_piece_prio\" value=\"true\" class=\"rounded\"> First/last piece priority</label></div><!-- Speed limits --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Download limit (KiB/s)</label> <input type=\"number\" name=\"dl_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = unlimited\"></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Upload limit (KiB/s)</label> <input type=\"number\" name=\"up_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = unlimited\"></div></div><!-- Seeding limits --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Ratio limit</label> <input type=\"number\" name=\"ratio_limit\" min=\"0\" step=\"0.1\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = use global\"></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Seed time limit (min)</label> <input type=\"number\" name=\"seed_time_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = use global\"></div></div></div></div></form><!-- Footer --><div class=\"flex justify-end gap-2 px-5 py-3 border-t border-border shrink-0\"><button type=\"button\" @click=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\" class=\"rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors\">Cancel</button> <button type=\"submit\" form=\"add-torrent-form\" class=\"rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors\">Add Torrent</button></div></div></div></div><!-- Column defaults JSON (read by JS below; Go expressions can't appear inside <script> text) --> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</div></div><!-- Basic toggles --><div class=\"flex flex-wrap items-center gap-x-5 gap-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"paused\" value=\"true\" class=\"rounded\"> Start paused</label> <label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"skip_hash_check\" value=\"true\" class=\"rounded\"> Skip hash check</label></div><!-- Advanced options collapsible --><div><button type=\"button\" @click=\"addAdv = !addAdv\" class=\"flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors w-full text-left\"><svg class=\"h-3.5 w-3.5 transition-transform duration-150\" :class=\"addAdv ? 'rotate-90' : ''\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><path d=\"M9 18l6-6-6-6\"></path></svg> Advanced options</button><div x-show=\"addAdv\" x-cloak class=\"mt-3 space-y-3 pl-3 border-l border-border\"><!-- Auto TMM --><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"auto_tmm\" value=\"true\" class=\"rounded\"> Automatic Torrent Management</label><!-- Save path --><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Save path</label> <input type=\"text\" name=\"savepath\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"Leave empty for default\"></div><!-- Temporary download path --><div class=\"space-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"use_download_path\" value=\"true\" class=\"rounded\" x-model=\"useTmpPath\"> Use temporary download path</label> <input type=\"text\" name=\"download_path\" :disabled=\"!useTmpPath\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-40 disabled:cursor-not-allowed\" placeholder=\"Temporary download path\"></div><!-- Content layout + rename --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Content layout</label> <select name=\"content_layout\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\"><option value=\"\">Use global setting</option> <option value=\"Original\">Original</option> <option value=\"Subfolder\">Create subfolder</option> <option value=\"NoSubfolder\">No subfolder</option></select></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Rename torrent</label> <input type=\"text\" name=\"rename\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"Leave empty for original name\"></div></div><!-- Sequential + first/last piece --><div class=\"flex flex-wrap items-center gap-x-5 gap-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"sequential_download\" value=\"true\" class=\"rounded\"> Sequential download</label> <label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"first_last_piece_prio\" value=\"true\" class=\"rounded\"> First/last piece priority</label></div><!-- Speed limits --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Download limit (KiB/s)</label> <input type=\"number\" name=\"dl_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = unlimited\"></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Upload limit (KiB/s)</label> <input type=\"number\" name=\"up_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = unlimited\"></div></div><!-- Seeding limits --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Ratio limit</label> <input type=\"number\" name=\"ratio_limit\" min=\"0\" step=\"0.1\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = use global\"></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Seed time limit (min)</label> <input type=\"number\" name=\"seed_time_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = use global\"></div></div></div></div></form><!-- Footer --><div class=\"flex justify-end gap-2 px-5 py-3 border-t border-border shrink-0\"><button type=\"button\" @click=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\" class=\"rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors\">Cancel</button> <button type=\"submit\" form=\"add-torrent-form\" class=\"rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors\">Add Torrent</button></div></div></div></div><!-- Column defaults JSON (read by JS below; Go expressions can't appear inside <script> text) --> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1098,7 +832,15 @@ func Torrents(p TorrentsProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, " <!-- Virtual scroll + sort arrows + filter chips + expr builder JS --> <script>\n// ── Expr field definitions ──────────────────────────────────────────────────\nvar _exprFields = [\n  { id: 'Name',        label: 'Name',         type: 'text' },\n  { id: 'State',       label: 'State',        type: 'enum', values: ['downloading','uploading','stalledDL','stalledUP','pausedDL','pausedUP','stoppedDL','stoppedUP','error','missingFiles','checkingUP','checkingDL','forcedUP','forcedDL','metaDL','allocating','moving','queuedDL','queuedUP'] },\n  { id: 'Category',    label: 'Category',     type: 'text' },\n  { id: 'Tags',        label: 'Tags',         type: 'text' },\n  { id: 'SavePath',    label: 'Save Path',    type: 'text' },\n  { id: 'Tracker',     label: 'Tracker',      type: 'text' },\n  { id: 'Ratio',       label: 'Ratio',        type: 'number' },\n  { id: 'Progress',    label: 'Progress (0-1)', type: 'number' },\n  { id: 'Size',        label: 'Size (bytes)', type: 'number' },\n  { id: 'TotalSize',   label: 'Total Size',   type: 'number' },\n  { id: 'DlSpeed',     label: 'DL Speed (B/s)', type: 'number' },\n  { id: 'UpSpeed',     label: 'UP Speed (B/s)', type: 'number' },\n  { id: 'Uploaded',    label: 'Uploaded',     type: 'number' },\n  { id: 'Downloaded',  label: 'Downloaded',   type: 'number' },\n  { id: 'NumSeeds',    label: 'Seeds',        type: 'number' },\n  { id: 'NumLeechs',   label: 'Leechers',     type: 'number' },\n  { id: 'SeedingTime', label: 'Seeding Time (s)', type: 'number' },\n  { id: 'TimeActive',  label: 'Time Active (s)',  type: 'number' },\n  { id: 'AmountLeft',  label: 'Amount Left',  type: 'number' },\n  { id: 'Priority',    label: 'Priority',     type: 'number' },\n  { id: 'Availability',label: 'Availability', type: 'number' },\n  { id: 'NumComplete', label: 'Total Seeds',  type: 'number' },\n  { id: 'NumIncomplete',label: 'Total Peers', type: 'number' },\n];\nvar _exprOpsText   = ['contains','==','!=','startsWith','endsWith'];\nvar _exprOpsNumber = ['<','<=','>','>=','==','!='];\nvar _exprOpsEnum   = ['==','!='];\nvar _stateLabels   = {\n  'downloading':'Downloading', 'uploading':'Seeding', 'stalledDL':'Stalled↓', 'stalledUP':'Stalled↑',\n  'pausedDL':'Paused↓', 'pausedUP':'Paused↑', 'stoppedDL':'Stopped↓', 'stoppedUP':'Stopped↑',\n  'error':'Error', 'missingFiles':'Missing Files', 'checkingUP':'Checking', 'checkingDL':'Checking',\n  'forcedUP':'Forced UP', 'forcedDL':'Forced DL', 'metaDL':'Getting Metadata',\n  'allocating':'Allocating', 'moving':'Moving', 'queuedDL':'Queued↓', 'queuedUP':'Queued↑',\n};\n\n// ── Expr builder init ───────────────────────────────────────────────────────\nfunction initExprBuilder() {\n  var sel = document.getElementById('eb-field');\n  if (!sel || sel.options.length > 0) return;\n  sel.innerHTML = _exprFields.map(function(f){ return '<option value=\"'+f.id+'\">'+f.label+'</option>'; }).join('');\n  exprBuilderFieldChanged();\n}\n\nfunction exprBuilderFieldChanged() {\n  var sel = document.getElementById('eb-field');\n  if (!sel) return;\n  var field = _exprFields.find(function(f){ return f.id === sel.value; });\n  if (!field) return;\n  var opSel = document.getElementById('eb-op');\n  var valContainer = document.getElementById('eb-val-container');\n  if (!opSel || !valContainer) return;\n  var ops = field.type === 'number' ? _exprOpsNumber : field.type === 'enum' ? _exprOpsEnum : _exprOpsText;\n  opSel.innerHTML = ops.map(function(o){ return '<option value=\"'+o+'\">'+o+'</option>'; }).join('');\n  if (field.type === 'enum') {\n    valContainer.innerHTML = '<select id=\"eb-val\" class=\"h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\">' +\n      field.values.map(function(v){ return '<option value=\"'+v+'\">'+(_stateLabels[v]||v)+'</option>'; }).join('') + '</select>';\n  } else if (field.type === 'number') {\n    valContainer.innerHTML = '<input id=\"eb-val\" type=\"number\" step=\"any\" placeholder=\"value\" class=\"h-7 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\" onkeydown=\"if(event.key===\\'Enter\\'){event.preventDefault();exprBuilderAdd();}\"/>';\n  } else {\n    valContainer.innerHTML = '<input id=\"eb-val\" type=\"text\" placeholder=\"value\" class=\"h-7 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\" onkeydown=\"if(event.key===\\'Enter\\'){event.preventDefault();exprBuilderAdd();}\"/>';\n  }\n}\n\nfunction exprBuilderAdd() {\n  var fieldSel = document.getElementById('eb-field');\n  var opSel    = document.getElementById('eb-op');\n  var valEl    = document.getElementById('eb-val');\n  if (!fieldSel || !opSel || !valEl) return;\n  var field = _exprFields.find(function(f){ return f.id === fieldSel.value; });\n  if (!field) return;\n  var op  = opSel.value;\n  var val = valEl.value.trim();\n  if (val === '') return;\n  var cond;\n  if (op === 'contains')    cond = field.id + ' contains \"' + val + '\"';\n  else if (op === 'startsWith') cond = field.id + ' startsWith \"' + val + '\"';\n  else if (op === 'endsWith')   cond = field.id + ' endsWith \"' + val + '\"';\n  else if (field.type === 'text' || field.type === 'enum') cond = field.id + ' ' + op + ' \"' + val + '\"';\n  else cond = field.id + ' ' + op + ' ' + val;\n  var exprEl = document.getElementById('current-expr');\n  if (exprEl) { exprEl.value = exprEl.value ? exprEl.value + ' && ' + cond : cond; }\n  valEl.value = '';\n  renderFilterChips();\n  triggerTableRefresh();\n}\n\n// ── Filter chips ────────────────────────────────────────────────────────────\nfunction _escHtml(s) {\n  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n}\n\nfunction renderFilterChips() {\n  var chips = document.getElementById('filter-chips');\n  if (!chips) return;\n  var status   = (document.getElementById('current-status')   || {value:''}).value || '';\n  var category = (document.getElementById('current-category') || {value:''}).value || '';\n  var tag      = (document.getElementById('current-tag')      || {value:''}).value || '';\n  var search   = (document.getElementById('torrents-search')  || {value:''}).value || '';\n  var expr     = (document.getElementById('current-expr')     || {value:''}).value || '';\n  var parts = [];\n  if (status)   parts.push({ label: 'State == \"' + (_stateLabels[status] || status) + '\"', rawLabel: 'State == \"' + status + '\"', clear: 'status' });\n  if (category) parts.push({ label: 'Category == \"' + category + '\"', clear: 'category' });\n  if (tag)      parts.push({ label: 'Tags contains \"' + tag + '\"', clear: 'tag' });\n  if (search)   parts.push({ label: 'Name ~ \"' + search + '\"', clear: 'search' });\n  if (expr)     parts.push({ label: expr.length>50 ? expr.substring(0,50)+'…' : expr, title: expr, clear: 'expr' });\n  chips.innerHTML = parts.map(function(p) {\n    return '<span class=\"inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium font-mono\" title=\"'+ _escHtml(p.title||p.label) +'\">' +\n      '<span>'+_escHtml(p.label)+'</span>' +\n      '<button type=\"button\" onclick=\"clearFilter(\\''+p.clear+'\\')\" class=\"ml-0.5 text-primary/70 hover:text-primary leading-none\" aria-label=\"Remove filter\">\\xd7</button>' +\n      '</span>';\n  }).join('');\n}\n\nfunction clearFilter(type) {\n  var map = { status:'current-status', category:'current-category', tag:'current-tag', search:'torrents-search', expr:'current-expr' };\n  var el = document.getElementById(map[type]);\n  if (el) el.value = '';\n  renderFilterChips();\n  triggerTableRefresh();\n}\n\nfunction triggerTableRefresh() {\n  var btn = document.getElementById('sort-trigger');\n  // Dispatch 'tbl-refresh' (custom event) rather than 'click' so it does NOT\n  // bubble as a DOM click — that would close Alpine @click.outside popovers\n  // like the expression builder while the user is still adding conditions.\n  if (btn && window.htmx) htmx.trigger(btn, 'tbl-refresh');\n}\n\n// ── Sort arrows ─────────────────────────────────────────────────────────────\nfunction applySortArrows() {\n  var sort  = (document.getElementById('current-sort')  || {value:''}).value || '';\n  var order = (document.getElementById('current-order') || {value:'desc'}).value || 'desc';\n  document.querySelectorAll('[data-sort-col]').forEach(function(btn) {\n    btn.querySelectorAll('.sort-arrow').forEach(function(s){ s.parentNode.removeChild(s); });\n    if (btn.dataset.sortCol === sort) {\n      var sp = document.createElement('span');\n      sp.className = 'sort-arrow';\n      sp.textContent = order === 'asc' ? ' \\u2191' : ' \\u2193';\n      btn.appendChild(sp);\n    }\n  });\n}\n\n// ── Virtual scroll ──────────────────────────────────────────────────────────\n// _vlRows holds all torrent data as plain JS objects from the server JSON.\n// Only rows that are visible in the scroll viewport are inserted into the DOM,\n// keeping the DOM small regardless of torrent count.\nvar _vlRows      = [];\nvar _vlRowHeight = 40;\nvar _vlListening = false;\nvar _vlNodeCache = {};\nvar _vtBaseURL   = '';\nvar _vtInstanceID = 0;\n\nfunction initVirtualScroll() {\n  var dataEl    = document.getElementById('vt-rows-json');\n  var container = document.getElementById('torrents-scroll-container');\n  var tbody     = document.getElementById('torrents-table-body');\n  if (!dataEl || !container || !tbody) return;\n\n  var data;\n  try { data = JSON.parse(dataEl.textContent); }\n  catch(e) { console.error('vt: JSON parse failed', e); return; }\n\n  _vtBaseURL    = data.baseURL    || '';\n  _vtInstanceID = data.instanceID || 0;\n  _vlRows       = data.rows       || [];\n  _vlNodeCache  = {};\n\n  var countEl = document.getElementById('torrent-count');\n  if (countEl) countEl.textContent = (data.total || _vlRows.length) + ' torrent(s)';\n\n  ['vl-top-spacer','vl-bot-spacer'].forEach(function(id) {\n    var old = document.getElementById(id);\n    if (old && old.parentNode) old.parentNode.removeChild(old);\n  });\n  var mkSpacer = function(id) {\n    var tr = document.createElement('tr'); tr.id = id;\n    var td = document.createElement('td'); td.setAttribute('colspan','30');\n    td.style.padding = '0'; td.style.height = '0px';\n    tr.appendChild(td); return tr;\n  };\n  var top = mkSpacer('vl-top-spacer');\n  var bot = mkSpacer('vl-bot-spacer');\n  while (tbody.firstChild) tbody.removeChild(tbody.firstChild);\n  tbody.appendChild(top);\n  tbody.appendChild(bot);\n\n  if (!_vlListening) {\n    container.addEventListener('scroll', function(){ _vlRender(); }, { passive: true });\n    _vlListening = true;\n  }\n\n  // Defer first render until the scroll container has a real measured height.\n  // On initial page load, clientHeight is 0 because layout hasn't completed;\n  // a ResizeObserver fires once the browser has performed layout.\n  if (container.clientHeight > 0) {\n    _vlRender();\n  } else if (typeof ResizeObserver !== 'undefined') {\n    var _vlRO = new ResizeObserver(function() {\n      if (container.clientHeight > 0) { _vlRO.disconnect(); _vlRender(); }\n    });\n    _vlRO.observe(container);\n  } else {\n    setTimeout(_vlRender, 100);\n  }\n}\n\nfunction _vlRender() {\n  var tbody     = document.getElementById('torrents-table-body');\n  var container = document.getElementById('torrents-scroll-container');\n  var top = document.getElementById('vl-top-spacer');\n  var bot = document.getElementById('vl-bot-spacer');\n  if (!tbody || !container || !top || !bot) return;\n  if (_vlRows.length === 0) {\n    var node = top.nextSibling;\n    while (node && node !== bot) { var nxt = node.nextSibling; tbody.removeChild(node); node = nxt; }\n    var emptyTr = document.createElement('tr');\n    emptyTr.innerHTML = '<td colspan=\"30\" class=\"px-3 py-12 text-center text-sm text-muted-foreground\">No torrents match your filters.</td>';\n    tbody.insertBefore(emptyTr, bot);\n    top.firstChild.style.height = '0px';\n    bot.firstChild.style.height = '0px';\n    return;\n  }\n\n  var total     = _vlRows.length;\n  var rh        = _vlRowHeight;\n  var scrollTop = container.scrollTop;\n  var viewH     = container.clientHeight;\n  var overscan  = 5;\n\n  var startIdx = Math.max(0, Math.floor(scrollTop / rh) - overscan);\n  var endIdx   = Math.min(total, Math.ceil((scrollTop + viewH) / rh) + overscan);\n\n  top.firstChild.style.height = (startIdx * rh) + 'px';\n  bot.firstChild.style.height = ((total - endIdx) * rh) + 'px';\n\n  var node = top.nextSibling;\n  while (node && node !== bot) {\n    var nxt = node.nextSibling;\n    tbody.removeChild(node);\n    node = nxt;\n  }\n  var frag = document.createDocumentFragment();\n  for (var i = startIdx; i < endIdx; i++) { frag.appendChild(_vtGetRow(i)); }\n  tbody.insertBefore(frag, bot);\n\n  if (_vlRowHeight === 40) {\n    var first = top.nextSibling;\n    if (first && first !== bot) {\n      var h = first.getBoundingClientRect().height;\n      if (h > 4) _vlRowHeight = h;\n    }\n  }\n  _restoreCheckboxes();\n  applyTblCols();\n}\n\nfunction _vtGetRow(i) {\n  if (!_vlNodeCache[i]) _vlNodeCache[i] = _createRow(_vlRows[i]);\n  return _vlNodeCache[i];\n}\n\n// ── Row renderer ─────────────────────────────────────────────────────────────\nfunction _vtStateLabel(state) {\n  var m = {\n    'downloading':['Downloading','bg-blue-500/15 text-blue-700 dark:text-blue-400'],\n    'metaDL':     ['Downloading','bg-blue-500/15 text-blue-700 dark:text-blue-400'],\n    'allocating': ['Downloading','bg-blue-500/15 text-blue-700 dark:text-blue-400'],\n    'uploading':  ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],\n    'stalledUP':  ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],\n    'forcedUP':   ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],\n    'queuedUP':   ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],\n    'pausedDL':   ['Paused','bg-muted text-muted-foreground'],\n    'stoppedDL':  ['Paused','bg-muted text-muted-foreground'],\n    'pausedUP':   ['Completed','bg-muted text-muted-foreground'],\n    'stoppedUP':  ['Completed','bg-muted text-muted-foreground'],\n    'error':      ['Error','bg-red-500/15 text-red-700 dark:text-red-400'],\n    'missingFiles':['Error','bg-red-500/15 text-red-700 dark:text-red-400'],\n    'checkingUP': ['Checking','bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'],\n    'checkingDL': ['Checking','bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'],\n    'checkingResumeData':['Checking','bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'],\n  };\n  return m[state] || [state||'Unknown','bg-muted text-muted-foreground'];\n}\nfunction _vtFmtBytes(n) {\n  if (!n || n <= 0) return '\\u2014';\n  var u = ['B','KiB','MiB','GiB','TiB'], i = 0, v = +n;\n  while (v >= 1024 && i < u.length-1) { v /= 1024; i++; }\n  return (i > 0 ? v.toFixed(1) : Math.round(v)) + '\\u202f' + u[i];\n}\nfunction _vtFmtBps(n) { return n > 0 ? _vtFmtBytes(n) + '/s' : '\\u2014'; }\nfunction _vtFmtPct(p) { return ((p||0)*100).toFixed(1) + '%'; }\nfunction _vtFmtRatio(r) { return r >= 100 ? '>100' : (r||0).toFixed(2); }\nfunction _vtFmtETA(s) {\n  if (!s || s < 0 || s > 8640000) return '\\u221e';\n  var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;\n  if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m';\n  if (m > 0) return m+'m'+String(sec).padStart(2,'0')+'s';\n  return sec+'s';\n}\nfunction _vtFmtTs(t) {\n  if (!t || t <= 0) return '\\u2014';\n  var d = new Date(t*1000);\n  var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];\n  return mo[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear()+' '+\n    String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');\n}\nfunction _vtFmtSeedTime(s) {\n  if (!s || s <= 0) return '\\u2014';\n  var d = Math.floor(s/86400), h = Math.floor((s%86400)/3600);\n  if (d > 0) return d+'d '+h+'h';\n  var m = Math.floor((s%3600)/60);\n  return h > 0 ? h+'h '+m+'m' : m+'m';\n}\nfunction _vtTrackerHost(url) {\n  if (!url) return '';\n  try {\n    var parts = new URL(url).hostname.split('.');\n    return parts.length >= 2 ? parts[parts.length-2]+'.'+parts[parts.length-1] : parts[0];\n  } catch(e) { return url; }\n}\nfunction _vtEsc(s) {\n  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n}\nfunction _vtIsDownloading(state) {\n  return ['downloading','metaDL','allocating','checkingDL','forcedDL'].indexOf(state) >= 0;\n}\n\nfunction _createRow(t) {\n  var sl = _vtStateLabel(t.State||''), label = sl[0], badge = sl[1];\n  var hash = t.Hash || '';\n  var h = '';\n  h += '<td class=\"px-2 py-2 w-8\" onclick=\"event.stopPropagation()\"><input type=\"checkbox\" name=\"hashes\" value=\"'+_vtEsc(hash)+'\" class=\"rounded\" onclick=\"event.stopPropagation()\"/></td>';\n  h += '<td class=\"px-3 py-2 max-w-xs\"><span class=\"block truncate font-medium\" title=\"'+_vtEsc(t.Name)+'\">'+_vtEsc(t.Name)+'</span></td>';\n  h += '<td class=\"px-3 py-2 whitespace-nowrap\" data-col=\"status\"><span class=\"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium '+badge+'\">'+label+'</span></td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"size\">'+_vtFmtBytes(t.SizeB)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"total_size\">'+(t.TotalSizeB > 0 ? _vtFmtBytes(t.TotalSizeB) : '<span class=\"text-muted-foreground/50\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums\" data-col=\"progress\">'+_vtFmtPct(t.Progress)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-blue-600 dark:text-blue-400\" data-col=\"dlspeed\">'+(t.DlSpeed > 0 ? _vtFmtBps(t.DlSpeed) : '<span class=\"text-muted-foreground\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-green-600 dark:text-green-400\" data-col=\"upspeed\">'+(t.UpSpeed > 0 ? _vtFmtBps(t.UpSpeed) : '<span class=\"text-muted-foreground\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"eta\">'+(_vtIsDownloading(t.State) ? _vtFmtETA(t.ETA) : '\\u2014')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums\" data-col=\"ratio\">'+_vtFmtRatio(t.Ratio)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"uploaded\">'+(t.Uploaded > 0 ? _vtFmtBytes(t.Uploaded) : '<span class=\"text-muted-foreground/50\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"downloaded\">'+(t.Downloaded > 0 ? _vtFmtBytes(t.Downloaded) : '<span class=\"text-muted-foreground/50\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"amount_left\">'+(t.AmountLeft > 0 ? _vtFmtBytes(t.AmountLeft) : '<span class=\"text-muted-foreground/50\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"seeds\">'+(t.NumSeeds||0)+'<span class=\"text-muted-foreground/60\">/'+(t.NumLeechs||0)+'</span></td>';\n  h += '<td class=\"px-3 py-2 max-w-[7rem]\" data-col=\"category\"><span class=\"block truncate text-muted-foreground text-xs\" title=\"'+_vtEsc(t.Category)+'\">'+(t.Category ? _vtEsc(t.Category) : '<span class=\"italic\">none</span>')+'</span></td>';\n  h += '<td class=\"px-3 py-2 max-w-[8rem]\" data-col=\"tags\">'+(t.Tags ? '<span class=\"block truncate text-muted-foreground text-xs\" title=\"'+_vtEsc(t.Tags)+'\">'+_vtEsc(t.Tags)+'</span>' : '<span class=\"text-muted-foreground/50 text-xs\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 max-w-[6rem]\" data-col=\"tracker\"><span class=\"block truncate text-muted-foreground text-xs\" title=\"'+_vtEsc(t.Tracker)+'\">'+_vtEsc(_vtTrackerHost(t.Tracker))+'</span></td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"added_on\">'+_vtFmtTs(t.AddedOn)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"completion_on\">'+_vtFmtTs(t.CompletionOn)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"seeding_time\">'+_vtFmtSeedTime(t.SeedingTime)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"time_active\">'+_vtFmtSeedTime(t.TimeActive)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"last_activity\">'+_vtFmtTs(t.LastActivity)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"priority\">'+(t.Priority > 0 ? t.Priority : '\\u2014')+'</td>';\n  h += '<td class=\"px-3 py-2\" data-col=\"save_path\"><span class=\"block truncate text-muted-foreground text-xs max-w-[12rem]\" title=\"'+_vtEsc(t.SavePath)+'\">'+_vtEsc(t.SavePath)+'</span></td>';\n  var ih = t.InfohashV1 || t.InfohashV2 || hash;\n  h += '<td class=\"px-3 py-2\" data-col=\"infohash\"><span class=\"block truncate font-mono text-muted-foreground text-xs max-w-[8rem]\" title=\"'+_vtEsc(ih)+'\">'+_vtEsc(ih)+'</span></td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"availability\">'+(t.Availability > 0 ? (t.Availability*100).toFixed(1)+'%' : '\\u2014')+'</td>';\n\n  var tr = document.createElement('tr');\n  tr.className = 'hover:bg-muted/50 transition-colors cursor-pointer';\n  tr.setAttribute('hx-get', _vtBaseURL + '/ui/partials/torrents/' + hash + '?instance_id=' + _vtInstanceID);\n  tr.setAttribute('hx-target', '#torrent-detail-panel');\n  tr.setAttribute('hx-swap', 'innerHTML');\n  tr.innerHTML = h;\n  if (window.htmx) htmx.process(tr);\n  return tr;\n}\n\n// ── Checkbox tracking (virtual-scroll-aware) ────────────────────────────────\nvar _checkedHashes = new Set();\n\nfunction _restoreCheckboxes() {\n  document.querySelectorAll('[name=hashes]').forEach(function(cb) {\n    cb.checked = _checkedHashes.has(cb.value);\n  });\n}\n\nfunction _updateBulkBar() {\n  var count = _checkedHashes.size;\n  var bar = document.getElementById('bulk-action-bar');\n  if (bar) { count > 0 ? bar.classList.remove('hidden') : bar.classList.add('hidden'); }\n  var cnt = document.getElementById('bulk-count');\n  if (cnt) cnt.textContent = count + ' selected';\n}\n\nfunction _updateSelectAll() {\n  var total = _vlRows.length;\n  var count = _checkedHashes.size;\n  var sa = document.getElementById('select-all');\n  if (!sa) return;\n  sa.checked = count > 0 && count === total;\n  sa.indeterminate = count > 0 && count < total;\n}\n\nfunction selectAll(checked) {\n  _checkedHashes = new Set();\n  if (checked) {\n    _vlRows.forEach(function(row) { if (row.Hash) _checkedHashes.add(row.Hash); });\n  }\n  _restoreCheckboxes();\n  _updateBulkBar();\n  var sa = document.getElementById('select-all');\n  if (sa) { sa.checked = checked && _vlRows.length > 0; sa.indeterminate = false; }\n}\n\n// Populate #bulk-hashes-hidden before bulk action submit.\nfunction prepareBulkHashes() {\n  var container = document.getElementById('bulk-hashes-hidden');\n  if (!container) return;\n  container.innerHTML = '';\n  _checkedHashes.forEach(function(hash) {\n    var inp = document.createElement('input');\n    inp.type = 'hidden'; inp.name = 'hashes'; inp.value = hash;\n    container.appendChild(inp);\n  });\n}\n\ndocument.addEventListener('change', function(e) {\n  if (!e.target || e.target.name !== 'hashes') return;\n  if (e.target.checked) { _checkedHashes.add(e.target.value); }\n  else { _checkedHashes.delete(e.target.value); }\n  _updateBulkBar();\n  _updateSelectAll();\n});\n\n// ── Column visibility ────────────────────────────────────────────────────────\nvar _tblColDefaults = JSON.parse(document.getElementById('col-defaults-json').textContent);\nvar _tblCols = (function() {\n  try { var s = JSON.parse(localStorage.getItem('qui_tbl_cols')||'{}'); return Object.assign({},_tblColDefaults,s); }\n  catch(e) { return Object.assign({},_tblColDefaults); }\n})();\nfunction applyTblCols() {\n  Object.keys(_tblCols).forEach(function(col) {\n    document.querySelectorAll('[data-col=\"'+col+'\"]').forEach(function(el) {\n      if (_tblCols[col]) el.classList.remove('hidden'); else el.classList.add('hidden');\n    });\n  });\n  Object.keys(_tblCols).forEach(function(col) {\n    var cb = document.getElementById('col-toggle-'+col); if (cb) cb.checked = !!_tblCols[col];\n  });\n}\nfunction toggleTblCol(col) {\n  _tblCols[col] = !_tblCols[col];\n  localStorage.setItem('qui_tbl_cols', JSON.stringify(_tblCols));\n  applyTblCols();\n}\nfunction resetTblCols() {\n  _tblCols = Object.assign({},_tblColDefaults);\n  localStorage.removeItem('qui_tbl_cols');\n  applyTblCols();\n}\n\n// ── sortBy ───────────────────────────────────────────────────────────────────\nfunction sortBy(col) {\n  var si = document.getElementById('current-sort');\n  var oi = document.getElementById('current-order');\n  if (!si || !oi) return;\n  var descDefault = ['added_on','completion_on','last_activity','seeding_time','ratio','uploaded','downloaded','size','total_size','time_active'];\n  if (si.value === col) { oi.value = oi.value === 'asc' ? 'desc' : 'asc'; }\n  else { si.value = col; oi.value = descDefault.indexOf(col) >= 0 ? 'desc' : 'asc'; }\n  applySortArrows();\n  var btn = document.getElementById('sort-trigger');\n  if (btn && window.htmx) htmx.trigger(btn, 'tbl-refresh');\n}\n\n// ── HTMX lifecycle ───────────────────────────────────────────────────────────\n// Sync sidebar hx-vals params (status/category/tag) back to hidden inputs so\n// renderFilterChips() always reflects the active filter state.\ndocument.body.addEventListener('htmx:configRequest', function(e) {\n  if (!e.detail || !e.detail.parameters) return;\n  var p = e.detail.parameters;\n  var map = { status: 'current-status', category: 'current-category', tag: 'current-tag' };\n  Object.keys(map).forEach(function(k) {\n    if (Object.prototype.hasOwnProperty.call(p, k)) {\n      var el = document.getElementById(map[k]);\n      if (el) el.value = p[k];\n    }\n  });\n});\n\ndocument.body.addEventListener('htmx:afterSwap', function(e) {\n  if (!e.detail || !e.detail.target) return;\n  var id = e.detail.target.id;\n  if (id === 'torrent-detail-panel') {\n    var outer = document.getElementById('torrent-detail-outer');\n    if (outer) outer.style.display = 'flex';\n  }\n  if (id === 'vt-data-slot') {\n    _checkedHashes = new Set();\n    _updateBulkBar();\n    var sa = document.getElementById('select-all');\n    if (sa) { sa.checked = false; sa.indeterminate = false; }\n    initVirtualScroll();\n    applySortArrows();\n    renderFilterChips();\n  }\n});\ndocument.body.addEventListener('torrent-detail-close', function() {\n  var outer = document.getElementById('torrent-detail-outer');\n  if (outer) outer.style.display = 'none';\n});\n\n// ── SSE indicators ───────────────────────────────────────────────────────────\ndocument.body.addEventListener('htmx:sseOpen',  function() { var i=document.getElementById('sse-indicator'); if(i) i.classList.remove('hidden'); });\ndocument.body.addEventListener('htmx:sseClose', function() { var i=document.getElementById('sse-indicator'); if(i) i.classList.add('hidden');    });\n\n// ── Init ─────────────────────────────────────────────────────────────────────\n// Wrap in DOMContentLoaded so defer'd scripts (htmx, alpine) are fully\n// executed before we call initVirtualScroll → _createRow → htmx.process.\ndocument.addEventListener('DOMContentLoaded', function() {\n  applyTblCols();\n  applySortArrows();\n  renderFilterChips();\n  initExprBuilder();\n  initVirtualScroll();\n});\n</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, " <!-- Sidebar filter lists JSON (categories, tags, trackers, save paths) --> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = TorrentsSidebarJSON(p).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, " <!-- Virtual scroll + sort arrows + filter chips + expr builder JS --> <script>\n// ── Expr field definitions ──────────────────────────────────────────────────\nvar _exprFields = [\n  { id: 'Name',        label: 'Name',         type: 'text' },\n  { id: 'State',       label: 'State',        type: 'enum', values: ['downloading','uploading','stalledDL','stalledUP','pausedDL','pausedUP','stoppedDL','stoppedUP','error','missingFiles','checkingUP','checkingDL','forcedUP','forcedDL','metaDL','allocating','moving','queuedDL','queuedUP'] },\n  { id: 'Category',    label: 'Category',     type: 'text' },\n  { id: 'Tags',        label: 'Tags',         type: 'text' },\n  { id: 'SavePath',    label: 'Save Path',    type: 'text' },\n  { id: 'Tracker',     label: 'Tracker',      type: 'text' },\n  { id: 'Ratio',       label: 'Ratio',        type: 'number' },\n  { id: 'Progress',    label: 'Progress (0-1)', type: 'number' },\n  { id: 'Size',        label: 'Size (bytes)', type: 'number' },\n  { id: 'TotalSize',   label: 'Total Size',   type: 'number' },\n  { id: 'DlSpeed',     label: 'DL Speed (B/s)', type: 'number' },\n  { id: 'UpSpeed',     label: 'UP Speed (B/s)', type: 'number' },\n  { id: 'Uploaded',    label: 'Uploaded',     type: 'number' },\n  { id: 'Downloaded',  label: 'Downloaded',   type: 'number' },\n  { id: 'NumSeeds',    label: 'Seeds',        type: 'number' },\n  { id: 'NumLeechs',   label: 'Leechers',     type: 'number' },\n  { id: 'SeedingTime', label: 'Seeding Time (s)', type: 'number' },\n  { id: 'TimeActive',  label: 'Time Active (s)',  type: 'number' },\n  { id: 'AmountLeft',  label: 'Amount Left',  type: 'number' },\n  { id: 'Priority',    label: 'Priority',     type: 'number' },\n  { id: 'Availability',label: 'Availability', type: 'number' },\n  { id: 'NumComplete', label: 'Total Seeds',  type: 'number' },\n  { id: 'NumIncomplete',label: 'Total Peers', type: 'number' },\n];\nvar _exprOpsText   = ['contains','==','!=','startsWith','endsWith'];\nvar _exprOpsNumber = ['<','<=','>','>=','==','!='];\nvar _exprOpsEnum   = ['==','!='];\nvar _stateLabels   = {\n  'downloading':'Downloading', 'uploading':'Seeding', 'stalledDL':'Stalled↓', 'stalledUP':'Stalled↑',\n  'pausedDL':'Paused↓', 'pausedUP':'Paused↑', 'stoppedDL':'Stopped↓', 'stoppedUP':'Stopped↑',\n  'error':'Error', 'missingFiles':'Missing Files', 'checkingUP':'Checking', 'checkingDL':'Checking',\n  'forcedUP':'Forced UP', 'forcedDL':'Forced DL', 'metaDL':'Getting Metadata',\n  'allocating':'Allocating', 'moving':'Moving', 'queuedDL':'Queued↓', 'queuedUP':'Queued↑',\n};\n\n// ── Expr builder init ───────────────────────────────────────────────────────\nfunction initExprBuilder() {\n  var sel = document.getElementById('eb-field');\n  if (!sel || sel.options.length > 0) return;\n  sel.innerHTML = _exprFields.map(function(f){ return '<option value=\"'+f.id+'\">'+f.label+'</option>'; }).join('');\n  exprBuilderFieldChanged();\n}\n\nfunction exprBuilderFieldChanged() {\n  var sel = document.getElementById('eb-field');\n  if (!sel) return;\n  var field = _exprFields.find(function(f){ return f.id === sel.value; });\n  if (!field) return;\n  var opSel = document.getElementById('eb-op');\n  var valContainer = document.getElementById('eb-val-container');\n  if (!opSel || !valContainer) return;\n  var ops = field.type === 'number' ? _exprOpsNumber : field.type === 'enum' ? _exprOpsEnum : _exprOpsText;\n  opSel.innerHTML = ops.map(function(o){ return '<option value=\"'+o+'\">'+o+'</option>'; }).join('');\n  if (field.type === 'enum') {\n    valContainer.innerHTML = '<select id=\"eb-val\" class=\"h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\">' +\n      field.values.map(function(v){ return '<option value=\"'+v+'\">'+(_stateLabels[v]||v)+'</option>'; }).join('') + '</select>';\n  } else if (field.type === 'number') {\n    valContainer.innerHTML = '<input id=\"eb-val\" type=\"number\" step=\"any\" placeholder=\"value\" class=\"h-7 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\" onkeydown=\"if(event.key===\\'Enter\\'){event.preventDefault();exprBuilderAdd();}\"/>';\n  } else {\n    valContainer.innerHTML = '<input id=\"eb-val\" type=\"text\" placeholder=\"value\" class=\"h-7 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring\" onkeydown=\"if(event.key===\\'Enter\\'){event.preventDefault();exprBuilderAdd();}\"/>';\n  }\n}\n\nfunction exprBuilderAdd() {\n  var fieldSel = document.getElementById('eb-field');\n  var opSel    = document.getElementById('eb-op');\n  var valEl    = document.getElementById('eb-val');\n  if (!fieldSel || !opSel || !valEl) return;\n  var field = _exprFields.find(function(f){ return f.id === fieldSel.value; });\n  if (!field) return;\n  var op  = opSel.value;\n  var val = valEl.value.trim();\n  if (val === '') return;\n  var cond;\n  if (op === 'contains')    cond = field.id + ' contains \"' + val + '\"';\n  else if (op === 'startsWith') cond = field.id + ' startsWith \"' + val + '\"';\n  else if (op === 'endsWith')   cond = field.id + ' endsWith \"' + val + '\"';\n  else if (field.type === 'text' || field.type === 'enum') cond = field.id + ' ' + op + ' \"' + val + '\"';\n  else cond = field.id + ' ' + op + ' ' + val;\n  var exprEl = document.getElementById('current-expr');\n  if (exprEl) { exprEl.value = exprEl.value ? exprEl.value + ' && ' + cond : cond; }\n  valEl.value = '';\n  renderFilterChips();\n  triggerTableRefresh();\n}\n\n// ── Filter chips ────────────────────────────────────────────────────────────\nfunction _escHtml(s) {\n  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n}\n\nfunction renderFilterChips() {\n  var chips = document.getElementById('filter-chips');\n  if (!chips) return;\n  var status   = (document.getElementById('current-status')   || {value:''}).value || '';\n  var category = (document.getElementById('current-category') || {value:''}).value || '';\n  var tag      = (document.getElementById('current-tag')      || {value:''}).value || '';\n  var search   = (document.getElementById('torrents-search')  || {value:''}).value || '';\n  var expr     = (document.getElementById('current-expr')     || {value:''}).value || '';\n  var parts = [];\n  if (status)   parts.push({ label: 'State == \"' + (_stateLabels[status] || status) + '\"', rawLabel: 'State == \"' + status + '\"', clear: 'status' });\n  if (category) parts.push({ label: 'Category == \"' + category + '\"', clear: 'category' });\n  if (tag)      parts.push({ label: 'Tags contains \"' + tag + '\"', clear: 'tag' });\n  if (search)   parts.push({ label: 'Name ~ \"' + search + '\"', clear: 'search' });\n  if (expr)     parts.push({ label: expr.length>50 ? expr.substring(0,50)+'…' : expr, title: expr, clear: 'expr' });\n  chips.innerHTML = parts.map(function(p) {\n    return '<span class=\"inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium font-mono\" title=\"'+ _escHtml(p.title||p.label) +'\">' +\n      '<span>'+_escHtml(p.label)+'</span>' +\n      '<button type=\"button\" onclick=\"clearFilter(\\''+p.clear+'\\')\" class=\"ml-0.5 text-primary/70 hover:text-primary leading-none\" aria-label=\"Remove filter\">\\xd7</button>' +\n      '</span>';\n  }).join('');\n}\n\nfunction clearFilter(type) {\n  var map = { status:'current-status', category:'current-category', tag:'current-tag', tracker:'current-tracker', savepath:'current-savepath', search:'torrents-search', expr:'current-expr' };\n  var el = document.getElementById(map[type]);\n  if (el) el.value = '';\n  // Invalidate the matching sidebar list so \"All\" gets re-highlighted\n  var sidebarKey = { category:'cats', tag:'tags', tracker:'trackers', savepath:'savepaths' }[type];\n  if (sidebarKey && _vtSidebarLists[sidebarKey]) {\n    _vtSidebarLists[sidebarKey].invalidate();\n    _vtSidebarLists[sidebarKey].render();\n  }\n  renderFilterChips();\n  triggerTableRefresh();\n}\n\nfunction triggerTableRefresh() {\n  var btn = document.getElementById('sort-trigger');\n  // Dispatch 'tbl-refresh' (custom event) rather than 'click' so it does NOT\n  // bubble as a DOM click — that would close Alpine @click.outside popovers\n  // like the expression builder while the user is still adding conditions.\n  if (btn && window.htmx) htmx.trigger(btn, 'tbl-refresh');\n}\n\n// ── Sidebar filter lists ─────────────────────────────────────────────────────\n// Each section (categories, tags, trackers, save paths) uses VirtualList in\n// ul/li mode so only visible items occupy the DOM regardless of list size.\nvar _vtSidebarLists = {};\n\nfunction initSidebars() {\n  var el = document.getElementById('vt-sidebar-json');\n  if (!el) return;\n  var data;\n  try { data = JSON.parse(el.textContent); } catch(e) { return; }\n\n  _initSidebarSection('cats',      'vt-sidebar-cats-section', 'vt-cat-scroll',      'vt-sidebar-cats',      [''].concat(data.categories || []), 'category',  'current-category');\n  _initSidebarSection('tags',      'vt-sidebar-tags-section', 'vt-tag-scroll',      'vt-sidebar-tags',      [''].concat(data.tags       || []), 'tag',       'current-tag');\n  _initSidebarSection('trackers',  'vt-sidebar-trackers-section', 'vt-tracker-scroll', 'vt-sidebar-trackers', [''].concat(data.trackers  || []), 'tracker',   'current-tracker');\n  _initSidebarSection('savepaths', 'vt-sidebar-savepaths-section','vt-savepath-scroll','vt-sidebar-savepaths',[''].concat(data.savePaths || []), 'savepath',  'current-savepath');\n}\n\nfunction _initSidebarSection(key, sectionId, scrollId, ulId, items, filterType, inputId) {\n  var section = document.getElementById(sectionId);\n  if (!section) return;\n  // Hide section if only the synthetic \"All\" item exists (server had no data)\n  if (items.length <= 1) { section.classList.add('hidden'); return; }\n  section.classList.remove('hidden');\n  var makeItem = function(val) { return _makeSidebarBtn(val, filterType, inputId, key); };\n  if (_vtSidebarLists[key]) {\n    // Re-use existing instance; update render fn (active item may have changed)\n    _vtSidebarLists[key]._renderRow = makeItem;\n    _vtSidebarLists[key].load(items);\n    return;\n  }\n  _vtSidebarLists[key] = new VirtualList({\n    containerId : scrollId,\n    tbodyId     : ulId,\n    rowTag      : 'li',\n    colSpan     : 1,\n    renderRow   : makeItem,\n    emptyText   : '',\n    rowHeight   : 29,\n  });\n  _vtSidebarLists[key].load(items);\n}\n\nfunction _makeSidebarBtn(val, filterType, inputId, listKey) {\n  var label   = val || 'All';\n  var activeEl = document.getElementById(inputId);\n  var isActive = (activeEl ? activeEl.value : '') === val;\n  var li = document.createElement('li');\n  li.style.listStyle = 'none';\n  var btn = document.createElement('button');\n  btn.type = 'button';\n  btn.title = label;\n  btn.className = 'w-full text-left px-2 py-1 rounded-md truncate transition-colors ' +\n    (isActive ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground');\n  btn.textContent = label;\n  btn.addEventListener('click', function() {\n    if (activeEl) activeEl.value = val;\n    // Refresh sidebar to update active highlight on visible rows\n    var list = _vtSidebarLists[listKey];\n    if (list) { list.invalidate(); list.render(); }\n    triggerTableRefresh();\n    renderFilterChips();\n  });\n  li.appendChild(btn);\n  return li;\n}\n\n// ── Sort arrows ──────────────────────────────────────────────────────────────\nfunction applySortArrows() {\n  var sort  = (document.getElementById('current-sort')  || {value:''}).value || '';\n  var order = (document.getElementById('current-order') || {value:'desc'}).value || 'desc';\n  document.querySelectorAll('[data-sort-col]').forEach(function(btn) {\n    btn.querySelectorAll('.sort-arrow').forEach(function(s){ s.parentNode.removeChild(s); });\n    if (btn.dataset.sortCol === sort) {\n      var sp = document.createElement('span');\n      sp.className = 'sort-arrow';\n      sp.textContent = order === 'asc' ? ' \\u2191' : ' \\u2193';\n      btn.appendChild(sp);\n    }\n  });\n}\n\n// ── Virtual scroll ──────────────────────────────────────────────────────────\n// Uses the generic VirtualList class from virtual-list.js.\n// Only visible rows are in the DOM; _vtList.rows holds the full data set.\nvar _vtList       = null;\nvar _vtBaseURL    = '';\nvar _vtInstanceID = 0;\n\nfunction initVirtualScroll() {\n  var dataEl = document.getElementById('vt-rows-json');\n  if (!dataEl) return;\n\n  var data;\n  try { data = JSON.parse(dataEl.textContent); }\n  catch(e) { console.error('vt: JSON parse failed', e); return; }\n\n  _vtBaseURL    = data.baseURL    || '';\n  _vtInstanceID = data.instanceID || 0;\n\n  var countEl = document.getElementById('torrent-count');\n  if (countEl) countEl.textContent = (data.total || (data.rows||[]).length) + ' torrent(s)';\n\n  // Create the VirtualList instance once; reuse across SSE-driven reloads.\n  if (!_vtList) {\n    _vtList = new VirtualList({\n      containerId : 'torrents-scroll-container',\n      tbodyId     : 'torrents-table-body',\n      colSpan     : 30,\n      renderRow   : _createRow,\n      emptyText   : 'No torrents match your filters.',\n      afterRender : function() { _restoreCheckboxes(); applyTblCols(); },\n    });\n  }\n  _vtList.load(data.rows || []);\n}\n\n// ── Row renderer ─────────────────────────────────────────────────────────────\nfunction _vtStateLabel(state) {\n  var m = {\n    'downloading':['Downloading','bg-blue-500/15 text-blue-700 dark:text-blue-400'],\n    'metaDL':     ['Downloading','bg-blue-500/15 text-blue-700 dark:text-blue-400'],\n    'allocating': ['Downloading','bg-blue-500/15 text-blue-700 dark:text-blue-400'],\n    'uploading':  ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],\n    'stalledUP':  ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],\n    'forcedUP':   ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],\n    'queuedUP':   ['Seeding','bg-green-500/15 text-green-700 dark:text-green-400'],\n    'pausedDL':   ['Paused','bg-muted text-muted-foreground'],\n    'stoppedDL':  ['Paused','bg-muted text-muted-foreground'],\n    'pausedUP':   ['Completed','bg-muted text-muted-foreground'],\n    'stoppedUP':  ['Completed','bg-muted text-muted-foreground'],\n    'error':      ['Error','bg-red-500/15 text-red-700 dark:text-red-400'],\n    'missingFiles':['Error','bg-red-500/15 text-red-700 dark:text-red-400'],\n    'checkingUP': ['Checking','bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'],\n    'checkingDL': ['Checking','bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'],\n    'checkingResumeData':['Checking','bg-yellow-500/15 text-yellow-700 dark:text-yellow-400'],\n  };\n  return m[state] || [state||'Unknown','bg-muted text-muted-foreground'];\n}\nfunction _vtFmtBytes(n) {\n  if (!n || n <= 0) return '\\u2014';\n  var u = ['B','KiB','MiB','GiB','TiB'], i = 0, v = +n;\n  while (v >= 1024 && i < u.length-1) { v /= 1024; i++; }\n  return (i > 0 ? v.toFixed(1) : Math.round(v)) + '\\u202f' + u[i];\n}\nfunction _vtFmtBps(n) { return n > 0 ? _vtFmtBytes(n) + '/s' : '\\u2014'; }\nfunction _vtFmtPct(p) { return ((p||0)*100).toFixed(1) + '%'; }\nfunction _vtFmtRatio(r) { return r >= 100 ? '>100' : (r||0).toFixed(2); }\nfunction _vtFmtETA(s) {\n  if (!s || s < 0 || s > 8640000) return '\\u221e';\n  var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;\n  if (h > 0) return h+'h'+String(m).padStart(2,'0')+'m';\n  if (m > 0) return m+'m'+String(sec).padStart(2,'0')+'s';\n  return sec+'s';\n}\nfunction _vtFmtTs(t) {\n  if (!t || t <= 0) return '\\u2014';\n  var d = new Date(t*1000);\n  var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];\n  return mo[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear()+' '+\n    String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');\n}\nfunction _vtFmtSeedTime(s) {\n  if (!s || s <= 0) return '\\u2014';\n  var d = Math.floor(s/86400), h = Math.floor((s%86400)/3600);\n  if (d > 0) return d+'d '+h+'h';\n  var m = Math.floor((s%3600)/60);\n  return h > 0 ? h+'h '+m+'m' : m+'m';\n}\nfunction _vtTrackerHost(url) {\n  if (!url) return '';\n  try {\n    var parts = new URL(url).hostname.split('.');\n    return parts.length >= 2 ? parts[parts.length-2]+'.'+parts[parts.length-1] : parts[0];\n  } catch(e) { return url; }\n}\nfunction _vtEsc(s) {\n  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n}\nfunction _vtIsDownloading(state) {\n  return ['downloading','metaDL','allocating','checkingDL','forcedDL'].indexOf(state) >= 0;\n}\n\nfunction _createRow(t) {\n  var sl = _vtStateLabel(t.State||''), label = sl[0], badge = sl[1];\n  var hash = t.Hash || '';\n  var h = '';\n  h += '<td class=\"px-2 py-2 w-8\" onclick=\"event.stopPropagation()\"><input type=\"checkbox\" name=\"hashes\" value=\"'+_vtEsc(hash)+'\" class=\"rounded\" onclick=\"event.stopPropagation()\"/></td>';\n  h += '<td class=\"px-3 py-2 max-w-xs\"><span class=\"block truncate font-medium\" title=\"'+_vtEsc(t.Name)+'\">'+_vtEsc(t.Name)+'</span></td>';\n  h += '<td class=\"px-3 py-2 whitespace-nowrap\" data-col=\"status\"><span class=\"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium '+badge+'\">'+label+'</span></td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"size\">'+_vtFmtBytes(t.SizeB)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"total_size\">'+(t.TotalSizeB > 0 ? _vtFmtBytes(t.TotalSizeB) : '<span class=\"text-muted-foreground/50\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums\" data-col=\"progress\">'+_vtFmtPct(t.Progress)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-blue-600 dark:text-blue-400\" data-col=\"dlspeed\">'+(t.DlSpeed > 0 ? _vtFmtBps(t.DlSpeed) : '<span class=\"text-muted-foreground\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-green-600 dark:text-green-400\" data-col=\"upspeed\">'+(t.UpSpeed > 0 ? _vtFmtBps(t.UpSpeed) : '<span class=\"text-muted-foreground\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"eta\">'+(_vtIsDownloading(t.State) ? _vtFmtETA(t.ETA) : '\\u2014')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums\" data-col=\"ratio\">'+_vtFmtRatio(t.Ratio)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"uploaded\">'+(t.Uploaded > 0 ? _vtFmtBytes(t.Uploaded) : '<span class=\"text-muted-foreground/50\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"downloaded\">'+(t.Downloaded > 0 ? _vtFmtBytes(t.Downloaded) : '<span class=\"text-muted-foreground/50\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"amount_left\">'+(t.AmountLeft > 0 ? _vtFmtBytes(t.AmountLeft) : '<span class=\"text-muted-foreground/50\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"seeds\">'+(t.NumSeeds||0)+'<span class=\"text-muted-foreground/60\">/'+(t.NumLeechs||0)+'</span></td>';\n  h += '<td class=\"px-3 py-2 max-w-[7rem]\" data-col=\"category\"><span class=\"block truncate text-muted-foreground text-xs\" title=\"'+_vtEsc(t.Category)+'\">'+(t.Category ? _vtEsc(t.Category) : '<span class=\"italic\">none</span>')+'</span></td>';\n  h += '<td class=\"px-3 py-2 max-w-[8rem]\" data-col=\"tags\">'+(t.Tags ? '<span class=\"block truncate text-muted-foreground text-xs\" title=\"'+_vtEsc(t.Tags)+'\">'+_vtEsc(t.Tags)+'</span>' : '<span class=\"text-muted-foreground/50 text-xs\">\\u2014</span>')+'</td>';\n  h += '<td class=\"px-3 py-2 max-w-[6rem]\" data-col=\"tracker\"><span class=\"block truncate text-muted-foreground text-xs\" title=\"'+_vtEsc(t.Tracker)+'\">'+_vtEsc(_vtTrackerHost(t.Tracker))+'</span></td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"added_on\">'+_vtFmtTs(t.AddedOn)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"completion_on\">'+_vtFmtTs(t.CompletionOn)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"seeding_time\">'+_vtFmtSeedTime(t.SeedingTime)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"time_active\">'+_vtFmtSeedTime(t.TimeActive)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"last_activity\">'+_vtFmtTs(t.LastActivity)+'</td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"priority\">'+(t.Priority > 0 ? t.Priority : '\\u2014')+'</td>';\n  h += '<td class=\"px-3 py-2\" data-col=\"save_path\"><span class=\"block truncate text-muted-foreground text-xs max-w-[12rem]\" title=\"'+_vtEsc(t.SavePath)+'\">'+_vtEsc(t.SavePath)+'</span></td>';\n  var ih = t.InfohashV1 || t.InfohashV2 || hash;\n  h += '<td class=\"px-3 py-2\" data-col=\"infohash\"><span class=\"block truncate font-mono text-muted-foreground text-xs max-w-[8rem]\" title=\"'+_vtEsc(ih)+'\">'+_vtEsc(ih)+'</span></td>';\n  h += '<td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"availability\">'+(t.Availability > 0 ? (t.Availability*100).toFixed(1)+'%' : '\\u2014')+'</td>';\n\n  var tr = document.createElement('tr');\n  tr.className = 'hover:bg-muted/50 transition-colors cursor-pointer';\n  tr.setAttribute('hx-get', _vtBaseURL + '/ui/partials/torrents/' + hash + '?instance_id=' + _vtInstanceID);\n  tr.setAttribute('hx-target', '#torrent-detail-panel');\n  tr.setAttribute('hx-swap', 'innerHTML');\n  tr.innerHTML = h;\n  if (window.htmx) htmx.process(tr);\n  return tr;\n}\n\n// ── Checkbox tracking (virtual-scroll-aware) ────────────────────────────────\nvar _checkedHashes = new Set();\n\nfunction _restoreCheckboxes() {\n  document.querySelectorAll('[name=hashes]').forEach(function(cb) {\n    cb.checked = _checkedHashes.has(cb.value);\n  });\n}\n\nfunction _updateBulkBar() {\n  var count = _checkedHashes.size;\n  var bar = document.getElementById('bulk-action-bar');\n  if (bar) { count > 0 ? bar.classList.remove('hidden') : bar.classList.add('hidden'); }\n  var cnt = document.getElementById('bulk-count');\n  if (cnt) cnt.textContent = count + ' selected';\n}\n\nfunction _updateSelectAll() {\n  var total = _vtList ? _vtList.rows.length : 0;\n  var count = _checkedHashes.size;\n  var sa = document.getElementById('select-all');\n  if (!sa) return;\n  sa.checked = count > 0 && count === total;\n  sa.indeterminate = count > 0 && count < total;\n}\n\nfunction selectAll(checked) {\n  _checkedHashes = new Set();\n  if (checked && _vtList) {\n    _vtList.rows.forEach(function(row) { if (row.Hash) _checkedHashes.add(row.Hash); });\n  }\n  _restoreCheckboxes();\n  _updateBulkBar();\n  var sa = document.getElementById('select-all');\n  if (sa) { sa.checked = checked && _vtList && _vtList.rows.length > 0; sa.indeterminate = false; }\n}\n\n// Populate #bulk-hashes-hidden before bulk action submit.\nfunction prepareBulkHashes() {\n  var container = document.getElementById('bulk-hashes-hidden');\n  if (!container) return;\n  container.innerHTML = '';\n  _checkedHashes.forEach(function(hash) {\n    var inp = document.createElement('input');\n    inp.type = 'hidden'; inp.name = 'hashes'; inp.value = hash;\n    container.appendChild(inp);\n  });\n}\n\ndocument.addEventListener('change', function(e) {\n  if (!e.target || e.target.name !== 'hashes') return;\n  if (e.target.checked) { _checkedHashes.add(e.target.value); }\n  else { _checkedHashes.delete(e.target.value); }\n  _updateBulkBar();\n  _updateSelectAll();\n});\n\n// ── Column visibility ────────────────────────────────────────────────────────\nvar _tblColDefaults = JSON.parse(document.getElementById('col-defaults-json').textContent);\nvar _tblCols = (function() {\n  try { var s = JSON.parse(localStorage.getItem('qui_tbl_cols')||'{}'); return Object.assign({},_tblColDefaults,s); }\n  catch(e) { return Object.assign({},_tblColDefaults); }\n})();\nfunction applyTblCols() {\n  Object.keys(_tblCols).forEach(function(col) {\n    document.querySelectorAll('[data-col=\"'+col+'\"]').forEach(function(el) {\n      if (_tblCols[col]) el.classList.remove('hidden'); else el.classList.add('hidden');\n    });\n  });\n  Object.keys(_tblCols).forEach(function(col) {\n    var cb = document.getElementById('col-toggle-'+col); if (cb) cb.checked = !!_tblCols[col];\n  });\n}\nfunction toggleTblCol(col) {\n  _tblCols[col] = !_tblCols[col];\n  localStorage.setItem('qui_tbl_cols', JSON.stringify(_tblCols));\n  applyTblCols();\n}\nfunction resetTblCols() {\n  _tblCols = Object.assign({},_tblColDefaults);\n  localStorage.removeItem('qui_tbl_cols');\n  applyTblCols();\n}\n\n// ── sortBy ───────────────────────────────────────────────────────────────────\nfunction sortBy(col) {\n  var si = document.getElementById('current-sort');\n  var oi = document.getElementById('current-order');\n  if (!si || !oi) return;\n  var descDefault = ['added_on','completion_on','last_activity','seeding_time','ratio','uploaded','downloaded','size','total_size','time_active'];\n  if (si.value === col) { oi.value = oi.value === 'asc' ? 'desc' : 'asc'; }\n  else { si.value = col; oi.value = descDefault.indexOf(col) >= 0 ? 'desc' : 'asc'; }\n  applySortArrows();\n  var btn = document.getElementById('sort-trigger');\n  if (btn && window.htmx) htmx.trigger(btn, 'tbl-refresh');\n}\n\n// ── HTMX lifecycle ───────────────────────────────────────────────────────────\n// Sync sidebar hx-vals params (status/category/tag) back to hidden inputs so\n// renderFilterChips() always reflects the active filter state.\ndocument.body.addEventListener('htmx:configRequest', function(e) {\n  if (!e.detail || !e.detail.parameters) return;\n  var p = e.detail.parameters;\n  var map = { status: 'current-status', category: 'current-category', tag: 'current-tag', tracker: 'current-tracker', savepath: 'current-savepath' };\n  Object.keys(map).forEach(function(k) {\n    if (Object.prototype.hasOwnProperty.call(p, k)) {\n      var el = document.getElementById(map[k]);\n      if (el) el.value = p[k];\n    }\n  });\n});\n\ndocument.body.addEventListener('htmx:afterSwap', function(e) {\n  if (!e.detail || !e.detail.target) return;\n  var id = e.detail.target.id;\n  if (id === 'torrent-detail-panel') {\n    var outer = document.getElementById('torrent-detail-outer');\n    if (outer) outer.style.display = 'flex';\n  }\n  if (id === 'vt-data-slot') {\n    _checkedHashes = new Set();\n    _updateBulkBar();\n    var sa = document.getElementById('select-all');\n    if (sa) { sa.checked = false; sa.indeterminate = false; }\n    initVirtualScroll();\n    applySortArrows();\n    renderFilterChips();\n  }\n});\ndocument.body.addEventListener('torrent-detail-close', function() {\n  var outer = document.getElementById('torrent-detail-outer');\n  if (outer) outer.style.display = 'none';\n});\n\n// ── SSE indicators ───────────────────────────────────────────────────────────\ndocument.body.addEventListener('htmx:sseOpen',  function() { var i=document.getElementById('sse-indicator'); if(i) i.classList.remove('hidden'); });\ndocument.body.addEventListener('htmx:sseClose', function() { var i=document.getElementById('sse-indicator'); if(i) i.classList.add('hidden');    });\n\n// ── Init ─────────────────────────────────────────────────────────────────────\n// Wrap in DOMContentLoaded so defer'd scripts (htmx, alpine) are fully\n// executed before we call initVirtualScroll → _createRow → htmx.process.\ndocument.addEventListener('DOMContentLoaded', function() {\n  applyTblCols();\n  applySortArrows();\n  renderFilterChips();\n  initExprBuilder();\n  initVirtualScroll();\n  initSidebars();\n});\n</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

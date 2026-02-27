@@ -10,6 +10,7 @@ package pages
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -32,6 +33,46 @@ func TorrentsTableBody(p TorrentsProps) templ.Component {
 func TorrentsColDefaults() templ.Component {
 	return templ.ComponentFunc(func(_ context.Context, w io.Writer) error {
 		_, err := fmt.Fprintf(w, `<script id="col-defaults-json" type="application/json">%s</script>`, colDefaultsJSON())
+		return err
+	})
+}
+
+// TorrentsSidebarJSON emits all sidebar filter lists (categories, tags,
+// trackers, save paths) as a single typed JSON element so the JS sidebar
+// renderer can populate VirtualList instances without templ for-loops.
+func TorrentsSidebarJSON(p TorrentsProps) templ.Component {
+	return templ.ComponentFunc(func(_ context.Context, w io.Writer) error {
+		type sidebarPayload struct {
+			BaseURL    string   `json:"baseURL"`
+			Categories []string `json:"categories"`
+			Tags       []string `json:"tags"`
+			Trackers   []string `json:"trackers"`
+			SavePaths  []string `json:"savePaths"`
+		}
+		payload := sidebarPayload{
+			BaseURL:    p.BaseURL,
+			Categories: p.Categories,
+			Tags:       p.Tags,
+			Trackers:   p.Trackers,
+			SavePaths:  p.SavePaths,
+		}
+		if payload.Categories == nil {
+			payload.Categories = []string{}
+		}
+		if payload.Tags == nil {
+			payload.Tags = []string{}
+		}
+		if payload.Trackers == nil {
+			payload.Trackers = []string{}
+		}
+		if payload.SavePaths == nil {
+			payload.SavePaths = []string{}
+		}
+		b, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(w, `<script id="vt-sidebar-json" type="application/json">%s</script>`, b)
 		return err
 	})
 }

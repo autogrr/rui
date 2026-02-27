@@ -98,79 +98,79 @@ func Base(p BaseProps) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<!-- Toast region: empty container; toasts are injected dynamically via\n\t\t\t     the 'toast' HTMX trigger event and processed by toast.min.js. --><div id=\"toast-region\" aria-live=\"polite\" class=\"fixed bottom-0 right-0 z-50 flex flex-col gap-2 p-4 md:max-w-[420px] w-full pointer-events-none\"></div><!-- Inline toast event handler (no defer needed — just registers a listener) --><script>\n\t\t\t\tdocument.body.addEventListener('toast', function(e) {\n\t\t\t\t\tvar d = e.detail || {};\n\t\t\t\t\tvar msg = d.message || '';\n\t\t\t\t\tif (!msg) return;\n\t\t\t\t\tvar type = d.type || 'default';\n\t\t\t\t\tvar region = document.getElementById('toast-region');\n\t\t\t\t\tif (!region) return;\n\t\t\t\t\tvar el = document.createElement('div');\n\t\t\t\t\tel.setAttribute('data-tui-toast', '');\n\t\t\t\t\tel.setAttribute('data-position', 'bottom-right');\n\t\t\t\t\tel.setAttribute('data-variant', type);\n\t\t\t\t\tel.setAttribute('data-tui-toast-duration', '4000');\n\t\t\t\t\tel.className = 'pointer-events-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-300';\n\t\t\t\t\tvar iconMap = {error:'\\u26a0\\ufe0f', success:'\\u2705', warning:'\\u26a0\\ufe0f', info:'\\u2139\\ufe0f', default:''};\n\t\t\t\t\tvar colorMap = {\n\t\t\t\t\t\terror:   'border-destructive/60 bg-destructive/10 text-destructive',\n\t\t\t\t\t\tsuccess: 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400',\n\t\t\t\t\t\twarning: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',\n\t\t\t\t\t\tinfo:    'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400',\n\t\t\t\t\t\tdefault: ''\n\t\t\t\t\t};\n\t\t\t\t\tvar extraCls = colorMap[type] || '';\n\t\t\t\t\tvar icon = iconMap[type] ? '<span class=\"mr-2 text-base\" aria-hidden=\"true\">'+iconMap[type]+'</span>' : '';\n\t\t\t\t\tel.innerHTML = '<div class=\"w-full bg-popover text-popover-foreground rounded-lg shadow-md border px-4 py-3 flex items-center gap-2 '+extraCls+'\">'+icon+'<span class=\"flex-1 min-w-0 text-sm\">'+msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span></div>';\n\t\t\t\t\tregion.appendChild(el);\n\t\t\t\t});\n\t\t\t</script><!-- HTMX 2.x --><script src=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<!-- Toast region: empty container; toasts are injected dynamically via\n\t\t\t     the 'toast' HTMX trigger event and processed by toast.min.js. --><div id=\"toast-region\" aria-live=\"polite\" class=\"fixed bottom-0 right-0 z-50 flex flex-col gap-2 p-4 md:max-w-[420px] w-full pointer-events-none\"></div><!-- Inline toast event handler (no defer needed — just registers a listener) --><script>\n\t\t\t\tdocument.body.addEventListener('toast', function(e) {\n\t\t\t\t\tvar d = e.detail || {};\n\t\t\t\t\tvar msg = d.message || '';\n\t\t\t\t\tif (!msg) return;\n\t\t\t\t\tvar type = d.type || 'default';\n\t\t\t\t\tvar region = document.getElementById('toast-region');\n\t\t\t\t\tif (!region) return;\n\t\t\t\t\tvar el = document.createElement('div');\n\t\t\t\t\tel.setAttribute('data-tui-toast', '');\n\t\t\t\t\tel.setAttribute('data-position', 'bottom-right');\n\t\t\t\t\tel.setAttribute('data-variant', type);\n\t\t\t\t\tel.setAttribute('data-tui-toast-duration', '4000');\n\t\t\t\t\tel.className = 'pointer-events-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-300';\n\t\t\t\t\tvar iconMap = {error:'\\u26a0\\ufe0f', success:'\\u2705', warning:'\\u26a0\\ufe0f', info:'\\u2139\\ufe0f', default:''};\n\t\t\t\t\tvar colorMap = {\n\t\t\t\t\t\terror:   'border-destructive/60 bg-destructive/10 text-destructive',\n\t\t\t\t\t\tsuccess: 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400',\n\t\t\t\t\t\twarning: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',\n\t\t\t\t\t\tinfo:    'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400',\n\t\t\t\t\t\tdefault: ''\n\t\t\t\t\t};\n\t\t\t\t\tvar extraCls = colorMap[type] || '';\n\t\t\t\t\tvar icon = iconMap[type] ? '<span class=\"mr-2 text-base\" aria-hidden=\"true\">'+iconMap[type]+'</span>' : '';\n\t\t\t\t\tel.innerHTML = '<div class=\"w-full bg-popover text-popover-foreground rounded-lg shadow-md border px-4 py-3 flex items-center gap-2 '+extraCls+'\">'+icon+'<span class=\"flex-1 min-w-0 text-sm\">'+msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span></div>';\n\t\t\t\t\tregion.appendChild(el);\n\t\t\t\t});\n\t\t\t</script><!-- VirtualList: reusable virtual-scroll engine for large tables --><script src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/htmx.min.js")
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/virtual-list.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 81, Col: 56}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 81, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" defer></script><!-- HTMX SSE extension (for RSS/log streams and torrent live updates) --><script src=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" defer></script><!-- HTMX 2.x --><script src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/htmx-ext-sse.js")
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/htmx.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 83, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 83, Col: 56}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" defer></script><!-- Alpine.js 3.x (deferred so x-data initializes after DOM) --><script src=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" defer></script><!-- HTMX SSE extension (for RSS/log streams and torrent live updates) --><script src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var7 string
-		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/alpine.min.js")
+		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/htmx-ext-sse.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 85, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 85, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" defer></script><!-- Sortable.js (for drag-and-drop column reorder) --><script src=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" defer></script><!-- Alpine.js 3.x (deferred so x-data initializes after DOM) --><script src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var8 string
-		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/sortable.min.js")
+		templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/alpine.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 87, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 87, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" defer></script><!-- templui component scripts --><script defer src=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\" defer></script><!-- Sortable.js (for drag-and-drop column reorder) --><script src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var9 string
-		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/checkbox.min.js")
+		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/sortable.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 89, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 89, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\"></script><script defer src=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" defer></script><!-- templui component scripts --><script defer src=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var10 string
-		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/collapsible.min.js")
+		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/checkbox.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 90, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 91, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -181,9 +181,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var11 string
-		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/dialog.min.js")
+		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/collapsible.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 91, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 92, Col: 69}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -194,9 +194,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var12 string
-		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/dropdown.min.js")
+		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/dialog.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 92, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 93, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -207,9 +207,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var13 string
-		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/input.min.js")
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/dropdown.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 93, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 94, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -220,9 +220,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var14 string
-		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/label.min.js")
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/input.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 94, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 95, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -233,9 +233,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var15 string
-		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/popover.min.js")
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/label.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 95, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 96, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -246,9 +246,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
-		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/progress.min.js")
+		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/popover.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 96, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 97, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -259,9 +259,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 string
-		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/selectbox.min.js")
+		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/progress.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 97, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 98, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -272,9 +272,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var18 string
-		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/sidebar.min.js")
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/selectbox.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 98, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 99, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
@@ -285,9 +285,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var19 string
-		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/slider.min.js")
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/sidebar.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 99, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 100, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -298,9 +298,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var20 string
-		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/tabs.min.js")
+		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/slider.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 100, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 101, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -311,9 +311,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var21 string
-		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/tagsinput.min.js")
+		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/tabs.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 101, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 102, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {
@@ -324,9 +324,9 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var22 string
-		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/textarea.min.js")
+		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/tagsinput.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 102, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 103, Col: 67}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {
@@ -337,15 +337,28 @@ func Base(p BaseProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var23 string
-		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/toast.min.js")
+		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/textarea.min.js")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 103, Col: 63}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 104, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"></script></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"></script><script defer src=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var24 string
+		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/static/js/toast.min.js")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/base.templ`, Line: 105, Col: 63}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\"></script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

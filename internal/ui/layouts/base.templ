@@ -77,6 +77,8 @@ templ Base(p BaseProps) {
 					region.appendChild(el);
 				});
 			</script>
+			<!-- VirtualList: reusable virtual-scroll engine for large tables -->
+			<script src={ p.BaseURL + "/ui/static/js/virtual-list.js" } defer></script>
 			<!-- HTMX 2.x -->
 			<script src={ p.BaseURL + "/ui/static/js/htmx.min.js" } defer></script>
 			<!-- HTMX SSE extension (for RSS/log streams and torrent live updates) -->

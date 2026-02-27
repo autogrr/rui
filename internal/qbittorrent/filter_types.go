@@ -15,5 +15,6 @@ type FilterOptions struct {
 	ExcludeTags       []string `json:"excludeTags"`
 	Trackers          []string `json:"trackers"`
 	ExcludeTrackers   []string `json:"excludeTrackers"`
+	SavePaths         []string `json:"savePaths"`
 	Expr              string   `json:"expr"`
 }
