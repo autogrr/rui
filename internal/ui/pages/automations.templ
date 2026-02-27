@@ -4,37 +4,39 @@
 package pages
 
 import (
-"fmt"
+	"encoding/json"
+	"fmt"
 
-"github.com/autogrr/rui/internal/models"
-"github.com/autogrr/rui/internal/ui/components/card"
-"github.com/autogrr/rui/internal/ui/layouts"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/layouts"
 )
 
 // AutomationItem is a page-level automation rule summary.
 type AutomationItem struct {
-ID             int
-InstanceID     int
-InstanceName   string
-Name           string
-TrackerPattern string
-Enabled        bool
-DryRun         bool
-SortOrder      int
-CreatedAt      string
-UpdatedAt      string
+	ID             int
+	InstanceID     int
+	InstanceName   string
+	Name           string
+	TrackerPattern string
+	Enabled        bool
+	DryRun         bool
+	SortOrder      int
+	CreatedAt      string
+	UpdatedAt      string
+	Conditions     *models.ActionConditions
 }
 
 // AutomationActivityItem is a recent activity entry.
 type AutomationActivityItem struct {
-ID           int64
-AutomationID int
-Name         string
-TorrentHash  string
-TorrentName  string
-Action       string
-Message      string
-CreatedAt    string
+	ID           int64
+	AutomationID int
+	Name         string
+	TorrentHash  string
+	TorrentName  string
+	Action       string
+	Message      string
+	CreatedAt    string
 }
 
 // AutomationRuleFormItem holds form data for creating or editing an automation rule.
@@ -46,52 +48,75 @@ type AutomationRuleFormItem struct {
 	DryRun         bool
 	Enabled        bool
 	ErrMsg         string
+	Conditions     *models.ActionConditions
+}
+
+// ExtProgramOption is a simplified external program entry for select dropdowns.
+type ExtProgramOption struct {
+	ID   int
+	Name string
 }
 
 // AutomationsProps holds all data for the full Automations page.
 type AutomationsProps struct {
-BaseURL   string
-Username  string
-Version   string
-Instances []layouts.Instance
+	BaseURL   string
+	Username  string
+	Version   string
+	Instances []layouts.Instance
 
-// Selected instance for filtering
-InstanceID int
+	// Selected instance for filtering
+	InstanceID int
 
-// Automation rules
-Automations []AutomationItem
+	// Automation rules
+	Automations []AutomationItem
 
-// Recent activity
-Activity []AutomationActivityItem
+	// Recent activity
+	Activity []AutomationActivityItem
 
-// Error message
-AutomationsError string
+	// Error message
+	AutomationsError string
 }
 
 // visibleInstances returns the instances to show based on the instance filter.
 func (p AutomationsProps) visibleInstances() []layouts.Instance {
-if p.InstanceID == 0 {
-return p.Instances
+	if p.InstanceID == 0 {
+		return p.Instances
+	}
+	for _, inst := range p.Instances {
+		if inst.ID == p.InstanceID {
+			return []layouts.Instance{inst}
+		}
+	}
+	return nil
 }
-for _, inst := range p.Instances {
-if inst.ID == p.InstanceID {
-return []layouts.Instance{inst}
-}
-}
-return nil
+
+// conditionsJSON marshals conditions to a JSON string for Alpine.js initialisation.
+func conditionsJSON(conds *models.ActionConditions) string {
+	if conds == nil {
+		return "{}"
+	}
+	b, err := json.Marshal(conds)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
 }
 
 // Automations renders the full Automations page.
 templ Automations(p AutomationsProps) {
-@layouts.Authenticated(layouts.AuthProps{
-BaseURL:     p.BaseURL,
-Title:       "Automations",
-CurrentPath: "/ui/automations",
-Username:    p.Username,
-AppVersion:  p.Version,
-Instances:   p.Instances,
-}) {
-		<div class="flex flex-col h-full gap-4" x-data="{ ruleOpen: false }" @close-modal.window="ruleOpen = false">
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Automations",
+		CurrentPath: "/ui/automations",
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		<div
+			class="flex flex-col h-full gap-4"
+			x-data="automationPage()"
+			@automationsUpdated.window="closeModal()"
+		>
 			<!-- Page header + instance selector -->
 			<div class="flex flex-wrap items-center justify-between gap-3">
 				<h1 class="text-xl font-bold tracking-tight">Automations</h1>
@@ -131,339 +156,683 @@ Instances:   p.Instances,
 				x-show="ruleOpen"
 				x-cloak
 				class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
-				@keydown.escape.window="ruleOpen = false"
+				@keydown.escape.window="closeModal()"
 			>
 				<div
-					class="w-full max-w-lg rounded-xl border border-border bg-background shadow-xl p-6"
-					@click.outside="ruleOpen = false"
+					class="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-background shadow-xl"
+					@click.outside="closeModal()"
 				>
-					<div class="flex items-center justify-between mb-4">
-						<h2 class="text-base font-semibold" id="rule-modal-title">Automation Rule</h2>
-						<button @click="ruleOpen = false" class="rounded-md p-1 text-muted-foreground hover:bg-accent">
+					<div class="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-background z-10">
+						<h2 class="text-base font-semibold">Automation Rule</h2>
+						<button @click="closeModal()" class="rounded-md p-1 text-muted-foreground hover:bg-accent">
 							<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
 						</button>
 					</div>
-					<div id="rule-form-body"></div>
+					<div id="rule-form-body" class="px-6 py-4"></div>
 				</div>
 			</div>
 		</div>
+
+		<script>
+			function automationPage() {
+				return {
+					ruleOpen: false,
+					openModal() { this.ruleOpen = true },
+					closeModal() { this.ruleOpen = false }
+				}
+			}
+		</script>
 	}
 }
 
 // AutomationsPartial renders the automations list (HTMX partial target).
 templ AutomationsPartial(p AutomationsProps) {
-<!-- Rules card -->
-@card.Card(card.Props{}) {
-@card.Header(card.HeaderProps{Class: "flex-row items-center justify-between"}) {
-<div class="flex flex-col space-y-1.5">
-@card.Title(card.TitleProps{}) {
-Automation Rules
-}
-@card.Description(card.DescriptionProps{}) {
-Rules run periodically against all torrents in the selected instance.
-}
-</div>
-if p.InstanceID != 0 {
-<button
-class="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors shrink-0"
-hx-get={ fmt.Sprintf("%s/ui/partials/automations/rules/new?instance_id=%d", p.BaseURL, p.InstanceID) }
-hx-target="#rule-form-body"
-hx-swap="innerHTML"
-@click="ruleOpen = true"
->New Rule</button>
-}
-}
-@card.Content(card.ContentProps{}) {
-if len(p.Automations) == 0 {
-<div class="py-8 text-center">
-<p class="text-sm text-muted-foreground">No automation rules configured.</p>
-if p.InstanceID != 0 {
-<p class="text-xs text-muted-foreground mt-1">Use the New Rule button to create one.</p>
-} else {
-<p class="text-xs text-muted-foreground mt-1">Select an instance to create rules.</p>
-}
-</div>
-} else {
-<div class="overflow-x-auto">
-<table class="w-full text-sm">
-<thead>
-<tr class="border-b border-border text-muted-foreground text-xs">
-<th class="pb-2 text-left font-medium px-3">Name</th>
-<th class="pb-2 text-left font-medium px-3">Instance</th>
-<th class="pb-2 text-left font-medium px-3">Tracker Pattern</th>
-<th class="pb-2 text-left font-medium px-3">Status</th>
-<th class="pb-2 text-left font-medium px-3">Updated</th>
-<th class="pb-2 px-3"></th>
-</tr>
-</thead>
-<tbody>
-for _, a := range p.Automations {
-@automationRow(a, p.BaseURL)
-}
-</tbody>
-</table>
-</div>
-}
-}
+	<!-- Rules card -->
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{Class: "flex-row items-center justify-between"}) {
+			<div class="flex flex-col space-y-1.5">
+				@card.Title(card.TitleProps{}) { Automation Rules }
+				@card.Description(card.DescriptionProps{}) { Rules run periodically against all torrents in the selected instance. }
+			</div>
+			<div class="flex items-center gap-2 shrink-0">
+				if p.InstanceID != 0 {
+					<button
+						class="h-8 px-3 rounded-md border border-input bg-background text-xs font-medium hover:bg-accent transition-colors"
+						hx-post={ fmt.Sprintf("%s/ui/partials/automations/%d/apply-now", p.BaseURL, p.InstanceID) }
+						hx-target="#automations-content"
+						hx-swap="innerHTML"
+						title="Trigger an immediate automation run"
+					>Apply Now</button>
+					<button
+						class="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors"
+						hx-get={ fmt.Sprintf("%s/ui/partials/automations/rules/new?instance_id=%d", p.BaseURL, p.InstanceID) }
+						hx-target="#rule-form-body"
+						hx-swap="innerHTML"
+						x-on:click="openModal()"
+					>New Rule</button>
+				}
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			if len(p.Automations) == 0 {
+				<div class="py-8 text-center">
+					<p class="text-sm text-muted-foreground">No automation rules configured.</p>
+					if p.InstanceID != 0 {
+						<p class="text-xs text-muted-foreground mt-1">Use the New Rule button to create one.</p>
+					} else {
+						<p class="text-xs text-muted-foreground mt-1">Select an instance to create rules.</p>
+					}
+				</div>
+			} else {
+				<div class="space-y-2">
+					for i, a := range p.Automations {
+						@automationRuleCard(a, i, len(p.Automations), p.BaseURL)
+					}
+				</div>
+			}
+		}
+	}
+
+	<!-- Activity card -->
+	@card.Card(card.Props{Class: "mt-6"}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) { Recent Activity }
+			@card.Description(card.DescriptionProps{}) { Last 50 actions taken by automation rules. }
+		}
+		@card.Content(card.ContentProps{}) {
+			if len(p.Activity) == 0 {
+				<p class="text-sm text-muted-foreground py-4 text-center">No recent activity.</p>
+			} else {
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-border text-muted-foreground text-xs">
+								<th class="pb-2 text-left font-medium px-3">Time</th>
+								<th class="pb-2 text-left font-medium px-3">Rule</th>
+								<th class="pb-2 text-left font-medium px-3">Torrent</th>
+								<th class="pb-2 text-left font-medium px-3">Action</th>
+								<th class="pb-2 text-left font-medium px-3">Message</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, act := range p.Activity {
+								<tr class="border-b border-border/50 hover:bg-muted/40 transition-colors">
+									<td class="py-1.5 px-3 text-xs text-muted-foreground whitespace-nowrap">{ act.CreatedAt }</td>
+									<td class="py-1.5 px-3 text-xs">{ act.Name }</td>
+									<td class="py-1.5 px-3 text-xs truncate max-w-[200px]" title={ act.TorrentName }>{ act.TorrentName }</td>
+									<td class="py-1.5 px-3">
+										<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">{ formatActivityAction(act.Action) }</span>
+									</td>
+									<td class="py-1.5 px-3 text-xs text-muted-foreground truncate max-w-[300px]" title={ act.Message }>{ act.Message }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		}
+	}
+
+	@automationsPerInstanceSections(p)
 }
 
-<!-- Activity card -->
-@card.Card(card.Props{Class: "mt-6"}) {
-@card.Header(card.HeaderProps{}) {
-@card.Title(card.TitleProps{}) {
-Recent Activity
-}
-@card.Description(card.DescriptionProps{}) {
-Last 50 actions taken by automation rules.
-}
-}
-@card.Content(card.ContentProps{}) {
-if len(p.Activity) == 0 {
-<p class="text-sm text-muted-foreground py-4 text-center">No recent activity.</p>
-} else {
-<div class="overflow-x-auto">
-<table class="w-full text-sm">
-<thead>
-<tr class="border-b border-border text-muted-foreground text-xs">
-<th class="pb-2 text-left font-medium px-3">Time</th>
-<th class="pb-2 text-left font-medium px-3">Rule</th>
-<th class="pb-2 text-left font-medium px-3">Torrent</th>
-<th class="pb-2 text-left font-medium px-3">Action</th>
-<th class="pb-2 text-left font-medium px-3">Message</th>
-</tr>
-</thead>
-<tbody>
-for _, act := range p.Activity {
-<tr class="border-b border-border/50 hover:bg-muted/40 transition-colors">
-<td class="py-1.5 px-3 text-xs text-muted-foreground whitespace-nowrap">{ act.CreatedAt }</td>
-<td class="py-1.5 px-3 text-xs">{ act.Name }</td>
-<td class="py-1.5 px-3 text-xs truncate max-w-[200px]" title={ act.TorrentName }>{ act.TorrentName }</td>
-<td class="py-1.5 px-3">
-<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs">{ act.Action }</span>
-</td>
-<td class="py-1.5 px-3 text-xs text-muted-foreground truncate max-w-[300px]" title={ act.Message }>{ act.Message }</td>
-</tr>
-}
-</tbody>
-</table>
-</div>
-}
-}
+// automationRuleCard renders a single automation rule as a card with reorder buttons and action badges.
+templ automationRuleCard(a AutomationItem, idx int, total int, baseURL string) {
+	<div
+		id={ "automation-" + itoa(a.ID) }
+		class={ "rounded-lg border border-border bg-card p-4 flex flex-col sm:flex-row sm:items-center gap-3" + func() string {
+			if !a.Enabled {
+				return " opacity-60"
+			}
+			return ""
+		}() }
+	>
+		<div class="flex items-center gap-3 flex-1 min-w-0">
+			<!-- Reorder arrows -->
+			<div class="flex flex-col gap-0.5 shrink-0">
+				<button
+					class="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+					hx-post={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d/move-up", baseURL, a.InstanceID, a.ID) }
+					hx-target="#automations-content"
+					hx-swap="innerHTML"
+					if idx == 0 {
+						disabled
+					}
+					title="Move up"
+				>
+					<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m18 15-6-6-6 6"></path></svg>
+				</button>
+				<button
+					class="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+					hx-post={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d/move-down", baseURL, a.InstanceID, a.ID) }
+					hx-target="#automations-content"
+					hx-swap="innerHTML"
+					if idx == total-1 {
+						disabled
+					}
+					title="Move down"
+				>
+					<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"></path></svg>
+				</button>
+			</div>
+
+			<!-- Info -->
+			<div class="flex-1 min-w-0">
+				<div class="flex flex-wrap items-center gap-2 mb-1">
+					<span class="font-medium text-sm truncate">{ a.Name }</span>
+					if !a.Enabled {
+						<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Disabled</span>
+					}
+					if a.DryRun {
+						<span class="inline-flex items-center rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 text-xs">Dry run</span>
+					}
+				</div>
+				<div class="flex flex-wrap items-center gap-1.5">
+					if a.TrackerPattern != "" {
+						<span class="inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-mono">
+							if a.TrackerPattern == "*" {
+								All trackers
+							} else {
+								{ a.TrackerPattern }
+							}
+						</span>
+					}
+					@automationActionBadges(a)
+				</div>
+			</div>
+		</div>
+
+		<!-- Controls -->
+		<div class="flex items-center gap-1.5 shrink-0">
+			<span class="text-xs text-muted-foreground mr-1">{ a.InstanceName }</span>
+			<form
+				hx-post={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d/toggle", baseURL, a.InstanceID, a.ID) }
+				hx-target={ "#automation-" + itoa(a.ID) }
+				hx-swap="outerHTML"
+				class="inline"
+			>
+				<button type="submit" class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors">
+					if a.Enabled {
+						Disable
+					} else {
+						Enable
+					}
+				</button>
+			</form>
+			<button
+				class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
+				hx-get={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d/edit", baseURL, a.InstanceID, a.ID) }
+				hx-target="#rule-form-body"
+				hx-swap="innerHTML"
+				x-on:click="openModal()"
+			>Edit</button>
+			<button
+				class="h-7 px-2 text-xs rounded-md border border-input text-destructive hover:bg-destructive/10 transition-colors"
+				hx-delete={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d", baseURL, a.InstanceID, a.ID) }
+				hx-target={ "#automation-" + itoa(a.ID) }
+				hx-swap="outerHTML"
+				hx-confirm={ "Delete rule \"" + a.Name + "\"?" }
+			>Delete</button>
+		</div>
+	</div>
 }
 
-<!-- Reannounce + Orphan Scan per-instance sections -->
-@automationsPerInstanceSections(p)
+// automationActionBadges renders colorful small badges for each enabled action.
+templ automationActionBadges(a AutomationItem) {
+	if a.Conditions != nil {
+		if a.Conditions.SpeedLimits != nil && a.Conditions.SpeedLimits.Enabled {
+			<span class="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px]">Speed limits</span>
+		}
+		if a.Conditions.ShareLimits != nil && a.Conditions.ShareLimits.Enabled {
+			<span class="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-[10px]">Share limits</span>
+		}
+		if a.Conditions.Pause != nil && a.Conditions.Pause.Enabled {
+			<span class="inline-flex items-center rounded-full border border-yellow-500/50 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 text-[10px]">Pause</span>
+		}
+		if a.Conditions.Resume != nil && a.Conditions.Resume.Enabled {
+			<span class="inline-flex items-center rounded-full border border-green-500/50 text-green-600 dark:text-green-400 px-2 py-0.5 text-[10px]">Resume</span>
+		}
+		if a.Conditions.Recheck != nil && a.Conditions.Recheck.Enabled {
+			<span class="inline-flex items-center rounded-full border border-orange-500/50 text-orange-600 dark:text-orange-400 px-2 py-0.5 text-[10px]">Recheck</span>
+		}
+		if a.Conditions.Reannounce != nil && a.Conditions.Reannounce.Enabled {
+			<span class="inline-flex items-center rounded-full border border-purple-500/50 text-purple-600 dark:text-purple-400 px-2 py-0.5 text-[10px]">Reannounce</span>
+		}
+		if a.Conditions.Delete != nil && a.Conditions.Delete.Enabled {
+			<span class="inline-flex items-center rounded-full border border-destructive/50 text-destructive px-2 py-0.5 text-[10px]">Delete</span>
+		}
+		if a.Conditions.Category != nil && a.Conditions.Category.Enabled {
+			<span class="inline-flex items-center rounded-full border border-emerald-500/50 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 text-[10px]">Category</span>
+		}
+		if a.Conditions.Move != nil && a.Conditions.Move.Enabled {
+			<span class="inline-flex items-center rounded-full border border-indigo-500/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-[10px]">Move</span>
+		}
+		if a.Conditions.ExternalProgram != nil && a.Conditions.ExternalProgram.Enabled {
+			<span class="inline-flex items-center rounded-full border border-teal-500/50 text-teal-600 dark:text-teal-400 px-2 py-0.5 text-[10px]">Ext. program</span>
+		}
+		for _, tag := range a.Conditions.TagActions() {
+			if tag.Enabled {
+				<span class="inline-flex items-center rounded-full border border-blue-500/50 text-blue-600 dark:text-blue-400 px-2 py-0.5 text-[10px]">Tag</span>
+				break
+			}
+		}
+	}
+}
+
+// AutomationRowTempl is the exported entry-point for refreshing a single automation card via HTMX.
+templ AutomationRowTempl(a AutomationItem, baseURL string) {
+	@automationRuleCard(a, 0, 1, baseURL)
+}
+
+// formatActivityAction returns human-readable label for an automation activity action string.
+func formatActivityAction(action string) string {
+	labels := map[string]string{
+		"deleted_ratio":                 "Delete (ratio)",
+		"deleted_seeding":               "Delete (seeding)",
+		"deleted_unregistered":          "Delete (unregistered)",
+		"deleted_condition":             "Delete (condition)",
+		"delete_failed":                 "Delete failed",
+		"limit_failed":                  "Limit failed",
+		"tags_changed":                  "Tag",
+		"category_changed":              "Category",
+		"speed_limits_changed":          "Speed",
+		"share_limits_changed":          "Share",
+		"paused":                        "Pause",
+		"resumed":                       "Resume",
+		"rechecked":                     "Recheck",
+		"reannounced":                   "Reannounce",
+		"moved":                         "Move",
+		"external_program":              "Ext. program",
+		"dry_run_no_match":              "Dry-run (no match)",
+	}
+	if l, ok := labels[action]; ok {
+		return l
+	}
+	return action
 }
 
 // automationsPerInstanceSections renders reannounce and orphan scan sections for each instance.
 templ automationsPerInstanceSections(p AutomationsProps) {
-for _, inst := range p.visibleInstances() {
-<div class="space-y-4 mt-6">
-<h2 class="text-base font-semibold">{ inst.Name }</h2>
-<!-- Reannounce settings (lazy loaded) -->
-<div
-hx-get={ fmt.Sprintf("%s/ui/partials/automations/reannounce/settings/%d", p.BaseURL, inst.ID) }
-hx-trigger="load"
-hx-swap="outerHTML"
->
-<div class="animate-pulse h-24 rounded-lg bg-muted"></div>
-</div>
-<!-- Reannounce activity (lazy loaded) -->
-<div
-hx-get={ fmt.Sprintf("%s/ui/partials/automations/reannounce/activity/%d", p.BaseURL, inst.ID) }
-hx-trigger="load"
-hx-swap="outerHTML"
->
-<div class="animate-pulse h-16 rounded-lg bg-muted"></div>
-</div>
-<!-- Orphan scan settings (lazy loaded) -->
-<div
-hx-get={ fmt.Sprintf("%s/ui/partials/automations/orphan-scan/settings/%d", p.BaseURL, inst.ID) }
-hx-trigger="load"
-hx-swap="outerHTML"
->
-<div class="animate-pulse h-24 rounded-lg bg-muted"></div>
-</div>
-<!-- Orphan scan runs (lazy loaded) -->
-<div
-hx-get={ fmt.Sprintf("%s/ui/partials/automations/orphan-scan/runs/%d", p.BaseURL, inst.ID) }
-hx-trigger="load"
-hx-swap="outerHTML"
->
-<div class="animate-pulse h-16 rounded-lg bg-muted"></div>
-</div>
-</div>
-}
-}
-
-// automationStatusBadge renders a status badge for an automation rule.
-templ automationStatusBadge(a AutomationItem) {
-<div class="flex items-center gap-1.5">
-if a.Enabled {
-<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 text-xs">Enabled</span>
-} else {
-<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Disabled</span>
-}
-if a.DryRun {
-<span class="inline-flex items-center rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 text-xs">Dry run</span>
-}
-</div>
+	for _, inst := range p.visibleInstances() {
+		<div class="space-y-4 mt-6">
+			<h2 class="text-base font-semibold">{ inst.Name }</h2>
+			<div
+				hx-get={ fmt.Sprintf("%s/ui/partials/automations/reannounce/settings/%d", p.BaseURL, inst.ID) }
+				hx-trigger="load"
+				hx-swap="outerHTML"
+			>
+				<div class="animate-pulse h-24 rounded-lg bg-muted"></div>
+			</div>
+			<div
+				hx-get={ fmt.Sprintf("%s/ui/partials/automations/reannounce/activity/%d", p.BaseURL, inst.ID) }
+				hx-trigger="load"
+				hx-swap="outerHTML"
+			>
+				<div class="animate-pulse h-16 rounded-lg bg-muted"></div>
+			</div>
+			<div
+				hx-get={ fmt.Sprintf("%s/ui/partials/automations/orphan-scan/settings/%d", p.BaseURL, inst.ID) }
+				hx-trigger="load"
+				hx-swap="outerHTML"
+			>
+				<div class="animate-pulse h-24 rounded-lg bg-muted"></div>
+			</div>
+			<div
+				hx-get={ fmt.Sprintf("%s/ui/partials/automations/orphan-scan/runs/%d", p.BaseURL, inst.ID) }
+				hx-trigger="load"
+				hx-swap="outerHTML"
+			>
+				<div class="animate-pulse h-16 rounded-lg bg-muted"></div>
+			</div>
+		</div>
+	}
 }
 
 // AutomationFromModel converts a models.Automation to page-level AutomationItem.
 func AutomationFromModel(a *models.Automation, instanceName string) AutomationItem {
-return AutomationItem{
-ID:             a.ID,
-InstanceID:     a.InstanceID,
-InstanceName:   instanceName,
-Name:           a.Name,
-TrackerPattern: a.TrackerPattern,
-Enabled:        a.Enabled,
-DryRun:         a.DryRun,
-SortOrder:      a.SortOrder,
-CreatedAt:      a.CreatedAt.Format("2006-01-02 15:04"),
-UpdatedAt:      a.UpdatedAt.Format("2006-01-02 15:04"),
-}
-}
-
-// automationRow renders a single automation rule <tr> element.
-templ automationRow(a AutomationItem, baseURL string) {
-<tr id={ "automation-" + itoa(a.ID) } class="border-b border-border/50 hover:bg-muted/40 transition-colors">
-<td class="py-2 px-3 font-medium">{ a.Name }</td>
-<td class="py-2 px-3 text-muted-foreground">{ a.InstanceName }</td>
-<td class="py-2 px-3 font-mono text-xs">{ a.TrackerPattern }</td>
-<td class="py-2 px-3">
-@automationStatusBadge(a)
-</td>
-<td class="py-2 px-3 text-xs text-muted-foreground whitespace-nowrap">{ a.UpdatedAt }</td>
-<td class="py-2 px-3 text-right">
-<div class="flex items-center justify-end gap-1">
-<form
-hx-post={ baseURL + "/ui/partials/automations/" + itoa(a.InstanceID) + "/rules/" + itoa(a.ID) + "/toggle" }
-hx-target={ "#automation-" + itoa(a.ID) }
-hx-swap="outerHTML"
-class="inline"
->
-<input type="hidden" name="instance_id" value={ itoa(a.InstanceID) }/>
-<input type="hidden" name="automation_id" value={ itoa(a.ID) }/>
-<button
-type="submit"
-class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
-title={ "Toggle " + a.Name }
->
-if a.Enabled {
-Disable
-} else {
-Enable
-}
-</button>
-</form>
-<button
-class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
-hx-get={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d/edit", baseURL, a.InstanceID, a.ID) }
-hx-target="#rule-form-body"
-hx-swap="innerHTML"
-@click="ruleOpen = true"
-title={ "Edit " + a.Name }
->Edit</button>
-<button
-class="h-7 px-2 text-xs rounded-md border border-input text-destructive hover:bg-destructive/10 transition-colors"
-hx-delete={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d", baseURL, a.InstanceID, a.ID) }
-hx-target={ "#automation-" + itoa(a.ID) }
-hx-swap="outerHTML"
-hx-confirm={ "Delete rule \"" + a.Name + "\"?" }
-title={ "Delete " + a.Name }
->Delete</button>
-</div>
-</td>
-</tr>
+	return AutomationItem{
+		ID:             a.ID,
+		InstanceID:     a.InstanceID,
+		InstanceName:   instanceName,
+		Name:           a.Name,
+		TrackerPattern: a.TrackerPattern,
+		Enabled:        a.Enabled,
+		DryRun:         a.DryRun,
+		SortOrder:      a.SortOrder,
+		CreatedAt:      a.CreatedAt.Format("2006-01-02 15:04"),
+		UpdatedAt:      a.UpdatedAt.Format("2006-01-02 15:04"),
+		Conditions:     a.Conditions,
+	}
 }
 
-// AutomationRowTempl is the exported entry-point for refreshing a single automation row via HTMX.
-templ AutomationRowTempl(a AutomationItem, baseURL string) {
-@automationRow(a, baseURL)
+// ── Rule Form Templates ──────────────────────────────────────────────────────
+
+// AutomationRuleFormNew renders the create-rule form body.
+templ AutomationRuleFormNew(instances []layouts.Instance, instanceID int, baseURL string, errMsg string, extPrograms []ExtProgramOption) {
+	@automationRuleForm(AutomationRuleFormItem{InstanceID: instanceID, Enabled: true}, instances, baseURL, errMsg, extPrograms, false)
 }
 
-// AutomationRuleFormNew renders the create-rule form body (loaded into #rule-form-body).
-templ AutomationRuleFormNew(instances []layouts.Instance, instanceID int, baseURL string, errMsg string) {
-<form
-hx-post={ fmt.Sprintf("%s/ui/partials/automations/%d/rules", baseURL, instanceID) }
-hx-target="#automations-content"
-hx-swap="innerHTML"
-class="space-y-4"
->
-if errMsg != "" {
-<p class="text-sm text-destructive">{ errMsg }</p>
-}
-<div>
-<label class="block text-xs font-medium text-muted-foreground mb-1">Instance</label>
-<select name="instance_id" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-for _, inst := range instances {
-if inst.ID == instanceID {
-<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
-} else {
-<option value={ itoa(inst.ID) }>{ inst.Name }</option>
-}
-}
-</select>
-</div>
-<div>
-<label class="block text-xs font-medium text-muted-foreground mb-1">Name</label>
-<input type="text" name="name" required placeholder="e.g. Seed ratio limiter"
-class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
-</div>
-<div>
-<label class="block text-xs font-medium text-muted-foreground mb-1">Tracker pattern <span class="text-muted-foreground font-normal">(comma-separated globs, optional)</span></label>
-<input type="text" name="tracker_pattern" placeholder="e.g. *.tracker.example.com, tracker2.*"
-class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
-</div>
-<div class="flex items-center gap-4 pt-1">
-<label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-<input type="checkbox" name="dry_run" value="true" class="rounded"/> Dry run (log only, no actions)
-</label>
-<label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-<input type="checkbox" name="enabled" value="true" checked class="rounded"/> Enabled
-</label>
-</div>
-<div class="flex justify-end gap-2 pt-2">
-<button type="button" @click="ruleOpen = false" class="rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors">Cancel</button>
-<button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Create Rule</button>
-</div>
-</form>
+// AutomationRuleFormEdit renders the edit-rule form body.
+templ AutomationRuleFormEdit(item AutomationRuleFormItem, baseURL string, extPrograms []ExtProgramOption) {
+	@automationRuleForm(item, nil, baseURL, item.ErrMsg, extPrograms, true)
 }
 
-// AutomationRuleFormEdit renders the edit-rule form body (loaded into #rule-form-body).
-templ AutomationRuleFormEdit(item AutomationRuleFormItem, baseURL string) {
-<form
-hx-put={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d", baseURL, item.InstanceID, item.ID) }
-hx-target="#automations-content"
-hx-swap="innerHTML"
-class="space-y-4"
->
-if item.ErrMsg != "" {
-<p class="text-sm text-destructive">{ item.ErrMsg }</p>
+// automationRuleForm is the shared form for create and edit.
+templ automationRuleForm(item AutomationRuleFormItem, instances []layouts.Instance, baseURL string, errMsg string, extPrograms []ExtProgramOption, isEdit bool) {
+	<div x-data={ "automationForm(" + conditionsJSON(item.Conditions) + ")" } class="space-y-5">
+		if isEdit {
+			<form
+				hx-put={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d", baseURL, item.InstanceID, item.ID) }
+				hx-target="#automations-content"
+				hx-swap="innerHTML"
+				x-on:submit="syncConditions"
+				class="space-y-5"
+			>
+				@automationFormFields(item, instances, baseURL, errMsg, extPrograms, isEdit)
+			</form>
+		} else {
+			<form
+				hx-post={ fmt.Sprintf("%s/ui/partials/automations/%d/rules", baseURL, item.InstanceID) }
+				hx-target="#automations-content"
+				hx-swap="innerHTML"
+				x-on:submit="syncConditions"
+				class="space-y-5"
+			>
+				@automationFormFields(item, instances, baseURL, errMsg, extPrograms, isEdit)
+			</form>
+		}
+	</div>
+	<script>
+		function automationForm(ini) {
+			const defaults = {
+				speedLimits: { enabled: false, uploadKiB: null, downloadKiB: null },
+				shareLimits: { enabled: false, ratioLimit: null, seedingTimeMinutes: null },
+				pause: { enabled: false }, resume: { enabled: false },
+				recheck: { enabled: false }, reannounce: { enabled: false },
+				delete: { enabled: false, mode: 'delete' },
+				tags: [], category: { enabled: false, category: '' },
+				move: { enabled: false, path: '' },
+				externalProgram: { enabled: false, programId: 0 }
+			};
+			const c = Object.assign({}, defaults, ini || {});
+			['speedLimits', 'shareLimits', 'pause', 'resume', 'recheck', 'reannounce', 'delete', 'category', 'move', 'externalProgram']
+				.forEach(k => { if (!c[k]) c[k] = { ...defaults[k] }; });
+			if ((!c.tags || !c.tags.length) && c.tag) c.tags = [c.tag];
+			if (!c.tags || !c.tags.length) c.tags = [{ enabled: false, tags: [], mode: 'full', useTrackerAsTag: false }];
+			return {
+				conds: c,
+				get conditionsJSON() { return JSON.stringify(this.conds); },
+				syncConditions(ev) {
+					const h = ev.target.querySelector('[name=conditions_json]');
+					if (h) h.value = JSON.stringify(this.conds);
+				},
+				addTagAction() { this.conds.tags.push({ enabled: true, tags: [], mode: 'full', useTrackerAsTag: false }); },
+				removeTagAction(i) {
+					this.conds.tags.splice(i, 1);
+					if (!this.conds.tags.length) this.conds.tags = [{ enabled: false, tags: [], mode: 'full', useTrackerAsTag: false }];
+				},
+			};
+		}
+	</script>
 }
-<div>
-<label class="block text-xs font-medium text-muted-foreground mb-1">Name</label>
-<input type="text" name="name" required value={ item.Name }
-class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
-</div>
-<div>
-<label class="block text-xs font-medium text-muted-foreground mb-1">Tracker pattern <span class="text-muted-foreground font-normal">(comma-separated globs, optional)</span></label>
-<input type="text" name="tracker_pattern" value={ item.TrackerPattern }
-class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
-</div>
-<div class="flex items-center gap-4 pt-1">
-<label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-<input type="checkbox" name="dry_run" value="true" checked?={ item.DryRun } class="rounded"/> Dry run (log only, no actions)
-</label>
-<label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
-<input type="checkbox" name="enabled" value="true" checked?={ item.Enabled } class="rounded"/> Enabled
-</label>
-</div>
-<div class="flex justify-end gap-2 pt-2">
-<button type="button" @click="ruleOpen = false" class="rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors">Cancel</button>
-<button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Save Changes</button>
-</div>
-</form>
+
+// automationFormFields renders the inner fields of the create/edit form.
+templ automationFormFields(item AutomationRuleFormItem, instances []layouts.Instance, baseURL string, errMsg string, extPrograms []ExtProgramOption, isEdit bool) {
+	if errMsg != "" {
+		<p class="text-sm text-destructive">{ errMsg }</p>
+	}
+	<div class="space-y-3">
+		if !isEdit && len(instances) > 1 {
+			<div>
+				<label class="block text-xs font-medium text-muted-foreground mb-1">Instance</label>
+				<select name="instance_id" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+					for _, inst := range instances {
+						if inst.ID == item.InstanceID {
+							<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
+						} else {
+							<option value={ itoa(inst.ID) }>{ inst.Name }</option>
+						}
+					}
+				</select>
+			</div>
+		}
+		<div>
+			<label class="block text-xs font-medium text-muted-foreground mb-1">Name <span class="text-destructive">*</span></label>
+			<input
+				type="text" name="name" required value={ item.Name } placeholder="e.g. Seed ratio limiter"
+				class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			/>
+		</div>
+		<div>
+			<label class="block text-xs font-medium text-muted-foreground mb-1">
+				Tracker pattern <span class="text-muted-foreground font-normal">(comma-separated globs; <code>*</code> = all)</span>
+			</label>
+			<input
+				type="text" name="tracker_pattern" value={ item.TrackerPattern }
+				placeholder="*.tracker.example.com, * or leave blank"
+				class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			/>
+		</div>
+		<div class="flex items-center gap-6 pt-1">
+			<label class="flex items-center gap-2 text-sm cursor-pointer">
+				<input type="checkbox" name="dry_run" value="true" checked?={ item.DryRun } class="h-4 w-4 rounded border-input"/>
+				Dry run <span class="text-xs text-muted-foreground">(log only)</span>
+			</label>
+			<label class="flex items-center gap-2 text-sm cursor-pointer">
+				<input type="checkbox" name="enabled" value="true" checked?={ item.Enabled } class="h-4 w-4 rounded border-input"/>
+				Enabled
+			</label>
+		</div>
+	</div>
+	<!-- Sync conditions to hidden field before submit -->
+	<input type="hidden" name="conditions_json" x-bind:value="conditionsJSON"/>
+	<!-- Actions section -->
+	<div class="border-t border-border pt-4">
+		<p class="text-sm font-medium mb-3">Actions</p>
+		<div class="space-y-2">
+			<!-- Speed Limits -->
+			<div class="rounded-lg border border-border p-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.speedLimits.enabled"/>
+					<span class="text-sm font-medium">Speed Limits</span>
+				</label>
+				<div x-show="conds.speedLimits.enabled" x-cloak class="mt-3 grid grid-cols-2 gap-3">
+					<div>
+						<label class="text-xs text-muted-foreground mb-1 block">Upload limit (KiB/s, 0=unlimited)</label>
+						<input type="number" min="0" placeholder="0" class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm" x-model.number="conds.speedLimits.uploadKiB"/>
+					</div>
+					<div>
+						<label class="text-xs text-muted-foreground mb-1 block">Download limit (KiB/s, 0=unlimited)</label>
+						<input type="number" min="0" placeholder="0" class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm" x-model.number="conds.speedLimits.downloadKiB"/>
+					</div>
+				</div>
+			</div>
+			<!-- Share Limits -->
+			<div class="rounded-lg border border-border p-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.shareLimits.enabled"/>
+					<span class="text-sm font-medium">Share Limits</span>
+				</label>
+				<div x-show="conds.shareLimits.enabled" x-cloak class="mt-3 grid grid-cols-2 gap-3">
+					<div>
+						<label class="text-xs text-muted-foreground mb-1 block">Ratio limit (−2=global, −1=unlimited)</label>
+						<input type="number" step="0.01" placeholder="-2" class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm" x-model.number="conds.shareLimits.ratioLimit"/>
+					</div>
+					<div>
+						<label class="text-xs text-muted-foreground mb-1 block">Seeding time (min, −1=unlimited)</label>
+						<input type="number" step="1" placeholder="-1" class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm" x-model.number="conds.shareLimits.seedingTimeMinutes"/>
+					</div>
+				</div>
+			</div>
+			<!-- Pause -->
+			<div class="rounded-lg border border-border p-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.pause.enabled"/>
+					<span class="text-sm font-medium">Pause</span>
+					<span class="text-xs text-muted-foreground ml-1">— pause matching torrents</span>
+				</label>
+			</div>
+			<!-- Resume -->
+			<div class="rounded-lg border border-border p-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.resume.enabled"/>
+					<span class="text-sm font-medium">Resume</span>
+					<span class="text-xs text-muted-foreground ml-1">— resume matching torrents</span>
+				</label>
+			</div>
+			<!-- Force Recheck -->
+			<div class="rounded-lg border border-border p-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.recheck.enabled"/>
+					<span class="text-sm font-medium">Force Recheck</span>
+					<span class="text-xs text-muted-foreground ml-1">— trigger data recheck</span>
+				</label>
+			</div>
+			<!-- Force Reannounce -->
+			<div class="rounded-lg border border-border p-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.reannounce.enabled"/>
+					<span class="text-sm font-medium">Force Reannounce</span>
+					<span class="text-xs text-muted-foreground ml-1">— re-send announce to trackers</span>
+				</label>
+			</div>
+			<!-- Delete -->
+			<div class="rounded-lg border border-destructive/30 p-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.delete.enabled"/>
+					<span class="text-sm font-medium text-destructive">Delete</span>
+					<span class="text-xs text-muted-foreground ml-1">— cannot combine with other actions</span>
+				</label>
+				<div x-show="conds.delete.enabled" x-cloak class="mt-3">
+					<label class="text-xs text-muted-foreground mb-1 block">Delete mode</label>
+					<select class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" x-model="conds.delete.mode">
+						<option value="delete">Keep files</option>
+						<option value="deleteWithFiles">Delete with files</option>
+						<option value="deleteWithFilesPreserveCrossSeeds">Delete with files (preserve cross-seeds)</option>
+						<option value="deleteWithFilesIncludeCrossSeeds">Delete with files (include cross-seeds)</option>
+					</select>
+				</div>
+			</div>
+			<!-- Tag Actions -->
+			<div class="rounded-lg border border-border p-3">
+				<div class="flex items-center justify-between mb-2">
+					<span class="text-sm font-medium">Tag Actions</span>
+					<button type="button" class="text-xs text-primary hover:underline" @click="addTagAction()">+ Add</button>
+				</div>
+				<template x-for="(ta, idx) in conds.tags" :key="idx">
+					<div class="border border-border/50 rounded-md p-3 mb-2 space-y-2">
+						<div class="flex items-center justify-between">
+							<label class="flex items-center gap-2 cursor-pointer">
+								<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="ta.enabled"/>
+								<span class="text-xs font-medium">Action #<span x-text="idx+1"></span></span>
+							</label>
+							<button type="button" class="text-xs text-destructive hover:underline" @click="removeTagAction(idx)" x-show="conds.tags.length > 1">Remove</button>
+						</div>
+						<div x-show="ta.enabled" x-cloak class="space-y-2">
+							<div>
+								<label class="text-xs text-muted-foreground mb-1 block">Tags (comma-separated)</label>
+								<input
+									type="text" placeholder="tag1, tag2"
+									class="h-8 w-full rounded-md border border-input bg-background px-3 text-xs"
+									x-bind:value="(ta.tags||[]).join(', ')"
+									x-on:change="ta.tags=$event.target.value.split(',').map(s=>s.trim()).filter(Boolean)"
+								/>
+							</div>
+							<div class="grid grid-cols-2 gap-2">
+								<div>
+									<label class="text-xs text-muted-foreground mb-1 block">Mode</label>
+									<select class="h-8 w-full rounded-md border border-input bg-background px-3 text-xs" x-model="ta.mode">
+										<option value="full">Full sync</option>
+										<option value="add">Add only</option>
+										<option value="remove">Remove only</option>
+									</select>
+								</div>
+								<div class="flex items-end pb-1">
+									<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+										<input type="checkbox" class="h-3.5 w-3.5 rounded border-input" x-model="ta.useTrackerAsTag"/>
+										Use tracker as tag
+									</label>
+								</div>
+							</div>
+						</div>
+					</div>
+				</template>
+			</div>
+			<!-- Category -->
+			<div class="rounded-lg border border-border p-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.category.enabled"/>
+					<span class="text-sm font-medium">Category</span>
+				</label>
+				<div x-show="conds.category.enabled" x-cloak class="mt-3">
+					<label class="text-xs text-muted-foreground mb-1 block">Category name</label>
+					<input type="text" placeholder="e.g. completed" class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm" x-model="conds.category.category"/>
+				</div>
+			</div>
+			<!-- Move -->
+			<div class="rounded-lg border border-border p-3">
+				<label class="flex items-center gap-2 cursor-pointer">
+					<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.move.enabled"/>
+					<span class="text-sm font-medium">Move</span>
+					<span class="text-xs text-muted-foreground ml-1">— move torrent data to path</span>
+				</label>
+				<div x-show="conds.move.enabled" x-cloak class="mt-3">
+					<label class="text-xs text-muted-foreground mb-1 block">Destination path</label>
+					<input type="text" placeholder="/mnt/data/completed" class="h-8 w-full rounded-md border border-input bg-background px-3 text-sm" x-model="conds.move.path"/>
+				</div>
+			</div>
+			<!-- External Program -->
+			if len(extPrograms) > 0 {
+				<div class="rounded-lg border border-border p-3">
+					<label class="flex items-center gap-2 cursor-pointer">
+						<input type="checkbox" class="h-4 w-4 rounded border-input" x-model="conds.externalProgram.enabled"/>
+						<span class="text-sm font-medium">Run External Program</span>
+					</label>
+					<div x-show="conds.externalProgram.enabled" x-cloak class="mt-3">
+						<label class="text-xs text-muted-foreground mb-1 block">Program</label>
+						<select class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" x-model.number="conds.externalProgram.programId">
+							<option value="0">— select a program —</option>
+							for _, prog := range extPrograms {
+								<option value={ itoa(prog.ID) }>{ prog.Name }</option>
+							}
+						</select>
+					</div>
+				</div>
+			} else {
+				<div class="rounded-lg border border-border p-3 opacity-50">
+					<span class="text-sm text-muted-foreground">Run External Program — no programs configured in Settings</span>
+				</div>
+			}
+		</div>
+	</div>
+	<div class="text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
+		<strong>Note:</strong> Each action applies to all matching torrents. Advanced per-action conditions (ratio, size, age, state…) are configurable via the API.
+	</div>
+	<!-- Buttons -->
+	<div class="flex justify-end gap-2 pt-2 border-t border-border">
+		<button
+			type="button"
+			@click="const p=document.querySelector('[x-data]'); if(p&&Alpine.$data(p).closeModal) Alpine.$data(p).closeModal();"
+			class="rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors"
+		>Cancel</button>
+		if isEdit {
+			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Save Changes</button>
+		} else {
+			<button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Create Rule</button>
+		}
+	</div>
+}
+
+// automationStatusBadge renders enabled/dry-run badges (kept for backward compatibility).
+templ automationStatusBadge(a AutomationItem) {
+	<div class="flex items-center gap-1.5">
+		if a.Enabled {
+			<span class="inline-flex items-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-0.5 text-xs">Enabled</span>
+		} else {
+			<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">Disabled</span>
+		}
+		if a.DryRun {
+			<span class="inline-flex items-center rounded-full bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 px-2 py-0.5 text-xs">Dry run</span>
+		}
+	</div>
 }

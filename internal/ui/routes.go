@@ -91,6 +91,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			// HTMX partial fragments — return HTML snippets, not full pages.
 			r.Get("/partials/dashboard", h.GetDashboardPartial)
 			r.Post("/partials/dashboard/{id}/alt-speed", h.PostAltSpeedToggle)
+			r.Get("/partials/dashboard/tracker-breakdown", h.GetDashboardTrackerBreakdown)
 			r.Get("/partials/torrents", h.GetTorrentsPartial)
 			r.Get("/partials/torrents/{hash}", h.GetTorrentDetailPartial)
 			r.Post("/partials/torrents/action", h.PostTorrentsAction)
@@ -190,11 +191,15 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 			// Automations.
 			r.Get("/partials/automations", h.GetAutomationsPartial)
-					r.Get("/partials/automations/rules/new", h.GetAutomationRuleFormNew)
-					r.Post("/partials/automations/{instanceId}/rules", h.PostAutomationRule)
-					r.Get("/partials/automations/{instanceId}/rules/{id}/edit", h.GetAutomationRuleFormEdit)
-					r.Put("/partials/automations/{instanceId}/rules/{id}", h.PutAutomationRule)
-					r.Delete("/partials/automations/{instanceId}/rules/{id}", h.DeleteAutomationRule)
+			r.Get("/partials/automations/rules/new", h.GetAutomationRuleFormNew)
+			r.Post("/partials/automations/{instanceId}/rules", h.PostAutomationRule)
+			r.Get("/partials/automations/{instanceId}/rules/{id}/edit", h.GetAutomationRuleFormEdit)
+			r.Put("/partials/automations/{instanceId}/rules/{id}", h.PutAutomationRule)
+			r.Delete("/partials/automations/{instanceId}/rules/{id}", h.DeleteAutomationRule)
+			r.Post("/partials/automations/{instanceId}/rules/{id}/toggle", h.PostAutomationToggle)
+			r.Post("/partials/automations/{instanceId}/rules/{id}/move-up", h.PostAutomationMoveUp)
+			r.Post("/partials/automations/{instanceId}/rules/{id}/move-down", h.PostAutomationMoveDown)
+			r.Post("/partials/automations/{instanceId}/apply-now", h.PostAutomationApplyNow)
 			// Reannounce (per-instance monitoring on Automations page).
 			r.Get("/partials/automations/reannounce/settings/{instanceId}", h.GetReannounceSettingsPartial)
 			r.Post("/partials/automations/reannounce/settings/{instanceId}", h.PostReannounceSettings)

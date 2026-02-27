@@ -11,6 +11,7 @@ package ui
 import (
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -163,13 +164,78 @@ func (h *Handler) PostTorrentsAction(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
-// PostAddTorrent accepts a .torrent file upload or a magnet/URL string, forwards
-// it to the chosen qBittorrent instance and returns a refreshed table body.
+// buildTorrentAddOpts constructs the qBittorrent options map from the add form.
+// It covers all fields exposed in the expanded add-torrent dialog.
+func buildTorrentAddOpts(r *http.Request) map[string]string {
+	opts := map[string]string{}
+
+	if cat := strings.TrimSpace(r.FormValue("category")); cat != "" {
+		opts["category"] = cat
+	}
+	if tags := strings.TrimSpace(r.FormValue("tags")); tags != "" {
+		opts["tags"] = tags
+	}
+	if r.FormValue("paused") == "true" {
+		opts["paused"] = "true"
+	}
+	if r.FormValue("skip_hash_check") == "true" {
+		opts["skip_checking"] = "true"
+	}
+	if r.FormValue("sequential_download") == "true" {
+		opts["sequentialDownload"] = "true"
+	}
+	if r.FormValue("first_last_piece_prio") == "true" {
+		opts["firstLastPiecePrio"] = "true"
+	}
+	if atmm := r.FormValue("auto_tmm"); atmm == "true" || atmm == "false" {
+		opts["autoTMM"] = atmm
+	}
+	if sp := strings.TrimSpace(r.FormValue("savepath")); sp != "" {
+		opts["savePath"] = sp
+	}
+	if r.FormValue("use_download_path") == "true" {
+		opts["useDownloadPath"] = "true"
+		if dp := strings.TrimSpace(r.FormValue("download_path")); dp != "" {
+			opts["downloadPath"] = dp
+		}
+	}
+	if dl := strings.TrimSpace(r.FormValue("dl_limit")); dl != "" && dl != "0" {
+		if v, err := strconv.ParseInt(dl, 10, 64); err == nil && v > 0 {
+			opts["dlLimit"] = strconv.FormatInt(v*1024, 10) // KiB/s → B/s
+		}
+	}
+	if ul := strings.TrimSpace(r.FormValue("up_limit")); ul != "" && ul != "0" {
+		if v, err := strconv.ParseInt(ul, 10, 64); err == nil && v > 0 {
+			opts["upLimit"] = strconv.FormatInt(v*1024, 10) // KiB/s → B/s
+		}
+	}
+	if rl := strings.TrimSpace(r.FormValue("ratio_limit")); rl != "" && rl != "0" {
+		if v, err := strconv.ParseFloat(rl, 64); err == nil && v > 0 {
+			opts["ratioLimit"] = strconv.FormatFloat(v, 'f', 2, 64)
+		}
+	}
+	if stl := strings.TrimSpace(r.FormValue("seed_time_limit")); stl != "" && stl != "0" {
+		if v, err := strconv.ParseInt(stl, 10, 64); err == nil && v > 0 {
+			opts["seedingTimeLimit"] = strconv.FormatInt(v, 10)
+		}
+	}
+	if cl := strings.TrimSpace(r.FormValue("content_layout")); cl != "" {
+		opts["contentLayout"] = cl
+	}
+	if rn := strings.TrimSpace(r.FormValue("rename")); rn != "" {
+		opts["rename"] = rn
+	}
+
+	return opts
+}
+
+// PostAddTorrent accepts one or more .torrent file uploads or magnet/URL lines,
+// forwards them to the chosen qBittorrent instance and returns a refreshed table
+// body with all form options applied.
 // Route: POST /ui/partials/torrents/add
 func (h *Handler) PostAddTorrent(w http.ResponseWriter, r *http.Request) {
 	const maxMemory = 64 << 20 // 64 MiB
 	if err := r.ParseMultipartForm(maxMemory); err != nil {
-		// Fall back to regular form.
 		if err2 := r.ParseForm(); err2 != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
@@ -179,7 +245,6 @@ func (h *Handler) PostAddTorrent(w http.ResponseWriter, r *http.Request) {
 	instanceID := intParam(r.FormValue("instance_id"), 0)
 	ctx := r.Context()
 
-	// Resolve instance ID.
 	if instanceID == 0 {
 		if insts, err := h.instanceStore.List(ctx); err == nil {
 			for _, inst := range insts {
@@ -192,38 +257,27 @@ func (h *Handler) PostAddTorrent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.syncManager != nil && instanceID > 0 {
-		// Build options map.
-		opts := map[string]string{}
-		if cat := strings.TrimSpace(r.FormValue("category")); cat != "" {
-			opts["category"] = cat
-		}
-		if sp := strings.TrimSpace(r.FormValue("savepath")); sp != "" {
-			opts["savePath"] = sp
-		}
-		if r.FormValue("paused") == "true" {
-			opts["paused"] = "true"
-		}
+		opts := buildTorrentAddOpts(r)
 
-		// Try .torrent file first.
+		// Upload every .torrent file provided (multi-file support).
 		if r.MultipartForm != nil {
-			if fhs := r.MultipartForm.File["torrentfile"]; len(fhs) > 0 {
-				f, err := fhs[0].Open()
-				if err == nil {
-					defer f.Close() //nolint:errcheck
-					data, readErr := io.ReadAll(f)
-					if readErr == nil && len(data) > 0 {
-						_ = h.syncManager.AddTorrent(ctx, instanceID, data, opts)
-					}
+			for _, fh := range r.MultipartForm.File["torrentfile"] {
+				f, err := fh.Open()
+				if err != nil {
+					continue
+				}
+				data, readErr := io.ReadAll(f)
+				_ = f.Close()
+				if readErr == nil && len(data) > 0 {
+					_ = h.syncManager.AddTorrent(ctx, instanceID, data, opts)
 				}
 			}
 		}
 
-		// Also process URL/magnet if provided.
 		if rawURLs := strings.TrimSpace(r.FormValue("urls")); rawURLs != "" {
 			var urls []string
 			for _, u := range strings.Split(rawURLs, "\n") {
-				u = strings.TrimSpace(u)
-				if u != "" {
+				if u = strings.TrimSpace(u); u != "" {
 					urls = append(urls, u)
 				}
 			}
@@ -233,7 +287,6 @@ func (h *Handler) PostAddTorrent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Re-render the table body so newly added torrents appear immediately.
 	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, 1, defaultPageSize, "", "", "", "")
 	render(w, r, http.StatusOK, pages.TorrentsTableBody(pages.TorrentsProps{
 		BaseURL:    h.baseURL(),

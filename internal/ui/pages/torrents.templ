@@ -123,7 +123,7 @@ Instances:   p.Instances,
 }) {
 <div
 class="flex h-full min-h-0 gap-0"
-x-data="{ addOpen: false, sidebarOpen: true }"
+x-data="{ addOpen: false, sidebarOpen: true, addTab: 'file', addAdv: false, useTmpPath: false }"
 >
 <!-- Left filter sidebar -->
 <div
@@ -429,51 +429,109 @@ class="w-96 shrink-0 rounded-lg border border-border bg-background overflow-hidd
 x-show="addOpen"
 x-cloak
 class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
-@keydown.escape.window="addOpen = false"
+@keydown.escape.window="addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;"
 >
 <div
-class="w-full max-w-lg rounded-xl border border-border bg-background shadow-xl p-6"
-@click.outside="addOpen = false"
+class="w-full max-w-lg rounded-xl border border-border bg-background shadow-xl flex flex-col max-h-[90vh]"
+@click.outside="addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;"
 >
-<div class="flex items-center justify-between mb-4">
+<!-- Header -->
+<div class="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
 <h2 class="text-base font-semibold">Add Torrent</h2>
-<button @click="addOpen = false" class="rounded-md p-1 text-muted-foreground hover:bg-accent">
+<button
+@click="addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;"
+class="rounded-md p-1 text-muted-foreground hover:bg-accent transition-colors"
+>
 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
 </button>
 </div>
+<!-- Scrollable form body -->
 <form
+id="add-torrent-form"
 hx-post={ p.BaseURL + "/ui/partials/torrents/add" }
 hx-target="#torrents-table-body"
 hx-swap="innerHTML"
-hx-on::after-request="addOpen = false"
-class="space-y-3"
+hx-on::after-request="if(event.detail.successful){ addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false; document.getElementById('add-torrent-form').reset(); document.getElementById('add-file-lbl').textContent = 'No files selected'; }"
+class="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0"
 enctype="multipart/form-data"
 >
 <input type="hidden" name="instance_id" value={ itoa(p.InstanceID) }/>
-<div>
-<label class="block text-xs font-medium text-muted-foreground mb-1">Magnet link or URL</label>
-<input
-type="text"
-name="urls"
-placeholder="magnet:?xt=urn:btih:… or https://…"
-class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-/>
+<!-- Source tabs: File / URL -->
+<div class="flex rounded-md bg-muted p-1 gap-1">
+<button
+type="button"
+@click="addTab = 'file'"
+:class="addTab === 'file' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'"
+class="flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5"
+>
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+Upload File
+</button>
+<button
+type="button"
+@click="addTab = 'url'"
+:class="addTab === 'url' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'"
+class="flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5"
+>
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+URL / Magnet
+</button>
 </div>
-<div>
-<label class="block text-xs font-medium text-muted-foreground mb-1">.torrent file</label>
+<!-- File drop zone (visible when addTab === 'file') -->
+<div x-show="addTab === 'file'">
+<div
+class="border-2 border-dashed border-border rounded-md p-6 text-center cursor-pointer transition-colors hover:border-primary/40 hover:bg-accent/30"
+@click="document.getElementById('add-torrent-file-input').click()"
+@dragover.prevent="$el.classList.add('border-primary','bg-accent/20')"
+@dragleave.self="$el.classList.remove('border-primary','bg-accent/20')"
+@drop.prevent="
+const dt = new DataTransfer();
+const inp = document.getElementById('add-torrent-file-input');
+Array.from(inp.files || []).forEach(f => dt.items.add(f));
+Array.from($event.dataTransfer.files).filter(f => f.name.endsWith('.torrent')).forEach(f => dt.items.add(f));
+inp.files = dt.files;
+$el.classList.remove('border-primary','bg-accent/20');
+document.getElementById('add-file-lbl').textContent = dt.files.length + ' file(s) selected';
+"
+>
+<svg class="h-8 w-8 mx-auto mb-2 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+<p class="text-sm font-medium">Drag &amp; drop .torrent files here</p>
+<p class="text-xs text-muted-foreground mt-0.5">or click to browse · multiple files supported</p>
+</div>
 <input
+id="add-torrent-file-input"
 type="file"
 name="torrentfile"
 accept=".torrent"
-class="w-full text-sm text-muted-foreground file:mr-2 file:rounded-md file:border file:border-input file:bg-background file:px-3 file:py-1 file:text-xs file:font-medium"
+multiple
+class="hidden"
+@change="document.getElementById('add-file-lbl').textContent = $event.target.files.length + ' file(s) selected'"
 />
+<span id="add-file-lbl" class="text-xs text-muted-foreground mt-1 block">No files selected</span>
 </div>
+<!-- URL / magnet textarea (visible when addTab === 'url') -->
+<div x-show="addTab === 'url'" x-cloak>
+<label class="block text-xs font-medium text-muted-foreground mb-1">URLs / Magnet links (one per line)</label>
+<textarea
+name="urls"
+rows="4"
+placeholder="magnet:?xt=urn:btih:…&#10;https://example.com/file.torrent"
+class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+></textarea>
+</div>
+<!-- Category + Tags -->
 <div class="grid grid-cols-2 gap-3">
 <div>
-<label class="block text-xs font-medium text-muted-foreground mb-1">Category (optional)</label>
-<input type="text" name="category" list="add-categories" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder=""/>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Category</label>
+<input
+type="text"
+name="category"
+list="add-dialog-categories"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="none"
+/>
 if len(p.Categories) > 0 {
-<datalist id="add-categories">
+<datalist id="add-dialog-categories">
 for _, cat := range p.Categories {
 <option value={ cat }></option>
 }
@@ -481,20 +539,179 @@ for _, cat := range p.Categories {
 }
 </div>
 <div>
-<label class="block text-xs font-medium text-muted-foreground mb-1">Save path (optional)</label>
-<input type="text" name="savepath" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" placeholder=""/>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Tags (comma-separated)</label>
+<input
+type="text"
+name="tags"
+list="add-dialog-tags"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="e.g. hd, seedbox"
+/>
+if len(p.Tags) > 0 {
+<datalist id="add-dialog-tags">
+for _, tag := range p.Tags {
+<option value={ tag }></option>
+}
+</datalist>
+}
 </div>
 </div>
-<div class="flex items-center gap-2 pt-1">
-<label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+<!-- Basic toggles -->
+<div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
 <input type="checkbox" name="paused" value="true" class="rounded"/> Start paused
 </label>
+<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+<input type="checkbox" name="skip_hash_check" value="true" class="rounded"/> Skip hash check
+</label>
 </div>
-<div class="flex justify-end gap-2 pt-2">
-<button type="button" @click="addOpen = false" class="rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors">Cancel</button>
-<button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Add</button>
+<!-- Advanced options collapsible -->
+<div>
+<button
+type="button"
+@click="addAdv = !addAdv"
+class="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+>
+<svg
+class="h-3.5 w-3.5 transition-transform duration-150"
+:class="addAdv ? 'rotate-90' : ''"
+viewBox="0 0 24 24"
+fill="none"
+stroke="currentColor"
+stroke-width="2.5"
+><path d="M9 18l6-6-6-6"/></svg>
+Advanced options
+</button>
+<div x-show="addAdv" x-cloak class="mt-3 space-y-3 pl-3 border-l border-border">
+<!-- Auto TMM -->
+<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+<input type="checkbox" name="auto_tmm" value="true" class="rounded"/> Automatic Torrent Management
+</label>
+<!-- Save path -->
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Save path</label>
+<input
+type="text"
+name="savepath"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="Leave empty for default"
+/>
+</div>
+<!-- Temporary download path -->
+<div class="space-y-2">
+<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+<input
+type="checkbox"
+name="use_download_path"
+value="true"
+class="rounded"
+x-model="useTmpPath"
+/> Use temporary download path
+</label>
+<input
+type="text"
+name="download_path"
+:disabled="!useTmpPath"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-40 disabled:cursor-not-allowed"
+placeholder="Temporary download path"
+/>
+</div>
+<!-- Content layout + rename -->
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Content layout</label>
+<select
+name="content_layout"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+>
+<option value="">Use global setting</option>
+<option value="Original">Original</option>
+<option value="Subfolder">Create subfolder</option>
+<option value="NoSubfolder">No subfolder</option>
+</select>
+</div>
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Rename torrent</label>
+<input
+type="text"
+name="rename"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="Leave empty for original name"
+/>
+</div>
+</div>
+<!-- Sequential + first/last piece -->
+<div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+<input type="checkbox" name="sequential_download" value="true" class="rounded"/> Sequential download
+</label>
+<label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+<input type="checkbox" name="first_last_piece_prio" value="true" class="rounded"/> First/last piece priority
+</label>
+</div>
+<!-- Speed limits -->
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Download limit (KiB/s)</label>
+<input
+type="number"
+name="dl_limit"
+min="0"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="0 = unlimited"
+/>
+</div>
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Upload limit (KiB/s)</label>
+<input
+type="number"
+name="up_limit"
+min="0"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="0 = unlimited"
+/>
+</div>
+</div>
+<!-- Seeding limits -->
+<div class="grid grid-cols-2 gap-3">
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Ratio limit</label>
+<input
+type="number"
+name="ratio_limit"
+min="0"
+step="0.1"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="0 = use global"
+/>
+</div>
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Seed time limit (min)</label>
+<input
+type="number"
+name="seed_time_limit"
+min="0"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="0 = use global"
+/>
+</div>
+</div>
+</div>
 </div>
 </form>
+<!-- Footer -->
+<div class="flex justify-end gap-2 px-5 py-3 border-t border-border shrink-0">
+<button
+type="button"
+@click="addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;"
+class="rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors"
+>Cancel</button>
+<button
+type="submit"
+form="add-torrent-form"
+class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+>Add Torrent</button>
+</div>
 </div>
 </div>
 </div>

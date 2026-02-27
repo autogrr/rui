@@ -5,6 +5,7 @@ package ui
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -429,7 +430,11 @@ func splitLines(s string) []string {
 func (h *Handler) GetAutomationRuleFormNew(w http.ResponseWriter, r *http.Request) {
 	instanceID := intParam(r.URL.Query().Get("instance_id"), 0)
 	insts := h.navInstances(r)
-	render(w, r, http.StatusOK, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), ""))
+
+	// Fetch external programs for the dropdown.
+	extPrograms := h.listExtPrograms(r.Context())
+
+	render(w, r, http.StatusOK, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), "", extPrograms))
 }
 
 // GetAutomationRuleFormEdit renders the edit-rule form modal body.
@@ -445,6 +450,8 @@ func (h *Handler) GetAutomationRuleFormEdit(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	extPrograms := h.listExtPrograms(ctx)
+
 	item := pages.AutomationRuleFormItem{
 		ID:             a.ID,
 		InstanceID:     a.InstanceID,
@@ -452,8 +459,9 @@ func (h *Handler) GetAutomationRuleFormEdit(w http.ResponseWriter, r *http.Reque
 		TrackerPattern: a.TrackerPattern,
 		DryRun:         a.DryRun,
 		Enabled:        a.Enabled,
+		Conditions:     a.Conditions,
 	}
-	render(w, r, http.StatusOK, pages.AutomationRuleFormEdit(item, h.baseURL()))
+	render(w, r, http.StatusOK, pages.AutomationRuleFormEdit(item, h.baseURL(), extPrograms))
 }
 
 // PostAutomationRule creates a new automation rule.
@@ -473,7 +481,16 @@ func (h *Handler) PostAutomationRule(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
 		insts := h.navInstances(r)
-		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), "Name is required"))
+		extPrograms := h.listExtPrograms(ctx)
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), "Name is required", extPrograms))
+		return
+	}
+
+	conditions, errMsg := parseConditionsFromForm(r)
+	if errMsg != "" {
+		insts := h.navInstances(r)
+		extPrograms := h.listExtPrograms(ctx)
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), errMsg, extPrograms))
 		return
 	}
 
@@ -483,16 +500,18 @@ func (h *Handler) PostAutomationRule(w http.ResponseWriter, r *http.Request) {
 		TrackerPattern: strings.TrimSpace(r.FormValue("tracker_pattern")),
 		DryRun:         r.FormValue("dry_run") == "true",
 		Enabled:        r.FormValue("enabled") == "true",
+		Conditions:     conditions,
 	}
 
 	if _, err := h.automationStore.Create(ctx, rule); err != nil {
 		log.Error().Err(err).Msg("ui: failed to create automation rule")
 		insts := h.navInstances(r)
-		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), "Failed to create rule: "+err.Error()))
+		extPrograms := h.listExtPrograms(ctx)
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), "Failed to create rule: "+err.Error(), extPrograms))
 		return
 	}
 
-	w.Header().Set("HX-Trigger", "closeModal")
+	w.Header().Set("HX-Trigger", `{"closeModal": true, "automationsUpdated": true}`)
 	h.renderAutomationsPartial(w, r, instanceID)
 }
 
@@ -516,12 +535,27 @@ func (h *Handler) PutAutomationRule(w http.ResponseWriter, r *http.Request) {
 
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
+		extPrograms := h.listExtPrograms(ctx)
 		item := pages.AutomationRuleFormItem{
 			ID: a.ID, InstanceID: a.InstanceID, Name: a.Name,
 			TrackerPattern: a.TrackerPattern, DryRun: a.DryRun, Enabled: a.Enabled,
-			ErrMsg: "Name is required",
+			Conditions: a.Conditions,
+			ErrMsg:     "Name is required",
 		}
-		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormEdit(item, h.baseURL()))
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormEdit(item, h.baseURL(), extPrograms))
+		return
+	}
+
+	conditions, errMsg := parseConditionsFromForm(r)
+	if errMsg != "" {
+		extPrograms := h.listExtPrograms(ctx)
+		item := pages.AutomationRuleFormItem{
+			ID: a.ID, InstanceID: a.InstanceID, Name: a.Name,
+			TrackerPattern: a.TrackerPattern, DryRun: a.DryRun, Enabled: a.Enabled,
+			Conditions: a.Conditions,
+			ErrMsg:     errMsg,
+		}
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormEdit(item, h.baseURL(), extPrograms))
 		return
 	}
 
@@ -529,19 +563,22 @@ func (h *Handler) PutAutomationRule(w http.ResponseWriter, r *http.Request) {
 	a.TrackerPattern = strings.TrimSpace(r.FormValue("tracker_pattern"))
 	a.DryRun = r.FormValue("dry_run") == "true"
 	a.Enabled = r.FormValue("enabled") == "true"
+	a.Conditions = conditions
 
 	if _, err := h.automationStore.Update(ctx, a); err != nil {
 		log.Error().Err(err).Msg("ui: failed to update automation rule")
+		extPrograms := h.listExtPrograms(ctx)
 		item := pages.AutomationRuleFormItem{
 			ID: a.ID, InstanceID: a.InstanceID, Name: a.Name,
 			TrackerPattern: a.TrackerPattern, DryRun: a.DryRun, Enabled: a.Enabled,
-			ErrMsg: "Failed to update rule: " + err.Error(),
+			Conditions: a.Conditions,
+			ErrMsg:     "Failed to update rule: " + err.Error(),
 		}
-		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormEdit(item, h.baseURL()))
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormEdit(item, h.baseURL(), extPrograms))
 		return
 	}
 
-	w.Header().Set("HX-Trigger", "closeModal")
+	w.Header().Set("HX-Trigger", `{"closeModal": true, "automationsUpdated": true}`)
 	h.renderAutomationsPartial(w, r, instanceID)
 }
 
@@ -561,6 +598,100 @@ func (h *Handler) DeleteAutomationRule(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// PostAutomationMoveUp moves an automation rule one position up.
+// POST /ui/partials/automations/{instanceId}/rules/{id}/move-up
+func (h *Handler) PostAutomationMoveUp(w http.ResponseWriter, r *http.Request) {
+	h.postAutomationMove(w, r, -1)
+}
+
+// PostAutomationMoveDown moves an automation rule one position down.
+// POST /ui/partials/automations/{instanceId}/rules/{id}/move-down
+func (h *Handler) PostAutomationMoveDown(w http.ResponseWriter, r *http.Request) {
+	h.postAutomationMove(w, r, 1)
+}
+
+// postAutomationMove moves an automation rule by `direction` steps (−1 = up, +1 = down).
+func (h *Handler) postAutomationMove(w http.ResponseWriter, r *http.Request, direction int) {
+	ctx := r.Context()
+	instanceID := intParam(chi.URLParam(r, "instanceId"), 0)
+	id := intParam(chi.URLParam(r, "id"), 0)
+
+	if h.automationStore == nil || instanceID == 0 {
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	all, err := h.automationStore.ListByInstance(ctx, instanceID)
+	if err != nil {
+		http.Error(w, "load failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Build ordered ID list.
+	ids := make([]int, len(all))
+	for i, a := range all {
+		ids[i] = a.ID
+	}
+
+	// Find current index.
+	idx := -1
+	for i, aid := range ids {
+		if aid == id {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	target := idx + direction
+	if target < 0 || target >= len(ids) {
+		// Already at boundary — still re-render the partial so nothing breaks.
+		h.renderAutomationsPartial(w, r, instanceID)
+		return
+	}
+
+	ids[idx], ids[target] = ids[target], ids[idx]
+
+	if err := h.automationStore.Reorder(ctx, instanceID, ids); err != nil {
+		log.Error().Err(err).Msg("ui: failed to reorder automations")
+		http.Error(w, "reorder failed", http.StatusInternalServerError)
+		return
+	}
+
+	h.renderAutomationsPartial(w, r, instanceID)
+}
+
+// PostAutomationApplyNow triggers an immediate automation run for an instance.
+// POST /ui/partials/automations/{instanceId}/apply-now
+func (h *Handler) PostAutomationApplyNow(w http.ResponseWriter, r *http.Request) {
+	instanceID := intParam(chi.URLParam(r, "instanceId"), 0)
+
+	if h.automationService == nil {
+		http.Error(w, "automation service unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	if err := h.automationService.ApplyOnceForInstance(r.Context(), instanceID); err != nil {
+		log.Error().Err(err).Int("instanceID", instanceID).Msg("ui: manual automation apply failed")
+		// Return the partial with an error notice.
+		insts := h.navInstances(r)
+		p := pages.AutomationsProps{
+			BaseURL:          h.baseURL(),
+			Instances:        insts,
+			InstanceID:       instanceID,
+			AutomationsError: "Apply failed: " + err.Error(),
+		}
+		h.fillAutomationsData(r.Context(), &p, instanceID, insts)
+		render(w, r, http.StatusOK, pages.AutomationsPartial(p))
+		return
+	}
+
+	h.renderAutomationsPartial(w, r, instanceID)
+}
+
 // renderAutomationsPartial fetches all automations data and renders AutomationsPartial.
 func (h *Handler) renderAutomationsPartial(w http.ResponseWriter, r *http.Request, instanceID int) {
 	insts := h.navInstances(r)
@@ -571,4 +702,37 @@ func (h *Handler) renderAutomationsPartial(w http.ResponseWriter, r *http.Reques
 	}
 	h.fillAutomationsData(r.Context(), &p, instanceID, insts)
 	render(w, r, http.StatusOK, pages.AutomationsPartial(p))
+}
+
+// listExtPrograms returns external programs for the dropdown (returns nil on error or unavailable).
+func (h *Handler) listExtPrograms(ctx context.Context) []pages.ExtProgramOption {
+	if h.extProgramStore == nil {
+		return nil
+	}
+	progs, err := h.extProgramStore.List(ctx)
+	if err != nil {
+		return nil
+	}
+	opts := make([]pages.ExtProgramOption, 0, len(progs))
+	for _, p := range progs {
+		opts = append(opts, pages.ExtProgramOption{ID: p.ID, Name: p.Name})
+	}
+	return opts
+}
+
+// parseConditionsFromForm reads the JSON conditions from the form field "conditions_json".
+// Returns a default empty-but-valid ActionConditions if the field is absent or empty.
+func parseConditionsFromForm(r *http.Request) (*models.ActionConditions, string) {
+	raw := strings.TrimSpace(r.FormValue("conditions_json"))
+	if raw == "" {
+		// No conditions provided — return minimal valid struct.
+		return &models.ActionConditions{}, ""
+	}
+	var conds models.ActionConditions
+	if err := json.Unmarshal([]byte(raw), &conds); err != nil {
+		log.Warn().Err(err).Str("raw", raw).Msg("ui: failed to parse conditions_json")
+		return nil, "Invalid conditions JSON: " + err.Error()
+	}
+	conds.Normalize()
+	return &conds, ""
 }

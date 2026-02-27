@@ -7,9 +7,12 @@ package ui
 
 import (
 	"net/http"
+	"sort"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
+	qbt "github.com/autobrr/go-qbittorrent"
 
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/qbittorrent"
@@ -143,4 +146,103 @@ func max64(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+// GetDashboardTrackerBreakdown returns per-tracker aggregated stats across all
+// active instances, lazy-loaded by the dashboard on first paint.
+// Route: GET /ui/partials/dashboard/tracker-breakdown
+func (h *Handler) GetDashboardTrackerBreakdown(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	insts, err := h.instanceStore.List(ctx)
+	if err != nil {
+		insts = []*models.Instance{}
+	}
+
+	// Load tracker customizations for display-name resolution.
+	customizations, _ := h.trackerCustomizationStore.List(ctx)
+
+	type aggRow struct {
+		seeding     int
+		downloading int
+		count       int
+		upSpeed     uint64
+		dlSpeed     uint64
+		totalSize   int64
+	}
+
+	agg := make(map[string]*aggRow)
+
+	seedingStates := map[qbt.TorrentState]struct{}{
+		qbt.TorrentStateUploading:  {},
+		qbt.TorrentStateStalledUp:  {},
+		qbt.TorrentStateQueuedUp:   {},
+		qbt.TorrentStateCheckingUp: {},
+		qbt.TorrentStateForcedUp:   {},
+	}
+
+	downloadingStates := map[qbt.TorrentState]struct{}{
+		qbt.TorrentStateDownloading: {},
+		qbt.TorrentStateStalledDl:   {},
+		qbt.TorrentStateMetaDl:      {},
+		qbt.TorrentStateQueuedDl:    {},
+		qbt.TorrentStateAllocating:  {},
+		qbt.TorrentStateCheckingDl:  {},
+		qbt.TorrentStateForcedDl:    {},
+	}
+
+	if h.syncManager != nil {
+		for _, inst := range insts {
+			if !inst.IsActive {
+				continue
+			}
+			torrents, err := h.syncManager.GetTorrents(ctx, inst.ID, qbt.TorrentFilterOptions{})
+			if err != nil {
+				continue
+			}
+			for i := range torrents {
+				t := &torrents[i]
+				domain := h.syncManager.ExtractDomainFromURL(t.Tracker)
+				if domain == "" || domain == "Unknown" {
+					domain = "Unknown"
+				}
+				row, ok := agg[domain]
+				if !ok {
+					row = &aggRow{}
+					agg[domain] = row
+				}
+				row.count++
+				row.totalSize += t.Size
+				row.upSpeed += uint64(max64(t.UpSpeed, 0))
+				row.dlSpeed += uint64(max64(t.DlSpeed, 0))
+				if _, isSeed := seedingStates[t.State]; isSeed {
+					row.seeding++
+				}
+				if _, isDl := downloadingStates[t.State]; isDl {
+					row.downloading++
+				}
+			}
+		}
+	}
+
+	rows := make([]pages.TrackerBreakdownRow, 0, len(agg))
+	for domain, ag := range agg {
+		displayName := models.ResolveTrackerDisplayName(domain, "", customizations)
+		rows = append(rows, pages.TrackerBreakdownRow{
+			DisplayName:  displayName,
+			Domain:       domain,
+			TorrentCount: ag.count,
+			Seeding:      ag.seeding,
+			Downloading:  ag.downloading,
+			UpSpeed:      ag.upSpeed,
+			DlSpeed:      ag.dlSpeed,
+			TotalSize:    ag.totalSize,
+		})
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		return rows[i].TorrentCount > rows[j].TorrentCount
+	})
+
+	render(w, r, http.StatusOK, pages.DashboardTrackerBreakdown(rows, h.baseURL()))
 }
