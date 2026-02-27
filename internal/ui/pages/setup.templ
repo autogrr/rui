@@ -1,0 +1,159 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"github.com/autogrr/rui/internal/ui/components/button"
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/components/form"
+	"github.com/autogrr/rui/internal/ui/components/input"
+	"github.com/autogrr/rui/internal/ui/components/label"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// SetupProps holds data for the first-run user creation page.
+type SetupProps struct {
+	BaseURL string
+	Error   string
+}
+
+// Setup renders the initial account creation page.
+templ Setup(p SetupProps) {
+	@layouts.Base(layouts.BaseProps{Title: "Create account", BaseURL: p.BaseURL}) {
+		<div class="flex min-h-screen items-center justify-center bg-background px-4 sm:px-6">
+			<div class="w-full max-w-md">
+				@card.Card(card.Props{Class: "shadow-xl"}) {
+					@card.Header(card.HeaderProps{Class: "text-center"}) {
+						<div class="flex items-center justify-center mb-4">
+							<svg
+								class="h-12 w-12 text-primary"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="1.5"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+								<polyline points="7 10 12 15 17 10"/>
+								<line x1="12" x2="12" y1="15" y2="3"/>
+							</svg>
+						</div>
+						@card.Title(card.TitleProps{Class: "text-3xl font-bold select-none"}) {
+							qui
+						}
+						@card.Description(card.DescriptionProps{Class: "select-none"}) {
+							Create your account to get started
+						}
+					}
+					@card.Content(card.ContentProps{Class: "pt-6"}) {
+						if p.Error != "" {
+							<div class="mb-4 rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+								{ p.Error }
+							</div>
+						}
+						<form
+							method="POST"
+							action={ templ.SafeURL(p.BaseURL + "/ui/auth/setup") }
+							class="space-y-4"
+							x-data="{
+								password: '',
+								confirmPassword: '',
+								error: '',
+								loading: false,
+								validate() {
+									if (this.password !== this.confirmPassword) {
+										this.error = 'Passwords do not match';
+										return false;
+									}
+									if (this.password.length < 8) {
+										this.error = 'Password must be at least 8 characters';
+										return false;
+									}
+									this.error = '';
+									return true;
+								},
+								submit(e) {
+									if (!this.validate()) {
+										e.preventDefault();
+										return;
+									}
+									this.loading = true;
+								}
+							}"
+							@submit="submit"
+						>
+							<div class="space-y-2">
+								@form.Item() {
+									@label.Label(label.Props{For: "username"}) {
+										Username
+									}
+									@input.Input(input.Props{
+										ID:          "username",
+										Name:        "username",
+										Type:        "text",
+										Placeholder: "Choose a username",
+										Attributes:  templ.Attributes{"required": "", "autocomplete": "username", "autofocus": "", "minlength": "3"},
+									})
+									@form.Description() {
+										At least 3 characters.
+									}
+								}
+							</div>
+							<div class="space-y-2">
+								@form.Item() {
+									@label.Label(label.Props{For: "password"}) {
+										Password
+									}
+									@input.Input(input.Props{
+										ID:          "password",
+										Name:        "password",
+										Type:        "password",
+										Placeholder: "Choose a password",
+										Attributes:  templ.Attributes{"required": "", "autocomplete": "new-password", "minlength": "8", "x-model": "password"},
+									})
+									@form.Description() {
+										At least 8 characters.
+									}
+								}
+							</div>
+							<div class="space-y-2">
+								@form.Item() {
+									@label.Label(label.Props{For: "confirm_password"}) {
+										Confirm Password
+									}
+									@input.Input(input.Props{
+										ID:          "confirm_password",
+										Name:        "confirm_password",
+										Type:        "password",
+										Placeholder: "Repeat your password",
+										Attributes:  templ.Attributes{"required": "", "autocomplete": "new-password", "x-model": "confirmPassword"},
+									})
+								}
+							</div>
+							<!-- Client-side validation error -->
+							<p x-show="error" x-cloak class="text-sm text-destructive" x-text="error"></p>
+							@button.Button(button.Props{
+								Type:       button.TypeSubmit,
+								Attributes: templ.Attributes{"x-bind:disabled": "loading", "class": "w-full"},
+							}) {
+								<span x-show="!loading">Create account</span>
+								<span x-show="loading" x-cloak class="flex items-center gap-2">
+									<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+										<path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+									</svg>
+									Creating account...
+								</span>
+							}
+						</form>
+					}
+				}
+				<p class="mt-6 text-center text-xs text-muted-foreground">
+					Already have an account?
+					<a href={ templ.SafeURL(p.BaseURL + "/ui/login") } class="underline underline-offset-2 hover:text-foreground">Sign in</a>
+				</p>
+			</div>
+		</div>
+	}
+}

@@ -1,0 +1,309 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// TorrentRow is a minimal view of one torrent for the list table.
+type TorrentRow struct {
+	Hash     string
+	Name     string
+	State    string // qbt state string, e.g. "downloading", "uploading", "pausedUP"
+	SizeB    int64  // total_size in bytes
+	Progress float64 // 0–1
+	DlSpeed  int64  // bytes/s
+	UpSpeed  int64  // bytes/s
+	Ratio    float64
+	Category string
+	Tags     string // comma-separated
+	ETA      int64  // seconds; -1 = ∞
+}
+
+// TorrentsProps holds data for the torrents list page.
+type TorrentsProps struct {
+	BaseURL     string
+	Username    string
+	Version     string
+	Instances   []layouts.Instance
+	InstanceID  int          // currently selected instance (0 = all)
+	Rows        []TorrentRow
+	Total       int
+	Page        int // 1-based
+	PageSize    int
+	Search      string
+	Status      string // active filter, e.g. "downloading"
+}
+
+// totalPages computes how many pages are needed.
+func totalPages(total, pageSize int) int {
+	if pageSize <= 0 {
+		return 1
+	}
+	pages := total / pageSize
+	if total%pageSize != 0 {
+		pages++
+	}
+	if pages == 0 {
+		return 1
+	}
+	return pages
+}
+
+// stateLabel maps a qBittorrent torrent state to a human-readable badge label + CSS class.
+func stateLabel(state string) (label string, class string) {
+	switch state {
+	case "downloading", "metaDL", "allocating":
+		return "Downloading", "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+	case "uploading", "stalledUP", "forcedUP", "queuedUP":
+		return "Seeding", "bg-green-500/15 text-green-700 dark:text-green-400"
+	case "pausedDL", "stoppedDL":
+		return "Paused", "bg-muted text-muted-foreground"
+	case "pausedUP", "stoppedUP":
+		return "Completed", "bg-muted text-muted-foreground"
+	case "error", "missingFiles":
+		return "Error", "bg-red-500/15 text-red-700 dark:text-red-400"
+	case "checkingUP", "checkingDL", "checkingResumeData":
+		return "Checking", "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400"
+	default:
+		return state, "bg-muted text-muted-foreground"
+	}
+}
+
+// formatETA returns a human-readable ETA string.
+func formatETA(seconds int64) string {
+	if seconds < 0 || seconds > 8640000 {
+		return "∞"
+	}
+	h := seconds / 3600
+	m := (seconds % 3600) / 60
+	s := seconds % 60
+	if h > 0 {
+		return fmt.Sprintf("%dh%02dm", h, m)
+	}
+	if m > 0 {
+		return fmt.Sprintf("%dm%02ds", m, s)
+	}
+	return fmt.Sprintf("%ds", s)
+}
+
+// formatRatio returns ratio as a short string.
+func formatRatio(r float64) string {
+	if r >= 100 {
+		return ">100"
+	}
+	return strconv.FormatFloat(r, 'f', 2, 64)
+}
+
+// formatPercent renders progress as "XX.X%".
+func formatPercent(p float64) string {
+	return fmt.Sprintf("%.1f%%", p*100)
+}
+
+// Torrents renders the torrents list page.
+templ Torrents(p TorrentsProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Torrents",
+		CurrentPath: "/ui/torrents",
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		<div class="flex flex-col h-full gap-3 p-1">
+			<!-- Toolbar -->
+			<div class="flex flex-wrap items-center gap-2">
+				<h1 class="text-xl font-bold tracking-tight mr-2">Torrents</h1>
+				<!-- Search -->
+				<form
+					hx-get={ p.BaseURL + "/ui/partials/torrents" }
+					hx-target="#torrents-table-body"
+					hx-swap="innerHTML"
+					hx-push-url="false"
+					hx-include="[name='status'],[name='page'],[name='instance_id']"
+					class="flex items-center gap-1"
+				>
+					<input type="hidden" name="page" value="1"/>
+					<input type="hidden" name="instance_id" value={ itoa(p.InstanceID) }/>
+					<input
+						type="search"
+						name="search"
+						value={ p.Search }
+						placeholder="Search torrents…"
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-48 md:w-72"
+						hx-trigger="keyup changed delay:400ms, search"
+						hx-get={ p.BaseURL + "/ui/partials/torrents" }
+						hx-target="#torrents-table-body"
+						hx-swap="innerHTML"
+						hx-push-url="false"
+						hx-include="[name='status'],[name='page'],[name='instance_id']"
+					/>
+				</form>
+				<!-- Status filter pills -->
+				<div class="flex items-center gap-1 flex-wrap">
+					for _, sf := range []struct{ val, label string }{
+						{"", "All"},
+						{"downloading", "Downloading"},
+						{"uploading", "Seeding"},
+						{"pausedDL", "Paused"},
+						{"error", "Error"},
+					} {
+						<button
+							hx-get={ p.BaseURL + "/ui/partials/torrents" }
+							hx-target="#torrents-table-body"
+							hx-swap="innerHTML"
+							hx-push-url="false"
+							hx-vals={ `{"status":"` + sf.val + `","page":"1","instance_id":"` + itoa(p.InstanceID) + `","search":"` + p.Search + `"}` }
+							class={
+								"px-2.5 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer",
+								templ.KV("bg-primary text-primary-foreground", p.Status == sf.val),
+								templ.KV("bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground", p.Status != sf.val),
+							}
+						>
+							{ sf.label }
+						</button>
+					}
+				</div>
+				<!-- Total count -->
+				<span class="ml-auto text-xs text-muted-foreground tabular-nums">
+					{ itoa(p.Total) } torrent(s)
+				</span>
+			</div>
+
+			<!-- Table -->
+			<div class="flex-1 overflow-auto rounded-lg border border-border">
+				<table class="w-full text-sm">
+					<thead class="sticky top-0 z-10 bg-muted/80 backdrop-blur border-b border-border">
+						<tr>
+							<th class="px-3 py-2 text-left font-medium text-muted-foreground">Name</th>
+							<th class="px-3 py-2 text-left font-medium text-muted-foreground w-24">Status</th>
+							<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20">Size</th>
+							<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16">Done</th>
+							<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20">↓</th>
+							<th class="px-3 py-2 text-right font-medium text-muted-foreground w-20">↑</th>
+							<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16">Ratio</th>
+							<th class="px-3 py-2 text-right font-medium text-muted-foreground w-16">ETA</th>
+							<th class="px-3 py-2 text-left font-medium text-muted-foreground w-28">Category</th>
+						</tr>
+					</thead>
+					<tbody id="torrents-table-body" class="divide-y divide-border">
+						@TorrentsTableBody(p)
+					</tbody>
+				</table>
+			</div>
+
+			<!-- Pagination -->
+			@TorrentsPagination(p)
+		</div>
+	}
+}
+
+// TorrentsTableBody renders only the <tr> rows for HTMX partial swap.
+templ TorrentsTableBody(p TorrentsProps) {
+	if len(p.Rows) == 0 {
+		<tr>
+			<td colspan="9" class="px-3 py-12 text-center text-sm text-muted-foreground">
+				No torrents match your filters.
+			</td>
+		</tr>
+	} else {
+		for _, t := range p.Rows {
+			{{ label, cls := stateLabel(t.State) }}
+			<tr class="hover:bg-muted/50 transition-colors">
+				<td class="px-3 py-2 max-w-xs">
+					<span class="block truncate font-medium" title={ t.Name }>{ t.Name }</span>
+					if t.Tags != "" {
+						<span class="text-xs text-muted-foreground truncate block">{ t.Tags }</span>
+					}
+				</td>
+				<td class="px-3 py-2 whitespace-nowrap">
+					<span class={ "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", cls }>
+						{ label }
+					</span>
+				</td>
+				<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground">
+					{ formatBytes(uint64(t.SizeB)) }
+				</td>
+				<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums">
+					{ formatPercent(t.Progress) }
+				</td>
+				<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-blue-600 dark:text-blue-400">
+					if t.DlSpeed > 0 {
+						{ formatBytesPerSec(uint64(t.DlSpeed)) }
+					} else {
+						<span class="text-muted-foreground">—</span>
+					}
+				</td>
+				<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-green-600 dark:text-green-400">
+					if t.UpSpeed > 0 {
+						{ formatBytesPerSec(uint64(t.UpSpeed)) }
+					} else {
+						<span class="text-muted-foreground">—</span>
+					}
+				</td>
+				<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums">
+					{ formatRatio(t.Ratio) }
+				</td>
+				<td class="px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground">
+					if t.State == "downloading" || t.State == "metaDL" {
+						{ formatETA(t.ETA) }
+					} else {
+						<span>—</span>
+					}
+				</td>
+				<td class="px-3 py-2 max-w-[7rem]">
+					<span class="block truncate text-muted-foreground text-xs" title={ t.Category }>
+						if t.Category == "" {
+							<span class="italic">none</span>
+						} else {
+							{ t.Category }
+						}
+					</span>
+				</td>
+			</tr>
+		}
+	}
+}
+
+// TorrentsPagination renders prev/next page controls.
+templ TorrentsPagination(p TorrentsProps) {
+	{{ pages := totalPages(p.Total, p.PageSize) }}
+	if pages > 1 {
+		<div class="flex items-center justify-between py-2 px-1 text-sm">
+			<span class="text-muted-foreground">
+				Page { itoa(p.Page) } of { itoa(pages) }
+			</span>
+			<div class="flex items-center gap-1">
+				if p.Page > 1 {
+					<button
+						hx-get={ p.BaseURL + "/ui/partials/torrents" }
+						hx-target="#torrents-table-body"
+						hx-swap="innerHTML"
+						hx-push-url="false"
+						hx-vals={ `{"page":"` + itoa(p.Page-1) + `","status":"` + p.Status + `","search":"` + p.Search + `","instance_id":"` + itoa(p.InstanceID) + `"}` }
+						class="rounded-md border border-input bg-background px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+					>
+						← Prev
+					</button>
+				}
+				if p.Page < pages {
+					<button
+						hx-get={ p.BaseURL + "/ui/partials/torrents" }
+						hx-target="#torrents-table-body"
+						hx-swap="innerHTML"
+						hx-push-url="false"
+						hx-vals={ `{"page":"` + itoa(p.Page+1) + `","status":"` + p.Status + `","search":"` + p.Search + `","instance_id":"` + itoa(p.InstanceID) + `"}` }
+						class="rounded-md border border-input bg-background px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+					>
+						Next →
+					</button>
+				}
+			</div>
+		</div>
+	}
+}

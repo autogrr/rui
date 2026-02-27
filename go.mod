@@ -45,6 +45,11 @@ require (
 	modernc.org/sqlite v1.44.3
 )
 
+require (
+	github.com/Oudwins/tailwind-merge-go v0.2.1 // indirect
+	github.com/a-h/templ v0.3.977 // indirect
+)
+
 replace github.com/moistari/rls => github.com/autobrr/rls v0.8.0
 
 require (

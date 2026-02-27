@@ -1,0 +1,73 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package layouts
+
+import "github.com/autogrr/rui/internal/ui/components/toast"
+
+// BaseProps holds metadata for the HTML shell.
+type BaseProps struct {
+	Title   string
+	BaseURL string
+}
+
+// Base is the HTML shell shared by every page.
+templ Base(p BaseProps) {
+	<!DOCTYPE html>
+	<html lang="en" class="">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<meta name="color-scheme" content="light dark"/>
+			<title>
+				if p.Title != "" {
+					{ p.Title } — qui
+				} else {
+					qui
+				}
+			</title>
+			<!-- Favicon -->
+			<link rel="icon" type="image/svg+xml" href={ p.BaseURL + "/ui/static/favicon.svg" }/>
+			<!-- CSS (Tailwind-compiled, includes theme variables) -->
+			<link rel="stylesheet" href={ p.BaseURL + "/ui/static/output.css" }/>
+			<!-- Theme initializer: apply dark class before first paint to prevent FOUC -->
+			<script>
+				(function () {
+					var theme = localStorage.getItem('qui_theme') || 'system';
+					var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+					if (isDark) document.documentElement.classList.add('dark');
+					else document.documentElement.classList.remove('dark');
+				})();
+			</script>
+		</head>
+		<body class="min-h-screen bg-background text-foreground antialiased">
+			{ children... }
+			<!-- Toast container -->
+			@toast.Toast()
+			<!-- HTMX 2.x -->
+			<script src={ p.BaseURL + "/ui/static/js/htmx.min.js" } defer></script>
+			<!-- HTMX SSE extension (for RSS/log streams) -->
+			<script src={ p.BaseURL + "/ui/static/js/htmx-ext-sse.min.js" } defer></script>
+			<!-- Alpine.js 3.x (deferred so x-data initializes after DOM) -->
+			<script src={ p.BaseURL + "/ui/static/js/alpine.min.js" } defer></script>
+			<!-- Sortable.js (for drag-and-drop column reorder) -->
+			<script src={ p.BaseURL + "/ui/static/js/sortable.min.js" } defer></script>
+			<!-- templui component scripts -->
+			<script defer src={ p.BaseURL + "/ui/static/js/checkbox.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/collapsible.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/dialog.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/dropdown.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/input.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/label.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/popover.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/progress.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/selectbox.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/sidebar.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/slider.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/tabs.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/tagsinput.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/textarea.min.js" }></script>
+			<script defer src={ p.BaseURL + "/ui/static/js/toast.min.js" }></script>
+		</body>
+	</html>
+}

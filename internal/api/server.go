@@ -39,10 +39,9 @@ import (
 	"github.com/autogrr/rui/internal/services/orphanscan"
 	"github.com/autogrr/rui/internal/services/reannounce"
 	"github.com/autogrr/rui/internal/services/trackericons"
+	"github.com/autogrr/rui/internal/ui"
 	"github.com/autogrr/rui/internal/update"
-	"github.com/autogrr/rui/internal/web"
 	"github.com/autogrr/rui/internal/web/swagger"
-	webfs "github.com/autogrr/rui/web"
 )
 
 type Server struct {
@@ -99,7 +98,6 @@ type Dependencies struct {
 	ExternalProgramService           *externalprograms.Service
 	ClientPool                       *qbittorrent.ClientPool
 	SyncManager                      *qbittorrent.SyncManager
-	WebHandler                       *web.Handler
 	UpdateService                    *update.Service
 	TrackerIconService               *trackericons.Service
 	BackupService                    *backups.Service
@@ -632,32 +630,60 @@ func (s *Server) Handler() (*chi.Mux, error) {
 	}
 	r.Mount(apiMount, apiRouter)
 
-	// Initialize web handler (for embedded frontend)
-	// This MUST be registered AFTER API routes to avoid catch-all intercepting /api/* paths
-	webHandler := web.NewHandler(s.version, s.config.Config.BaseURL, webfs.DistDirFS)
+	// Initialize server-rendered UI handler (templ + HTMX + Alpine.js).
+	// Routes live under /ui/... so they don't conflict with the API.
+	var oidcProvider ui.OIDCProvider
+	if s.config.Config.OIDCEnabled && authHandler.GetOIDCHandler() != nil {
+		oidcProvider = authHandler.GetOIDCHandler()
+	}
+	uiHandler := ui.NewHandler(ui.Dependencies{
+		SessionManager:          s.sessionManager,
+		AuthService:             s.authService,
+		InstanceStore:           s.instanceStore,
+		Config:                  s.config,
+		Version:                 s.version,
+		OIDCProvider:            oidcProvider,
+		SyncManager:             s.syncManager,
+		JackettService:          s.jackettService,
+		IndexerStore:            s.torznabIndexerStore,
+		ArrService:              s.arrService,
+		ArrInstanceStore:        s.arrInstanceStore,
+		ExtProgramService:       s.externalProgramService,
+		ExtProgramStore:         s.externalProgramStore,
+		NotificationService:     s.notificationService,
+		NotificationTargetStore: s.notificationTargetStore,
+		CrossSeedService:        s.crossSeedService,
+		CrossSeedCompStore:      s.instanceCrossSeedCompletionStore,
+		AutomationService:       s.automationService,
+		AutomationStore:         s.automationStore,
+		AutomationActivityStore: s.automationActivityStore,
+		BackupsService:          s.backupService,
+		ClientAPIKeyStore:       s.clientAPIKeyStore,
+	})
+
+	uiDashboard := strings.TrimSuffix(baseURL, "/") + "/ui/dashboard"
 
 	if baseURL != "/" {
 		trimmedBaseURL := strings.TrimSuffix(baseURL, "/")
-		if trimmedBaseURL == "" {
-			trimmedBaseURL = "/"
-		}
 
 		r.Route(trimmedBaseURL, func(sub chi.Router) {
-			webHandler.RegisterRoutes(sub)
+			uiHandler.RegisterRoutes(sub)
+			// Redirect bare base URL to the UI dashboard.
+			sub.Get("/", func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, uiDashboard, http.StatusFound)
+			})
+		})
+
+		// Redirect root "/" to the base-prefixed dashboard.
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, uiDashboard, http.StatusFound)
 		})
 	} else {
-		webHandler.RegisterRoutes(r)
-	}
-
-	if baseURL != "/" {
-		r.Get("/", func(w http.ResponseWriter, request *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("Must use baseUrl: " + s.config.Config.BaseURL + " instead of /"))
+		uiHandler.RegisterRoutes(r)
+		// Redirect root to dashboard when no base URL prefix.
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, uiDashboard, http.StatusFound)
 		})
-		//	// Redirect root to base URL
-		//	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		//		http.Redirect(w, r, s.config.Config.BaseURL, http.StatusMovedPermanently)
-		//	})
 	}
 
 	return r, nil

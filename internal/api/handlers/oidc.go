@@ -434,3 +434,11 @@ func (h *OIDCHandler) GetConfigResponse() OIDCConfigResponse {
 		IssuerURL:           h.config.OIDCIssuer,
 	}
 }
+
+// GetAuthURL returns the OIDC provider's authorization URL and the state token
+// that must be persisted in the caller's session. It satisfies the
+// ui.OIDCProvider interface without requiring a circular import.
+func (h *OIDCHandler) GetAuthURL() (authURL string, state string) {
+	cfg := h.GetConfigResponse()
+	return cfg.AuthorizationURL, cfg.State
+}

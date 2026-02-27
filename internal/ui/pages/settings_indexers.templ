@@ -1,0 +1,343 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"strconv"
+
+	"github.com/autogrr/rui/internal/models"
+)
+
+// ──────────────────────────────────────────────────────────────────
+// Indexers section (Jackett / Prowlarr / Native Torznab)
+// ──────────────────────────────────────────────────────────────────
+
+// SettingsIndexersSection renders the indexers management section.
+templ SettingsIndexersSection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-start justify-between">
+				<div class="space-y-1.5">
+					@card.Title(card.TitleProps{}) {
+						Torznab Indexers
+					}
+					@card.Description(card.DescriptionProps{}) {
+						Connect Jackett, Prowlarr, or native Torznab endpoints used for search and cross-seed.
+					}
+				</div>
+				<button
+					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+					hx-get={ p.BaseURL + "/ui/partials/settings/indexers/form" }
+					hx-target="#indexer-form-slot"
+					hx-swap="innerHTML"
+				>
+					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					Add Indexer
+				</button>
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<div id="indexer-form-slot" class="mb-4"></div>
+			@IndexerListPartial(p.Indexers, p.BaseURL)
+		}
+	}
+}
+
+// IndexerListPartial renders the indexer rows (OOB swap target).
+templ IndexerListPartial(indexers []*models.TorznabIndexer, baseURL string) {
+	<div id="indexer-list">
+		if len(indexers) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No indexers configured. Add one to enable search and cross-seed.</p>
+		} else {
+			<div class="space-y-2">
+				for _, idx := range indexers {
+					@indexerRow(idx, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+// indexerRow renders a single indexer row.
+templ indexerRow(idx *models.TorznabIndexer, baseURL string) {
+	<div
+		id={ "indexer-" + strconv.Itoa(idx.ID) }
+		class="flex items-center gap-4 rounded-lg border bg-card p-4"
+	>
+		<div class="flex-1 min-w-0 space-y-1">
+			<div class="flex items-center gap-2 flex-wrap">
+				<span class="font-medium truncate">{ idx.Name }</span>
+				<span class={ "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+					templ.KV("bg-muted text-muted-foreground", !idx.Enabled),
+					templ.KV("bg-green-500/15 text-green-700 dark:text-green-400", idx.Enabled),
+				}>
+					if idx.Enabled {
+						Enabled
+					} else {
+						Disabled
+					}
+				</span>
+				<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+					{ string(idx.Backend) }
+				</span>
+				if idx.LastTestStatus == "passed" {
+					<span class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+						OK
+					</span>
+				} else if idx.LastTestStatus == "failed" {
+					<span class="inline-flex items-center gap-1 text-xs text-destructive">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+						Failed
+					</span>
+				}
+			</div>
+			<p class="text-xs text-muted-foreground truncate">{ idx.BaseURL }</p>
+		</div>
+		<div class="flex items-center gap-1.5 shrink-0">
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+				hx-post={ baseURL + "/ui/partials/settings/indexers/" + strconv.Itoa(idx.ID) + "/test" }
+				hx-target={ "#indexer-" + strconv.Itoa(idx.ID) }
+				hx-swap="outerHTML"
+				title="Test connection"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 15l-2 5L9 9l11 4-5 2z"/></svg>
+			</button>
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+				hx-get={ baseURL + "/ui/partials/settings/indexers/form/" + strconv.Itoa(idx.ID) }
+				hx-target="#indexer-form-slot"
+				hx-swap="innerHTML"
+				title="Edit"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+			</button>
+			<button
+				class="inline-flex items-center rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+				hx-delete={ baseURL + "/ui/partials/settings/indexers/" + strconv.Itoa(idx.ID) }
+				hx-target={ "#indexer-" + strconv.Itoa(idx.ID) }
+				hx-swap="outerHTML"
+				hx-confirm={ "Delete indexer \"" + idx.Name + "\"?" }
+				title="Delete"
+			>
+				<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+			</button>
+		</div>
+	</div>
+}
+
+// IndexerFormNew renders the add-indexer form.
+templ IndexerFormNew(baseURL, errMsg string) {
+	@indexerFormCard(models.TorznabIndexer{}, baseURL, "/ui/partials/settings/indexers", "POST", errMsg)
+}
+
+// IndexerFormEdit renders the edit-indexer form.
+templ IndexerFormEdit(idx models.TorznabIndexer, baseURL, errMsg string) {
+	@indexerFormCard(idx, baseURL, "/ui/partials/settings/indexers/"+strconv.Itoa(idx.ID), "PUT", errMsg)
+}
+
+// indexerFormCard is the shared form body.
+templ indexerFormCard(idx models.TorznabIndexer, baseURL, action, method, errMsg string) {
+	<div class="rounded-lg border bg-muted/40 p-4 space-y-4 mb-4">
+		<div class="flex items-center justify-between">
+			<p class="text-sm font-medium">
+				if method == "POST" {
+					Add Indexer
+				} else {
+					Edit Indexer
+				}
+			</p>
+			<button
+				class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html,"
+				hx-target="#indexer-form-slot"
+				hx-swap="innerHTML"
+			>✕</button>
+		</div>
+		if errMsg != "" {
+			<p class="text-xs text-destructive">{ errMsg }</p>
+		}
+		<form
+			if method == "POST" {
+				hx-post={ baseURL + action }
+			} else {
+				hx-put={ baseURL + action }
+			}
+			hx-target="#indexer-form-slot"
+			hx-swap="innerHTML"
+			class="space-y-3"
+		>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Name</label>
+					<input name="name" type="text" required value={ idx.Name }
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder="e.g., My Jackett"/>
+				</div>
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Backend</label>
+					<select name="backend" class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+						<option value="jackett" selected?={ string(idx.Backend) == "jackett" || idx.Backend == "" }>Jackett</option>
+						<option value="prowlarr" selected?={ string(idx.Backend) == "prowlarr" }>Prowlarr</option>
+						<option value="native" selected?={ string(idx.Backend) == "native" }>Native Torznab</option>
+					</select>
+				</div>
+			</div>
+			<div class="space-y-1.5">
+				<label class="text-xs font-medium text-muted-foreground">Base URL</label>
+				<input name="base_url" type="url" required value={ idx.BaseURL }
+					class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					placeholder="e.g., http://localhost:9117"/>
+			</div>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Indexer ID (Jackett/Prowlarr)</label>
+					<input name="indexer_id" type="text" value={ idx.IndexerID }
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder="e.g., aither"/>
+				</div>
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">API Key</label>
+					<input name="api_key" type="password" autocomplete="off"
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder={ if method == "PUT" { "leave blank to keep current" } else { "" } }/>
+				</div>
+			</div>
+			<div class="grid gap-3 sm:grid-cols-2">
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Priority</label>
+					<input name="priority" type="number" min="0" value={ strconv.Itoa(idx.Priority) }
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+				</div>
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Timeout (seconds)</label>
+					<input name="timeout_seconds" type="number" min="1" value={ if idx.TimeoutSeconds > 0 { strconv.Itoa(idx.TimeoutSeconds) } else { "30" } }
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+				</div>
+			</div>
+			<div class="flex items-center gap-2">
+				<input id="idx-enabled" name="enabled" type="checkbox" checked?={ idx.Enabled || method == "POST" }
+					class="h-4 w-4 rounded border-input"/>
+				<label for="idx-enabled" class="text-sm">Enabled</label>
+			</div>
+			<div class="flex items-center gap-2 pt-1">
+				@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+					if method == "POST" {
+						Add Indexer
+					} else {
+						Save Changes
+					}
+				}
+				@button.Button(button.Props{
+					Type:    button.TypeButton,
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Attributes: templ.Attributes{
+						"hx-get":    "data:text/html,",
+						"hx-target": "#indexer-form-slot",
+						"hx-swap":   "innerHTML",
+					},
+				}) {
+					Cancel
+				}
+			</div>
+		</form>
+	</div>
+}
+
+// IndexerFormSuccess is returned after create/edit — clears form + OOB-updates list.
+templ IndexerFormSuccess(indexers []*models.TorznabIndexer, baseURL string) {
+	<!-- Primary target: clear the form slot -->
+	<div id="indexer-list" hx-swap-oob="innerHTML">
+		if len(indexers) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No indexers configured.</p>
+		} else {
+			<div class="space-y-2">
+				for _, idx := range indexers {
+					@indexerRow(idx, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Search Cache section
+// ──────────────────────────────────────────────────────────────────
+
+// SettingsSearchCacheSection renders the search cache settings section.
+templ SettingsSearchCacheSection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-center justify-between">
+				<div class="space-y-1.5">
+					@card.Title(card.TitleProps{}) {
+						Torznab Search Cache
+					}
+					@card.Description(card.DescriptionProps{}) {
+						Reduce repeated searches by reusing recent Torznab responses.
+					}
+				</div>
+				if p.SearchCacheStats != nil {
+					<span class={ "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+						templ.KV("bg-green-500/15 text-green-700 dark:text-green-400", p.SearchCacheStats.Enabled),
+						templ.KV("bg-muted text-muted-foreground", !p.SearchCacheStats.Enabled),
+					}>
+						if p.SearchCacheStats.Enabled {
+							Enabled
+						} else {
+							Disabled
+						}
+					</span>
+				}
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			if p.SearchCacheStats == nil {
+				<p class="text-sm text-muted-foreground">Search cache data unavailable. Make sure at least one indexer is configured.</p>
+			} else {
+				<div class="grid gap-3 sm:grid-cols-3 mb-6">
+					@searchCacheStatCard("Cached Entries", strconv.Itoa(p.SearchCacheStats.Entries))
+					@searchCacheStatCard("Cache Hits", strconv.Itoa(p.SearchCacheStats.TotalHits))
+					@searchCacheStatCard("TTL", strconv.Itoa(p.SearchCacheStats.TTLMinutes)+" min")
+				</div>
+				<div id="search-cache-result" class="mb-4"></div>
+				<form
+					hx-post={ p.BaseURL + "/ui/partials/settings/search-cache" }
+					hx-target="#search-cache-result"
+					hx-swap="innerHTML"
+					class="flex items-end gap-3"
+				>
+					<div class="space-y-1.5 flex-1">
+						<label class="text-sm font-medium" for="cache-ttl">Cache TTL (minutes)</label>
+						<input id="cache-ttl" name="ttl_minutes" type="number" min="1440"
+							value={ strconv.Itoa(p.SearchCacheStats.TTLMinutes) }
+							class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+					</div>
+					@button.Button(button.Props{Type: button.TypeSubmit}) {
+						Save TTL
+					}
+				</form>
+				<p class="mt-2 text-xs text-muted-foreground">Minimum 1440 minutes (24 hours). Larger values reduce indexer load at the cost of freshness.</p>
+			}
+		}
+	}
+}
+
+templ searchCacheStatCard(label, value string) {
+	<div class="rounded-lg border bg-muted/40 p-3 space-y-1">
+		<p class="text-xs uppercase text-muted-foreground">{ label }</p>
+		<p class="text-lg font-semibold tabular-nums">{ value }</p>
+	</div>
+}
+
+// SearchCacheResultPartial is returned after saving TTL.
+templ SearchCacheResultPartial(ok bool, msg string) {
+	if ok {
+		<p class="text-sm text-green-700 dark:text-green-400">{ msg }</p>
+	} else {
+		<p class="text-sm text-destructive">{ msg }</p>
+	}
+}

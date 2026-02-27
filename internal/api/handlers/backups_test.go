@@ -628,12 +628,12 @@ func TestGetBackupDownloadUrl(t *testing.T) {
 
 	// Mock window.location
 	originalLocation := windowLocation
-	windowLocation = &url.URL{Scheme: "http", Host: "localhost:7476"}
+	windowLocation = &url.URL{Scheme: "http", Host: "localhost:7420"}
 	defer func() { windowLocation = originalLocation }()
 
 	// Test without format (should not add query param)
 	url := getBackupDownloadUrl(1, 123)
-	expected := "http://localhost:7476/api/instances/1/backups/runs/123/download"
+	expected := "http://localhost:7420/api/instances/1/backups/runs/123/download"
 	assert.Equal(t, expected, url)
 
 	// Test with zip format (should not add query param since it's default)
@@ -642,11 +642,11 @@ func TestGetBackupDownloadUrl(t *testing.T) {
 
 	// Test with other formats
 	url = getBackupDownloadUrl(1, 123, "tar.gz")
-	expected = "http://localhost:7476/api/instances/1/backups/runs/123/download?format=tar.gz"
+	expected = "http://localhost:7420/api/instances/1/backups/runs/123/download?format=tar.gz"
 	assert.Equal(t, expected, url)
 
 	url = getBackupDownloadUrl(1, 123, "tar.zst")
-	expected = "http://localhost:7476/api/instances/1/backups/runs/123/download?format=tar.zst"
+	expected = "http://localhost:7420/api/instances/1/backups/runs/123/download?format=tar.zst"
 	assert.Equal(t, expected, url)
 }
 

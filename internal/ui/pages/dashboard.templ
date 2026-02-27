@@ -1,0 +1,231 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"github.com/autogrr/rui/internal/ui/components/badge"
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/components/skeleton"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// DashboardInstance represents a single qBittorrent instance for display.
+type DashboardInstance struct {
+	ID          int
+	Name        string
+	Host        string
+	IsActive    bool
+	IsConnected bool
+
+	// Transfer speeds (bytes/s)
+	DlSpeed uint64
+	UpSpeed uint64
+
+	// Space
+	FreeSpaceBytes int64
+
+	// Torrent counts
+	Downloading int
+	Seeding     int
+	Completed   int
+	Paused      int
+	Errored     int
+	Total       int
+}
+
+// DashboardProps holds all data for the dashboard page.
+type DashboardProps struct {
+	BaseURL   string
+	Username  string
+	Version   string
+	Instances []DashboardInstance
+
+	// ActiveInstanceID is which instance the sidebar is showing.
+	ActiveInstanceID int
+}
+
+// Dashboard renders the main dashboard page.
+templ Dashboard(p DashboardProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:         p.BaseURL,
+		Title:           "Dashboard",
+		CurrentPath:     "/ui/dashboard",
+		Username:        p.Username,
+		AppVersion:      p.Version,
+		ActiveInstance:  dashboardActiveInstance(p),
+		Instances:       dashboardNavInstances(p),
+	}) {
+		<div class="space-y-6">
+			<!-- Page heading -->
+			<div class="flex items-center justify-between">
+				<h1 class="text-2xl font-bold tracking-tight">Dashboard</h1>
+			</div>
+
+			if len(p.Instances) == 0 {
+				<!-- No instances -->
+				@card.Card(card.Props{Class: "text-center py-12"}) {
+					@card.Content(card.ContentProps{}) {
+						<div class="mx-auto flex max-w-sm flex-col items-center gap-4">
+							<svg class="h-12 w-12 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+								<rect x="2" y="3" width="20" height="14" rx="2"/>
+								<path d="M8 21h8M12 17v4"/>
+							</svg>
+							<div>
+								<p class="font-semibold">No instances configured</p>
+								<p class="text-sm text-muted-foreground mt-1">Add a qBittorrent instance to get started.</p>
+							</div>
+							<a
+								href={ templ.SafeURL(p.BaseURL + "/ui/instances") }
+								class="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+							>
+								Add instance
+							</a>
+						</div>
+					}
+				}
+			} else {
+				<!-- Instance cards grid — HTMX polls every 5 s for live stats -->
+				<div
+					id="dashboard-stats"
+					class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+					hx-get={ p.BaseURL + "/ui/partials/dashboard" }
+					hx-trigger="load, every 5s"
+					hx-swap="innerHTML"
+					hx-indicator="#dashboard-poll-indicator"
+				>
+					<!-- Skeletons shown until first HTMX response -->
+					@DashboardSkeleton()
+				</div>
+			}
+		</div>
+	}
+}
+
+// DashboardStatsPartial renders only the instance cards for HTMX partial updates.
+templ DashboardStatsPartial(instances []DashboardInstance, baseURL string) {
+	for _, inst := range instances {
+		@instanceCard(inst, baseURL)
+	}
+}
+
+// dashboardActiveInstance picks the active instance for the layout nav.
+func dashboardActiveInstance(p DashboardProps) *layouts.Instance {
+	for i, inst := range p.Instances {
+		if inst.ID == p.ActiveInstanceID {
+			return &layouts.Instance{
+				ID:       inst.ID,
+				Name:     inst.Name,
+				IsActive: inst.IsActive,
+			}
+			_ = i
+		}
+	}
+	return nil
+}
+
+// dashboardNavInstances converts DashboardInstance slice to layouts.Instance.
+func dashboardNavInstances(p DashboardProps) []layouts.Instance {
+	out := make([]layouts.Instance, len(p.Instances))
+	for i, inst := range p.Instances {
+		out[i] = layouts.Instance{
+			ID:       inst.ID,
+			Name:     inst.Name,
+			IsActive: inst.IsActive,
+		}
+	}
+	return out
+}
+
+// instanceCard renders a single qBittorrent instance summary card.
+templ instanceCard(inst DashboardInstance, baseURL string) {
+	@card.Card(card.Props{Class: "overflow-hidden"}) {
+		@card.Header(card.HeaderProps{Class: "pb-3"}) {
+			<div class="flex items-center justify-between gap-2">
+				@card.Title(card.TitleProps{Class: "text-base font-semibold truncate"}) {
+					{ inst.Name }
+				}
+				if inst.IsConnected {
+					@badge.Badge(badge.Props{Variant: badge.VariantDefault, Class: "shrink-0"}) {
+						Online
+					}
+				} else {
+					@badge.Badge(badge.Props{Variant: badge.VariantDestructive, Class: "shrink-0"}) {
+						Offline
+					}
+				}
+			</div>
+			@card.Description(card.DescriptionProps{Class: "text-xs truncate"}) {
+				{ inst.Host }
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			if !inst.IsConnected {
+				<p class="text-sm text-muted-foreground">Unable to reach instance.</p>
+			} else {
+				<!-- Speed stats -->
+				<div class="grid grid-cols-2 gap-4 mb-4">
+					<div class="space-y-1">
+						<p class="text-xs text-muted-foreground flex items-center gap-1">
+							<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" x2="12" y1="3" y2="21"/></svg>
+							Download
+						</p>
+						<p class="text-sm font-medium">{ formatBytesPerSec(inst.DlSpeed) }</p>
+					</div>
+					<div class="space-y-1">
+						<p class="text-xs text-muted-foreground flex items-center gap-1">
+							<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 7 12 3 16 7"/><line x1="12" x2="12" y1="21" y2="3"/></svg>
+							Upload
+						</p>
+						<p class="text-sm font-medium">{ formatBytesPerSec(inst.UpSpeed) }</p>
+					</div>
+				</div>
+				<!-- Torrent counts -->
+				<div class="grid grid-cols-3 gap-2 text-center">
+					<div class="rounded-lg bg-muted/50 px-2 py-1.5">
+						<p class="text-xs text-muted-foreground">Downloading</p>
+						<p class="text-lg font-semibold tabular-nums">{ itoa(inst.Downloading) }</p>
+					</div>
+					<div class="rounded-lg bg-muted/50 px-2 py-1.5">
+						<p class="text-xs text-muted-foreground">Seeding</p>
+						<p class="text-lg font-semibold tabular-nums">{ itoa(inst.Seeding) }</p>
+					</div>
+					<div class="rounded-lg bg-muted/50 px-2 py-1.5">
+						<p class="text-xs text-muted-foreground">Total</p>
+						<p class="text-lg font-semibold tabular-nums">{ itoa(inst.Total) }</p>
+					</div>
+				</div>
+				if inst.FreeSpaceBytes > 0 {
+					<div class="mt-3 text-xs text-muted-foreground">
+						Free: { formatBytes(uint64(inst.FreeSpaceBytes)) }
+					</div>
+				}
+			}
+		}
+	}
+}
+
+// DashboardSkeleton renders loading placeholders for the dashboard.
+// It renders bare cards without an outer grid wrapper so callers can place it
+// inside their own grid container.
+templ DashboardSkeleton() {
+	for range 3 {
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@skeleton.Skeleton(skeleton.Props{Class: "h-5 w-32"})
+				@skeleton.Skeleton(skeleton.Props{Class: "h-3 w-24 mt-1"})
+			}
+			@card.Content(card.ContentProps{}) {
+				<div class="grid grid-cols-2 gap-4 mb-4">
+					@skeleton.Skeleton(skeleton.Props{Class: "h-8 w-full"})
+					@skeleton.Skeleton(skeleton.Props{Class: "h-8 w-full"})
+				</div>
+				<div class="grid grid-cols-3 gap-2">
+					for range 3 {
+						@skeleton.Skeleton(skeleton.Props{Class: "h-12 w-full"})
+					}
+				</div>
+			}
+		}
+	}
+}

@@ -1,0 +1,535 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/autogrr/rui/internal/domain"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/ui/components/badge"
+	"github.com/autogrr/rui/internal/ui/components/button"
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/components/separator"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// SettingsSection names for tab routing.
+const (
+	SettingsSectionGeneral        = "general"
+	SettingsSectionAuth           = "auth"
+	SettingsSectionAdvanced       = "advanced"
+	SettingsSectionAPIKeys        = "api-keys"
+	SettingsSectionSecurity       = "security"
+	SettingsSectionIndexers       = "indexers"
+	SettingsSectionSearchCache    = "search-cache"
+	SettingsSectionIntegrations   = "integrations"
+	SettingsSectionClientAPI      = "client-api"
+	SettingsSectionExtPrograms    = "external-programs"
+	SettingsSectionNotifications  = "notifications"
+	SettingsSectionDatetime       = "datetime"
+	SettingsSectionThemes         = "themes"
+	SettingsSectionLogs           = "logs"
+)
+
+// SettingsProps holds data for the settings page.
+type SettingsProps struct {
+	BaseURL   string
+	Username  string
+	Version   string
+	Instances []layouts.Instance
+	Section   string // which section is active
+	Config    *domain.Config
+	// api-keys section
+	APIKeys []*models.APIKey
+	// indexers section
+	Indexers []*models.TorznabIndexer
+	// search-cache section
+	SearchCacheStats *models.TorznabSearchCacheStats
+	// integrations section
+	ArrInstances []*models.ArrInstance
+	// client-api section
+	ClientAPIKeys []*models.ClientAPIKey
+	// external-programs section
+	ExtPrograms []*models.ExternalProgram
+	// notifications section
+	NotificationTargets []*models.NotificationTarget
+}
+
+// settingsNavItem describes one settings navigation entry.
+type settingsNavItem struct {
+	ID    string
+	Label string
+	Href  string
+}
+
+// Settings renders the settings page.
+templ Settings(p SettingsProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Settings",
+		CurrentPath: "/ui/settings",
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		{{ items := []settingsNavItem{
+			{ID: SettingsSectionGeneral, Label: "General", Href: p.BaseURL + "/ui/settings/" + SettingsSectionGeneral},
+			{ID: SettingsSectionIndexers, Label: "Indexers", Href: p.BaseURL + "/ui/settings/" + SettingsSectionIndexers},
+			{ID: SettingsSectionSearchCache, Label: "Search Cache", Href: p.BaseURL + "/ui/settings/" + SettingsSectionSearchCache},
+			{ID: SettingsSectionIntegrations, Label: "Integrations", Href: p.BaseURL + "/ui/settings/" + SettingsSectionIntegrations},
+			{ID: SettingsSectionClientAPI, Label: "Client API", Href: p.BaseURL + "/ui/settings/" + SettingsSectionClientAPI},
+			{ID: SettingsSectionAPIKeys, Label: "API Keys", Href: p.BaseURL + "/ui/settings/" + SettingsSectionAPIKeys},
+			{ID: SettingsSectionExtPrograms, Label: "Ext. Programs", Href: p.BaseURL + "/ui/settings/" + SettingsSectionExtPrograms},
+			{ID: SettingsSectionNotifications, Label: "Notifications", Href: p.BaseURL + "/ui/settings/" + SettingsSectionNotifications},
+			{ID: SettingsSectionAuth, Label: "Auth", Href: p.BaseURL + "/ui/settings/" + SettingsSectionAuth},
+			{ID: SettingsSectionAdvanced, Label: "Advanced", Href: p.BaseURL + "/ui/settings/" + SettingsSectionAdvanced},
+			{ID: SettingsSectionSecurity, Label: "Security", Href: p.BaseURL + "/ui/settings/" + SettingsSectionSecurity},
+			{ID: SettingsSectionDatetime, Label: "Date & Time", Href: p.BaseURL + "/ui/settings/" + SettingsSectionDatetime},
+			{ID: SettingsSectionThemes, Label: "Themes", Href: p.BaseURL + "/ui/settings/" + SettingsSectionThemes},
+			{ID: SettingsSectionLogs, Label: "Logs", Href: p.BaseURL + "/ui/settings/" + SettingsSectionLogs},
+		} }}
+		<div class="flex flex-col md:flex-row gap-6">
+			<!-- Left nav -->
+			<aside class="md:w-44 shrink-0">
+				<nav class="flex md:flex-col gap-1">
+					for _, item := range items {
+						<a
+							href={ templ.SafeURL(item.Href) }
+							class={
+								"rounded-md px-3 py-2 text-sm font-medium transition-colors",
+								templ.KV("bg-muted text-foreground", p.Section == item.ID),
+								templ.KV("text-muted-foreground hover:bg-muted/50 hover:text-foreground", p.Section != item.ID),
+							}
+						>
+							{ item.Label }
+						</a>
+					}
+				</nav>
+			</aside>
+			@separator.Separator(separator.Props{Orientation: separator.OrientationVertical, Class: "hidden md:block"})
+			<!-- Content -->
+			<div class="flex-1 min-w-0 space-y-6">
+				switch p.Section {
+				case SettingsSectionAuth:
+					@settingsAuthSection(p)
+				case SettingsSectionAdvanced:
+					@settingsAdvancedSection(p)
+				case SettingsSectionAPIKeys:
+					@settingsAPIKeysSection(p)
+				case SettingsSectionSecurity:
+					@settingsSecuritySection(p)
+				case SettingsSectionIndexers:
+					@SettingsIndexersSection(p)
+				case SettingsSectionSearchCache:
+					@SettingsSearchCacheSection(p)
+				case SettingsSectionIntegrations:
+					@SettingsIntegrationsSection(p)
+				case SettingsSectionClientAPI:
+					@SettingsClientAPISection(p)
+				case SettingsSectionExtPrograms:
+					@SettingsExtProgramsSection(p)
+				case SettingsSectionNotifications:
+					@SettingsNotificationsSection(p)
+				case SettingsSectionDatetime:
+					@SettingsDatetimeSection(p)
+				case SettingsSectionThemes:
+					@SettingsThemesSection(p)
+				case SettingsSectionLogs:
+					@SettingsLogsSection(p)
+				default:
+					@settingsGeneralSection(p)
+				}
+				<p class="text-xs text-muted-foreground">
+					Settings are read from the configuration file. Restart qui after making changes.
+				</p>
+			</div>
+		</div>
+	}
+}
+
+// cfgStr returns the string or "(not set)" placeholder.
+func cfgStr(v string) string {
+	if v == "" {
+		return "(not set)"
+	}
+	return v
+}
+
+// cfgBool returns "Enabled" or "Disabled".
+func cfgBool(v bool) string {
+	if v {
+		return "Enabled"
+	}
+	return "Disabled"
+}
+
+// cfgInt formats an int.
+func cfgInt(v int) string {
+	return fmt.Sprintf("%d", v)
+}
+
+// settingsRow renders a single label/value row.
+templ settingsRow(label, value string) {
+	<div class="flex justify-between gap-4 py-2 border-b border-border last:border-0">
+		<span class="text-sm text-muted-foreground w-44 shrink-0">{ label }</span>
+		<span class="text-sm font-medium text-right break-all">{ value }</span>
+	</div>
+}
+
+// settingsGeneralSection renders the General settings section.
+templ settingsGeneralSection(p SettingsProps) {
+	if p.Config == nil {
+		<p class="text-sm text-muted-foreground">Config unavailable.</p>
+	} else {
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Server
+				}
+				@card.Description(card.DescriptionProps{}) {
+					Network binding and base URL.
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				@settingsRow("Host", cfgStr(p.Config.Host))
+				@settingsRow("Port", cfgInt(p.Config.Port))
+				@settingsRow("Base URL", cfgStr(p.Config.BaseURL))
+			}
+		}
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Logging
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				@settingsRow("Log level", cfgStr(p.Config.LogLevel))
+				@settingsRow("Log path", cfgStr(p.Config.LogPath))
+				@settingsRow("Max log size (MB)", cfgInt(p.Config.LogMaxSize))
+				@settingsRow("Max log backups", cfgInt(p.Config.LogMaxBackups))
+			}
+		}
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Updates & Features
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				@settingsRow("Check for updates", cfgBool(p.Config.CheckForUpdates))
+				@settingsRow("Tracker icons fetch", cfgBool(p.Config.TrackerIconsFetchEnabled))
+				@settingsRow("Cross-seed recover errored", cfgBool(p.Config.CrossSeedRecoverErroredTorrents))
+			}
+		}
+	}
+}
+
+// settingsAuthSection renders Auth & Security section.
+templ settingsAuthSection(p SettingsProps) {
+	if p.Config == nil {
+		<p class="text-sm text-muted-foreground">Config unavailable.</p>
+	} else {
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Authentication
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				@settingsRow("Auth disabled", cfgBool(p.Config.AuthDisabled))
+				@settingsRow("OIDC enabled", cfgBool(p.Config.OIDCEnabled))
+				if p.Config.OIDCEnabled {
+					@settingsRow("OIDC issuer", cfgStr(p.Config.OIDCIssuer))
+					@settingsRow("OIDC client ID", cfgStr(p.Config.OIDCClientID))
+					@settingsRow("OIDC redirect URL", cfgStr(p.Config.OIDCRedirectURL))
+					@settingsRow("Disable built-in login", cfgBool(p.Config.OIDCDisableBuiltInLogin))
+				}
+			}
+		}
+	}
+}
+
+// settingsAdvancedSection renders the Advanced section.
+templ settingsAdvancedSection(p SettingsProps) {
+	if p.Config == nil {
+		<p class="text-sm text-muted-foreground">Config unavailable.</p>
+	} else {
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Metrics
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				@settingsRow("Metrics enabled", cfgBool(p.Config.MetricsEnabled))
+				@settingsRow("Metrics host", cfgStr(p.Config.MetricsHost))
+				@settingsRow("Metrics port", cfgInt(p.Config.MetricsPort))
+			}
+		}
+		@card.Card(card.Props{}) {
+			@card.Header(card.HeaderProps{}) {
+				@card.Title(card.TitleProps{}) {
+					Diagnostics
+				}
+			}
+			@card.Content(card.ContentProps{}) {
+				@settingsRow("pprof endpoint", cfgBool(p.Config.PprofEnabled))
+				@settingsRow("App version", cfgStr(p.Version))
+			}
+		}
+	}
+}
+
+// ──────────────────────────────────────────────────
+// API Keys section
+// ──────────────────────────────────────────────────
+
+// APIKeysListPartial renders just the API key rows for HTMX swaps.
+templ APIKeysListPartial(keys []*models.APIKey, baseURL string) {
+	<div id="api-keys-list">
+		if len(keys) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No API keys yet.</p>
+		} else {
+			<div class="space-y-2">
+				for _, k := range keys {
+					@apiKeyRow(k, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+templ apiKeyRow(k *models.APIKey, baseURL string) {
+	<div
+		id={ "api-key-" + strconv.Itoa(k.ID) }
+		class="flex items-center justify-between gap-4 rounded-lg border bg-muted/40 p-4"
+	>
+		<div class="space-y-1 min-w-0">
+			<div class="flex items-center gap-2">
+				<span class="font-medium truncate">{ k.Name }</span>
+				@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+					{ "ID: " + strconv.Itoa(k.ID) }
+				}
+			</div>
+			<p class="text-xs text-muted-foreground">
+				Created { k.CreatedAt.Format("Jan 2, 2006 15:04") }
+				if k.LastUsedAt != nil {
+					{ " · Last used " + k.LastUsedAt.Format("Jan 2, 2006") }
+				}
+			</p>
+		</div>
+		<button
+			class="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+			hx-delete={ baseURL + "/ui/partials/settings/api-keys/" + strconv.Itoa(k.ID) }
+			hx-target={ "#api-key-" + strconv.Itoa(k.ID) }
+			hx-swap="outerHTML"
+			hx-confirm={ "Revoke API key \"" + k.Name + "\"? Any scripts using this key will stop working." }
+		>
+			<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+			Revoke
+		</button>
+	</div>
+}
+
+// APIKeyCreatedBanner shows the newly created key (one-time reveal).
+templ APIKeyCreatedBanner(name, rawKey, baseURL string) {
+	<!-- Replace the form slot with this banner -->
+	<div class="rounded-lg border border-green-500/30 bg-green-500/10 p-4 space-y-3">
+		<p class="text-sm font-medium text-green-700 dark:text-green-400">API key "{ name }" created successfully!</p>
+		<div>
+			<p class="text-xs text-muted-foreground mb-1">Copy this key now — it won't be shown again.</p>
+			<div class="flex items-center gap-2">
+				<code
+					class="flex-1 rounded bg-background border border-border px-3 py-1.5 text-sm font-mono break-all select-all"
+					x-data
+					x-ref="keycode"
+				>{ rawKey }</code>
+				<button
+					class="inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors shrink-0"
+					x-data
+					@click={ "navigator.clipboard.writeText($refs.keycode.textContent)" }
+				>
+					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+				</button>
+			</div>
+		</div>
+		<button
+			class="text-xs text-muted-foreground underline"
+			hx-get="data:text/html,"
+			hx-target="#api-key-form-slot"
+			hx-swap="innerHTML"
+		>
+			Dismiss
+		</button>
+	</div>
+	<!-- OOB: re-fetch the updated keys list -->
+	<div id="api-keys-list" hx-swap-oob="true"
+		hx-get={ baseURL + "/ui/partials/settings/api-keys" }
+		hx-trigger="load"
+		hx-swap="outerHTML"
+	></div>
+}
+
+templ settingsAPIKeysSection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-start justify-between">
+				<div class="space-y-1.5">
+					@card.Title(card.TitleProps{}) {
+						API Keys
+					}
+					@card.Description(card.DescriptionProps{}) {
+						API keys allow external applications to access qui.
+					}
+				</div>
+				<button
+					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					hx-get={ p.BaseURL + "/ui/partials/settings/api-keys/form" }
+					hx-target="#api-key-form-slot"
+					hx-swap="innerHTML"
+				>
+					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					Create Key
+				</button>
+			</div>
+		}
+		@card.Content(card.ContentProps{}) {
+			<!-- Form slot for create form / success banner -->
+			<div id="api-key-form-slot" class="mb-4"></div>
+			<!-- Key list -->
+			@APIKeysListPartial(p.APIKeys, p.BaseURL)
+		}
+	}
+}
+
+// APIKeyFormPartial returns the create-key form for HTMX slot load.
+templ APIKeyFormPartial(baseURL, errMsg string) {
+	<div class="rounded-lg border bg-muted/40 p-4 space-y-3 mb-4">
+		<p class="text-sm font-medium">Create a new API key</p>
+		if errMsg != "" {
+			<p class="text-xs text-destructive">{ errMsg }</p>
+		}
+		<form
+			hx-post={ baseURL + "/ui/partials/settings/api-keys" }
+			hx-target="#api-key-form-slot"
+			hx-swap="innerHTML"
+			class="flex gap-2"
+		>
+			<input
+				name="name"
+				type="text"
+				required
+				placeholder="e.g., Automation Script"
+				autocomplete="off"
+				class="flex h-9 flex-1 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+			/>
+			@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+				Create
+			}
+			@button.Button(button.Props{
+				Type:    button.TypeButton,
+				Variant: button.VariantOutline,
+				Size:    button.SizeSm,
+				Attributes: templ.Attributes{
+					"hx-get":    "data:text/html,",
+					"hx-target": "#api-key-form-slot",
+					"hx-swap":   "innerHTML",
+				},
+			}) {
+				Cancel
+			}
+		</form>
+	</div>
+}
+
+// ──────────────────────────────────────────────────
+// Security section
+// ──────────────────────────────────────────────────
+
+// ChangePasswordResult is the response for a password change (success or error).
+type ChangePasswordResult struct {
+	Success bool
+	Error   string
+}
+
+// ChangePasswordFormPartial renders the change-password form.
+templ ChangePasswordFormPartial(baseURL string, result *ChangePasswordResult) {
+	<form
+		id="change-password-form"
+		hx-post={ baseURL + "/ui/partials/settings/security" }
+		hx-target="#change-password-form"
+		hx-swap="outerHTML"
+		class="space-y-4"
+	>
+		if result != nil && result.Success {
+			<div class="rounded-lg border border-green-500/30 bg-green-500/10 p-3">
+				<p class="text-sm text-green-700 dark:text-green-400">Password changed successfully.</p>
+			</div>
+		}
+		if result != nil && result.Error != "" {
+			<p class="text-sm text-destructive">{ result.Error }</p>
+		}
+		<div class="space-y-1.5">
+			<label class="text-sm font-medium" for="cur-pass">Current Password</label>
+			<input
+				id="cur-pass"
+				name="current_password"
+				type="password"
+				required
+				autocomplete="current-password"
+				class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+			/>
+		</div>
+		<div class="space-y-1.5">
+			<label class="text-sm font-medium" for="new-pass">New Password</label>
+			<input
+				id="new-pass"
+				name="new_password"
+				type="password"
+				required
+				autocomplete="new-password"
+				minlength="8"
+				class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+			/>
+		</div>
+		<div class="space-y-1.5">
+			<label class="text-sm font-medium" for="confirm-pass">Confirm New Password</label>
+			<input
+				id="confirm-pass"
+				name="confirm_password"
+				type="password"
+				required
+				autocomplete="new-password"
+				class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+			/>
+		</div>
+		@button.Button(button.Props{Type: button.TypeSubmit}) {
+			Change Password
+		}
+	</form>
+}
+
+templ settingsSecuritySection(p SettingsProps) {
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+				Change Password
+			}
+			@card.Description(card.DescriptionProps{}) {
+				Update your account password.
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			@ChangePasswordFormPartial(p.BaseURL, nil)
+		}
+	}
+}
+
+// fmtAPIKeyTime formats an API key time.
+func fmtAPIKeyTime(t time.Time) string {
+	return t.Format("Jan 2, 2006 15:04")
+}

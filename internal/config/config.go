@@ -100,7 +100,7 @@ func (c *AppConfig) defaults() {
 	}
 
 	c.viper.SetDefault("host", host)
-	c.viper.SetDefault("port", 7476)
+	c.viper.SetDefault("port", 7420)
 	c.viper.SetDefault("baseUrl", "/")
 	c.viper.SetDefault("sessionSecret", sessionSecret)
 	c.viper.SetDefault("logLevel", "INFO")
@@ -410,7 +410,7 @@ func (c *AppConfig) writeDefaultConfig(path string) error {
 host = "{{ .host }}"
 
 # Port
-# Default: 7476
+# Default: 7420
 port = {{ .port }}
 
 # Base URL
@@ -506,7 +506,7 @@ logLevel = "{{ .logLevel }}"
 # OIDC Client Secret
 #oidcClientSecret = ""
 
-# OIDC Redirect URL (e.g. http://localhost:7476/api/auth/oidc/callback)
+# OIDC Redirect URL (e.g. http://localhost:7420/api/auth/oidc/callback)
 #oidcRedirectUrl = ""
 
 # Disable Built-In Login Form (only works when OIDC is enabled)

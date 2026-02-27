@@ -1,0 +1,13 @@
+{
+  "name": "rui-ui-css",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "tailwindcss -i input.css -o ../static/output.css --minify",
+    "dev": "tailwindcss -i input.css -o ../static/output.css --watch"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0"
+  }
+}

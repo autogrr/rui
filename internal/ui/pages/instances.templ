@@ -1,0 +1,513 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+
+	"github.com/autogrr/rui/internal/ui/components/badge"
+	"github.com/autogrr/rui/internal/ui/components/button"
+	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// InstanceListItem holds the view data for a single instance row.
+type InstanceListItem struct {
+	ID                       int
+	Name                     string
+	Host                     string
+	Username                 string
+	BasicUsername            string // empty when not set
+	TLSSkipVerify            bool
+	HasLocalFilesystemAccess bool
+	IsActive                 bool
+	IsConnected              bool
+	ConnectionStatus         string // "connected", "disconnected", "disabled", ""
+	HasBasicAuth             bool
+	CreatedAt                time.Time
+}
+
+// InstancesPageProps holds data for the instances page.
+type InstancesPageProps struct {
+	BaseURL   string
+	Username  string
+	Version   string
+	Instances []InstanceListItem
+	NavInsts  []layouts.Instance
+}
+
+// Instances renders the main instances management page.
+templ Instances(p InstancesPageProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Instances",
+		CurrentPath: "/ui/instances",
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.NavInsts,
+	}) {
+		<div class="space-y-6">
+			<!-- Page header -->
+			<div class="flex items-center justify-between gap-4">
+				<div>
+					<h1 class="text-2xl font-bold tracking-tight">Instances</h1>
+					<p class="text-sm text-muted-foreground mt-1">Manage your qBittorrent connections.</p>
+				</div>
+				<button
+					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+					hx-get={ p.BaseURL + "/ui/partials/instances/form" }
+					hx-target="#instance-form-slot"
+					hx-swap="innerHTML"
+					hx-push-url="false"
+				>
+					<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+					Add Instance
+				</button>
+			</div>
+
+			<!-- Form slot: lazily loaded add/edit form via HTMX -->
+			<div id="instance-form-slot"></div>
+
+			<!-- Instance list -->
+			<div id="instance-list">
+				@InstanceListPartial(p.Instances, p.BaseURL)
+			</div>
+		</div>
+	}
+}
+
+// InstanceListPartial renders just the list of instance cards (for HTMX OOB swaps).
+templ InstanceListPartial(instances []InstanceListItem, baseURL string) {
+	if len(instances) == 0 {
+		<div class="flex flex-col items-center justify-center py-16 text-center gap-4">
+			<svg class="h-12 w-12 text-muted-foreground/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+				<rect x="2" y="3" width="20" height="14" rx="2"/>
+				<path d="M8 21h8M12 17v4"/>
+			</svg>
+			<div>
+				<p class="font-semibold">No instances yet</p>
+				<p class="text-sm text-muted-foreground mt-1">Click "Add Instance" to connect your first qBittorrent server.</p>
+			</div>
+		</div>
+	} else {
+		<div class="space-y-3">
+			for _, inst := range instances {
+				@InstanceRowCard(inst, baseURL)
+			}
+		</div>
+	}
+}
+
+// InstanceRowCard renders a single instance row card (used standalone for OOB swaps).
+templ InstanceRowCard(inst InstanceListItem, baseURL string) {
+	<div id={ "instance-" + strconv.Itoa(inst.ID) } class="instance-row">
+		@card.Card(card.Props{Class: "overflow-hidden"}) {
+			@card.Content(card.ContentProps{Class: "p-4"}) {
+				<div class="flex items-start justify-between gap-4">
+					<div class="flex items-start gap-3 min-w-0 flex-1">
+						<!-- Status indicator dot -->
+						<div class={ "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full", instanceStatusDotClass(inst) }></div>
+						<div class="min-w-0">
+							<div class="flex items-center gap-2 flex-wrap">
+								<span class="font-semibold truncate">{ inst.Name }</span>
+								if !inst.IsActive {
+									@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+										Disabled
+									}
+								} else if inst.IsConnected {
+									@badge.Badge(badge.Props{Variant: badge.VariantDefault}) {
+										Connected
+									}
+								} else {
+									@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+										Offline
+									}
+								}
+							</div>
+							<p class="text-sm text-muted-foreground mt-0.5 truncate">{ inst.Host }</p>
+							if inst.Username != "" {
+								<p class="text-xs text-muted-foreground/70">User: { inst.Username }</p>
+							}
+						</div>
+					</div>
+					<!-- Actions -->
+					<div class="flex items-center gap-2 shrink-0">
+						<!-- Enable/Disable toggle -->
+						<button
+							class={ "relative inline-flex h-5 w-9 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors",
+								templ.KV("bg-primary", inst.IsActive),
+								templ.KV("bg-input", !inst.IsActive) }
+							hx-post={ baseURL + "/ui/instances/" + strconv.Itoa(inst.ID) + "/toggle" }
+							hx-target={ "#instance-" + strconv.Itoa(inst.ID) }
+							hx-swap="outerHTML"
+							title={ instanceToggleTitle(inst) }
+						>
+							<span
+								class={ "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform",
+									templ.KV("translate-x-4", inst.IsActive),
+									templ.KV("translate-x-0", !inst.IsActive) }
+							></span>
+						</button>
+
+						<!-- Edit button -->
+						<button
+							class="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent hover:text-accent-foreground transition-colors"
+							hx-get={ baseURL + "/ui/partials/instances/form/" + strconv.Itoa(inst.ID) }
+							hx-target="#instance-form-slot"
+							hx-swap="innerHTML"
+							hx-push-url="false"
+						>
+							<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+							Edit
+						</button>
+
+						<!-- Delete button -->
+						<button
+							class="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+							hx-delete={ baseURL + "/ui/instances/" + strconv.Itoa(inst.ID) }
+							hx-target={ "#instance-" + strconv.Itoa(inst.ID) }
+							hx-swap="outerHTML"
+							hx-confirm={ "Delete instance \"" + inst.Name + "\"? This cannot be undone." }
+						>
+							<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+							Delete
+						</button>
+					</div>
+				</div>
+			}
+		}
+	</div>
+}
+
+// instanceStatusDotClass returns dot color for an instance.
+func instanceStatusDotClass(inst InstanceListItem) string {
+	if !inst.IsActive {
+		return "bg-muted-foreground/40"
+	}
+	if inst.IsConnected {
+		return "bg-green-500"
+	}
+	return "bg-red-500"
+}
+
+// instanceToggleTitle returns the tooltip for the enable/disable toggle.
+func instanceToggleTitle(inst InstanceListItem) string {
+	if inst.IsActive {
+		return "Disable instance"
+	}
+	return "Enable instance"
+}
+
+// InstanceFormNew renders the add-new-instance inline form.
+templ InstanceFormNew(baseURL, errMsg string) {
+	@instanceFormCard(0, "", "http://localhost:8080", "", false, false, false, false, baseURL, errMsg)
+}
+
+// InstanceFormEdit renders the edit-instance inline form pre-populated with instance data.
+templ InstanceFormEdit(inst InstanceListItem, baseURL, errMsg string) {
+	@instanceFormCard(inst.ID, inst.Name, inst.Host, inst.Username, inst.HasBasicAuth, inst.Username == "", inst.TLSSkipVerify, inst.HasLocalFilesystemAccess, baseURL, errMsg)
+}
+
+// instanceFormCard renders the shared add/edit form card.
+templ instanceFormCard(id int, name, host, username string, hasBasicAuth, authBypass, tlsSkipVerify, localFS bool, baseURL, errMsg string) {
+	{{ isEdit := id != 0 }}
+	{{ formTitle := "Add Instance" }}
+	if isEdit {
+		{{ formTitle = "Edit Instance" }}
+	}
+	{{ action := baseURL + "/ui/instances" }}
+	if isEdit {
+		{{ action = fmt.Sprintf("%s/ui/instances/%d", baseURL, id) }}
+	}
+	@card.Card(card.Props{Class: "mb-6 border-primary/30 shadow-sm"}) {
+		@card.Header(card.HeaderProps{}) {
+			<div class="flex items-center justify-between">
+				@card.Title(card.TitleProps{}) {
+					{ formTitle }
+				}
+				<!-- Cancel clears the form slot -->
+				<button
+					class="text-muted-foreground hover:text-foreground"
+					hx-get="data:text/html,"
+					hx-target="#instance-form-slot"
+					hx-swap="innerHTML"
+				>
+					<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+				</button>
+			</div>
+			if errMsg != "" {
+				<p class="text-sm text-destructive mt-2">{ errMsg }</p>
+			}
+		}
+		@card.Content(card.ContentProps{}) {
+			<form
+				id="instance-form"
+				hx-post={ action }
+				if isEdit {
+					hx-put={ action }
+				}
+				hx-target="#instance-form-slot"
+				hx-swap="innerHTML"
+				x-data={ instanceFormAlpineData(authBypass, hasBasicAuth) }
+				class="space-y-4"
+			>
+				if isEdit {
+					<input type="hidden" name="_method" value="PUT"/>
+				}
+				<!-- Name -->
+				<div class="space-y-1.5">
+					<label class="text-sm font-medium" for="inst-name">Instance Name</label>
+					<input
+						id="inst-name"
+						name="name"
+						type="text"
+						required
+						value={ name }
+						placeholder="e.g., Home Server"
+						autocomplete="off"
+						class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					/>
+				</div>
+
+				<!-- Host -->
+				<div class="space-y-1.5">
+					<label class="text-sm font-medium" for="inst-host">URL</label>
+					<input
+						id="inst-host"
+						name="host"
+						type="url"
+						required
+						value={ host }
+						placeholder="http://localhost:8080"
+						autocomplete="off"
+						class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+					/>
+				</div>
+
+				<!-- TLS Skip Verify toggle -->
+				<div class="flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4">
+					<div class="space-y-1">
+						<label class="text-sm font-medium">Skip TLS Certificate Verification</label>
+						<p class="text-xs text-muted-foreground">Allow connections to instances with self-signed certificates.</p>
+					</div>
+					<label class="inline-flex cursor-pointer items-center gap-2">
+						<input
+							type="checkbox"
+							name="tls_skip_verify"
+							value="on"
+							checked?={ tlsSkipVerify }
+							class="peer hidden"
+							role="switch"
+						/>
+						<div class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary">
+							<span class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4"></span>
+						</div>
+					</label>
+				</div>
+
+				<!-- Local Filesystem Access toggle -->
+				<div class="flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4">
+					<div class="space-y-1">
+						<label class="text-sm font-medium">Local Filesystem Access</label>
+						<p class="text-xs text-muted-foreground">Enable if qui can access this instance's download paths (required for hardlink detection in automations).</p>
+					</div>
+					<label class="inline-flex cursor-pointer items-center gap-2">
+						<input
+							type="checkbox"
+							name="has_local_filesystem_access"
+							value="on"
+							checked?={ localFS }
+							class="peer hidden"
+							role="switch"
+						/>
+						<div class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary">
+							<span class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4"></span>
+						</div>
+					</label>
+				</div>
+
+				<!-- Auth Bypass toggle -->
+				<div class="flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4">
+					<div class="space-y-1">
+						<label class="text-sm font-medium">Authentication Bypass</label>
+						<p class="text-xs text-muted-foreground">Enable when qBittorrent bypasses authentication for localhost or whitelisted IPs.</p>
+					</div>
+					<label class="inline-flex cursor-pointer items-center gap-2">
+						<input
+							type="checkbox"
+							name="auth_bypass"
+							value="on"
+							checked?={ authBypass }
+							x-model="authBypass"
+							class="peer hidden"
+							role="switch"
+						/>
+						<div
+							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors"
+							:class="authBypass ? 'bg-primary' : 'bg-input'"
+						>
+							<span
+								class="pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform"
+								:class="authBypass ? 'translate-x-4' : 'translate-x-0'"
+							></span>
+						</div>
+					</label>
+				</div>
+
+				<!-- Username + Password (hidden when auth bypass) -->
+				<div x-show="!authBypass" x-transition class="space-y-4">
+					<div class="space-y-1.5">
+						<label class="text-sm font-medium" for="inst-username">Username</label>
+						<input
+							id="inst-username"
+							name="username"
+							type="text"
+							value={ username }
+							placeholder="qBittorrent username (usually admin)"
+							autocomplete="off"
+							data-1p-ignore
+							class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						/>
+					</div>
+					<div class="space-y-1.5">
+						<label class="text-sm font-medium" for="inst-password">Password</label>
+						<input
+							id="inst-password"
+							name="password"
+							type="password"
+							placeholder={ instancePasswordPlaceholder(id != 0) }
+							autocomplete="new-password"
+							data-1p-ignore
+							class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						/>
+					</div>
+				</div>
+
+				<!-- Basic Auth toggle -->
+				<div class="flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4">
+					<div class="space-y-1">
+						<label class="text-sm font-medium">HTTP Basic Authentication</label>
+						<p class="text-xs text-muted-foreground">Enable if your qBittorrent is behind a reverse proxy with Basic Auth.</p>
+					</div>
+					<label class="inline-flex cursor-pointer items-center gap-2">
+						<input
+							type="checkbox"
+							name="show_basic_auth"
+							value="on"
+							checked?={ hasBasicAuth }
+							x-model="showBasicAuth"
+							class="peer hidden"
+							role="switch"
+						/>
+						<div
+							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors"
+							:class="showBasicAuth ? 'bg-primary' : 'bg-input'"
+						>
+							<span
+								class="pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform"
+								:class="showBasicAuth ? 'translate-x-4' : 'translate-x-0'"
+							></span>
+						</div>
+					</label>
+				</div>
+
+				<!-- Basic Auth fields (shown when basic auth enabled) -->
+				<div x-show="showBasicAuth" x-transition class="space-y-4 pl-4 border-l-2 border-muted">
+					<div class="space-y-1.5">
+						<label class="text-sm font-medium" for="inst-basic-user">Basic Auth Username</label>
+						<input
+							id="inst-basic-user"
+							name="basic_username"
+							type="text"
+							placeholder="Basic auth username"
+							autocomplete="off"
+							data-1p-ignore
+							class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						/>
+					</div>
+					<div class="space-y-1.5">
+						<label class="text-sm font-medium" for="inst-basic-pass">Basic Auth Password</label>
+						<input
+							id="inst-basic-pass"
+							name="basic_password"
+							type="password"
+							placeholder="Basic auth password"
+							autocomplete="new-password"
+							data-1p-ignore
+							class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						/>
+					</div>
+				</div>
+
+				<!-- Form actions -->
+				<div class="flex gap-2 pt-2">
+					@button.Button(button.Props{Type: button.TypeSubmit, Variant: button.VariantDefault}) {
+						if isEdit {
+							Save Changes
+						} else {
+							Add Instance
+						}
+					}
+					@button.Button(button.Props{
+						Type:    button.TypeButton,
+						Variant: button.VariantOutline,
+						Attributes: templ.Attributes{
+							"hx-get":    "data:text/html,",
+							"hx-target": "#instance-form-slot",
+							"hx-swap":   "innerHTML",
+						},
+					}) {
+						Cancel
+					}
+				</div>
+			</form>
+		}
+	}
+}
+
+// instanceFormAlpineData builds the x-data string for the form.
+func instanceFormAlpineData(authBypass, showBasicAuth bool) string {
+	ab := "false"
+	if authBypass {
+		ab = "true"
+	}
+	sba := "false"
+	if showBasicAuth {
+		sba = "true"
+	}
+	return fmt.Sprintf("{ authBypass: %s, showBasicAuth: %s }", ab, sba)
+}
+
+// instancePasswordPlaceholder returns the password field placeholder.
+func instancePasswordPlaceholder(isEdit bool) string {
+	if isEdit {
+		return "Leave empty to keep current password"
+	}
+	return "qBittorrent password"
+}
+
+// InstanceFormSuccessOOB returns an empty form slot + OOB list replacement on create/edit success.
+templ InstanceFormSuccessOOB(instances []InstanceListItem, baseURL string) {
+	<!-- Form slot cleared -->
+	<!-- OOB: replace instance list -->
+	<div id="instance-list" hx-swap-oob="innerHTML">
+		@InstanceListPartial(instances, baseURL)
+	</div>
+}
+
+// InstanceFormErrorResponse returns the form with an error, preserving form slot target.
+templ InstanceFormNewError(baseURL, errMsg string) {
+	@InstanceFormNew(baseURL, errMsg)
+}
+
+templ InstanceFormEditError(inst InstanceListItem, baseURL, errMsg string) {
+	@InstanceFormEdit(inst, baseURL, errMsg)
+}
+
+// instanceCreatedAt formats the timestamp for display.
+func instanceCreatedAt(t time.Time) string {
+	return t.Format("Jan 2, 2006")
+}
