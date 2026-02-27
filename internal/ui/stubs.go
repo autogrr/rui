@@ -72,10 +72,26 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	search := strings.TrimSpace(q.Get("search"))
 	status := q.Get("status")
+	category := q.Get("category")
+	tag := q.Get("tag")
 	page := intParam(q.Get("page"), 1)
 	instanceID := intParam(q.Get("instance_id"), 0)
 
-	rows, total := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status)
+	rows, total, targetID := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status, category, tag)
+
+	// Load sidebar data (categories and tags) for the full page render.
+	var cats []string
+	var tagList []string
+	if targetID > 0 && h.syncManager != nil {
+		if catMap, err := h.syncManager.GetCategories(ctx, targetID); err == nil {
+			for name := range catMap {
+				cats = append(cats, name)
+			}
+		}
+		if t, err := h.syncManager.GetTags(ctx, targetID); err == nil {
+			tagList = t
+		}
+	}
 
 	render(w, r, http.StatusOK, pages.Torrents(pages.TorrentsProps{
 		BaseURL:    h.baseURL(),
@@ -85,10 +101,14 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 		InstanceID: instanceID,
 		Search:     search,
 		Status:     status,
+		Category:   category,
+		Tag:        tag,
 		Page:       page,
 		PageSize:   defaultPageSize,
 		Rows:       rows,
 		Total:      total,
+		Categories: cats,
+		Tags:       tagList,
 	}))
 }
 
@@ -100,10 +120,12 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	search := strings.TrimSpace(q.Get("search"))
 	status := q.Get("status")
+	category := q.Get("category")
+	tag := q.Get("tag")
 	page := intParam(q.Get("page"), 1)
 	instanceID := intParam(q.Get("instance_id"), 0)
 
-	rows, total := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status)
+	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status, category, tag)
 
 	render(w, r, http.StatusOK, pages.TorrentsTableBody(pages.TorrentsProps{
 		Rows:       rows,
@@ -112,6 +134,8 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 		PageSize:   defaultPageSize,
 		Search:     search,
 		Status:     status,
+		Category:   category,
+		Tag:        tag,
 		InstanceID: instanceID,
 		BaseURL:    h.baseURL(),
 	}))
@@ -119,9 +143,10 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 
 // fetchTorrentRows queries SyncManager and maps the result to []TorrentRow.
 // instanceID == 0 means "first active instance" (fallback when none selected).
-func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSize int, search, status string) ([]pages.TorrentRow, int) {
+// Returns rows, total count, and the resolved instance ID used for the query.
+func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSize int, search, status, category, tag string) ([]pages.TorrentRow, int, int) {
 	if h.syncManager == nil {
-		return nil, 0
+		return nil, 0, 0
 	}
 
 	// Resolve which instance to query.
@@ -138,12 +163,18 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSi
 		}
 	}
 	if targetID == 0 {
-		return nil, 0
+		return nil, 0, 0
 	}
 
 	filters := qbittorrent.FilterOptions{}
 	if status != "" {
 		filters.Status = []string{status}
+	}
+	if category != "" {
+		filters.Categories = []string{category}
+	}
+	if tag != "" {
+		filters.Tags = []string{tag}
 	}
 
 	offset := (page - 1) * pageSize
@@ -153,7 +184,7 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSi
 
 	resp, err := h.syncManager.GetTorrentsWithFilters(ctx, targetID, pageSize, offset, "name", "asc", search, filters)
 	if err != nil || resp == nil {
-		return nil, 0
+		return nil, 0, targetID
 	}
 
 	rows := make([]pages.TorrentRow, 0, len(resp.Torrents))
@@ -176,7 +207,7 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSi
 		})
 	}
 
-	return rows, resp.Total
+	return rows, resp.Total, targetID
 }
 
 // intParam parses a string as an int, returning def on error or when empty.

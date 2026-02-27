@@ -1,0 +1,291 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+	"strconv"
+
+	qbt "github.com/autobrr/go-qbittorrent"
+)
+
+// TorrentDetailProps holds all data loaded for the torrent detail panel.
+type TorrentDetailProps struct {
+	BaseURL    string
+	InstanceID int
+	Hash       string
+	Name       string
+	State      string
+	Category   string
+	Tags       string
+
+	// General tab: properties
+	Properties *qbt.TorrentProperties
+
+	// Files tab
+	Files *qbt.TorrentFiles
+
+	// Trackers tab
+	Trackers []qbt.TorrentTracker
+
+	// Peers tab (values from TorrentPeersResponse.Peers map)
+	Peers []qbt.TorrentPeer
+}
+
+// TorrentDetailPanel renders the full detail panel HTML returned as an HTMX partial.
+// It is injected into #torrent-detail-panel on the torrents page.
+templ TorrentDetailPanel(p TorrentDetailProps) {
+	<div class="flex flex-col h-full" x-data="{ tab: 'general' }">
+		<!-- Panel header -->
+		<div class="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+			<div class="min-w-0 flex-1">
+				<p class="text-sm font-semibold truncate" title={ p.Name }>{ p.Name }</p>
+				<div class="flex items-center gap-2 mt-0.5">
+					{{ dlabel, dcls := stateLabel(p.State) }}
+					<span class={ "inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium", dcls }>
+						{ dlabel }
+					</span>
+					if p.Category != "" {
+						<span class="text-xs text-muted-foreground truncate">{ p.Category }</span>
+					}
+				</div>
+			</div>
+			<!-- Close button -->
+			<button
+				class="ml-2 shrink-0 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+				@click="$dispatch('torrent-detail-close')"
+				title="Close panel"
+			>
+				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+			</button>
+		</div>
+
+		<!-- Tabs -->
+		<div class="flex border-b border-border shrink-0 text-xs font-medium overflow-x-auto">
+			for _, tb := range []struct{ id, label string }{
+				{"general", "General"},
+				{"files", "Files"},
+				{"trackers", "Trackers"},
+				{"peers", "Peers"},
+			} {
+				<button
+					@click={ "tab = '" + tb.id + "'" }
+					:class={ "tab === '" + tb.id + "' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'" }
+					class="px-3 py-2 whitespace-nowrap transition-colors"
+				>
+					{ tb.label }
+				</button>
+			}
+		</div>
+
+		<!-- Tab content -->
+		<div class="flex-1 overflow-auto text-xs">
+			<!-- General tab -->
+			<div x-show="tab === 'general'" class="p-3 space-y-2">
+				if p.Properties != nil {
+					@detailRow("Save path", p.Properties.SavePath)
+					@detailRow("Hash", p.Hash)
+					@detailRow("Total size", formatBytes(uint64(p.Properties.TotalSize)))
+					@detailRow("Downloaded", formatBytes(uint64(p.Properties.TotalDownloaded)))
+					@detailRow("Uploaded", formatBytes(uint64(p.Properties.TotalUploaded)))
+					@detailRow("Share ratio", strconv.FormatFloat(p.Properties.ShareRatio, 'f', 3, 64))
+					@detailRow("Download speed", formatBytesPerSec(uint64(max(int64(p.Properties.DlSpeed), 0))))
+					@detailRow("Upload speed", formatBytesPerSec(uint64(max(int64(p.Properties.UpSpeed), 0))))
+					@detailRow("Seeds", strconv.Itoa(p.Properties.Seeds)+" / "+strconv.Itoa(p.Properties.SeedsTotal))
+					@detailRow("Peers", strconv.Itoa(p.Properties.Peers)+" / "+strconv.Itoa(p.Properties.PeersTotal))
+					@detailRow("ETA", formatETA(int64(p.Properties.Eta)))
+					if p.Properties.Comment != "" {
+						@detailRow("Comment", p.Properties.Comment)
+					}
+					if p.Properties.CreatedBy != "" {
+						@detailRow("Created by", p.Properties.CreatedBy)
+					}
+					@detailRow("Private", boolStr(p.Properties.IsPrivate))
+					@detailRow("Connections", strconv.Itoa(p.Properties.NbConnections)+" / "+strconv.Itoa(p.Properties.NbConnectionsLimit))
+					@detailRow("Piece size", formatBytes(uint64(p.Properties.PieceSize)))
+					@detailRow("Pieces have", strconv.Itoa(p.Properties.PiecesHave)+" / "+strconv.Itoa(p.Properties.PiecesNum))
+				} else {
+					<p class="text-muted-foreground">No properties available.</p>
+				}
+			</div>
+
+			<!-- Files tab -->
+			<div x-show="tab === 'files'">
+				if p.Files == nil || len(*p.Files) == 0 {
+					<p class="p-3 text-muted-foreground">No file information available.</p>
+				} else {
+					<table class="w-full">
+						<thead class="sticky top-0 bg-muted/80 text-left">
+							<tr class="border-b border-border">
+								<th class="px-3 py-1.5 font-medium text-muted-foreground">Name</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-20">Size</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">Done</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-border">
+							for _, f := range *p.Files {
+								<tr class="hover:bg-muted/40">
+									<td class="px-3 py-1 max-w-xs">
+										<span class="block truncate" title={ f.Name }>{ f.Name }</span>
+									</td>
+									<td class="px-3 py-1 text-right text-muted-foreground whitespace-nowrap tabular-nums">
+										{ formatBytes(uint64(f.Size)) }
+									</td>
+									<td class="px-3 py-1 text-right whitespace-nowrap tabular-nums">
+										{ fmt.Sprintf("%.0f%%", float64(f.Progress)*100) }
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</div>
+
+			<!-- Trackers tab -->
+			<div x-show="tab === 'trackers'">
+				if len(p.Trackers) == 0 {
+					<p class="p-3 text-muted-foreground">No trackers available.</p>
+				} else {
+					<table class="w-full">
+						<thead class="sticky top-0 bg-muted/80 text-left">
+							<tr class="border-b border-border">
+								<th class="px-3 py-1.5 font-medium text-muted-foreground">URL</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">Seeds</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">Peers</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground w-36">Status</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-border">
+							for _, tr := range p.Trackers {
+								<tr class="hover:bg-muted/40">
+									<td class="px-3 py-1 max-w-xs">
+										<span class="block truncate text-xs" title={ tr.Url }>{ tr.Url }</span>
+										if tr.Message != "" {
+											<span class="block text-muted-foreground truncate" title={ tr.Message }>{ tr.Message }</span>
+										}
+									</td>
+									<td class="px-3 py-1 text-right tabular-nums">
+										if tr.NumSeeds >= 0 {
+											{ strconv.Itoa(tr.NumSeeds) }
+										} else {
+											<span class="text-muted-foreground">—</span>
+										}
+									</td>
+									<td class="px-3 py-1 text-right tabular-nums">
+										if tr.NumPeers >= 0 {
+											{ strconv.Itoa(tr.NumPeers) }
+										} else {
+											<span class="text-muted-foreground">—</span>
+										}
+									</td>
+									<td class="px-3 py-1">
+										<span class={ "inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium", trackerStatusClass(int(tr.Status)) }>
+											{ trackerStatusLabel(int(tr.Status)) }
+										</span>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</div>
+
+			<!-- Peers tab -->
+			<div x-show="tab === 'peers'">
+				if len(p.Peers) == 0 {
+					<p class="p-3 text-muted-foreground">No peers connected.</p>
+				} else {
+					<table class="w-full">
+						<thead class="sticky top-0 bg-muted/80 text-left">
+							<tr class="border-b border-border">
+								<th class="px-3 py-1.5 font-medium text-muted-foreground">IP</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground w-20">Client</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">↓</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">↑</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-12">Done</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-border">
+							for _, peer := range p.Peers {
+								<tr class="hover:bg-muted/40">
+									<td class="px-3 py-1 tabular-nums whitespace-nowrap">
+										{ peer.IP }:{ strconv.Itoa(peer.Port) }
+									</td>
+									<td class="px-3 py-1 max-w-[5rem]">
+										<span class="block truncate text-muted-foreground" title={ peer.Client }>{ peer.Client }</span>
+									</td>
+									<td class="px-3 py-1 text-right tabular-nums text-blue-600 dark:text-blue-400 whitespace-nowrap">
+										if peer.DownSpeed > 0 {
+											{ formatBytesPerSec(uint64(peer.DownSpeed)) }
+										} else {
+											<span class="text-muted-foreground">—</span>
+										}
+									</td>
+									<td class="px-3 py-1 text-right tabular-nums text-green-600 dark:text-green-400 whitespace-nowrap">
+										if peer.UpSpeed > 0 {
+											{ formatBytesPerSec(uint64(peer.UpSpeed)) }
+										} else {
+											<span class="text-muted-foreground">—</span>
+										}
+									</td>
+									<td class="px-3 py-1 text-right tabular-nums">
+										{ fmt.Sprintf("%.0f%%", peer.Progress*100) }
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+// detailRow renders a label/value pair in the General tab.
+templ detailRow(label, value string) {
+	<div class="grid grid-cols-[8rem_1fr] gap-x-2 py-0.5">
+		<span class="text-muted-foreground truncate">{ label }</span>
+		<span class="break-all">{ value }</span>
+	</div>
+}
+
+// trackerStatusLabel maps a tracker status int to a human-readable label.
+func trackerStatusLabel(status int) string {
+	switch status {
+	case 0:
+		return "Disabled"
+	case 1:
+		return "Not contacted"
+	case 2:
+		return "Working"
+	case 3:
+		return "Updating"
+	case 4:
+		return "Error"
+	default:
+		return "Unknown"
+	}
+}
+
+// trackerStatusClass returns Tailwind badge classes for a tracker status.
+func trackerStatusClass(status int) string {
+	switch status {
+	case 2:
+		return "bg-green-500/15 text-green-700 dark:text-green-400"
+	case 4:
+		return "bg-red-500/15 text-red-700 dark:text-red-400"
+	case 3:
+		return "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400"
+	default:
+		return "bg-muted text-muted-foreground"
+	}
+}
+
+// boolStr converts a bool to "Yes"/"No".
+func boolStr(b bool) string {
+	if b {
+		return "Yes"
+	}
+	return "No"
+}

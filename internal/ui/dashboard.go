@@ -1,12 +1,15 @@
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
-// dashboard.go contains the live-data dashboard handler and its HTMX partial.
+// dashboard.go contains the live-data dashboard handler and its HTMX partials.
 
 package ui
 
 import (
 	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/qbittorrent"
@@ -49,9 +52,9 @@ func (h *Handler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
-// GetDashboardPartial returns the live instance-card HTML fragment polled by HTMX.
-// Route: GET /ui/partials/dashboard
-func (h *Handler) GetDashboardPartial(w http.ResponseWriter, r *http.Request) {
+// buildDashboardInstances queries all configured instances and populates live
+// statistics into a []pages.DashboardInstance slice.
+func (h *Handler) buildDashboardInstances(r *http.Request) []pages.DashboardInstance {
 	ctx := r.Context()
 
 	insts, err := h.instanceStore.List(ctx)
@@ -76,6 +79,9 @@ func (h *Handler) GetDashboardPartial(w http.ResponseWriter, r *http.Request) {
 					di.DlSpeed = uint64(max64(ss.DlInfoSpeed, 0))
 					di.UpSpeed = uint64(max64(ss.UpInfoSpeed, 0))
 					di.FreeSpaceBytes = ss.FreeSpaceOnDisk
+					di.UseAltSpeedLimits = ss.UseAltSpeedLimits
+					di.AlltimeDl = ss.AlltimeDl
+					di.AlltimeUl = ss.AlltimeUl
 				}
 			}
 			// Populate torrent counts from the sync cache.
@@ -85,14 +91,49 @@ func (h *Handler) GetDashboardPartial(w http.ResponseWriter, r *http.Request) {
 				di.Downloading = resp.Stats.Downloading
 				di.Seeding = resp.Stats.Seeding
 				di.Total = resp.Stats.Total
-				// IsConnected can also be inferred from non-nil stats.
 				di.IsConnected = true
+			}
+			// Tracker-down count from health cache (non-blocking).
+			if hc := h.syncManager.GetTrackerHealthCounts(inst.ID); hc != nil {
+				di.TrackerDown = hc.TrackerDown
 			}
 		}
 
 		dashInsts = append(dashInsts, di)
 	}
+	return dashInsts
+}
 
+// GetDashboardPartial returns the live instance-card HTML fragment polled by HTMX.
+// Route: GET /ui/partials/dashboard
+func (h *Handler) GetDashboardPartial(w http.ResponseWriter, r *http.Request) {
+	dashInsts := h.buildDashboardInstances(r)
+	render(w, r, http.StatusOK, pages.DashboardStatsPartial(dashInsts, h.baseURL()))
+}
+
+// PostAltSpeedToggle toggles alternative speed limits for one instance and
+// returns the refreshed dashboard cards so the UI updates immediately.
+// Route: POST /ui/partials/dashboard/{id}/alt-speed
+func (h *Handler) PostAltSpeedToggle(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		http.Error(w, "invalid instance id", http.StatusBadRequest)
+		return
+	}
+
+	if h.syncManager == nil {
+		http.Error(w, "sync manager unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	if err := h.syncManager.ToggleAlternativeSpeedLimits(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Re-render all dashboard cards so alt-speed state reflects the change.
+	dashInsts := h.buildDashboardInstances(r)
 	render(w, r, http.StatusOK, pages.DashboardStatsPartial(dashInsts, h.baseURL()))
 }
 

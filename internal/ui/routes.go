@@ -89,7 +89,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 			// HTMX partial fragments — return HTML snippets, not full pages.
 			r.Get("/partials/dashboard", h.GetDashboardPartial)
+			r.Post("/partials/dashboard/{id}/alt-speed", h.PostAltSpeedToggle)
 			r.Get("/partials/torrents", h.GetTorrentsPartial)
+			r.Get("/partials/torrents/{hash}", h.GetTorrentDetailPartial)
+			r.Post("/partials/torrents/action", h.PostTorrentsAction)
+			r.Post("/partials/torrents/add", h.PostAddTorrent)
 			r.Get("/partials/instances/form", h.GetInstanceForm)
 			r.Get("/partials/instances/form/{id}", h.GetInstanceForm)
 
