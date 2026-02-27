@@ -3,8 +3,6 @@
 
 package layouts
 
-import "github.com/autogrr/rui/internal/ui/components/toast"
-
 // BaseProps holds metadata for the HTML shell.
 type BaseProps struct {
 	Title   string
@@ -47,8 +45,38 @@ templ Base(p BaseProps) {
 		</head>
 		<body class="min-h-screen bg-background text-foreground antialiased">
 			{ children... }
-			<!-- Toast container -->
-			@toast.Toast()
+			<!-- Toast region: empty container; toasts are injected dynamically via
+			     the 'toast' HTMX trigger event and processed by toast.min.js. -->
+			<div id="toast-region" aria-live="polite" class="fixed bottom-0 right-0 z-50 flex flex-col gap-2 p-4 md:max-w-[420px] w-full pointer-events-none"></div>
+			<!-- Inline toast event handler (no defer needed — just registers a listener) -->
+			<script>
+				document.body.addEventListener('toast', function(e) {
+					var d = e.detail || {};
+					var msg = d.message || '';
+					if (!msg) return;
+					var type = d.type || 'default';
+					var region = document.getElementById('toast-region');
+					if (!region) return;
+					var el = document.createElement('div');
+					el.setAttribute('data-tui-toast', '');
+					el.setAttribute('data-position', 'bottom-right');
+					el.setAttribute('data-variant', type);
+					el.setAttribute('data-tui-toast-duration', '4000');
+					el.className = 'pointer-events-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-300';
+					var iconMap = {error:'\u26a0\ufe0f', success:'\u2705', warning:'\u26a0\ufe0f', info:'\u2139\ufe0f', default:''};
+					var colorMap = {
+						error:   'border-destructive/60 bg-destructive/10 text-destructive',
+						success: 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-400',
+						warning: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
+						info:    'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400',
+						default: ''
+					};
+					var extraCls = colorMap[type] || '';
+					var icon = iconMap[type] ? '<span class="mr-2 text-base" aria-hidden="true">'+iconMap[type]+'</span>' : '';
+					el.innerHTML = '<div class="w-full bg-popover text-popover-foreground rounded-lg shadow-md border px-4 py-3 flex items-center gap-2 '+extraCls+'">'+icon+'<span class="flex-1 min-w-0 text-sm">'+msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span></div>';
+					region.appendChild(el);
+				});
+			</script>
 			<!-- HTMX 2.x -->
 			<script src={ p.BaseURL + "/ui/static/js/htmx.min.js" } defer></script>
 			<!-- HTMX SSE extension (for RSS/log streams and torrent live updates) -->

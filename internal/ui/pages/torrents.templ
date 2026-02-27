@@ -498,10 +498,13 @@ hx-on::after-request="renderFilterChips()"
 <input type="hidden" id="current-instance" name="instance_id" value={ itoa(p.InstanceID) }/>
 <input type="hidden" id="current-sort" name="sort" value={ p.Sort }/>
 <input type="hidden" id="current-order" name="order" value={ p.Order }/>
-<!-- Hidden sort trigger button (invoked by sortBy() JavaScript) -->
+<!-- Hidden sort trigger button (invoked by sortBy() / triggerTableRefresh()) -->
+<!-- Uses custom event 'tbl-refresh' so synthetic dispatches do not bubble as
+     a DOM click and accidentally close Alpine @click.outside popovers. -->
 <button
 id="sort-trigger"
 style="display:none"
+hx-trigger="tbl-refresh"
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
 hx-target="#vt-data-slot"
 hx-swap="innerHTML"
@@ -1102,7 +1105,10 @@ function clearFilter(type) {
 
 function triggerTableRefresh() {
   var btn = document.getElementById('sort-trigger');
-  if (btn && window.htmx) htmx.trigger(btn, 'click');
+  // Dispatch 'tbl-refresh' (custom event) rather than 'click' so it does NOT
+  // bubble as a DOM click — that would close Alpine @click.outside popovers
+  // like the expression builder while the user is still adding conditions.
+  if (btn && window.htmx) htmx.trigger(btn, 'tbl-refresh');
 }
 
 // ── Sort arrows ─────────────────────────────────────────────────────────────
@@ -1441,7 +1447,8 @@ function sortBy(col) {
   if (si.value === col) { oi.value = oi.value === 'asc' ? 'desc' : 'asc'; }
   else { si.value = col; oi.value = descDefault.indexOf(col) >= 0 ? 'desc' : 'asc'; }
   applySortArrows();
-  document.getElementById('sort-trigger').click();
+  var btn = document.getElementById('sort-trigger');
+  if (btn && window.htmx) htmx.trigger(btn, 'tbl-refresh');
 }
 
 // ── HTMX lifecycle ───────────────────────────────────────────────────────────
