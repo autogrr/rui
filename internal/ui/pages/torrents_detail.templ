@@ -31,6 +31,9 @@ type TorrentDetailProps struct {
 
 	// Peers tab (values from TorrentPeersResponse.Peers map)
 	Peers []qbt.TorrentPeer
+
+	// WebSeeds tab
+	WebSeeds []qbt.WebSeed
 }
 
 // TorrentDetailPanel renders the full detail panel HTML returned as an HTMX partial.
@@ -68,6 +71,7 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 				{"files", "Files"},
 				{"trackers", "Trackers"},
 				{"peers", "Peers"},
+				{"webseeds", "Web Seeds"},
 			} {
 				<button
 					@click={ "tab = '" + tb.id + "'" }
@@ -231,6 +235,35 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 									</td>
 									<td class="px-3 py-1 text-right tabular-nums">
 										{ fmt.Sprintf("%.0f%%", peer.Progress*100) }
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</div>
+
+			<!-- WebSeeds tab -->
+			<div x-show="tab === 'webseeds'">
+				if len(p.WebSeeds) == 0 {
+					<p class="p-3 text-muted-foreground">No web seeds available.</p>
+				} else {
+					<table class="w-full">
+						<thead class="sticky top-0 bg-muted/80 text-left">
+							<tr class="border-b border-border">
+								<th class="px-3 py-1.5 font-medium text-muted-foreground">URL</th>
+							</tr>
+						</thead>
+						<tbody class="divide-y divide-border">
+							for _, ws := range p.WebSeeds {
+								<tr class="hover:bg-muted/40">
+									<td class="px-3 py-1">
+										<a
+											href={ templ.URL(ws.URL) }
+											target="_blank"
+											rel="noopener noreferrer"
+											class="text-primary hover:underline break-all"
+										>{ ws.URL }</a>
 									</td>
 								</tr>
 							}

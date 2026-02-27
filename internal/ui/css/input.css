@@ -101,6 +101,25 @@
 }
 
 /* ============================================================
+   Additional color themes — applied via data-theme="X" on <html>
+   ============================================================ */
+@import './themes/amber_minimal.css';
+@import './themes/amethyst_haze.css';
+@import './themes/bubblegum.css';
+@import './themes/catppuccin.css';
+@import './themes/claude.css';
+@import './themes/cyberpunk.css';
+@import './themes/matrix.css';
+@import './themes/perpetuity.css';
+@import './themes/synthwave.css';
+@import './themes/tangerine.css';
+@import './themes/kyle.css';
+@import './themes/minimal.css';
+@import './themes/napster.css';
+@import './themes/nightwalker.css';
+@import './themes/swizzin.css';
+
+/* ============================================================
    Tailwind v4 CSS variable → color token mapping
    ============================================================ */
 @theme inline {

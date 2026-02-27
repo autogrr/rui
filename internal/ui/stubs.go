@@ -295,6 +295,12 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 		if targets, err := h.notificationTargetStore.List(ctx); err == nil {
 			props.NotificationTargets = targets
 		}
+	case pages.SettingsSectionTrackers:
+		if h.trackerCustomizationStore != nil {
+			if customs, err := h.trackerCustomizationStore.List(ctx); err == nil {
+				props.TrackerCustomizations = customs
+			}
+		}
 	}
 
 	render(w, r, http.StatusOK, pages.Settings(props))

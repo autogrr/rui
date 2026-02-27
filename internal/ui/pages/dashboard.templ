@@ -96,26 +96,112 @@ templ Dashboard(p DashboardProps) {
 				<!-- Instance cards grid — HTMX polls every 5 s for live stats -->
 				<div
 					id="dashboard-stats"
-					class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
 					hx-get={ p.BaseURL + "/ui/partials/dashboard" }
 					hx-trigger="load, every 5s"
 					hx-swap="innerHTML"
 					hx-indicator="#dashboard-poll-indicator"
+					class="space-y-4"
 				>
 					<!-- Skeletons shown until first HTMX response -->
-					@DashboardSkeleton()
+					@DashboardGlobalSkeleton()
+					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+						@DashboardSkeleton()
+					</div>
 				</div>
 			}
 		</div>
 	}
 }
 
-// DashboardStatsPartial renders only the instance cards for HTMX partial updates.
+// DashboardStatsPartial renders the global summary bar + instance cards for HTMX partial updates.
 templ DashboardStatsPartial(instances []DashboardInstance, baseURL string) {
-	for _, inst := range instances {
-		@instanceCard(inst, baseURL)
+	@dashboardGlobalStats(instances, baseURL)
+	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+		for _, inst := range instances {
+			@instanceCard(inst, baseURL)
+		}
+	</div>
+}
+
+// dashboardGlobalStats renders the aggregate stats row across all connected instances.
+templ dashboardGlobalStats(instances []DashboardInstance, baseURL string) {
+	{{ gs := globalStats(instances) }}
+	if gs.Total > 0 {
+		@card.Card(card.Props{Class: "bg-muted/40"}) {
+			@card.Content(card.ContentProps{Class: "py-4"}) {
+				<div class="flex flex-wrap items-center gap-x-8 gap-y-3">
+					<!-- Instances online/total -->
+					<div class="flex items-center gap-2">
+						<span class="text-sm text-muted-foreground">Instances</span>
+						<span class="text-sm font-semibold tabular-nums">{ itoa(gs.Connected) }/{ itoa(gs.Total) }</span>
+					</div>
+					<!-- Global download speed -->
+					<div class="flex items-center gap-2">
+						<svg class="h-3.5 w-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 17 12 21 16 17"/><line x1="12" x2="12" y1="3" y2="21"/></svg>
+						<span class="text-sm font-semibold tabular-nums">{ formatBytesPerSec(gs.DlSpeed) }</span>
+					</div>
+					<!-- Global upload speed -->
+					<div class="flex items-center gap-2">
+						<svg class="h-3.5 w-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 7 12 3 16 7"/><line x1="12" x2="12" y1="21" y2="3"/></svg>
+						<span class="text-sm font-semibold tabular-nums">{ formatBytesPerSec(gs.UpSpeed) }</span>
+					</div>
+					<!-- Torrent counts -->
+					<div class="flex items-center gap-3 text-sm">
+						<span class="text-muted-foreground">Downloading</span>
+						<span class="font-semibold tabular-nums">{ itoa(gs.Downloading) }</span>
+						<span class="text-muted-foreground">Seeding</span>
+						<span class="font-semibold tabular-nums">{ itoa(gs.Seeding) }</span>
+						<span class="text-muted-foreground">Total</span>
+						<span class="font-semibold tabular-nums">{ itoa(gs.Total_t) }</span>
+					</div>
+					<!-- All-time stats if available -->
+					if gs.AlltimeDl > 0 || gs.AlltimeUl > 0 {
+						<div class="flex items-center gap-3 text-sm border-l pl-4">
+							<span class="text-muted-foreground text-xs">All-time ↓</span>
+							<span class="tabular-nums text-xs font-medium">{ formatBytes(uint64(gs.AlltimeDl)) }</span>
+							<span class="text-muted-foreground text-xs">All-time ↑</span>
+							<span class="tabular-nums text-xs font-medium">{ formatBytes(uint64(gs.AlltimeUl)) }</span>
+						</div>
+					}
+				</div>
+			}
+		}
 	}
 }
+
+// globalStatsSummary holds aggregated values across all instances.
+type globalStatsSummary struct {
+	Connected   int
+	Total       int
+	DlSpeed     uint64
+	UpSpeed     uint64
+	Downloading int
+	Seeding     int
+	Total_t     int
+	AlltimeDl   int64
+	AlltimeUl   int64
+}
+
+// globalStats computes aggregate stats across all connected instances.
+func globalStats(instances []DashboardInstance) globalStatsSummary {
+	var gs globalStatsSummary
+	gs.Total = len(instances)
+	for _, inst := range instances {
+		if inst.IsConnected {
+			gs.Connected++
+			gs.DlSpeed += inst.DlSpeed
+			gs.UpSpeed += inst.UpSpeed
+			gs.Downloading += inst.Downloading
+			gs.Seeding += inst.Seeding
+			gs.Total_t += inst.Total
+			gs.AlltimeDl += inst.AlltimeDl
+			gs.AlltimeUl += inst.AlltimeUl
+		}
+	}
+	return gs
+}
+
+
 
 // dashboardActiveInstance picks the active instance for the layout nav.
 func dashboardActiveInstance(p DashboardProps) *layouts.Instance {
@@ -280,6 +366,20 @@ templ DashboardSkeleton() {
 					}
 				</div>
 			}
+		}
+	}
+}
+
+// DashboardGlobalSkeleton renders a skeleton for the global aggregate stats bar.
+templ DashboardGlobalSkeleton() {
+	@card.Card(card.Props{Class: "bg-muted/40"}) {
+		@card.Content(card.ContentProps{Class: "py-4"}) {
+			<div class="flex flex-wrap items-center gap-x-8 gap-y-3">
+				@skeleton.Skeleton(skeleton.Props{Class: "h-4 w-24"})
+				@skeleton.Skeleton(skeleton.Props{Class: "h-4 w-20"})
+				@skeleton.Skeleton(skeleton.Props{Class: "h-4 w-20"})
+				@skeleton.Skeleton(skeleton.Props{Class: "h-4 w-48"})
+			</div>
 		}
 	}
 }

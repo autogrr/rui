@@ -69,6 +69,7 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 	props, _ := h.syncManager.GetTorrentProperties(ctx, targetID, hash)
 	files, _ := h.syncManager.GetTorrentFiles(ctx, targetID, hash)
 	trackers, _ := h.syncManager.GetTorrentTrackers(ctx, targetID, hash)
+	webSeeds, _ := h.syncManager.GetTorrentWebSeeds(ctx, targetID, hash)
 
 	var peers []qbt.TorrentPeer
 	if peersResp, err := h.syncManager.GetTorrentPeers(ctx, targetID, hash); err == nil && peersResp != nil {
@@ -90,6 +91,7 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 		Files:      files,
 		Trackers:   trackers,
 		Peers:      peers,
+		WebSeeds:   webSeeds,
 	}))
 }
 

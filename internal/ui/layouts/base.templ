@@ -37,6 +37,9 @@ templ Base(p BaseProps) {
 					var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 					if (isDark) document.documentElement.classList.add('dark');
 					else document.documentElement.classList.remove('dark');
+					var colorTheme = localStorage.getItem('qui:color-theme');
+					if (colorTheme) document.documentElement.setAttribute('data-theme', colorTheme);
+					else document.documentElement.removeAttribute('data-theme');
 				})();
 			</script>
 		</head>

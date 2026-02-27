@@ -28,6 +28,12 @@ type InstanceListItem struct {
 	ConnectionStatus         string // "connected", "disconnected", "disabled", ""
 	HasBasicAuth             bool
 	CreatedAt                time.Time
+	// Hardlink / Reflink mode
+	UseHardlinks          bool
+	UseReflinks           bool
+	HardlinkBaseDir       string
+	HardlinkDirPreset     string // "flat", "by-tracker", "by-instance"
+	FallbackToRegularMode bool
 }
 
 // InstancesPageProps holds data for the instances page.
@@ -203,16 +209,61 @@ func instanceToggleTitle(inst InstanceListItem) string {
 
 // InstanceFormNew renders the add-new-instance inline form.
 templ InstanceFormNew(baseURL, errMsg string) {
-	@instanceFormCard(0, "", "http://localhost:8080", "", false, false, false, false, baseURL, errMsg)
+	@instanceFormCard(instanceFormCardData{BaseURL: baseURL, ErrMsg: errMsg})
 }
 
 // InstanceFormEdit renders the edit-instance inline form pre-populated with instance data.
 templ InstanceFormEdit(inst InstanceListItem, baseURL, errMsg string) {
-	@instanceFormCard(inst.ID, inst.Name, inst.Host, inst.Username, inst.HasBasicAuth, inst.Username == "", inst.TLSSkipVerify, inst.HasLocalFilesystemAccess, baseURL, errMsg)
+	@instanceFormCard(instanceFormCardData{
+		ID:                    inst.ID,
+		Name:                  inst.Name,
+		Host:                  inst.Host,
+		Username:              inst.Username,
+		HasBasicAuth:          inst.HasBasicAuth,
+		AuthBypass:            inst.Username == "",
+		TLSSkipVerify:         inst.TLSSkipVerify,
+		LocalFS:               inst.HasLocalFilesystemAccess,
+		UseHardlinks:          inst.UseHardlinks,
+		UseReflinks:           inst.UseReflinks,
+		HardlinkBaseDir:       inst.HardlinkBaseDir,
+		HardlinkDirPreset:     inst.HardlinkDirPreset,
+		FallbackToRegularMode: inst.FallbackToRegularMode,
+		BaseURL:               baseURL,
+		ErrMsg:                errMsg,
+	})
+}
+
+// instanceFormCardData holds all data for the shared instance form.
+type instanceFormCardData struct {
+	ID                    int
+	Name                  string
+	Host                  string
+	Username              string
+	HasBasicAuth          bool
+	AuthBypass            bool
+	TLSSkipVerify         bool
+	LocalFS               bool
+	UseHardlinks          bool
+	UseReflinks           bool
+	HardlinkBaseDir       string
+	HardlinkDirPreset     string
+	FallbackToRegularMode bool
+	BaseURL               string
+	ErrMsg                string
 }
 
 // instanceFormCard renders the shared add/edit form card.
-templ instanceFormCard(id int, name, host, username string, hasBasicAuth, authBypass, tlsSkipVerify, localFS bool, baseURL, errMsg string) {
+templ instanceFormCard(d instanceFormCardData) {
+	{{ id := d.ID }}
+	{{ name := d.Name }}
+	{{ host := d.Host; if host == "" { host = "http://localhost:8080" } }}
+	{{ username := d.Username }}
+	{{ hasBasicAuth := d.HasBasicAuth }}
+	{{ authBypass := d.AuthBypass }}
+	{{ tlsSkipVerify := d.TLSSkipVerify }}
+	{{ localFS := d.LocalFS }}
+	{{ baseURL := d.BaseURL }}
+	{{ errMsg := d.ErrMsg }}
 	{{ isEdit := id != 0 }}
 	{{ formTitle := "Add Instance" }}
 	if isEdit {
@@ -251,7 +302,7 @@ templ instanceFormCard(id int, name, host, username string, hasBasicAuth, authBy
 				}
 				hx-target="#instance-form-slot"
 				hx-swap="innerHTML"
-				x-data={ instanceFormAlpineData(authBypass, hasBasicAuth) }
+				x-data={ instanceFormAlpineData(authBypass, hasBasicAuth, localFS, d.UseHardlinks, d.UseReflinks) }
 				class="space-y-4"
 			>
 				if isEdit {
@@ -320,13 +371,112 @@ templ instanceFormCard(id int, name, host, username string, hasBasicAuth, authBy
 							name="has_local_filesystem_access"
 							value="on"
 							checked?={ localFS }
+							x-model="localFS"
 							class="peer hidden"
 							role="switch"
 						/>
-						<div class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary">
-							<span class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4"></span>
+						<div
+							class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors"
+							:class="localFS ? 'bg-primary' : 'bg-input'"
+						>
+							<span
+								class="pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform"
+								:class="localFS ? 'translate-x-4' : 'translate-x-0'"
+							></span>
 						</div>
 					</label>
+				</div>
+
+				<!-- Hardlink / Reflink Mode (shown when local filesystem access is enabled) -->
+				<div x-show="localFS" x-transition class="space-y-3 pl-4 border-l-2 border-muted">
+					<div class="space-y-0.5">
+						<p class="text-sm font-medium">Cross-seed File Mode</p>
+						<p class="text-xs text-muted-foreground">Configure how cross-seeded files are created. Hardlink and reflink modes require the base directory to be on the same filesystem as the instance's download paths.</p>
+					</div>
+					<!-- Mode radio group -->
+					<div class="space-y-2">
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="radio"
+								name="hardlink_mode"
+								value="regular"
+								checked?={ !d.UseHardlinks && !d.UseReflinks }
+								x-model="hardlinkMode"
+								class="h-4 w-4 text-primary border-input"
+							/>
+							<span class="text-sm">Regular — download files normally</span>
+						</label>
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="radio"
+								name="hardlink_mode"
+								value="hardlink"
+								checked?={ d.UseHardlinks }
+								x-model="hardlinkMode"
+								class="h-4 w-4 text-primary border-input"
+							/>
+							<span class="text-sm">Hardlink — create hardlinked file tree</span>
+						</label>
+						<label class="flex items-center gap-3 cursor-pointer">
+							<input
+								type="radio"
+								name="hardlink_mode"
+								value="reflink"
+								checked?={ d.UseReflinks }
+								x-model="hardlinkMode"
+								class="h-4 w-4 text-primary border-input"
+							/>
+							<span class="text-sm">Reflink (copy-on-write) — for cross-seeds with extra/missing files</span>
+						</label>
+					</div>
+					<!-- Base directory + preset (shown when hardlink or reflink mode) -->
+					<div x-show="hardlinkMode !== 'regular'" x-transition class="space-y-3">
+						<div class="space-y-1.5">
+							<label class="text-sm font-medium" for="inst-hardlink-base">Base Directory</label>
+							<input
+								id="inst-hardlink-base"
+								name="hardlink_base_dir"
+								type="text"
+								value={ d.HardlinkBaseDir }
+								placeholder="/data/torrents"
+								autocomplete="off"
+								class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+							/>
+							<p class="text-xs text-muted-foreground">Must be on the same filesystem as the download paths.</p>
+						</div>
+						<div class="space-y-1.5">
+							<label class="text-sm font-medium" for="inst-hardlink-preset">Directory Structure</label>
+							<select
+								id="inst-hardlink-preset"
+								name="hardlink_dir_preset"
+								class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							>
+								<option value="flat" selected?={ d.HardlinkDirPreset == "flat" || d.HardlinkDirPreset == "" }>Flat — all files in base dir</option>
+								<option value="by-tracker" selected?={ d.HardlinkDirPreset == "by-tracker" }>By tracker</option>
+								<option value="by-instance" selected?={ d.HardlinkDirPreset == "by-instance" }>By instance</option>
+							</select>
+						</div>
+						<!-- Fallback toggle -->
+						<div class="flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-3">
+							<div class="space-y-0.5">
+								<label class="text-sm font-medium">Fallback to Regular Mode</label>
+								<p class="text-xs text-muted-foreground">Fall back to regular download if hardlink/reflink creation fails.</p>
+							</div>
+							<label class="inline-flex cursor-pointer items-center gap-2">
+								<input
+									type="checkbox"
+									name="fallback_to_regular"
+									value="on"
+									checked?={ d.FallbackToRegularMode }
+									class="peer hidden"
+									role="switch"
+								/>
+								<div class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary">
+									<span class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4"></span>
+								</div>
+							</label>
+						</div>
+					</div>
 				</div>
 
 				<!-- Auth Bypass toggle -->
@@ -469,7 +619,7 @@ templ instanceFormCard(id int, name, host, username string, hasBasicAuth, authBy
 }
 
 // instanceFormAlpineData builds the x-data string for the form.
-func instanceFormAlpineData(authBypass, showBasicAuth bool) string {
+func instanceFormAlpineData(authBypass, showBasicAuth, localFS, useHardlinks, useReflinks bool) string {
 	ab := "false"
 	if authBypass {
 		ab = "true"
@@ -478,7 +628,17 @@ func instanceFormAlpineData(authBypass, showBasicAuth bool) string {
 	if showBasicAuth {
 		sba = "true"
 	}
-	return fmt.Sprintf("{ authBypass: %s, showBasicAuth: %s }", ab, sba)
+	lfs := "false"
+	if localFS {
+		lfs = "true"
+	}
+	hlMode := "'regular'"
+	if useHardlinks {
+		hlMode = "'hardlink'"
+	} else if useReflinks {
+		hlMode = "'reflink'"
+	}
+	return fmt.Sprintf("{ authBypass: %s, showBasicAuth: %s, localFS: %s, hardlinkMode: %s }", ab, sba, lfs, hlMode)
 }
 
 // instancePasswordPlaceholder returns the password field placeholder.

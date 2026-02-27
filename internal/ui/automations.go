@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/ui/layouts"
@@ -417,4 +418,157 @@ func splitLines(s string) []string {
 		}
 	}
 	return out
+}
+
+// ------------------------------------------------------------------
+// Automation rule CRUD handlers
+// ------------------------------------------------------------------
+
+// GetAutomationRuleFormNew renders the create-rule form modal body.
+// GET /ui/partials/automations/rules/new?instance_id={id}
+func (h *Handler) GetAutomationRuleFormNew(w http.ResponseWriter, r *http.Request) {
+	instanceID := intParam(r.URL.Query().Get("instance_id"), 0)
+	insts := h.navInstances(r)
+	render(w, r, http.StatusOK, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), ""))
+}
+
+// GetAutomationRuleFormEdit renders the edit-rule form modal body.
+// GET /ui/partials/automations/{instanceId}/rules/{id}/edit
+func (h *Handler) GetAutomationRuleFormEdit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	instanceID := intParam(chi.URLParam(r, "instanceId"), 0)
+	id := intParam(chi.URLParam(r, "id"), 0)
+
+	a, err := h.automationStore.Get(ctx, instanceID, id)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	item := pages.AutomationRuleFormItem{
+		ID:             a.ID,
+		InstanceID:     a.InstanceID,
+		Name:           a.Name,
+		TrackerPattern: a.TrackerPattern,
+		DryRun:         a.DryRun,
+		Enabled:        a.Enabled,
+	}
+	render(w, r, http.StatusOK, pages.AutomationRuleFormEdit(item, h.baseURL()))
+}
+
+// PostAutomationRule creates a new automation rule.
+// POST /ui/partials/automations/{instanceId}/rules
+func (h *Handler) PostAutomationRule(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	instanceID := intParam(chi.URLParam(r, "instanceId"), 0)
+	if instanceID == 0 {
+		instanceID = intParam(r.FormValue("instance_id"), 0)
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		insts := h.navInstances(r)
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), "Name is required"))
+		return
+	}
+
+	rule := &models.Automation{
+		InstanceID:     instanceID,
+		Name:           name,
+		TrackerPattern: strings.TrimSpace(r.FormValue("tracker_pattern")),
+		DryRun:         r.FormValue("dry_run") == "true",
+		Enabled:        r.FormValue("enabled") == "true",
+	}
+
+	if _, err := h.automationStore.Create(ctx, rule); err != nil {
+		log.Error().Err(err).Msg("ui: failed to create automation rule")
+		insts := h.navInstances(r)
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormNew(insts, instanceID, h.baseURL(), "Failed to create rule: "+err.Error()))
+		return
+	}
+
+	w.Header().Set("HX-Trigger", "closeModal")
+	h.renderAutomationsPartial(w, r, instanceID)
+}
+
+// PutAutomationRule updates an existing automation rule.
+// PUT /ui/partials/automations/{instanceId}/rules/{id}
+func (h *Handler) PutAutomationRule(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	instanceID := intParam(chi.URLParam(r, "instanceId"), 0)
+	id := intParam(chi.URLParam(r, "id"), 0)
+
+	a, err := h.automationStore.Get(ctx, instanceID, id)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		item := pages.AutomationRuleFormItem{
+			ID: a.ID, InstanceID: a.InstanceID, Name: a.Name,
+			TrackerPattern: a.TrackerPattern, DryRun: a.DryRun, Enabled: a.Enabled,
+			ErrMsg: "Name is required",
+		}
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormEdit(item, h.baseURL()))
+		return
+	}
+
+	a.Name = name
+	a.TrackerPattern = strings.TrimSpace(r.FormValue("tracker_pattern"))
+	a.DryRun = r.FormValue("dry_run") == "true"
+	a.Enabled = r.FormValue("enabled") == "true"
+
+	if _, err := h.automationStore.Update(ctx, a); err != nil {
+		log.Error().Err(err).Msg("ui: failed to update automation rule")
+		item := pages.AutomationRuleFormItem{
+			ID: a.ID, InstanceID: a.InstanceID, Name: a.Name,
+			TrackerPattern: a.TrackerPattern, DryRun: a.DryRun, Enabled: a.Enabled,
+			ErrMsg: "Failed to update rule: " + err.Error(),
+		}
+		render(w, r, http.StatusUnprocessableEntity, pages.AutomationRuleFormEdit(item, h.baseURL()))
+		return
+	}
+
+	w.Header().Set("HX-Trigger", "closeModal")
+	h.renderAutomationsPartial(w, r, instanceID)
+}
+
+// DeleteAutomationRule deletes an automation rule.
+// DELETE /ui/partials/automations/{instanceId}/rules/{id}
+func (h *Handler) DeleteAutomationRule(w http.ResponseWriter, r *http.Request) {
+	instanceID := intParam(chi.URLParam(r, "instanceId"), 0)
+	id := intParam(chi.URLParam(r, "id"), 0)
+
+	if err := h.automationStore.Delete(r.Context(), instanceID, id); err != nil {
+		log.Error().Err(err).Msg("ui: failed to delete automation rule")
+		http.Error(w, "delete failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Return empty HTML; HTMX outerHTML swap on the row will remove it.
+	w.WriteHeader(http.StatusOK)
+}
+
+// renderAutomationsPartial fetches all automations data and renders AutomationsPartial.
+func (h *Handler) renderAutomationsPartial(w http.ResponseWriter, r *http.Request, instanceID int) {
+	insts := h.navInstances(r)
+	p := pages.AutomationsProps{
+		BaseURL:    h.baseURL(),
+		Instances:  insts,
+		InstanceID: instanceID,
+	}
+	h.fillAutomationsData(r.Context(), &p, instanceID, insts)
+	render(w, r, http.StatusOK, pages.AutomationsPartial(p))
 }

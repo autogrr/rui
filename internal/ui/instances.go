@@ -105,6 +105,17 @@ func (h *Handler) PostInstance(w http.ResponseWriter, r *http.Request) {
 	basicUsername := r.FormValue("basic_username")
 	basicPassword := r.FormValue("basic_password")
 
+	// Hardlink / Reflink mode fields.
+	hardlinkMode := r.FormValue("hardlink_mode") // "regular", "hardlink", "reflink"
+	useHardlinks := hardlinkMode == "hardlink"
+	useReflinks := hardlinkMode == "reflink"
+	hardlinkBaseDir := strings.TrimSpace(r.FormValue("hardlink_base_dir"))
+	hardlinkDirPreset := r.FormValue("hardlink_dir_preset")
+	if hardlinkDirPreset == "" {
+		hardlinkDirPreset = "flat"
+	}
+	fallbackToRegular := r.FormValue("fallback_to_regular") == "on"
+
 	if name == "" {
 		render(w, r, http.StatusUnprocessableEntity, pages.InstanceFormNew(h.baseURL(), "Instance name is required"))
 		return
@@ -126,7 +137,7 @@ func (h *Handler) PostInstance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	localFSBool := localFS
-	_, err := h.instanceStore.Create(
+	created, err := h.instanceStore.Create(
 		r.Context(),
 		name, host, username, password,
 		basicUserPtr, basicPassPtr,
@@ -136,6 +147,26 @@ func (h *Handler) PostInstance(w http.ResponseWriter, r *http.Request) {
 		log.Error().Err(err).Msg("ui: failed to create instance")
 		render(w, r, http.StatusUnprocessableEntity, pages.InstanceFormNew(h.baseURL(), "Failed to create instance: "+err.Error()))
 		return
+	}
+
+	// Apply hardlink/reflink settings if configured (separate Update call since Create doesn't support them).
+	if useHardlinks || useReflinks || hardlinkBaseDir != "" {
+		useHL := useHardlinks
+		useRL := useReflinks
+		fall := fallbackToRegular
+		if _, updateErr := h.instanceStore.Update(r.Context(), created.ID, created.Name, created.Host,
+			created.Username, "",
+			created.BasicUsername, nil,
+			&models.InstanceUpdateParams{
+				UseHardlinks:          &useHL,
+				UseReflinks:           &useRL,
+				HardlinkBaseDir:       &hardlinkBaseDir,
+				HardlinkDirPreset:     &hardlinkDirPreset,
+				FallbackToRegularMode: &fall,
+			},
+		); updateErr != nil {
+			log.Warn().Err(updateErr).Int("id", created.ID).Msg("ui: failed to apply hardlink settings on create")
+		}
 	}
 
 	h.renderInstanceSuccessPartial(w, r)
@@ -169,6 +200,17 @@ func (h *Handler) PutInstance(w http.ResponseWriter, r *http.Request) {
 	basicUsername := r.FormValue("basic_username")
 	basicPassword := r.FormValue("basic_password")
 
+	// Hardlink / Reflink mode fields.
+	hardlinkMode := r.FormValue("hardlink_mode")
+	useHardlinks := hardlinkMode == "hardlink"
+	useReflinks := hardlinkMode == "reflink"
+	hardlinkBaseDir := strings.TrimSpace(r.FormValue("hardlink_base_dir"))
+	hardlinkDirPreset := r.FormValue("hardlink_dir_preset")
+	if hardlinkDirPreset == "" {
+		hardlinkDirPreset = "flat"
+	}
+	fallbackToRegular := r.FormValue("fallback_to_regular") == "on"
+
 	existing, fetchErr := h.instanceStore.Get(r.Context(), id)
 	if fetchErr != nil {
 		http.Error(w, "instance not found", http.StatusNotFound)
@@ -201,6 +243,11 @@ func (h *Handler) PutInstance(w http.ResponseWriter, r *http.Request) {
 	params := &models.InstanceUpdateParams{
 		TLSSkipVerify:            &tlsPtr,
 		HasLocalFilesystemAccess: &localFSPtr,
+		UseHardlinks:             &useHardlinks,
+		UseReflinks:              &useReflinks,
+		HardlinkBaseDir:          &hardlinkBaseDir,
+		HardlinkDirPreset:        &hardlinkDirPreset,
+		FallbackToRegularMode:    &fallbackToRegular,
 	}
 
 	_, err = h.instanceStore.Update(
@@ -309,6 +356,11 @@ func instanceToListItem(ctx context.Context, inst *models.Instance, sm *qbittorr
 		HasLocalFilesystemAccess: inst.HasLocalFilesystemAccess,
 		IsActive:                 inst.IsActive,
 		HasBasicAuth:             inst.BasicUsername != nil && *inst.BasicUsername != "",
+		UseHardlinks:             inst.UseHardlinks,
+		UseReflinks:              inst.UseReflinks,
+		HardlinkBaseDir:          inst.HardlinkBaseDir,
+		HardlinkDirPreset:        inst.HardlinkDirPreset,
+		FallbackToRegularMode:    inst.FallbackToRegularMode,
 	}
 	if inst.BasicUsername != nil {
 		item.BasicUsername = *inst.BasicUsername

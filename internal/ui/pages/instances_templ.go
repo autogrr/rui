@@ -37,6 +37,12 @@ type InstanceListItem struct {
 	ConnectionStatus         string // "connected", "disconnected", "disabled", ""
 	HasBasicAuth             bool
 	CreatedAt                time.Time
+	// Hardlink / Reflink mode
+	UseHardlinks          bool
+	UseReflinks           bool
+	HardlinkBaseDir       string
+	HardlinkDirPreset     string // "flat", "by-tracker", "by-instance"
+	FallbackToRegularMode bool
 }
 
 // InstancesPageProps holds data for the instances page.
@@ -89,7 +95,7 @@ func Instances(p InstancesPageProps) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/instances/form")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 61, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 67, Col: 55}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -200,7 +206,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs("instance-" + strconv.Itoa(inst.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 106, Col: 46}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 112, Col: 46}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -263,7 +269,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(inst.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 115, Col: 56}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 121, Col: 56}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -350,7 +356,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(inst.Host)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 130, Col: 75}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 136, Col: 75}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -368,7 +374,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(inst.Username)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 132, Col: 73}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 138, Col: 73}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {
@@ -410,7 +416,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(baseURL + "/ui/instances/" + strconv.Itoa(inst.ID) + "/toggle")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 143, Col: 79}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 149, Col: 79}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -423,7 +429,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs("#instance-" + strconv.Itoa(inst.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 144, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 150, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -436,7 +442,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(instanceToggleTitle(inst))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 146, Col: 40}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 152, Col: 40}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -473,7 +479,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(baseURL + "/ui/partials/instances/form/" + strconv.Itoa(inst.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 158, Col: 80}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 164, Col: 80}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -486,7 +492,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 				var templ_7745c5c3_Var25 string
 				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(baseURL + "/ui/instances/" + strconv.Itoa(inst.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 170, Col: 69}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 176, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -499,7 +505,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 				var templ_7745c5c3_Var26 string
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs("#instance-" + strconv.Itoa(inst.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 171, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 177, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -512,7 +518,7 @@ func InstanceRowCard(inst InstanceListItem, baseURL string) templ.Component {
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs("Delete instance \"" + inst.Name + "\"? This cannot be undone.")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 173, Col: 83}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 179, Col: 83}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -583,7 +589,7 @@ func InstanceFormNew(baseURL, errMsg string) templ.Component {
 			templ_7745c5c3_Var28 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = instanceFormCard(0, "", "http://localhost:8080", "", false, false, false, false, baseURL, errMsg).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = instanceFormCard(instanceFormCardData{BaseURL: baseURL, ErrMsg: errMsg}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -613,7 +619,23 @@ func InstanceFormEdit(inst InstanceListItem, baseURL, errMsg string) templ.Compo
 			templ_7745c5c3_Var29 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = instanceFormCard(inst.ID, inst.Name, inst.Host, inst.Username, inst.HasBasicAuth, inst.Username == "", inst.TLSSkipVerify, inst.HasLocalFilesystemAccess, baseURL, errMsg).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = instanceFormCard(instanceFormCardData{
+			ID:                    inst.ID,
+			Name:                  inst.Name,
+			Host:                  inst.Host,
+			Username:              inst.Username,
+			HasBasicAuth:          inst.HasBasicAuth,
+			AuthBypass:            inst.Username == "",
+			TLSSkipVerify:         inst.TLSSkipVerify,
+			LocalFS:               inst.HasLocalFilesystemAccess,
+			UseHardlinks:          inst.UseHardlinks,
+			UseReflinks:           inst.UseReflinks,
+			HardlinkBaseDir:       inst.HardlinkBaseDir,
+			HardlinkDirPreset:     inst.HardlinkDirPreset,
+			FallbackToRegularMode: inst.FallbackToRegularMode,
+			BaseURL:               baseURL,
+			ErrMsg:                errMsg,
+		}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -621,8 +643,27 @@ func InstanceFormEdit(inst InstanceListItem, baseURL, errMsg string) templ.Compo
 	})
 }
 
+// instanceFormCardData holds all data for the shared instance form.
+type instanceFormCardData struct {
+	ID                    int
+	Name                  string
+	Host                  string
+	Username              string
+	HasBasicAuth          bool
+	AuthBypass            bool
+	TLSSkipVerify         bool
+	LocalFS               bool
+	UseHardlinks          bool
+	UseReflinks           bool
+	HardlinkBaseDir       string
+	HardlinkDirPreset     string
+	FallbackToRegularMode bool
+	BaseURL               string
+	ErrMsg                string
+}
+
 // instanceFormCard renders the shared add/edit form card.
-func instanceFormCard(id int, name, host, username string, hasBasicAuth, authBypass, tlsSkipVerify, localFS bool, baseURL, errMsg string) templ.Component {
+func instanceFormCard(d instanceFormCardData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -643,6 +684,19 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 			templ_7745c5c3_Var30 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
+		id := d.ID
+		name := d.Name
+		host := d.Host
+		if host == "" {
+			host = "http://localhost:8080"
+		}
+		username := d.Username
+		hasBasicAuth := d.HasBasicAuth
+		authBypass := d.AuthBypass
+		tlsSkipVerify := d.TLSSkipVerify
+		localFS := d.LocalFS
+		baseURL := d.BaseURL
+		errMsg := d.ErrMsg
 		isEdit := id != 0
 		formTitle := "Add Instance"
 		if isEdit {
@@ -695,7 +749,7 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 					var templ_7745c5c3_Var34 string
 					templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(formTitle)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 229, Col: 16}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 280, Col: 16}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 					if templ_7745c5c3_Err != nil {
@@ -719,7 +773,7 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 					var templ_7745c5c3_Var35 string
 					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 242, Col: 53}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 293, Col: 53}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 					if templ_7745c5c3_Err != nil {
@@ -759,7 +813,7 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 				var templ_7745c5c3_Var37 string
 				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(action)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 248, Col: 20}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 299, Col: 20}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 				if templ_7745c5c3_Err != nil {
@@ -777,7 +831,7 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 					var templ_7745c5c3_Var38 string
 					templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(action)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 250, Col: 20}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 301, Col: 20}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 					if templ_7745c5c3_Err != nil {
@@ -793,9 +847,9 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var39 string
-				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(instanceFormAlpineData(authBypass, hasBasicAuth))
+				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(instanceFormAlpineData(authBypass, hasBasicAuth, localFS, d.UseHardlinks, d.UseReflinks))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 254, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 305, Col: 101}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
 				if templ_7745c5c3_Err != nil {
@@ -818,7 +872,7 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 				var templ_7745c5c3_Var40 string
 				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 268, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 319, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 				if templ_7745c5c3_Err != nil {
@@ -831,7 +885,7 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 				var templ_7745c5c3_Var41 string
 				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(host)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 283, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 334, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 				if templ_7745c5c3_Err != nil {
@@ -857,82 +911,136 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, " class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary\"><span class=\"pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4\"></span></div></label></div><!-- Auth Bypass toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">Authentication Bypass</label><p class=\"text-xs text-muted-foreground\">Enable when qBittorrent bypasses authentication for localhost or whitelisted IPs.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"auth_bypass\" value=\"on\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, " x-model=\"localFS\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"localFS ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"localFS ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Hardlink / Reflink Mode (shown when local filesystem access is enabled) --><div x-show=\"localFS\" x-transition class=\"space-y-3 pl-4 border-l-2 border-muted\"><div class=\"space-y-0.5\"><p class=\"text-sm font-medium\">Cross-seed File Mode</p><p class=\"text-xs text-muted-foreground\">Configure how cross-seeded files are created. Hardlink and reflink modes require the base directory to be on the same filesystem as the instance's download paths.</p></div><!-- Mode radio group --><div class=\"space-y-2\"><label class=\"flex items-center gap-3 cursor-pointer\"><input type=\"radio\" name=\"hardlink_mode\" value=\"regular\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if authBypass {
+				if !d.UseHardlinks && !d.UseReflinks {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, " x-model=\"authBypass\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"authBypass ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"authBypass ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Username + Password (hidden when auth bypass) --><div x-show=\"!authBypass\" x-transition class=\"space-y-4\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-username\">Username</label> <input id=\"inst-username\" name=\"username\" type=\"text\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, " x-model=\"hardlinkMode\" class=\"h-4 w-4 text-primary border-input\"> <span class=\"text-sm\">Regular — download files normally</span></label> <label class=\"flex items-center gap-3 cursor-pointer\"><input type=\"radio\" name=\"hardlink_mode\" value=\"hardlink\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var42 string
-				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(username)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 368, Col: 23}
+				if d.UseHardlinks {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, " checked")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "\" placeholder=\"qBittorrent username (usually admin)\" autocomplete=\"off\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-password\">Password</label> <input id=\"inst-password\" name=\"password\" type=\"password\" placeholder=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, " x-model=\"hardlinkMode\" class=\"h-4 w-4 text-primary border-input\"> <span class=\"text-sm\">Hardlink — create hardlinked file tree</span></label> <label class=\"flex items-center gap-3 cursor-pointer\"><input type=\"radio\" name=\"hardlink_mode\" value=\"reflink\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var43 string
-				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(instancePasswordPlaceholder(id != 0))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 381, Col: 57}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\" autocomplete=\"new-password\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div></div><!-- Basic Auth toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">HTTP Basic Authentication</label><p class=\"text-xs text-muted-foreground\">Enable if your qBittorrent is behind a reverse proxy with Basic Auth.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"show_basic_auth\" value=\"on\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if hasBasicAuth {
+				if d.UseReflinks {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, " x-model=\"showBasicAuth\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"showBasicAuth ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"showBasicAuth ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Basic Auth fields (shown when basic auth enabled) --><div x-show=\"showBasicAuth\" x-transition class=\"space-y-4 pl-4 border-l-2 border-muted\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-basic-user\">Basic Auth Username</label> <input id=\"inst-basic-user\" name=\"basic_username\" type=\"text\" placeholder=\"Basic auth username\" autocomplete=\"off\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-basic-pass\">Basic Auth Password</label> <input id=\"inst-basic-pass\" name=\"basic_password\" type=\"password\" placeholder=\"Basic auth password\" autocomplete=\"new-password\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div></div><!-- Form actions --><div class=\"flex gap-2 pt-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, " x-model=\"hardlinkMode\" class=\"h-4 w-4 text-primary border-input\"> <span class=\"text-sm\">Reflink (copy-on-write) — for cross-seeds with extra/missing files</span></label></div><!-- Base directory + preset (shown when hardlink or reflink mode) --><div x-show=\"hardlinkMode !== 'regular'\" x-transition class=\"space-y-3\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-hardlink-base\">Base Directory</label> <input id=\"inst-hardlink-base\" name=\"hardlink_base_dir\" type=\"text\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Var44 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-					if !templ_7745c5c3_IsBuffer {
-						defer func() {
-							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-							if templ_7745c5c3_Err == nil {
-								templ_7745c5c3_Err = templ_7745c5c3_BufErr
-							}
-						}()
+				var templ_7745c5c3_Var42 string
+				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(d.HardlinkBaseDir)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 440, Col: 33}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "\" placeholder=\"/data/torrents\" autocomplete=\"off\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"><p class=\"text-xs text-muted-foreground\">Must be on the same filesystem as the download paths.</p></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-hardlink-preset\">Directory Structure</label> <select id=\"inst-hardlink-preset\" name=\"hardlink_dir_preset\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\"><option value=\"flat\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if d.HardlinkDirPreset == "flat" || d.HardlinkDirPreset == "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, " selected")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
 					}
-					ctx = templ.InitializeContext(ctx)
-					if isEdit {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "Save Changes")
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "Add Instance")
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, ">Flat — all files in base dir</option> <option value=\"by-tracker\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if d.HardlinkDirPreset == "by-tracker" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, " selected")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
 					}
-					return nil
-				})
-				templ_7745c5c3_Err = button.Button(button.Props{Type: button.TypeSubmit, Variant: button.VariantDefault}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var44), templ_7745c5c3_Buffer)
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, ">By tracker</option> <option value=\"by-instance\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if d.HardlinkDirPreset == "by-instance" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, " selected")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, ">By instance</option></select></div><!-- Fallback toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-3\"><div class=\"space-y-0.5\"><label class=\"text-sm font-medium\">Fallback to Regular Mode</label><p class=\"text-xs text-muted-foreground\">Fall back to regular download if hardlink/reflink creation fails.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"fallback_to_regular\" value=\"on\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if d.FallbackToRegularMode {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, " checked")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, " class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary\"><span class=\"pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4\"></span></div></label></div></div></div><!-- Auth Bypass toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">Authentication Bypass</label><p class=\"text-xs text-muted-foreground\">Enable when qBittorrent bypasses authentication for localhost or whitelisted IPs.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"auth_bypass\" value=\"on\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if authBypass {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, " checked")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, " x-model=\"authBypass\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"authBypass ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"authBypass ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Username + Password (hidden when auth bypass) --><div x-show=\"!authBypass\" x-transition class=\"space-y-4\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-username\">Username</label> <input id=\"inst-username\" name=\"username\" type=\"text\" value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var43 string
+				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(username)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 518, Col: 23}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "\" placeholder=\"qBittorrent username (usually admin)\" autocomplete=\"off\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-password\">Password</label> <input id=\"inst-password\" name=\"password\" type=\"password\" placeholder=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var44 string
+				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(instancePasswordPlaceholder(id != 0))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 531, Col: 57}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "\" autocomplete=\"new-password\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div></div><!-- Basic Auth toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">HTTP Basic Authentication</label><p class=\"text-xs text-muted-foreground\">Enable if your qBittorrent is behind a reverse proxy with Basic Auth.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"show_basic_auth\" value=\"on\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if hasBasicAuth {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, " checked")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, " x-model=\"showBasicAuth\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"showBasicAuth ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"showBasicAuth ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Basic Auth fields (shown when basic auth enabled) --><div x-show=\"showBasicAuth\" x-transition class=\"space-y-4 pl-4 border-l-2 border-muted\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-basic-user\">Basic Auth Username</label> <input id=\"inst-basic-user\" name=\"basic_username\" type=\"text\" placeholder=\"Basic auth username\" autocomplete=\"off\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-basic-pass\">Basic Auth Password</label> <input id=\"inst-basic-pass\" name=\"basic_password\" type=\"password\" placeholder=\"Basic auth password\" autocomplete=\"new-password\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div></div><!-- Form actions --><div class=\"flex gap-2 pt-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -948,7 +1056,36 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "Cancel")
+					if isEdit {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "Save Changes")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+					} else {
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "Add Instance")
+						if templ_7745c5c3_Err != nil {
+							return templ_7745c5c3_Err
+						}
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{Type: button.TypeSubmit, Variant: button.VariantDefault}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var45), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var46 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "Cancel")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -962,11 +1099,11 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 						"hx-target": "#instance-form-slot",
 						"hx-swap":   "innerHTML",
 					},
-				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var45), templ_7745c5c3_Buffer)
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var46), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "</div></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</div></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -987,7 +1124,7 @@ func instanceFormCard(id int, name, host, username string, hasBasicAuth, authByp
 }
 
 // instanceFormAlpineData builds the x-data string for the form.
-func instanceFormAlpineData(authBypass, showBasicAuth bool) string {
+func instanceFormAlpineData(authBypass, showBasicAuth, localFS, useHardlinks, useReflinks bool) string {
 	ab := "false"
 	if authBypass {
 		ab = "true"
@@ -996,7 +1133,17 @@ func instanceFormAlpineData(authBypass, showBasicAuth bool) string {
 	if showBasicAuth {
 		sba = "true"
 	}
-	return fmt.Sprintf("{ authBypass: %s, showBasicAuth: %s }", ab, sba)
+	lfs := "false"
+	if localFS {
+		lfs = "true"
+	}
+	hlMode := "'regular'"
+	if useHardlinks {
+		hlMode = "'hardlink'"
+	} else if useReflinks {
+		hlMode = "'reflink'"
+	}
+	return fmt.Sprintf("{ authBypass: %s, showBasicAuth: %s, localFS: %s, hardlinkMode: %s }", ab, sba, lfs, hlMode)
 }
 
 // instancePasswordPlaceholder returns the password field placeholder.
@@ -1024,12 +1171,12 @@ func InstanceFormSuccessOOB(instances []InstanceListItem, baseURL string) templ.
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var46 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var46 == nil {
-			templ_7745c5c3_Var46 = templ.NopComponent
+		templ_7745c5c3_Var47 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var47 == nil {
+			templ_7745c5c3_Var47 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<!-- Form slot cleared --><!-- OOB: replace instance list --><div id=\"instance-list\" hx-swap-oob=\"innerHTML\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<!-- Form slot cleared --><!-- OOB: replace instance list --><div id=\"instance-list\" hx-swap-oob=\"innerHTML\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1037,7 +1184,7 @@ func InstanceFormSuccessOOB(instances []InstanceListItem, baseURL string) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1062,9 +1209,9 @@ func InstanceFormNewError(baseURL, errMsg string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var47 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var47 == nil {
-			templ_7745c5c3_Var47 = templ.NopComponent
+		templ_7745c5c3_Var48 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var48 == nil {
+			templ_7745c5c3_Var48 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = InstanceFormNew(baseURL, errMsg).Render(ctx, templ_7745c5c3_Buffer)
@@ -1091,9 +1238,9 @@ func InstanceFormEditError(inst InstanceListItem, baseURL, errMsg string) templ.
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var48 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var48 == nil {
-			templ_7745c5c3_Var48 = templ.NopComponent
+		templ_7745c5c3_Var49 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var49 == nil {
+			templ_7745c5c3_Var49 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = InstanceFormEdit(inst, baseURL, errMsg).Render(ctx, templ_7745c5c3_Buffer)

@@ -1,0 +1,191 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/ui/components/card"
+)
+
+// TrackerCustomizationItem holds display data for a tracker customization row.
+type TrackerCustomizationItem struct {
+	ID              int
+	DisplayName     string
+	Domains         string // comma-joined
+	IncludedInStats string // comma-joined, empty = all
+	UpdatedAt       string
+
+	// for form rendering
+	ErrMsg string
+}
+
+// TrackerCustomizationFromModel converts a model to display item.
+func TrackerCustomizationFromModel(c *models.TrackerCustomization) TrackerCustomizationItem {
+	return TrackerCustomizationItem{
+		ID:              c.ID,
+		DisplayName:     c.DisplayName,
+		Domains:         strings.Join(c.Domains, ", "),
+		IncludedInStats: strings.Join(c.IncludedInStats, ", "),
+		UpdatedAt:       c.UpdatedAt.Format("2006-01-02 15:04"),
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Tracker Customizations section
+// ──────────────────────────────────────────────────────────────────
+
+// SettingsTrackersSection renders the tracker customizations management section.
+templ SettingsTrackersSection(p SettingsProps) {
+@card.Card(card.Props{}) {
+@card.Header(card.HeaderProps{}) {
+<div class="flex items-start justify-between">
+<div class="space-y-1.5">
+@card.Title(card.TitleProps{}) {
+Tracker Customizations
+}
+@card.Description(card.DescriptionProps{}) {
+Assign display names and group tracker domains for better reporting.
+}
+</div>
+<button
+class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+hx-get={ p.BaseURL + "/ui/partials/settings/trackers/form" }
+hx-target="#tracker-form-slot"
+hx-swap="innerHTML"
+>
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+Add Tracker
+</button>
+</div>
+}
+@card.Content(card.ContentProps{}) {
+<div id="tracker-form-slot" class="mb-4"></div>
+@TrackerCustomizationListPartial(p.TrackerCustomizations, p.BaseURL)
+}
+}
+}
+
+// TrackerCustomizationListPartial renders the tracker customization rows.
+templ TrackerCustomizationListPartial(customs []*models.TrackerCustomization, baseURL string) {
+<div id="tracker-list">
+if len(customs) == 0 {
+<p class="text-sm text-muted-foreground py-4 text-center">No tracker customizations configured.</p>
+} else {
+<div class="space-y-2">
+for _, c := range customs {
+{{ item := TrackerCustomizationFromModel(c) }}
+@trackerCustomizationRow(item, baseURL)
+}
+</div>
+}
+</div>
+}
+
+// trackerCustomizationRow renders a single tracker customization item.
+templ trackerCustomizationRow(item TrackerCustomizationItem, baseURL string) {
+<div id={ fmt.Sprintf("tracker-custom-%d", item.ID) } class="flex items-start justify-between rounded-lg border border-border p-3 text-sm">
+<div class="min-w-0 flex-1 space-y-1">
+<p class="font-medium">{ item.DisplayName }</p>
+<p class="text-xs text-muted-foreground font-mono break-all">{ item.Domains }</p>
+if item.IncludedInStats != "" {
+<p class="text-xs text-muted-foreground">Stats: { item.IncludedInStats }</p>
+}
+<p class="text-xs text-muted-foreground">Updated { item.UpdatedAt }</p>
+</div>
+<div class="flex items-center gap-1 ml-3 shrink-0">
+<button
+class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
+hx-get={ fmt.Sprintf("%s/ui/partials/settings/trackers/%d/form", baseURL, item.ID) }
+hx-target="#tracker-form-slot"
+hx-swap="innerHTML"
+>Edit</button>
+<button
+class="h-7 px-2 text-xs rounded-md border border-input text-destructive hover:bg-destructive/10 transition-colors"
+hx-delete={ fmt.Sprintf("%s/ui/partials/settings/trackers/%d", baseURL, item.ID) }
+hx-target={ fmt.Sprintf("#tracker-custom-%d", item.ID) }
+hx-swap="outerHTML"
+hx-confirm={ fmt.Sprintf("Delete tracker customization \"%s\"?", item.DisplayName) }
+>Delete</button>
+</div>
+</div>
+}
+
+// TrackerCustomizationFormCreate renders the create form.
+templ TrackerCustomizationFormCreate(baseURL string, errMsg string) {
+<div class="rounded-lg border border-border p-4 mb-4 space-y-3 bg-muted/30">
+<h3 class="text-sm font-semibold">New Tracker Customization</h3>
+if errMsg != "" {
+<p class="text-sm text-destructive">{ errMsg }</p>
+}
+<form
+hx-post={ baseURL + "/ui/partials/settings/trackers" }
+hx-target="#tracker-list"
+hx-swap="outerHTML"
+hx-on::after-request="if(event.detail.successful) document.getElementById('tracker-form-slot').innerHTML = ''"
+class="space-y-3"
+>
+@trackerCustomizationFormFields(TrackerCustomizationItem{})
+<div class="flex justify-end gap-2">
+<button type="button"
+onclick="document.getElementById('tracker-form-slot').innerHTML = ''"
+class="rounded-md border border-input px-3 py-1.5 text-xs hover:bg-accent transition-colors">Cancel</button>
+<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Create</button>
+</div>
+</form>
+</div>
+}
+
+// TrackerCustomizationFormEdit renders the edit form for an existing entry.
+templ TrackerCustomizationFormEdit(item TrackerCustomizationItem, baseURL string) {
+<div class="rounded-lg border border-border p-4 mb-4 space-y-3 bg-muted/30">
+<h3 class="text-sm font-semibold">Edit Tracker Customization</h3>
+if item.ErrMsg != "" {
+<p class="text-sm text-destructive">{ item.ErrMsg }</p>
+}
+<form
+hx-put={ fmt.Sprintf("%s/ui/partials/settings/trackers/%d", baseURL, item.ID) }
+hx-target={ fmt.Sprintf("#tracker-custom-%d", item.ID) }
+hx-swap="outerHTML"
+hx-on::after-request="if(event.detail.successful) document.getElementById('tracker-form-slot').innerHTML = ''"
+class="space-y-3"
+>
+@trackerCustomizationFormFields(item)
+<div class="flex justify-end gap-2">
+<button type="button"
+onclick="document.getElementById('tracker-form-slot').innerHTML = ''"
+class="rounded-md border border-input px-3 py-1.5 text-xs hover:bg-accent transition-colors">Cancel</button>
+<button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Save Changes</button>
+</div>
+</form>
+</div>
+}
+
+// trackerCustomizationFormFields renders shared form fields for create and edit.
+templ trackerCustomizationFormFields(item TrackerCustomizationItem) {
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Display name</label>
+<input type="text" name="display_name" required value={ item.DisplayName }
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="e.g. TorrentLeech"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">
+Domains <span class="font-normal">(comma-separated — used to match trackers)</span>
+</label>
+<input type="text" name="domains" required value={ item.Domains }
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="e.g. tracker.torrentleech.org, leechers-paradise.org"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">
+Included in stats <span class="font-normal">(comma-separated subdomains to count in metrics — leave empty for all)</span>
+</label>
+<input type="text" name="included_in_stats" value={ item.IncludedInStats }
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+placeholder="optional — leave empty to include all domains"/>
+</div>
+}

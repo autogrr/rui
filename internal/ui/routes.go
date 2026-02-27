@@ -183,8 +183,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 			// Automations.
 			r.Get("/partials/automations", h.GetAutomationsPartial)
-			r.Post("/partials/automations/{instanceId}/rules/{id}/toggle", h.PostAutomationToggle)
-
+					r.Get("/partials/automations/rules/new", h.GetAutomationRuleFormNew)
+					r.Post("/partials/automations/{instanceId}/rules", h.PostAutomationRule)
+					r.Get("/partials/automations/{instanceId}/rules/{id}/edit", h.GetAutomationRuleFormEdit)
+					r.Put("/partials/automations/{instanceId}/rules/{id}", h.PutAutomationRule)
+					r.Delete("/partials/automations/{instanceId}/rules/{id}", h.DeleteAutomationRule)
 			// Reannounce (per-instance monitoring on Automations page).
 			r.Get("/partials/automations/reannounce/settings/{instanceId}", h.GetReannounceSettingsPartial)
 			r.Post("/partials/automations/reannounce/settings/{instanceId}", h.PostReannounceSettings)

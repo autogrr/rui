@@ -33,6 +33,7 @@ const (
 	SettingsSectionDatetime       = "datetime"
 	SettingsSectionThemes         = "themes"
 	SettingsSectionLogs           = "logs"
+	SettingsSectionTrackers       = "trackers"
 )
 
 // SettingsProps holds data for the settings page.
@@ -57,6 +58,8 @@ type SettingsProps struct {
 	ExtPrograms []*models.ExternalProgram
 	// notifications section
 	NotificationTargets []*models.NotificationTarget
+	// tracker customizations section
+	TrackerCustomizations []*models.TrackerCustomization
 }
 
 // settingsNavItem describes one settings navigation entry.
@@ -91,6 +94,7 @@ templ Settings(p SettingsProps) {
 			{ID: SettingsSectionDatetime, Label: "Date & Time", Href: p.BaseURL + "/ui/settings/" + SettingsSectionDatetime},
 			{ID: SettingsSectionThemes, Label: "Themes", Href: p.BaseURL + "/ui/settings/" + SettingsSectionThemes},
 			{ID: SettingsSectionLogs, Label: "Logs", Href: p.BaseURL + "/ui/settings/" + SettingsSectionLogs},
+			{ID: SettingsSectionTrackers, Label: "Trackers", Href: p.BaseURL + "/ui/settings/" + SettingsSectionTrackers},
 		} }}
 		<div class="flex flex-col md:flex-row gap-6">
 			<!-- Left nav -->
@@ -139,8 +143,8 @@ templ Settings(p SettingsProps) {
 				case SettingsSectionThemes:
 					@SettingsThemesSection(p)
 				case SettingsSectionLogs:
-					@SettingsLogsSection(p)
-				default:
+					@SettingsLogsSection(p)					case SettingsSectionTrackers:
+						@SettingsTrackersSection(p)				default:
 					@settingsGeneralSection(p)
 				}
 				<p class="text-xs text-muted-foreground">

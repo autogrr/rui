@@ -37,6 +37,17 @@ Message      string
 CreatedAt    string
 }
 
+// AutomationRuleFormItem holds form data for creating or editing an automation rule.
+type AutomationRuleFormItem struct {
+	ID             int
+	InstanceID     int
+	Name           string
+	TrackerPattern string
+	DryRun         bool
+	Enabled        bool
+	ErrMsg         string
+}
+
 // AutomationsProps holds all data for the full Automations page.
 type AutomationsProps struct {
 BaseURL   string
@@ -80,63 +91,97 @@ Username:    p.Username,
 AppVersion:  p.Version,
 Instances:   p.Instances,
 }) {
-<div class="flex flex-col h-full gap-4">
-<!-- Page header + instance selector -->
-<div class="flex flex-wrap items-center justify-between gap-3">
-<h1 class="text-xl font-bold tracking-tight">Automations</h1>
-<div class="flex items-center gap-2">
-<label class="text-sm text-muted-foreground">Filter by instance:</label>
-<select
-class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-hx-get={ p.BaseURL + "/ui/partials/automations" }
-hx-target="#automations-content"
-hx-swap="innerHTML"
-name="instance_id"
->
-<option value="0">All instances</option>
-for _, inst := range p.Instances {
-if inst.ID == p.InstanceID {
-<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
-} else {
-<option value={ itoa(inst.ID) }>{ inst.Name }</option>
-}
-}
-</select>
-</div>
-</div>
+		<div class="flex flex-col h-full gap-4" x-data="{ ruleOpen: false }" @close-modal.window="ruleOpen = false">
+			<!-- Page header + instance selector -->
+			<div class="flex flex-wrap items-center justify-between gap-3">
+				<h1 class="text-xl font-bold tracking-tight">Automations</h1>
+				<div class="flex items-center gap-2">
+					<label class="text-sm text-muted-foreground">Filter by instance:</label>
+					<select
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						hx-get={ p.BaseURL + "/ui/partials/automations" }
+						hx-target="#automations-content"
+						hx-swap="innerHTML"
+						name="instance_id"
+					>
+						<option value="0">All instances</option>
+						for _, inst := range p.Instances {
+							if inst.ID == p.InstanceID {
+								<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
+							} else {
+								<option value={ itoa(inst.ID) }>{ inst.Name }</option>
+							}
+						}
+					</select>
+				</div>
+			</div>
 
-if p.AutomationsError != "" {
-<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
-{ p.AutomationsError }
-</div>
-}
+			if p.AutomationsError != "" {
+				<div class="rounded-md bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+					{ p.AutomationsError }
+				</div>
+			}
 
-<div id="automations-content" class="space-y-6">
-@AutomationsPartial(p)
-</div>
-</div>
-}
+			<div id="automations-content" class="space-y-6">
+				@AutomationsPartial(p)
+			</div>
+
+			<!-- Rule create/edit modal -->
+			<div
+				x-show="ruleOpen"
+				x-cloak
+				class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+				@keydown.escape.window="ruleOpen = false"
+			>
+				<div
+					class="w-full max-w-lg rounded-xl border border-border bg-background shadow-xl p-6"
+					@click.outside="ruleOpen = false"
+				>
+					<div class="flex items-center justify-between mb-4">
+						<h2 class="text-base font-semibold" id="rule-modal-title">Automation Rule</h2>
+						<button @click="ruleOpen = false" class="rounded-md p-1 text-muted-foreground hover:bg-accent">
+							<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+						</button>
+					</div>
+					<div id="rule-form-body"></div>
+				</div>
+			</div>
+		</div>
+	}
 }
 
 // AutomationsPartial renders the automations list (HTMX partial target).
 templ AutomationsPartial(p AutomationsProps) {
 <!-- Rules card -->
 @card.Card(card.Props{}) {
-@card.Header(card.HeaderProps{}) {
+@card.Header(card.HeaderProps{Class: "flex-row items-center justify-between"}) {
+<div class="flex flex-col space-y-1.5">
 @card.Title(card.TitleProps{}) {
 Automation Rules
 }
 @card.Description(card.DescriptionProps{}) {
 Rules run periodically against all torrents in the selected instance.
 }
+</div>
+if p.InstanceID != 0 {
+<button
+class="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors shrink-0"
+hx-get={ fmt.Sprintf("%s/ui/partials/automations/rules/new?instance_id=%d", p.BaseURL, p.InstanceID) }
+hx-target="#rule-form-body"
+hx-swap="innerHTML"
+@click="ruleOpen = true"
+>New Rule</button>
+}
 }
 @card.Content(card.ContentProps{}) {
 if len(p.Automations) == 0 {
 <div class="py-8 text-center">
 <p class="text-sm text-muted-foreground">No automation rules configured.</p>
-<p class="text-xs text-muted-foreground mt-1">
-Create rules in the individual instance settings to manage torrents automatically.
-</p>
+if p.InstanceID != 0 {
+<p class="text-xs text-muted-foreground mt-1">Use the New Rule button to create one.</p>
+} else {
+<p class="text-xs text-muted-foreground mt-1">Select an instance to create rules.</p>
+}
 </div>
 } else {
 <div class="overflow-x-auto">
@@ -313,6 +358,22 @@ Enable
 }
 </button>
 </form>
+<button
+class="h-7 px-2 text-xs rounded-md border border-input hover:bg-accent transition-colors"
+hx-get={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d/edit", baseURL, a.InstanceID, a.ID) }
+hx-target="#rule-form-body"
+hx-swap="innerHTML"
+@click="ruleOpen = true"
+title={ "Edit " + a.Name }
+>Edit</button>
+<button
+class="h-7 px-2 text-xs rounded-md border border-input text-destructive hover:bg-destructive/10 transition-colors"
+hx-delete={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d", baseURL, a.InstanceID, a.ID) }
+hx-target={ "#automation-" + itoa(a.ID) }
+hx-swap="outerHTML"
+hx-confirm={ "Delete rule \"" + a.Name + "\"?" }
+title={ "Delete " + a.Name }
+>Delete</button>
 </div>
 </td>
 </tr>
@@ -321,4 +382,88 @@ Enable
 // AutomationRowTempl is the exported entry-point for refreshing a single automation row via HTMX.
 templ AutomationRowTempl(a AutomationItem, baseURL string) {
 @automationRow(a, baseURL)
+}
+
+// AutomationRuleFormNew renders the create-rule form body (loaded into #rule-form-body).
+templ AutomationRuleFormNew(instances []layouts.Instance, instanceID int, baseURL string, errMsg string) {
+<form
+hx-post={ fmt.Sprintf("%s/ui/partials/automations/%d/rules", baseURL, instanceID) }
+hx-target="#automations-content"
+hx-swap="innerHTML"
+class="space-y-4"
+>
+if errMsg != "" {
+<p class="text-sm text-destructive">{ errMsg }</p>
+}
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Instance</label>
+<select name="instance_id" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+for _, inst := range instances {
+if inst.ID == instanceID {
+<option value={ itoa(inst.ID) } selected>{ inst.Name }</option>
+} else {
+<option value={ itoa(inst.ID) }>{ inst.Name }</option>
+}
+}
+</select>
+</div>
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Name</label>
+<input type="text" name="name" required placeholder="e.g. Seed ratio limiter"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Tracker pattern <span class="text-muted-foreground font-normal">(comma-separated globs, optional)</span></label>
+<input type="text" name="tracker_pattern" placeholder="e.g. *.tracker.example.com, tracker2.*"
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+</div>
+<div class="flex items-center gap-4 pt-1">
+<label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+<input type="checkbox" name="dry_run" value="true" class="rounded"/> Dry run (log only, no actions)
+</label>
+<label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+<input type="checkbox" name="enabled" value="true" checked class="rounded"/> Enabled
+</label>
+</div>
+<div class="flex justify-end gap-2 pt-2">
+<button type="button" @click="ruleOpen = false" class="rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors">Cancel</button>
+<button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Create Rule</button>
+</div>
+</form>
+}
+
+// AutomationRuleFormEdit renders the edit-rule form body (loaded into #rule-form-body).
+templ AutomationRuleFormEdit(item AutomationRuleFormItem, baseURL string) {
+<form
+hx-put={ fmt.Sprintf("%s/ui/partials/automations/%d/rules/%d", baseURL, item.InstanceID, item.ID) }
+hx-target="#automations-content"
+hx-swap="innerHTML"
+class="space-y-4"
+>
+if item.ErrMsg != "" {
+<p class="text-sm text-destructive">{ item.ErrMsg }</p>
+}
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Name</label>
+<input type="text" name="name" required value={ item.Name }
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+</div>
+<div>
+<label class="block text-xs font-medium text-muted-foreground mb-1">Tracker pattern <span class="text-muted-foreground font-normal">(comma-separated globs, optional)</span></label>
+<input type="text" name="tracker_pattern" value={ item.TrackerPattern }
+class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+</div>
+<div class="flex items-center gap-4 pt-1">
+<label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+<input type="checkbox" name="dry_run" value="true" checked?={ item.DryRun } class="rounded"/> Dry run (log only, no actions)
+</label>
+<label class="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+<input type="checkbox" name="enabled" value="true" checked?={ item.Enabled } class="rounded"/> Enabled
+</label>
+</div>
+<div class="flex justify-end gap-2 pt-2">
+<button type="button" @click="ruleOpen = false" class="rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors">Cancel</button>
+<button type="submit" class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">Save Changes</button>
+</div>
+</form>
 }

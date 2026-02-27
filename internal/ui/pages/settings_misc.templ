@@ -163,6 +163,28 @@ templ SettingsThemesSection(p SettingsProps) {
 						@themeOptionCard("dark", "Dark", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`)
 					</div>
 				</div>
+				<!-- Color theme -->
+				<div class="space-y-3">
+					<label class="text-sm font-medium">Color Theme</label>
+					<div class="flex flex-wrap gap-3">
+						@colorThemeCard("", "Autobrr", "oklch(0.5461 0.2152 262.8809)")
+						@colorThemeCard("amber_minimal", "Amber Minimal", "oklch(0.7686 0.1647 70.0804)")
+						@colorThemeCard("amethyst_haze", "Amethyst Haze", "oklch(0.6104 0.0767 299.7335)")
+						@colorThemeCard("bubblegum", "Bubblegum", "oklch(0.6209 0.1801 348.1385)")
+						@colorThemeCard("catppuccin", "Catppuccin", "oklch(0.5547 0.2503 297.0156)")
+						@colorThemeCard("claude", "Claude", "oklch(0.6171 0.1375 39.0427)")
+						@colorThemeCard("cyberpunk", "Cyberpunk", "oklch(0.6726 0.2904 341.4084)")
+						@colorThemeCard("matrix", "The Matrix", "oklch(0.6271 0.1699 149.2138)")
+						@colorThemeCard("perpetuity", "Perpetuity", "oklch(0.5624 0.0947 203.2755)")
+						@colorThemeCard("synthwave", "Synthwave", "oklch(0.6942 0.2264 354.0533)")
+						@colorThemeCard("tangerine", "Tangerine", "oklch(0.6397 0.1720 36.4421)")
+						@colorThemeCard("kyle", "The Kyle", "oklch(0.5432 0.2254 351.5646)")
+						@colorThemeCard("minimal", "Minimal", "oklch(0.2050 0 0)")
+						@colorThemeCard("napster", "Napster", "oklch(0.30 0.14 265)")
+						@colorThemeCard("nightwalker", "Nightwalker", "oklch(0.6231 0.1880 259.8145)")
+						@colorThemeCard("swizzin", "Swizzin", "oklch(0.4580 0.0732 250.9460)")
+					</div>
+				</div>
 				<p class="text-xs text-muted-foreground">The selection is applied immediately. No page reload required.</p>
 			</div>
 		}
@@ -171,13 +193,25 @@ templ SettingsThemesSection(p SettingsProps) {
 		function themePrefs() {
 			return {
 				scheme: 'system',
+				colorTheme: '',
 				init() {
 					this.scheme = localStorage.getItem('qui:theme') || 'system';
+					this.colorTheme = localStorage.getItem('qui:color-theme') || '';
 				},
 				select(value) {
 					this.scheme = value;
 					localStorage.setItem('qui:theme', value);
 					applyTheme(value);
+				},
+				selectColor(value) {
+					this.colorTheme = value;
+					if (value) {
+						localStorage.setItem('qui:color-theme', value);
+						document.documentElement.setAttribute('data-theme', value);
+					} else {
+						localStorage.removeItem('qui:color-theme');
+						document.documentElement.removeAttribute('data-theme');
+					}
 				},
 			};
 		}
@@ -214,6 +248,18 @@ templ themeOptionCard(value, label, iconSVG string) {
 		@click={ "select('" + value + "')" }
 	>
 		@templ.Raw(iconSVG)
+		{ label }
+	</button>
+}
+
+templ colorThemeCard(value, label, primaryColor string) {
+	<button
+		type="button"
+		class="rounded-lg border p-3 w-28 text-center text-xs transition-colors hover:border-primary cursor-pointer"
+		:class={ "{'border-primary bg-primary/5 font-medium': colorTheme === '" + value + "', 'border-input': colorTheme !== '" + value + "'}" }
+		@click={ "selectColor('" + value + "')" }
+	>
+		<span class="block w-8 h-8 rounded-full mx-auto mb-2 ring-1 ring-border" style={ "background-color: " + primaryColor + ";" }></span>
 		{ label }
 	</button>
 }

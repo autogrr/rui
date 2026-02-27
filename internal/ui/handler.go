@@ -66,8 +66,7 @@ type Handler struct {
 	automationActivityStore *models.AutomationActivityStore
 	backupsService          *backups.Service
 	clientAPIKeyStore       *models.ClientAPIKeyStore
-
-	// Reannounce, orphan-scan and dir-scan services (optional, nil when not configured).
+		trackerCustomizationStore *models.TrackerCustomizationStore
 	reannounceService *reannounce.Service
 	reannounceStore   *models.InstanceReannounceStore
 	orphanScanService *orphanscan.Service
@@ -101,8 +100,7 @@ type Dependencies struct {
 	AutomationActivityStore *models.AutomationActivityStore
 	BackupsService          *backups.Service
 	ClientAPIKeyStore       *models.ClientAPIKeyStore
-
-	// Reannounce, orphan-scan and dir-scan — all optional.
+		TrackerCustomizationStore *models.TrackerCustomizationStore
 	ReannounceService *reannounce.Service
 	ReannounceStore   *models.InstanceReannounceStore
 	OrphanScanService *orphanscan.Service
@@ -136,8 +134,7 @@ func NewHandler(deps Dependencies) *Handler {
 		automationActivityStore: deps.AutomationActivityStore,
 		backupsService:          deps.BackupsService,
 		clientAPIKeyStore:       deps.ClientAPIKeyStore,
-
-		reannounceService: deps.ReannounceService,
+				trackerCustomizationStore: deps.TrackerCustomizationStore,
 		reannounceStore:   deps.ReannounceStore,
 		orphanScanService: deps.OrphanScanService,
 		orphanScanStore:   deps.OrphanScanStore,
