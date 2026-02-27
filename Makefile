@@ -18,7 +18,7 @@ INTERNAL_WEB_DIR = internal/web
 # Go build flags
 LDFLAGS = -ldflags "-X github.com/autogrr/rui/internal/buildinfo.Version=$(VERSION)"
 
-.PHONY: all build frontend backend dev dev-backend dev-frontend dev-expose clean test help themes-fetch themes-clean lint lint-full lint-json lint-fix fmt modern deps docs-dev docs-build
+.PHONY: all build frontend backend dev dev-backend dev-frontend dev-expose clean test help themes-fetch themes-clean lint lint-full lint-json lint-fix fmt modern deps docs-dev docs-build templ-generate templ-watch tailwind-ui tailwind-ui-watch
 
 # Default target
 all: build
@@ -63,7 +63,7 @@ frontend: themes-fetch
 	cp -r $(WEB_DIR)/dist $(INTERNAL_WEB_DIR)/
 
 # Build backend
-backend:
+backend: templ-generate
 	@echo "Building backend..."
 	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/qui
 
@@ -96,6 +96,33 @@ dev-frontend-expose:
 clean: themes-clean
 	@echo "Cleaning..."
 	rm -rf $(WEB_DIR)/dist $(INTERNAL_WEB_DIR)/dist $(BINARY_NAME) $(BUILD_DIR)
+	@echo "Cleaning templ-generated files..."
+	find internal/ui -name '*_templ.go' -delete
+
+# Generate templ templates for the server-rendered UI (required before building backend)
+templ-generate:
+	@echo "Generating templ templates..."
+	templ generate ./internal/ui/...
+
+# Watch and regenerate templ templates on file change
+templ-watch:
+	@echo "Watching templ templates..."
+	templ generate --watch ./internal/ui/...
+
+# Compile Tailwind CSS for the server-rendered UI
+# Uses pnpm when available, otherwise falls back to npm (works on NixOS via nix-store node).
+NIX_NODE ?= $(firstword $(wildcard /nix/store/*-nodejs-22.*/bin/node) $(wildcard /nix/store/*-nodejs-24.*/bin/node))
+NODE_BIN  = $(if $(shell command -v node 2>/dev/null),node,$(NIX_NODE))
+NPM_BIN   = $(if $(shell command -v pnpm 2>/dev/null),pnpm,$(if $(shell command -v npm 2>/dev/null),npm,$(dir $(NODE_BIN))npm))
+
+tailwind-ui:
+	@echo "Building Tailwind CSS for server-rendered UI..."
+	cd internal/ui/css && PATH="$(dir $(NODE_BIN)):$$PATH" $(NPM_BIN) install && PATH="$(dir $(NODE_BIN)):$$PATH" $(NPM_BIN) run build
+
+# Watch Tailwind CSS for the server-rendered UI
+tailwind-ui-watch:
+	@echo "Watching Tailwind CSS for server-rendered UI..."
+	cd internal/ui/css && PATH="$(dir $(NODE_BIN)):$$PATH" $(NPM_BIN) install && PATH="$(dir $(NODE_BIN)):$$PATH" $(NPM_BIN) run dev
 
 # Run tests
 test:

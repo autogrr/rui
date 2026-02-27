@@ -224,20 +224,42 @@ templ sidebarNavItem(item NavItem, currentPath string, activeInstance *Instance)
 	}
 }
 
-// instanceSelector renders the instance dropdown in the header.
+// instanceSelector renders the instance indicator in the header.
+//   - 0 instances: nothing rendered
+//   - 1 instance: static chip with status dot (no dropdown)
+//   - multiple instances: dropdown to switch between them
 templ instanceSelector(instances []Instance, active *Instance, baseURL string) {
-	if len(instances) == 0 {
-		<span class="text-sm text-muted-foreground">No instances</span>
-	} else {
+	if len(instances) == 1 {
+		// Single instance — no need for a dropdown, just show the name.
+		{{ inst := instances[0] }}
+		<span class="flex items-center gap-1.5 text-sm font-medium text-foreground min-w-0">
+			<span
+				class={
+					"h-2 w-2 rounded-full shrink-0",
+					templ.KV("bg-green-500", inst.IsActive),
+					templ.KV("bg-muted-foreground", !inst.IsActive),
+				}
+			></span>
+			<span class="truncate max-w-xs">{ inst.Name }</span>
+		</span>
+	} else if len(instances) > 1 {
+		// Multiple instances — show a dropdown to switch between them.
 		<div class="relative" x-data="{ open: false }" @click.outside="open = false">
 			<button
 				@click="open = !open"
-				class="flex items-center gap-1.5 text-sm font-medium max-w-xs truncate hover:text-primary transition-colors"
+				class="flex items-center gap-1.5 text-sm font-medium max-w-xs hover:text-primary transition-colors"
 			>
 				if active != nil {
+					<span
+						class={
+							"h-2 w-2 rounded-full shrink-0",
+							templ.KV("bg-green-500", active.IsActive),
+							templ.KV("bg-muted-foreground", !active.IsActive),
+						}
+					></span>
 					<span class="truncate">{ active.Name }</span>
 				} else {
-					<span class="text-muted-foreground">Select instance</span>
+					<span class="text-muted-foreground">Switch instance</span>
 				}
 				<svg class="h-3.5 w-3.5 text-muted-foreground shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
 					<path d="m6 9 6 6 6-6"/>
@@ -248,20 +270,12 @@ templ instanceSelector(instances []Instance, active *Instance, baseURL string) {
 				x-cloak
 				class="absolute top-full left-0 mt-1 w-56 bg-popover border border-border rounded-md shadow-md z-50 py-1"
 			>
-				<!-- All instances option -->
-				<a
-					href={ templ.SafeURL(baseURL + "/ui/torrents") }
-					class="flex items-center px-3 py-1.5 text-sm text-foreground hover:bg-accent hover:text-accent-foreground"
-				>
-					All instances
-				</a>
-				<div class="my-1 h-px bg-border mx-1"></div>
 				for _, inst := range instances {
 					<a
 						href={ templ.SafeURL(baseURL + "/ui/torrents?instance_id=" + itoa(inst.ID)) }
 						class={
 							"flex items-center gap-2 px-3 py-1.5 text-sm",
-							templ.KV("text-primary font-medium", active != nil && active.ID == inst.ID),
+							templ.KV("bg-accent/50 text-primary font-medium", active != nil && active.ID == inst.ID),
 							templ.KV("text-foreground hover:bg-accent hover:text-accent-foreground", active == nil || active.ID != inst.ID),
 						}
 					>
@@ -275,6 +289,16 @@ templ instanceSelector(instances []Instance, active *Instance, baseURL string) {
 						<span class="truncate">{ inst.Name }</span>
 					</a>
 				}
+				<div class="my-1 h-px bg-border mx-1"></div>
+				<a
+					href={ templ.SafeURL(baseURL + "/ui/instances") }
+					class="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+				>
+					<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/>
+					</svg>
+					Manage instances
+				</a>
 			</div>
 		</div>
 	}

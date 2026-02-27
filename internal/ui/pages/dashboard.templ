@@ -93,19 +93,23 @@ templ Dashboard(p DashboardProps) {
 					}
 				}
 			} else {
-				<!-- Instance cards grid — HTMX polls every 5 s for live stats -->
+				<!-- SSE wrapper: pushes dashboard-update events; falls back to 30 s polling -->
 				<div
-					id="dashboard-stats"
-					hx-get={ p.BaseURL + "/ui/partials/dashboard" }
-					hx-trigger="load, every 5s"
-					hx-swap="innerHTML"
-					hx-indicator="#dashboard-poll-indicator"
-					class="space-y-4"
+					hx-ext="sse"
+					sse-connect={ p.BaseURL + "/ui/sse/dashboard" }
 				>
-					<!-- Skeletons shown until first HTMX response -->
-					@DashboardGlobalSkeleton()
-					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-						@DashboardSkeleton()
+					<div
+						id="dashboard-stats"
+						hx-get={ p.BaseURL + "/ui/partials/dashboard" }
+						hx-trigger="load, sse:dashboard-update, every 30s"
+						hx-swap="innerHTML"
+						class="space-y-4"
+					>
+						<!-- Skeletons shown until first HTMX response -->
+						@DashboardGlobalSkeleton()
+						<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+							@DashboardSkeleton()
+						</div>
 					</div>
 				</div>
 				<!-- Tracker breakdown — lazy loaded once, not re-polled -->
@@ -240,8 +244,16 @@ func dashboardNavInstances(p DashboardProps) []layouts.Instance {
 }
 
 // instanceCard renders a single qBittorrent instance summary card.
+// The entire card is a navigation target for the torrent list; the alt-speed
+// toggle button stops click propagation so it doesn't also trigger navigation.
 templ instanceCard(inst DashboardInstance, baseURL string) {
-	@card.Card(card.Props{Class: "overflow-hidden"}) {
+	@card.Card(card.Props{
+		Class: "overflow-hidden cursor-pointer transition-shadow hover:shadow-md hover:border-primary/40",
+		Attributes: templ.Attributes{
+			"onclick": "window.location='" + baseURL + "/ui/torrents?instance_id=" + itoa(inst.ID) + "'",
+			"role":    "link",
+		},
+	}) {
 		@card.Header(card.HeaderProps{Class: "pb-3"}) {
 			<div class="flex items-center justify-between gap-2">
 				@card.Title(card.TitleProps{Class: "text-base font-semibold truncate"}) {
@@ -258,8 +270,9 @@ templ instanceCard(inst DashboardInstance, baseURL string) {
 						}
 					}
 					if inst.IsConnected {
-						<!-- Alt speed toggle -->
+						<!-- Alt speed toggle: stopPropagation prevents the card onclick from firing -->
 						<button
+							onclick="event.stopPropagation()"
 							hx-post={ baseURL + "/ui/partials/dashboard/" + itoa(inst.ID) + "/alt-speed" }
 							hx-target="#dashboard-stats"
 							hx-swap="innerHTML"

@@ -96,6 +96,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Get("/partials/torrents/{hash}", h.GetTorrentDetailPartial)
 			r.Post("/partials/torrents/action", h.PostTorrentsAction)
 			r.Post("/partials/torrents/add", h.PostAddTorrent)
+			// SSE stream — pushes torrent-update events; HTMX SSE extension picks
+			// these up to trigger table refreshes while preserving filter state.
+			r.Get("/sse/torrents", h.StreamTorrentsSSE)
+			// SSE stream — pushes dashboard-update events for live instance card stats.
+			r.Get("/sse/dashboard", h.StreamDashboardSSE)
 			r.Get("/partials/instances/form", h.GetInstanceForm)
 			r.Get("/partials/instances/form/{id}", h.GetInstanceForm)
 

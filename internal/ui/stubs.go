@@ -76,8 +76,17 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 	tag := q.Get("tag")
 	page := intParam(q.Get("page"), 1)
 	instanceID := intParam(q.Get("instance_id"), 0)
+	expr := strings.TrimSpace(q.Get("expr"))
+	sortCol := q.Get("sort")
+	sortOrder := q.Get("order")
+	if sortCol == "" {
+		sortCol = "added_on"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
 
-	rows, total, targetID := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status, category, tag)
+	rows, total, targetID := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status, category, tag, expr, sortCol, sortOrder)
 
 	// Load sidebar data (categories and tags) for the full page render.
 	var cats []string
@@ -98,11 +107,14 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 		Username:   username,
 		Version:    h.version,
 		Instances:  navInsts,
-		InstanceID: instanceID,
+		InstanceID: targetID,
 		Search:     search,
 		Status:     status,
 		Category:   category,
 		Tag:        tag,
+		Sort:       sortCol,
+		Order:      sortOrder,
+		Expr:       expr,
 		Page:       page,
 		PageSize:   defaultPageSize,
 		Rows:       rows,
@@ -124,8 +136,17 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 	tag := q.Get("tag")
 	page := intParam(q.Get("page"), 1)
 	instanceID := intParam(q.Get("instance_id"), 0)
+	expr := strings.TrimSpace(q.Get("expr"))
+	sortCol := q.Get("sort")
+	sortOrder := q.Get("order")
+	if sortCol == "" {
+		sortCol = "added_on"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
 
-	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status, category, tag)
+	rows, total, _ := h.fetchTorrentRows(ctx, instanceID, page, defaultPageSize, search, status, category, tag, expr, sortCol, sortOrder)
 
 	render(w, r, http.StatusOK, pages.TorrentsTableBody(pages.TorrentsProps{
 		Rows:       rows,
@@ -136,6 +157,9 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 		Status:     status,
 		Category:   category,
 		Tag:        tag,
+		Sort:       sortCol,
+		Order:      sortOrder,
+		Expr:       expr,
 		InstanceID: instanceID,
 		BaseURL:    h.baseURL(),
 	}))
@@ -144,7 +168,7 @@ func (h *Handler) GetTorrentsPartial(w http.ResponseWriter, r *http.Request) {
 // fetchTorrentRows queries SyncManager and maps the result to []TorrentRow.
 // instanceID == 0 means "first active instance" (fallback when none selected).
 // Returns rows, total count, and the resolved instance ID used for the query.
-func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSize int, search, status, category, tag string) ([]pages.TorrentRow, int, int) {
+func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSize int, search, status, category, tag, expr, sortCol, sortOrder string) ([]pages.TorrentRow, int, int) {
 	if h.syncManager == nil {
 		return nil, 0, 0
 	}
@@ -176,13 +200,23 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSi
 	if tag != "" {
 		filters.Tags = []string{tag}
 	}
+	if expr != "" {
+		filters.Expr = expr
+	}
+
+	if sortCol == "" {
+		sortCol = "added_on"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
 
 	offset := (page - 1) * pageSize
 	if offset < 0 {
 		offset = 0
 	}
 
-	resp, err := h.syncManager.GetTorrentsWithFilters(ctx, targetID, pageSize, offset, "name", "asc", search, filters)
+	resp, err := h.syncManager.GetTorrentsWithFilters(ctx, targetID, pageSize, offset, sortCol, sortOrder, search, filters)
 	if err != nil || resp == nil {
 		return nil, 0, targetID
 	}
@@ -193,17 +227,36 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID, page, pageSi
 			continue
 		}
 		rows = append(rows, pages.TorrentRow{
-			Hash:     tv.Hash,
-			Name:     tv.Name,
-			State:    string(tv.State),
-			SizeB:    tv.TotalSize,
-			Progress: tv.Progress,
-			DlSpeed:  tv.DlSpeed,
-			UpSpeed:  tv.UpSpeed,
-			Ratio:    tv.Ratio,
-			Category: tv.Category,
-			Tags:     tv.Tags,
-			ETA:      tv.ETA,
+			Hash:          tv.Hash,
+			Name:          tv.Name,
+			State:         string(tv.State),
+			SizeB:         tv.Size,
+			TotalSizeB:    tv.TotalSize,
+			Progress:      tv.Progress,
+			DlSpeed:       tv.DlSpeed,
+			UpSpeed:       tv.UpSpeed,
+			Ratio:         tv.Ratio,
+			Category:      tv.Category,
+			Tags:          tv.Tags,
+			ETA:           tv.ETA,
+			AddedOn:       tv.AddedOn,
+			CompletionOn:  tv.CompletionOn,
+			SavePath:      tv.SavePath,
+			Tracker:       tv.Tracker,
+			Uploaded:      tv.Uploaded,
+			Downloaded:    tv.Downloaded,
+			NumSeeds:      tv.NumSeeds,
+			NumLeechs:     tv.NumLeechs,
+			NumComplete:   tv.NumComplete,
+			NumIncomplete: tv.NumIncomplete,
+			SeedingTime:   tv.SeedingTime,
+			TimeActive:    tv.TimeActive,
+			AmountLeft:    tv.AmountLeft,
+			LastActivity:  tv.LastActivity,
+			Availability:  float64(tv.Availability),
+			InfohashV1:    tv.InfohashV1,
+			InfohashV2:    tv.InfohashV2,
+			Priority:      tv.Priority,
 		})
 	}
 

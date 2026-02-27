@@ -19,6 +19,8 @@ templ Base(p BaseProps) {
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<meta name="color-scheme" content="light dark"/>
+			<!-- Prevent Alpine.js x-cloak elements from flashing before init -->
+			<style>[x-cloak]{display:none !important}</style>
 			<title>
 				if p.Title != "" {
 					{ p.Title } — qui
@@ -49,8 +51,8 @@ templ Base(p BaseProps) {
 			@toast.Toast()
 			<!-- HTMX 2.x -->
 			<script src={ p.BaseURL + "/ui/static/js/htmx.min.js" } defer></script>
-			<!-- HTMX SSE extension (for RSS/log streams) -->
-			<script src={ p.BaseURL + "/ui/static/js/htmx-ext-sse.min.js" } defer></script>
+			<!-- HTMX SSE extension (for RSS/log streams and torrent live updates) -->
+			<script src={ p.BaseURL + "/ui/static/js/htmx-ext-sse.js" } defer></script>
 			<!-- Alpine.js 3.x (deferred so x-data initializes after DOM) -->
 			<script src={ p.BaseURL + "/ui/static/js/alpine.min.js" } defer></script>
 			<!-- Sortable.js (for drag-and-drop column reorder) -->

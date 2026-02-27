@@ -4,7 +4,7 @@ services:
     container_name: qui
     restart: unless-stopped
     ports:
-      - "7476:7476"
+      - "7420:7420"
     volumes:
       - ./qui:/config
     #environment:

@@ -14,24 +14,46 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/autogrr/rui/internal/ui/layouts"
 )
 
-// TorrentRow is a minimal view of one torrent for the list table.
+// TorrentRow is a view of one torrent for the list table.
 type TorrentRow struct {
-	Hash     string
-	Name     string
-	State    string  // qbt state string, e.g. "downloading", "uploading", "pausedUP"
-	SizeB    int64   // total_size in bytes
-	Progress float64 // 0–1
-	DlSpeed  int64   // bytes/s
-	UpSpeed  int64   // bytes/s
-	Ratio    float64
-	Category string
-	Tags     string // comma-separated
-	ETA      int64  // seconds; -1 = ∞
+	Hash          string
+	Name          string
+	State         string  // qbt state string
+	SizeB         int64   // selected-file size, bytes
+	TotalSizeB    int64   // total_size including skipped files, bytes
+	Progress      float64 // 0–1
+	DlSpeed       int64   // bytes/s
+	UpSpeed       int64   // bytes/s
+	Ratio         float64
+	Category      string
+	Tags          string // comma-separated
+	ETA           int64  // seconds; -1 / large = ∞
+	AddedOn       int64  // unix timestamp
+	CompletionOn  int64  // unix timestamp (0 = not yet completed)
+	SavePath      string
+	Tracker       string  // primary tracker URL
+	Uploaded      int64   // total bytes uploaded ever
+	Downloaded    int64   // total bytes downloaded
+	NumSeeds      int64   // connected seeds
+	NumLeechs     int64   // connected leechers
+	NumComplete   int64   // total seeds (tracker)
+	NumIncomplete int64   // total peers (tracker)
+	SeedingTime   int64   // seconds seeding
+	TimeActive    int64   // seconds total active
+	AmountLeft    int64   // bytes remaining
+	LastActivity  int64   // unix timestamp of last bandwidth activity
+	Availability  float64 // 0–1 piece availability
+	InfohashV1    string
+	InfohashV2    string
+	Priority      int64 // queue position (0 = not queued)
 }
 
 // TorrentsProps holds data for the torrents list page.
@@ -49,6 +71,9 @@ type TorrentsProps struct {
 	Status     string // active status filter, e.g. "downloading"
 	Category   string // active category filter
 	Tag        string // active tag filter
+	Sort       string // sort column, e.g. "added_on", "name", "size"
+	Order      string // "asc" or "desc"
+	Expr       string // optional expr-lang filter expression
 
 	// Sidebar data (populated for full page renders only)
 	Categories []string
@@ -120,6 +145,139 @@ func formatPercent(p float64) string {
 	return fmt.Sprintf("%.1f%%", p*100)
 }
 
+// formatTimestamp converts a Unix timestamp to a human-readable date+time string.
+func formatTimestamp(t int64) string {
+	if t <= 0 {
+		return "—"
+	}
+	return time.Unix(t, 0).Format("Jan 2, 2006 15:04")
+}
+
+// formatSeedingTime formats seeding duration from seconds.
+func formatSeedingTime(seconds int64) string {
+	if seconds <= 0 {
+		return "—"
+	}
+	d := seconds / 86400
+	h := (seconds % 86400) / 3600
+	if d > 0 {
+		return fmt.Sprintf("%dd %dh", d, h)
+	}
+	m := (seconds % 3600) / 60
+	if h > 0 {
+		return fmt.Sprintf("%dh %dm", h, m)
+	}
+	return fmt.Sprintf("%dm", m)
+}
+
+// trackerHost extracts just the hostname from a tracker URL for display.
+func trackerHost(rawURL string) string {
+	if rawURL == "" {
+		return ""
+	}
+	if u, err := url.Parse(rawURL); err == nil && u.Host != "" {
+		host := u.Host
+		if i := strings.LastIndex(host, ":"); i != -1 {
+			host = host[:i]
+		}
+		parts := strings.Split(host, ".")
+		if len(parts) >= 2 {
+			return parts[len(parts)-2] + "." + parts[len(parts)-1]
+		}
+		return host
+	}
+	return rawURL
+}
+
+// sortArrow returns the sort-direction indicator arrow for a column header.
+func sortArrow(currentSort, col, order string) string {
+	if currentSort != col {
+		return ""
+	}
+	if order == "asc" {
+		return " ↑"
+	}
+	return " ↓"
+}
+
+// isDownloading reports whether the torrent state is an active-download state.
+func isDownloading(state string) bool {
+	switch state {
+	case "downloading", "metaDL", "allocating", "checkingDL", "forcedDL":
+		return true
+	}
+	return false
+}
+
+// torrentColDef describes one column in the toggle dropdown.
+type torrentColDef struct {
+	ID      string
+	Label   string
+	Default bool
+}
+
+// torrentColumnDefs is the canonical ordered list of togglable columns.
+var torrentColumnDefs = []torrentColDef{
+	// Visible by default
+	{ID: "status", Label: "Status", Default: true},
+	{ID: "size", Label: "Size", Default: true},
+	{ID: "progress", Label: "Progress", Default: true},
+	{ID: "dlspeed", Label: "Down ↓", Default: true},
+	{ID: "upspeed", Label: "Up ↑", Default: true},
+	{ID: "eta", Label: "ETA", Default: true},
+	{ID: "ratio", Label: "Ratio", Default: true},
+	{ID: "seeds", Label: "Seeds", Default: true},
+	{ID: "category", Label: "Category", Default: true},
+	{ID: "tags", Label: "Tags", Default: true},
+	{ID: "tracker", Label: "Tracker", Default: true},
+	{ID: "added_on", Label: "Added", Default: true},
+	// Hidden by default
+	{ID: "total_size", Label: "Total Size", Default: false},
+	{ID: "uploaded", Label: "Uploaded", Default: false},
+	{ID: "downloaded", Label: "Downloaded", Default: false},
+	{ID: "amount_left", Label: "Remaining", Default: false},
+	{ID: "completion_on", Label: "Completed On", Default: false},
+	{ID: "time_active", Label: "Time Active", Default: false},
+	{ID: "seeding_time", Label: "Seeding Time", Default: false},
+	{ID: "last_activity", Label: "Last Activity", Default: false},
+	{ID: "priority", Label: "Priority", Default: false},
+	{ID: "save_path", Label: "Save Path", Default: false},
+	{ID: "infohash", Label: "Info Hash", Default: false},
+	{ID: "availability", Label: "Avail.", Default: false},
+}
+
+// colDefaultsJSON returns an inline JS object literal like {status:true,size:true,...}
+// for bootstrapping client-side column visibility state.
+func colDefaultsJSON() string {
+	var b strings.Builder
+	b.WriteString("{")
+	for i, c := range torrentColumnDefs {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		b.WriteString(c.ID)
+		b.WriteString(":")
+		if c.Default {
+			b.WriteString("true")
+		} else {
+			b.WriteString("false")
+		}
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
+// torrentsActiveInstance returns the layouts.Instance matching p.InstanceID, or
+// nil if no instance is selected (e.g. when there are no active instances).
+func torrentsActiveInstance(p TorrentsProps) *layouts.Instance {
+	for _, inst := range p.Instances {
+		if inst.ID == p.InstanceID {
+			return &layouts.Instance{ID: inst.ID, Name: inst.Name, IsActive: inst.IsActive}
+		}
+	}
+	return nil
+}
+
 // Torrents renders the torrents list page.
 func Torrents(p TorrentsProps) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -185,7 +343,7 @@ func Torrents(p TorrentsProps) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 149, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 308, Col: 44}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -196,15 +354,15 @@ func Torrents(p TorrentsProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var5 string
-				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(`{"status":"` + sf.val + `","category":"` + p.Category + `","tag":"` + p.Tag + `","page":"1","instance_id":"` + itoa(p.InstanceID) + `","search":"` + p.Search + `"}`)
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(`{"status":"` + sf.val + `","page":"1"}`)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 153, Col: 175}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 312, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\" hx-include=\"#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -224,7 +382,7 @@ func Torrents(p TorrentsProps) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(sf.label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 160, Col: 10}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 320, Col: 10}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -259,7 +417,7 @@ func Torrents(p TorrentsProps) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 173, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 333, Col: 44}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -270,15 +428,15 @@ func Torrents(p TorrentsProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var10 string
-				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(`{"status":"` + p.Status + `","category":"","tag":"` + p.Tag + `","page":"1","instance_id":"` + itoa(p.InstanceID) + `","search":"` + p.Search + `"}`)
+				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(`{"category":"","page":"1"}`)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 177, Col: 159}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 337, Col: 38}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\" hx-include=\"#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -315,7 +473,7 @@ func Torrents(p TorrentsProps) templ.Component {
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 190, Col: 44}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 351, Col: 44}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -326,15 +484,15 @@ func Torrents(p TorrentsProps) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var14 string
-					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(`{"status":"` + p.Status + `","category":"` + cat + `","tag":"` + p.Tag + `","page":"1","instance_id":"` + itoa(p.InstanceID) + `","search":"` + p.Search + `"}`)
+					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(`{"category":"` + cat + `","page":"1"}`)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 194, Col: 170}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 355, Col: 49}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" class=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" hx-include=\"#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -354,7 +512,7 @@ func Torrents(p TorrentsProps) templ.Component {
 					var templ_7745c5c3_Var16 string
 					templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(cat)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 200, Col: 11}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 362, Col: 11}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 					if templ_7745c5c3_Err != nil {
@@ -367,7 +525,7 @@ func Torrents(p TorrentsProps) templ.Component {
 					var templ_7745c5c3_Var17 string
 					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(cat)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 202, Col: 5}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 364, Col: 5}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
@@ -407,7 +565,7 @@ func Torrents(p TorrentsProps) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 216, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 378, Col: 44}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 				if templ_7745c5c3_Err != nil {
@@ -418,15 +576,15 @@ func Torrents(p TorrentsProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var20 string
-				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(`{"status":"` + p.Status + `","category":"` + p.Category + `","tag":"","page":"1","instance_id":"` + itoa(p.InstanceID) + `","search":"` + p.Search + `"}`)
+				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(`{"tag":"","page":"1"}`)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 220, Col: 164}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 382, Col: 33}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\" hx-include=\"#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -463,7 +621,7 @@ func Torrents(p TorrentsProps) templ.Component {
 					var templ_7745c5c3_Var23 string
 					templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 233, Col: 44}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 396, Col: 44}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 					if templ_7745c5c3_Err != nil {
@@ -474,15 +632,15 @@ func Torrents(p TorrentsProps) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var24 string
-					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(`{"status":"` + p.Status + `","category":"` + p.Category + `","tag":"` + tag + `","page":"1","instance_id":"` + itoa(p.InstanceID) + `","search":"` + p.Search + `"}`)
+					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(`{"tag":"` + tag + `","page":"1"}`)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 237, Col: 175}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 400, Col: 44}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" class=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" hx-include=\"#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -502,7 +660,7 @@ func Torrents(p TorrentsProps) templ.Component {
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 243, Col: 11}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 407, Col: 11}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -515,7 +673,7 @@ func Torrents(p TorrentsProps) templ.Component {
 					var templ_7745c5c3_Var27 string
 					templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 245, Col: 5}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 409, Col: 5}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 					if templ_7745c5c3_Err != nil {
@@ -538,7 +696,7 @@ func Torrents(p TorrentsProps) templ.Component {
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(p.Search)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 273, Col: 16}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 437, Col: 16}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 			if templ_7745c5c3_Err != nil {
@@ -551,211 +709,546 @@ func Torrents(p TorrentsProps) templ.Component {
 			var templ_7745c5c3_Var29 string
 			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 277, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 441, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-page,#current-instance\"><!-- Hidden filter state inputs --><input type=\"hidden\" id=\"current-status\" name=\"status\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-page,#current-instance,#current-sort,#current-order,#current-expr\"><!-- Expr filter --><input id=\"current-expr\" type=\"text\" name=\"expr\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var30 string
-			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(p.Status)
+			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(p.Expr)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 284, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 452, Col: 14}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\"> <input type=\"hidden\" id=\"current-category\" name=\"category\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" placeholder=\"Filter expr… e.g. Ratio &lt; 1\" title=\"expr-lang expression evaluated against torrent fields. Example: Ratio < 1 && State == &#34;downloading&#34;\" class=\"h-8 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-40 md:w-56\" hx-trigger=\"keyup changed delay:600ms, search\" hx-get=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var31 string
-			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(p.Category)
+			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 285, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 457, Col: 44}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\"> <input type=\"hidden\" id=\"current-tag\" name=\"tag\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-page,#current-instance,#current-sort,#current-order,#torrents-search\"><!-- Hidden filter state inputs --><input type=\"hidden\" id=\"current-status\" name=\"status\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var32 string
-			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(p.Tag)
+			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(p.Status)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 286, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 464, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"> <input type=\"hidden\" id=\"current-page\" name=\"page\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"> <input type=\"hidden\" id=\"current-category\" name=\"category\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var33 string
-			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.Page))
+			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(p.Category)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 287, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 465, Col: 77}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\"> <input type=\"hidden\" id=\"current-instance\" name=\"instance_id\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\"> <input type=\"hidden\" id=\"current-tag\" name=\"tag\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var34 string
-			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.InstanceID))
+			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(p.Tag)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 288, Col: 88}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 466, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\"><!-- Active filter chips -->")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "\"> <input type=\"hidden\" id=\"current-page\" name=\"page\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var35 string
+			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.Page))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 467, Col: 71}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\"> <input type=\"hidden\" id=\"current-instance\" name=\"instance_id\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var36 string
+			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.InstanceID))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 468, Col: 88}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\"> <input type=\"hidden\" id=\"current-sort\" name=\"sort\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var37 string
+			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(p.Sort)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 469, Col: 65}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\"> <input type=\"hidden\" id=\"current-order\" name=\"order\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var38 string
+			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(p.Order)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 470, Col: 68}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\"><!-- Hidden sort trigger button (invoked by sortBy() JavaScript) --><button id=\"sort-trigger\" style=\"display:none\" hx-get=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var39 string
+			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 475, Col: 44}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-page,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\"></button><!-- Active filter chips -->")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if p.Category != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<span class=\"inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var35 string
-				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(p.Category)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 292, Col: 12}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, " <button hx-get=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var36 string
-				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 294, Col: 44}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var37 string
-				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(`{"category":"","status":"` + p.Status + `","tag":"` + p.Tag + `","page":"1","instance_id":"` + itoa(p.InstanceID) + `","search":"` + p.Search + `"}`)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 298, Col: 159}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\" class=\"ml-0.5 text-primary/70 hover:text-primary\">×</button></span> ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			if p.Tag != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<span class=\"inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium\">#")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var38 string
-				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(p.Tag)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 305, Col: 8}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, " <button hx-get=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var39 string
-				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 307, Col: 44}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<span class=\"inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var40 string
-				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(`{"tag":"","status":"` + p.Status + `","category":"` + p.Category + `","page":"1","instance_id":"` + itoa(p.InstanceID) + `","search":"` + p.Search + `"}`)
+				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(p.Category)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 311, Col: 164}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 484, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\" class=\"ml-0.5 text-primary/70 hover:text-primary\">×</button></span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, " <button hx-get=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var41 string
+				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 486, Col: 44}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var42 string
+				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(`{"category":"","page":"1"}`)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 490, Col: 38}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "\" hx-include=\"#current-status,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"ml-0.5 text-primary/70 hover:text-primary\">×</button></span> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<!-- Spacer --><div class=\"flex-1\"></div><span class=\"text-xs text-muted-foreground tabular-nums\">")
+			if p.Tag != "" {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<span class=\"inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium\">#")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var43 string
+				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(p.Tag)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 498, Col: 8}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, " <button hx-get=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var44 string
+				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 500, Col: 44}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var45 string
+				templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(`{"tag":"","page":"1"}`)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 504, Col: 33}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\" hx-include=\"#current-status,#current-category,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"ml-0.5 text-primary/70 hover:text-primary\">×</button></span>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<!-- Spacer --><div class=\"flex-1\"></div><span class=\"text-xs text-muted-foreground tabular-nums\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var41 string
-			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.Total))
+			var templ_7745c5c3_Var46 string
+			templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.Total))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 318, Col: 72}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 512, Col: 72}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, " torrent(s)</span> <button @click=\"addOpen = true\" class=\"inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><path d=\"M12 5v14M5 12h14\"></path></svg> Add</button></div><!-- Table + detail panel row --><div class=\"flex flex-1 min-h-0 gap-2\"><!-- Table + bulk bar wrapper --><div class=\"flex flex-col flex-1 min-w-0\"><div class=\"flex-1 overflow-auto rounded-lg border border-border\"><table class=\"w-full text-sm\"><thead class=\"sticky top-0 z-10 bg-muted/80 backdrop-blur border-b border-border\"><tr><th class=\"px-2 py-2 w-8\"><input type=\"checkbox\" id=\"select-all\" class=\"rounded\" onchange=\"\nconst checked = this.checked;\ndocument.querySelectorAll('[name=hashes]').forEach(cb => cb.checked = checked);\nconst count = document.querySelectorAll('[name=hashes]:checked').length;\nconst bar = document.getElementById('bulk-action-bar');\nif (bar) { count > 0 ? bar.classList.remove('hidden') : bar.classList.add('hidden'); }\nconst cnt = document.getElementById('bulk-count');\nif (cnt) cnt.textContent = count + ' selected';\n\"></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground\">Name</th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-24\">Status</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\">Size</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\">Done</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\">↓</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\">↑</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\">Ratio</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\">ETA</th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-28\">Category</th></tr></thead> <tbody id=\"torrents-table-body\" class=\"divide-y divide-border\" hx-get=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var42 string
-			templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 366, Col: 44}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, " torrent(s)</span><!-- SSE live indicator --><span id=\"sse-indicator\" class=\"hidden w-2 h-2 rounded-full bg-green-500 flex-shrink-0\" title=\"Live updates active\"></span><!-- Columns toggle dropdown --><div class=\"relative\" x-data=\"{ colsOpen: false }\"><button @click=\"colsOpen = !colsOpen\" class=\"inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors\" title=\"Toggle column visibility\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01\"></path></svg> Columns</button><div x-show=\"colsOpen\" x-cloak @click.outside=\"colsOpen = false\" class=\"absolute right-0 top-full mt-1 z-30 w-52 rounded-lg border border-border bg-background shadow-lg py-2 max-h-80 overflow-y-auto\"><div class=\"px-3 pb-1.5 border-b border-border mb-1.5 flex justify-between items-center\"><span class=\"text-xs font-semibold text-muted-foreground uppercase tracking-wider\">Columns</span> <button onclick=\"resetTblCols()\" class=\"text-xs text-muted-foreground hover:text-foreground\">Reset</button></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "\" hx-trigger=\"every 8s\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-vals=\"")
+			for _, col := range torrentColumnDefs {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "<label class=\"flex items-center gap-2 px-3 py-1 hover:bg-accent cursor-pointer text-sm select-none\"><input type=\"checkbox\" id=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var47 string
+				templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs("col-toggle-" + col.ID)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 543, Col: 27}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\" class=\"rounded\" data-col-toggle=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var48 string
+				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(col.ID)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 545, Col: 24}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\" onchange=\"toggleTblCol(this.dataset.colToggle)\"> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var49 string
+				templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(col.Label)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 548, Col: 11}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "</label>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</div></div><button @click=\"addOpen = true\" class=\"inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><path d=\"M12 5v14M5 12h14\"></path></svg> Add</button></div><!-- Table + detail panel row --><div class=\"flex flex-1 min-h-0 gap-2\"><!-- Table + bulk bar wrapper (hx-ext=\"sse\" so tbody can listen for live updates) --><div class=\"flex flex-col flex-1 min-w-0\" hx-ext=\"sse\" sse-connect=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var43 string
-			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(`{"status":"` + p.Status + `","category":"` + p.Category + `","tag":"` + p.Tag + `","page":"` + itoa(p.Page) + `","instance_id":"` + itoa(p.InstanceID) + `","search":"` + p.Search + `"}`)
+			var templ_7745c5c3_Var50 string
+			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/sse/torrents?instance_id=" + itoa(p.InstanceID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 370, Col: 196}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 568, Col: 78}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\"><div class=\"flex-1 overflow-auto rounded-lg border border-border\"><table class=\"w-full text-sm\"><thead class=\"sticky top-0 z-10 bg-muted/80 backdrop-blur border-b border-border\"><tr><th class=\"px-2 py-2 w-8\"><input type=\"checkbox\" id=\"select-all\" class=\"rounded\" onchange=\"\nconst checked = this.checked;\ndocument.querySelectorAll('[name=hashes]').forEach(cb => cb.checked = checked);\nconst count = document.querySelectorAll('[name=hashes]:checked').length;\nconst bar = document.getElementById('bulk-action-bar');\nif (bar) { count > 0 ? bar.classList.remove('hidden') : bar.classList.add('hidden'); }\nconst cnt = document.getElementById('bulk-count');\nif (cnt) cnt.textContent = count + ' selected';\n\"></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground\"><button class=\"hover:text-foreground\" onclick=\"sortBy('name')\">Name")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var51 string
+			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "name", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 590, Col: 169}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-24\" data-col=\"status\"><button class=\"hover:text-foreground\" onclick=\"sortBy('state')\">Status")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var52 string
+			templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "state", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 591, Col: 196}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"size\"><button class=\"hover:text-foreground\" onclick=\"sortBy('size')\">Size")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var53 string
+			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "size", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 592, Col: 191}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"total_size\"><button class=\"hover:text-foreground\" onclick=\"sortBy('total_size')\">Total")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var54 string
+			templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "total_size", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 593, Col: 210}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"progress\"><button class=\"hover:text-foreground\" onclick=\"sortBy('progress')\">Done")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var55 string
+			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "progress", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 594, Col: 203}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"dlspeed\"><button class=\"hover:text-foreground\" onclick=\"sortBy('dlspeed')\">&#x2193;")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var56 string
+			templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "dlspeed", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 595, Col: 204}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"upspeed\"><button class=\"hover:text-foreground\" onclick=\"sortBy('upspeed')\">&#x2191;")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var57 string
+			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "upspeed", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 596, Col: 204}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"eta\">ETA</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"ratio\"><button class=\"hover:text-foreground\" onclick=\"sortBy('ratio')\">Ratio")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var58 string
+			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "ratio", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 598, Col: 195}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"uploaded\"><button class=\"hover:text-foreground\" onclick=\"sortBy('uploaded')\">Uploaded")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var59 string
+			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "uploaded", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 599, Col: 207}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"downloaded\"><button class=\"hover:text-foreground\" onclick=\"sortBy('downloaded')\">Downloaded")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var60 string
+			templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "downloaded", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 600, Col: 215}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-20\" data-col=\"amount_left\">Remaining</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-14\" data-col=\"seeds\"><button class=\"hover:text-foreground\" onclick=\"sortBy('num_seeds')\">Seeds")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var61 string
+			templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "num_seeds", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 602, Col: 203}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-28\" data-col=\"category\"><button class=\"hover:text-foreground\" onclick=\"sortBy('category')\">Category")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var62 string
+			templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "category", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 603, Col: 206}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-32\" data-col=\"tags\">Tags</th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-24\" data-col=\"tracker\">Tracker</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-28\" data-col=\"added_on\"><button class=\"hover:text-foreground\" onclick=\"sortBy('added_on')\">Added")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var63 string
+			templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "added_on", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 606, Col: 204}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-28\" data-col=\"completion_on\"><button class=\"hover:text-foreground\" onclick=\"sortBy('completion_on')\">Completed")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var64 string
+			templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "completion_on", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 607, Col: 223}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-24\" data-col=\"seeding_time\"><button class=\"hover:text-foreground\" onclick=\"sortBy('seeding_time')\">Seeding")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var65 string
+			templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "seeding_time", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 608, Col: 218}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-24\" data-col=\"time_active\">Time Active</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-28\" data-col=\"last_activity\"><button class=\"hover:text-foreground\" onclick=\"sortBy('last_activity')\">Last Activity")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var66 string
+			templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "last_activity", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 610, Col: 227}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</button></th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-16\" data-col=\"priority\"><button class=\"hover:text-foreground\" onclick=\"sortBy('priority')\">Queue")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var67 string
+			templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(sortArrow(p.Sort, "priority", p.Order))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 611, Col: 204}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</button></th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground\" data-col=\"save_path\">Save Path</th><th class=\"px-3 py-2 text-left font-medium text-muted-foreground w-32\" data-col=\"infohash\">Info Hash</th><th class=\"px-3 py-2 text-right font-medium text-muted-foreground w-14\" data-col=\"availability\">Avail.</th></tr></thead> <tbody id=\"torrents-table-body\" class=\"divide-y divide-border\" hx-trigger=\"sse:torrent-update\" hx-get=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var68 string
+			templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 621, Col: 44}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-include=\"#current-status,#current-category,#current-tag,#current-page,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -763,7 +1256,7 @@ func Torrents(p TorrentsProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "</tbody></table></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</tbody></table></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -771,7 +1264,7 @@ func Torrents(p TorrentsProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "<!-- Bulk action bar (hidden until rows are selected) --><div id=\"bulk-action-bar\" class=\"hidden mt-2 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 shadow-md\"><span id=\"bulk-count\" class=\"text-xs text-muted-foreground mr-2\">0 selected</span> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "<!-- Bulk action bar (hidden until rows are selected) --><div id=\"bulk-action-bar\" class=\"hidden mt-2 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 shadow-md\"><span id=\"bulk-count\" class=\"text-xs text-muted-foreground mr-2\">0 selected</span> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -783,173 +1276,174 @@ func Torrents(p TorrentsProps) templ.Component {
 				{"deleteWithFiles", "Delete+Files", "text-destructive border border-destructive/30 hover:bg-destructive hover:text-destructive-foreground"},
 				{"delete", "Delete", "text-destructive border border-destructive/30 hover:bg-destructive hover:text-destructive-foreground"},
 			} {
-				var templ_7745c5c3_Var44 = []any{"rounded-md px-2.5 py-1 text-xs font-medium transition-colors", act.cls}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var44...)
+				var templ_7745c5c3_Var69 = []any{"rounded-md px-2.5 py-1 text-xs font-medium transition-colors", act.cls}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var69...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<button hx-post=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "<button hx-post=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var45 string
-				templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/action")
+				var templ_7745c5c3_Var70 string
+				templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/action")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 394, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 649, Col: 52}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "\" hx-include=\"[name='hashes']:checked,[name='instance_id']\" hx-vals=\"")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var46 string
-				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(`{"action":"` + act.action + `"}`)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 396, Col: 43}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "\" hx-include=\"[name='hashes']:checked,[name='instance_id']\" hx-vals=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-on::after-request=\"document.getElementById('select-all').checked=false; document.querySelectorAll('[name=hashes]').forEach(cb=>cb.checked=false); document.getElementById('bulk-action-bar').classList.add('hidden');\" class=\"")
+				var templ_7745c5c3_Var71 string
+				templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(`{"action":"` + act.action + `"}`)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 651, Col: 43}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var47 string
-				templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var44).String())
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-on::after-request=\"document.getElementById('select-all').checked=false; document.querySelectorAll('[name=hashes]').forEach(cb=>cb.checked=false); document.getElementById('bulk-action-bar').classList.add('hidden');\" class=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var72 string
+				templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var69).String())
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1, Col: 0}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var48 string
-				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(act.label)
+				var templ_7745c5c3_Var73 string
+				templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(act.label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 402, Col: 11}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 657, Col: 11}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "</button> ")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</button> ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<button onclick=\"document.getElementById('select-all').checked=false; document.querySelectorAll('[name=hashes]').forEach(cb=>cb.checked=false); document.getElementById('bulk-action-bar').classList.add('hidden');\" class=\"ml-auto rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors\">✕ Clear</button></div></div><!-- Right detail panel (shown when a torrent row is clicked) --><div id=\"torrent-detail-outer\" style=\"display:none\" class=\"w-96 shrink-0 rounded-lg border border-border bg-background overflow-hidden flex flex-col\"><div id=\"torrent-detail-panel\" class=\"h-full overflow-hidden flex flex-col\"><!-- Loaded via HTMX when a row is clicked --></div></div></div></div><!-- Add Torrent dialog (Alpine.js modal) --><div x-show=\"addOpen\" x-cloak class=\"fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm\" @keydown.escape.window=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\"><div class=\"w-full max-w-lg rounded-xl border border-border bg-background shadow-xl flex flex-col max-h-[90vh]\" @click.outside=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\"><!-- Header --><div class=\"flex items-center justify-between px-5 py-4 border-b border-border shrink-0\"><h2 class=\"text-base font-semibold\">Add Torrent</h2><button @click=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\" class=\"rounded-md p-1 text-muted-foreground hover:bg-accent transition-colors\"><svg class=\"h-4 w-4\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></div><!-- Scrollable form body --><form id=\"add-torrent-form\" hx-post=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<button onclick=\"document.getElementById('select-all').checked=false; document.querySelectorAll('[name=hashes]').forEach(cb=>cb.checked=false); document.getElementById('bulk-action-bar').classList.add('hidden');\" class=\"ml-auto rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors\">✕ Clear</button></div></div><!-- Right detail panel (shown when a torrent row is clicked) --><div id=\"torrent-detail-outer\" style=\"display:none\" class=\"w-96 shrink-0 rounded-lg border border-border bg-background overflow-hidden flex flex-col\"><div id=\"torrent-detail-panel\" class=\"h-full overflow-hidden flex flex-col\"><!-- Loaded via HTMX when a row is clicked --></div></div></div></div><!-- Add Torrent dialog (Alpine.js modal) --><div x-show=\"addOpen\" x-cloak class=\"fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm\" @keydown.escape.window=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\"><div class=\"w-full max-w-lg rounded-xl border border-border bg-background shadow-xl flex flex-col max-h-[90vh]\" @click.outside=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\"><!-- Header --><div class=\"flex items-center justify-between px-5 py-4 border-b border-border shrink-0\"><h2 class=\"text-base font-semibold\">Add Torrent</h2><button @click=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\" class=\"rounded-md p-1 text-muted-foreground hover:bg-accent transition-colors\"><svg class=\"h-4 w-4\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M18 6 6 18M6 6l12 12\"></path></svg></button></div><!-- Scrollable form body --><form id=\"add-torrent-form\" hx-post=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var49 string
-			templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/add")
+			var templ_7745c5c3_Var74 string
+			templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/add")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 451, Col: 49}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 706, Col: 49}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-on::after-request=\"if(event.detail.successful){ addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false; document.getElementById('add-torrent-form').reset(); document.getElementById('add-file-lbl').textContent = 'No files selected'; }\" class=\"flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0\" enctype=\"multipart/form-data\"><input type=\"hidden\" name=\"instance_id\" value=\"")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var50 string
-			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.InstanceID))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 458, Col: 66}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-on::after-request=\"if(event.detail.successful){ addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false; document.getElementById('add-torrent-form').reset(); document.getElementById('add-file-lbl').textContent = 'No files selected'; }\" class=\"flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0\" enctype=\"multipart/form-data\"><input type=\"hidden\" name=\"instance_id\" value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "\"><!-- Source tabs: File / URL --><div class=\"flex rounded-md bg-muted p-1 gap-1\"><button type=\"button\" @click=\"addTab = 'file'\" :class=\"addTab === 'file' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'\" class=\"flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"></path></svg> Upload File</button> <button type=\"button\" @click=\"addTab = 'url'\" :class=\"addTab === 'url' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'\" class=\"flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"></path><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"></path></svg> URL / Magnet</button></div><!-- File drop zone (visible when addTab === 'file') --><div x-show=\"addTab === 'file'\"><div class=\"border-2 border-dashed border-border rounded-md p-6 text-center cursor-pointer transition-colors hover:border-primary/40 hover:bg-accent/30\" @click=\"document.getElementById('add-torrent-file-input').click()\" @dragover.prevent=\"$el.classList.add('border-primary','bg-accent/20')\" @dragleave.self=\"$el.classList.remove('border-primary','bg-accent/20')\" @drop.prevent=\"\nconst dt = new DataTransfer();\nconst inp = document.getElementById('add-torrent-file-input');\nArray.from(inp.files || []).forEach(f => dt.items.add(f));\nArray.from($event.dataTransfer.files).filter(f => f.name.endsWith('.torrent')).forEach(f => dt.items.add(f));\ninp.files = dt.files;\n$el.classList.remove('border-primary','bg-accent/20');\ndocument.getElementById('add-file-lbl').textContent = dt.files.length + ' file(s) selected';\n\"><svg class=\"h-8 w-8 mx-auto mb-2 text-muted-foreground\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"></path></svg><p class=\"text-sm font-medium\">Drag &amp; drop .torrent files here</p><p class=\"text-xs text-muted-foreground mt-0.5\">or click to browse · multiple files supported</p></div><input id=\"add-torrent-file-input\" type=\"file\" name=\"torrentfile\" accept=\".torrent\" multiple class=\"hidden\" @change=\"document.getElementById('add-file-lbl').textContent = $event.target.files.length + ' file(s) selected'\"> <span id=\"add-file-lbl\" class=\"text-xs text-muted-foreground mt-1 block\">No files selected</span></div><!-- URL / magnet textarea (visible when addTab === 'url') --><div x-show=\"addTab === 'url'\" x-cloak><label class=\"block text-xs font-medium text-muted-foreground mb-1\">URLs / Magnet links (one per line)</label> <textarea name=\"urls\" rows=\"4\" placeholder=\"magnet:?xt=urn:btih:…&#10;https://example.com/file.torrent\" class=\"w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none\"></textarea></div><!-- Category + Tags --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Category</label> <input type=\"text\" name=\"category\" list=\"add-dialog-categories\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"none\"> ")
+			var templ_7745c5c3_Var75 string
+			templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.InstanceID))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 713, Col: 66}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "\"><!-- Source tabs: File / URL --><div class=\"flex rounded-md bg-muted p-1 gap-1\"><button type=\"button\" @click=\"addTab = 'file'\" :class=\"addTab === 'file' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'\" class=\"flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"></path></svg> Upload File</button> <button type=\"button\" @click=\"addTab = 'url'\" :class=\"addTab === 'url' ? 'bg-background shadow-sm text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'\" class=\"flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors flex items-center justify-center gap-1.5\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"></path><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"></path></svg> URL / Magnet</button></div><!-- File drop zone (visible when addTab === 'file') --><div x-show=\"addTab === 'file'\"><div class=\"border-2 border-dashed border-border rounded-md p-6 text-center cursor-pointer transition-colors hover:border-primary/40 hover:bg-accent/30\" @click=\"document.getElementById('add-torrent-file-input').click()\" @dragover.prevent=\"$el.classList.add('border-primary','bg-accent/20')\" @dragleave.self=\"$el.classList.remove('border-primary','bg-accent/20')\" @drop.prevent=\"\nconst dt = new DataTransfer();\nconst inp = document.getElementById('add-torrent-file-input');\nArray.from(inp.files || []).forEach(f => dt.items.add(f));\nArray.from($event.dataTransfer.files).filter(f => f.name.endsWith('.torrent')).forEach(f => dt.items.add(f));\ninp.files = dt.files;\n$el.classList.remove('border-primary','bg-accent/20');\ndocument.getElementById('add-file-lbl').textContent = dt.files.length + ' file(s) selected';\n\"><svg class=\"h-8 w-8 mx-auto mb-2 text-muted-foreground\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12\"></path></svg><p class=\"text-sm font-medium\">Drag &amp; drop .torrent files here</p><p class=\"text-xs text-muted-foreground mt-0.5\">or click to browse · multiple files supported</p></div><input id=\"add-torrent-file-input\" type=\"file\" name=\"torrentfile\" accept=\".torrent\" multiple class=\"hidden\" @change=\"document.getElementById('add-file-lbl').textContent = $event.target.files.length + ' file(s) selected'\"> <span id=\"add-file-lbl\" class=\"text-xs text-muted-foreground mt-1 block\">No files selected</span></div><!-- URL / magnet textarea (visible when addTab === 'url') --><div x-show=\"addTab === 'url'\" x-cloak><label class=\"block text-xs font-medium text-muted-foreground mb-1\">URLs / Magnet links (one per line)</label> <textarea name=\"urls\" rows=\"4\" placeholder=\"magnet:?xt=urn:btih:…&#10;https://example.com/file.torrent\" class=\"w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none\"></textarea></div><!-- Category + Tags --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Category</label> <input type=\"text\" name=\"category\" list=\"add-dialog-categories\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"none\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(p.Categories) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<datalist id=\"add-dialog-categories\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "<datalist id=\"add-dialog-categories\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, cat := range p.Categories {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<option value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "<option value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var51 string
-					templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(cat)
+					var templ_7745c5c3_Var76 string
+					templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(cat)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 536, Col: 19}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 791, Col: 19}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\"></option>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "\"></option>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "</datalist>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</datalist>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "</div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Tags (comma-separated)</label> <input type=\"text\" name=\"tags\" list=\"add-dialog-tags\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"e.g. hd, seedbox\"> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "</div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Tags (comma-separated)</label> <input type=\"text\" name=\"tags\" list=\"add-dialog-tags\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"e.g. hd, seedbox\"> ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if len(p.Tags) > 0 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<datalist id=\"add-dialog-tags\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<datalist id=\"add-dialog-tags\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				for _, tag := range p.Tags {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "<option value=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<option value=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					var templ_7745c5c3_Var52 string
-					templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
+					var templ_7745c5c3_Var77 string
+					templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 553, Col: 19}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 808, Col: 19}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var77))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "\"></option>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "\"></option>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "</datalist>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "</datalist>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "</div></div><!-- Basic toggles --><div class=\"flex flex-wrap items-center gap-x-5 gap-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"paused\" value=\"true\" class=\"rounded\"> Start paused</label> <label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"skip_hash_check\" value=\"true\" class=\"rounded\"> Skip hash check</label></div><!-- Advanced options collapsible --><div><button type=\"button\" @click=\"addAdv = !addAdv\" class=\"flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors w-full text-left\"><svg class=\"h-3.5 w-3.5 transition-transform duration-150\" :class=\"addAdv ? 'rotate-90' : ''\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><path d=\"M9 18l6-6-6-6\"></path></svg> Advanced options</button><div x-show=\"addAdv\" x-cloak class=\"mt-3 space-y-3 pl-3 border-l border-border\"><!-- Auto TMM --><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"auto_tmm\" value=\"true\" class=\"rounded\"> Automatic Torrent Management</label><!-- Save path --><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Save path</label> <input type=\"text\" name=\"savepath\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"Leave empty for default\"></div><!-- Temporary download path --><div class=\"space-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"use_download_path\" value=\"true\" class=\"rounded\" x-model=\"useTmpPath\"> Use temporary download path</label> <input type=\"text\" name=\"download_path\" :disabled=\"!useTmpPath\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-40 disabled:cursor-not-allowed\" placeholder=\"Temporary download path\"></div><!-- Content layout + rename --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Content layout</label> <select name=\"content_layout\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\"><option value=\"\">Use global setting</option> <option value=\"Original\">Original</option> <option value=\"Subfolder\">Create subfolder</option> <option value=\"NoSubfolder\">No subfolder</option></select></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Rename torrent</label> <input type=\"text\" name=\"rename\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"Leave empty for original name\"></div></div><!-- Sequential + first/last piece --><div class=\"flex flex-wrap items-center gap-x-5 gap-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"sequential_download\" value=\"true\" class=\"rounded\"> Sequential download</label> <label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"first_last_piece_prio\" value=\"true\" class=\"rounded\"> First/last piece priority</label></div><!-- Speed limits --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Download limit (KiB/s)</label> <input type=\"number\" name=\"dl_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = unlimited\"></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Upload limit (KiB/s)</label> <input type=\"number\" name=\"up_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = unlimited\"></div></div><!-- Seeding limits --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Ratio limit</label> <input type=\"number\" name=\"ratio_limit\" min=\"0\" step=\"0.1\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = use global\"></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Seed time limit (min)</label> <input type=\"number\" name=\"seed_time_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = use global\"></div></div></div></div></form><!-- Footer --><div class=\"flex justify-end gap-2 px-5 py-3 border-t border-border shrink-0\"><button type=\"button\" @click=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\" class=\"rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors\">Cancel</button> <button type=\"submit\" form=\"add-torrent-form\" class=\"rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors\">Add Torrent</button></div></div></div></div><!-- Checkbox selection + detail panel JS helpers --> <script>\ndocument.addEventListener('change', function(e) {\nif (e.target && e.target.name === 'hashes') {\nconst count = document.querySelectorAll('[name=hashes]:checked').length;\nconst total = document.querySelectorAll('[name=hashes]').length;\nconst bar = document.getElementById('bulk-action-bar');\nif (bar) { count > 0 ? bar.classList.remove('hidden') : bar.classList.add('hidden'); }\nconst cnt = document.getElementById('bulk-count');\nif (cnt) cnt.textContent = count + ' selected';\nconst sa = document.getElementById('select-all');\nif (sa) {\nsa.checked = count === total && total > 0;\nsa.indeterminate = count > 0 && count < total;\n}\n}\n});\ndocument.body.addEventListener('htmx:afterSwap', function(e) {\nif (e.detail.target && e.detail.target.id === 'torrent-detail-panel') {\nconst outer = document.getElementById('torrent-detail-outer');\nif (outer) outer.style.display = 'flex';\n}\n});\ndocument.body.addEventListener('torrent-detail-close', function() {\nconst outer = document.getElementById('torrent-detail-outer');\nif (outer) outer.style.display = 'none';\n});\n</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "</div></div><!-- Basic toggles --><div class=\"flex flex-wrap items-center gap-x-5 gap-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"paused\" value=\"true\" class=\"rounded\"> Start paused</label> <label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"skip_hash_check\" value=\"true\" class=\"rounded\"> Skip hash check</label></div><!-- Advanced options collapsible --><div><button type=\"button\" @click=\"addAdv = !addAdv\" class=\"flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors w-full text-left\"><svg class=\"h-3.5 w-3.5 transition-transform duration-150\" :class=\"addAdv ? 'rotate-90' : ''\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\"><path d=\"M9 18l6-6-6-6\"></path></svg> Advanced options</button><div x-show=\"addAdv\" x-cloak class=\"mt-3 space-y-3 pl-3 border-l border-border\"><!-- Auto TMM --><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"auto_tmm\" value=\"true\" class=\"rounded\"> Automatic Torrent Management</label><!-- Save path --><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Save path</label> <input type=\"text\" name=\"savepath\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"Leave empty for default\"></div><!-- Temporary download path --><div class=\"space-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"use_download_path\" value=\"true\" class=\"rounded\" x-model=\"useTmpPath\"> Use temporary download path</label> <input type=\"text\" name=\"download_path\" :disabled=\"!useTmpPath\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-40 disabled:cursor-not-allowed\" placeholder=\"Temporary download path\"></div><!-- Content layout + rename --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Content layout</label> <select name=\"content_layout\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\"><option value=\"\">Use global setting</option> <option value=\"Original\">Original</option> <option value=\"Subfolder\">Create subfolder</option> <option value=\"NoSubfolder\">No subfolder</option></select></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Rename torrent</label> <input type=\"text\" name=\"rename\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"Leave empty for original name\"></div></div><!-- Sequential + first/last piece --><div class=\"flex flex-wrap items-center gap-x-5 gap-y-2\"><label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"sequential_download\" value=\"true\" class=\"rounded\"> Sequential download</label> <label class=\"flex items-center gap-2 text-sm cursor-pointer select-none\"><input type=\"checkbox\" name=\"first_last_piece_prio\" value=\"true\" class=\"rounded\"> First/last piece priority</label></div><!-- Speed limits --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Download limit (KiB/s)</label> <input type=\"number\" name=\"dl_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = unlimited\"></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Upload limit (KiB/s)</label> <input type=\"number\" name=\"up_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = unlimited\"></div></div><!-- Seeding limits --><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Ratio limit</label> <input type=\"number\" name=\"ratio_limit\" min=\"0\" step=\"0.1\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = use global\"></div><div><label class=\"block text-xs font-medium text-muted-foreground mb-1\">Seed time limit (min)</label> <input type=\"number\" name=\"seed_time_limit\" min=\"0\" class=\"h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"0 = use global\"></div></div></div></div></form><!-- Footer --><div class=\"flex justify-end gap-2 px-5 py-3 border-t border-border shrink-0\"><button type=\"button\" @click=\"addOpen = false; addTab = 'file'; addAdv = false; useTmpPath = false;\" class=\"rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors\">Cancel</button> <button type=\"submit\" form=\"add-torrent-form\" class=\"rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors\">Add Torrent</button></div></div></div></div><!-- Checkbox selection + detail panel JS helpers --> <script>\ndocument.addEventListener('change', function(e) {\nif (e.target && e.target.name === 'hashes') {\nconst count = document.querySelectorAll('[name=hashes]:checked').length;\nconst total = document.querySelectorAll('[name=hashes]').length;\nconst bar = document.getElementById('bulk-action-bar');\nif (bar) { count > 0 ? bar.classList.remove('hidden') : bar.classList.add('hidden'); }\nconst cnt = document.getElementById('bulk-count');\nif (cnt) cnt.textContent = count + ' selected';\nconst sa = document.getElementById('select-all');\nif (sa) {\nsa.checked = count === total && total > 0;\nsa.indeterminate = count > 0 && count < total;\n}\n}\n});\ndocument.body.addEventListener('htmx:afterSwap', function(e) {\nif (e.detail.target && e.detail.target.id === 'torrent-detail-panel') {\nconst outer = document.getElementById('torrent-detail-outer');\nif (outer) outer.style.display = 'flex';\n}\n});\ndocument.body.addEventListener('torrent-detail-close', function() {\nconst outer = document.getElementById('torrent-detail-outer');\nif (outer) outer.style.display = 'none';\n});\n// sortBy: update hidden sort inputs then fire the hidden sort-trigger button.\nfunction sortBy(col) {\nconst sortInput = document.getElementById('current-sort');\nconst orderInput = document.getElementById('current-order');\nif (!sortInput || !orderInput) return;\nconst descDefault = ['added_on','completion_on','last_activity','seeding_time','ratio','uploaded','downloaded','size','total_size','time_active'];\nif (sortInput.value === col) {\norderInput.value = orderInput.value === 'asc' ? 'desc' : 'asc';\n} else {\nsortInput.value = col;\norderInput.value = descDefault.includes(col) ? 'desc' : 'asc';\n}\ndocument.getElementById('current-page').value = '1';\ndocument.getElementById('sort-trigger').click();\n}\n// ── Column visibility ─────────────────────────────────────────────────────\nvar _tblColDefaults = { colDefaultsJSON() };\nvar _tblCols = (function() {\ntry {\nvar saved = JSON.parse(localStorage.getItem('qui_tbl_cols') || '{}');\nreturn Object.assign({}, _tblColDefaults, saved);\n} catch(e) { return Object.assign({}, _tblColDefaults); }\n})();\nfunction applyTblCols() {\nObject.keys(_tblCols).forEach(function(col) {\ndocument.querySelectorAll('[data-col=\"' + col + '\"]').forEach(function(el) {\nif (_tblCols[col]) el.classList.remove('hidden');\nelse el.classList.add('hidden');\n});\n});\nObject.keys(_tblCols).forEach(function(col) {\nvar cb = document.getElementById('col-toggle-' + col);\nif (cb) cb.checked = !!_tblCols[col];\n});\n}\nfunction toggleTblCol(col) {\n_tblCols[col] = !_tblCols[col];\nlocalStorage.setItem('qui_tbl_cols', JSON.stringify(_tblCols));\napplyTblCols();\n}\nfunction resetTblCols() {\n_tblCols = Object.assign({}, _tblColDefaults);\nlocalStorage.removeItem('qui_tbl_cols');\napplyTblCols();\n}\napplyTblCols();\ndocument.body.addEventListener('htmx:afterSwap', function(e) {\nif (e.detail.target && e.detail.target.id === 'torrents-table-body') { applyTblCols(); }\n});\n// ── SSE live indicator ──────────────────────────────────────────────────────\ndocument.body.addEventListener('htmx:sseOpen', function() {\nvar ind = document.getElementById('sse-indicator'); if (ind) ind.classList.remove('hidden');\n});\ndocument.body.addEventListener('htmx:sseClose', function() {\nvar ind = document.getElementById('sse-indicator'); if (ind) ind.classList.add('hidden');\n});\n</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
 		templ_7745c5c3_Err = layouts.Authenticated(layouts.AuthProps{
-			BaseURL:     p.BaseURL,
-			Title:       "Torrents",
-			CurrentPath: "/ui/torrents",
-			Username:    p.Username,
-			AppVersion:  p.Version,
-			Instances:   p.Instances,
+			BaseURL:        p.BaseURL,
+			Title:          "Torrents",
+			CurrentPath:    "/ui/torrents",
+			Username:       p.Username,
+			AppVersion:     p.Version,
+			Instances:      p.Instances,
+			ActiveInstance: torrentsActiveInstance(p),
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -975,262 +1469,641 @@ func TorrentsTableBody(p TorrentsProps) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var53 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var53 == nil {
-			templ_7745c5c3_Var53 = templ.NopComponent
+		templ_7745c5c3_Var78 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var78 == nil {
+			templ_7745c5c3_Var78 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		if len(p.Rows) == 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<tr><td colspan=\"10\" class=\"px-3 py-12 text-center text-sm text-muted-foreground\">No torrents match your filters.</td></tr>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "<tr><td colspan=\"30\" class=\"px-3 py-12 text-center text-sm text-muted-foreground\">No torrents match your filters.</td></tr>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
 			for _, t := range p.Rows {
 				label, cls := stateLabel(t.State)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "<tr class=\"hover:bg-muted/50 transition-colors cursor-pointer\" hx-get=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "<tr class=\"hover:bg-muted/50 transition-colors cursor-pointer\" hx-get=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var54 string
-				templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/" + t.Hash + "?instance_id=" + itoa(p.InstanceID))
+				var templ_7745c5c3_Var79 string
+				templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents/" + t.Hash + "?instance_id=" + itoa(p.InstanceID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 763, Col: 93}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1074, Col: 93}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "\" hx-target=\"#torrent-detail-panel\" hx-swap=\"innerHTML\"><td class=\"px-2 py-2 w-8\" onclick=\"event.stopPropagation()\"><input type=\"checkbox\" name=\"hashes\" value=\"")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var79))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var55 string
-				templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(t.Hash)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 771, Col: 14}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "\" hx-target=\"#torrent-detail-panel\" hx-swap=\"innerHTML\"><!-- Checkbox --><td class=\"px-2 py-2 w-8\" onclick=\"event.stopPropagation()\"><input type=\"checkbox\" name=\"hashes\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "\" class=\"rounded\" onclick=\"event.stopPropagation()\"></td><td class=\"px-3 py-2 max-w-xs\"><span class=\"block truncate font-medium\" title=\"")
+				var templ_7745c5c3_Var80 string
+				templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.JoinStringErrs(t.Hash)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1080, Col: 51}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var80))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var56 string
-				templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(t.Name)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 777, Col: 55}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "\" class=\"rounded\" onclick=\"event.stopPropagation()\"></td><!-- Name (always visible) --><td class=\"px-3 py-2 max-w-xs\"><span class=\"block truncate font-medium\" title=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "\">")
+				var templ_7745c5c3_Var81 string
+				templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(t.Name)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1084, Col: 55}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var57 string
-				templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(t.Name)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 777, Col: 66}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</span> ")
+				var templ_7745c5c3_Var82 string
+				templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(t.Name)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1084, Col: 66}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if t.Tags != "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<span class=\"text-xs text-muted-foreground truncate block\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var58 string
-					templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(t.Tags)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 779, Col: 67}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</span>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "</td><td class=\"px-3 py-2 whitespace-nowrap\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "</span></td><!-- Status --><td class=\"px-3 py-2 whitespace-nowrap\" data-col=\"status\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var59 = []any{"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", cls}
-				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var59...)
+				var templ_7745c5c3_Var83 = []any{"inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", cls}
+				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var83...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "<span class=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<span class=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var60 string
-				templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var59).String())
+				var templ_7745c5c3_Var84 string
+				templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var83).String())
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1, Col: 0}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var60))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var84))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var61 string
-				templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+				var templ_7745c5c3_Var85 string
+				templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 784, Col: 7}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1089, Col: 7}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</span></td><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\">")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var85))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var62 string
-				templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytes(uint64(t.SizeB)))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 788, Col: 30}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "</span></td><!-- Size --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"size\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "</td><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums\">")
+				var templ_7745c5c3_Var86 string
+				templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytes(uint64(t.SizeB)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1094, Col: 30}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var63 string
-				templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(formatPercent(t.Progress))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 791, Col: 27}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "</td><!-- Total Size --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"total_size\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</td><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-blue-600 dark:text-blue-400\">")
+				if t.TotalSizeB > 0 {
+					var templ_7745c5c3_Var87 string
+					templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytes(uint64(t.TotalSizeB)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1099, Col: 35}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "<span class=\"text-muted-foreground/50\">—</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "</td><!-- Progress --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums\" data-col=\"progress\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var88 string
+				templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.JoinStringErrs(formatPercent(t.Progress))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1106, Col: 27}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var88))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "</td><!-- Down speed --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-blue-600 dark:text-blue-400\" data-col=\"dlspeed\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if t.DlSpeed > 0 {
-					var templ_7745c5c3_Var64 string
-					templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytesPerSec(uint64(t.DlSpeed)))
+					var templ_7745c5c3_Var89 string
+					templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytesPerSec(uint64(t.DlSpeed)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 795, Col: 38}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1111, Col: 38}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var89))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<span class=\"text-muted-foreground\">—</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "<span class=\"text-muted-foreground\">—</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "</td><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-green-600 dark:text-green-400\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "</td><!-- Up speed --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-green-600 dark:text-green-400\" data-col=\"upspeed\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if t.UpSpeed > 0 {
-					var templ_7745c5c3_Var65 string
-					templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytesPerSec(uint64(t.UpSpeed)))
+					var templ_7745c5c3_Var90 string
+					templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytesPerSec(uint64(t.UpSpeed)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 802, Col: 38}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1119, Col: 38}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<span class=\"text-muted-foreground\">—</span>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "</td><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var66 string
-				templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(formatRatio(t.Ratio))
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 808, Col: 22}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</td><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if t.State == "downloading" || t.State == "metaDL" {
-					var templ_7745c5c3_Var67 string
-					templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinStringErrs(formatETA(t.ETA))
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 812, Col: 18}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var90))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "<span>—</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "<span class=\"text-muted-foreground\">—</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</td><td class=\"px-3 py-2 max-w-[7rem]\"><span class=\"block truncate text-muted-foreground text-xs\" title=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "</td><!-- ETA --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"eta\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var68 string
-				templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.JoinStringErrs(t.Category)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 818, Col: 77}
+				if isDownloading(t.State) {
+					var templ_7745c5c3_Var91 string
+					templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(formatETA(t.ETA))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1127, Col: 18}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "<span>—</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var68))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "</td><!-- Ratio --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums\" data-col=\"ratio\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "\">")
+				var templ_7745c5c3_Var92 string
+				templ_7745c5c3_Var92, templ_7745c5c3_Err = templ.JoinStringErrs(formatRatio(t.Ratio))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1134, Col: 22}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var92))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "</td><!-- Uploaded --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"uploaded\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if t.Uploaded > 0 {
+					var templ_7745c5c3_Var93 string
+					templ_7745c5c3_Var93, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytes(uint64(t.Uploaded)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1139, Col: 33}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var93))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "<span class=\"text-muted-foreground/50\">—</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "</td><!-- Downloaded --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"downloaded\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if t.Downloaded > 0 {
+					var templ_7745c5c3_Var94 string
+					templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytes(uint64(t.Downloaded)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1147, Col: 35}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var94))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "<span class=\"text-muted-foreground/50\">—</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "</td><!-- Remaining --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"amount_left\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if t.AmountLeft > 0 {
+					var templ_7745c5c3_Var95 string
+					templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytes(uint64(t.AmountLeft)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1155, Col: 35}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var95))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "<span class=\"text-muted-foreground/50\">—</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "</td><!-- Seeds / Leeches --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground\" data-col=\"seeds\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var96 string
+				templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(int(t.NumSeeds)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1162, Col: 23}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var96))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "<span class=\"text-muted-foreground/60\">/")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var97 string
+				templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(int(t.NumLeechs)))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1162, Col: 89}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "</span></td><!-- Category --><td class=\"px-3 py-2 max-w-[7rem]\" data-col=\"category\"><span class=\"block truncate text-muted-foreground text-xs\" title=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var98 string
+				templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(t.Category)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1166, Col: 77}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var98))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if t.Category == "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<span class=\"italic\">none</span>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "<span class=\"italic\">none</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				} else {
-					var templ_7745c5c3_Var69 string
-					templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(t.Category)
+					var templ_7745c5c3_Var99 string
+					templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(t.Category)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 822, Col: 12}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1170, Col: 12}
 					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var99))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "</span></td></tr>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "</span></td><!-- Tags --><td class=\"px-3 py-2 max-w-[8rem]\" data-col=\"tags\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if t.Tags != "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "<span class=\"block truncate text-muted-foreground text-xs\" title=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var100 string
+					templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(t.Tags)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1177, Col: 73}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var101 string
+					templ_7745c5c3_Var101, templ_7745c5c3_Err = templ.JoinStringErrs(t.Tags)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1177, Col: 84}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var101))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "<span class=\"text-muted-foreground/50 text-xs\">—</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "</td><!-- Tracker --><td class=\"px-3 py-2 max-w-[6rem]\" data-col=\"tracker\"><span class=\"block truncate text-muted-foreground text-xs\" title=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var102 string
+				templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.JoinStringErrs(t.Tracker)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1184, Col: 76}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var102))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var103 string
+				templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.JoinStringErrs(trackerHost(t.Tracker))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1185, Col: 24}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var103))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "</span></td><!-- Added On --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"added_on\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var104 string
+				templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.JoinStringErrs(formatTimestamp(t.AddedOn))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1190, Col: 28}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var104))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "</td><!-- Completed On --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"completion_on\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var105 string
+				templ_7745c5c3_Var105, templ_7745c5c3_Err = templ.JoinStringErrs(formatTimestamp(t.CompletionOn))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1194, Col: 33}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var105))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "</td><!-- Seeding Time --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"seeding_time\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var106 string
+				templ_7745c5c3_Var106, templ_7745c5c3_Err = templ.JoinStringErrs(formatSeedingTime(t.SeedingTime))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1198, Col: 34}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var106))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 143, "</td><!-- Time Active --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"time_active\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var107 string
+				templ_7745c5c3_Var107, templ_7745c5c3_Err = templ.JoinStringErrs(formatSeedingTime(t.TimeActive))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1202, Col: 33}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var107))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 144, "</td><!-- Last Activity --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"last_activity\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var108 string
+				templ_7745c5c3_Var108, templ_7745c5c3_Err = templ.JoinStringErrs(formatTimestamp(t.LastActivity))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1206, Col: 33}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var108))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 145, "</td><!-- Queue Priority --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"priority\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if t.Priority > 0 {
+					var templ_7745c5c3_Var109 string
+					templ_7745c5c3_Var109, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(int(t.Priority)))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1211, Col: 23}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var109))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 146, "<span>—</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 147, "</td><!-- Save Path --><td class=\"px-3 py-2\" data-col=\"save_path\"><span class=\"block truncate text-muted-foreground text-xs max-w-[12rem]\" title=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var110 string
+				templ_7745c5c3_Var110, templ_7745c5c3_Err = templ.JoinStringErrs(t.SavePath)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1218, Col: 91}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var110))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 148, "\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var111 string
+				templ_7745c5c3_Var111, templ_7745c5c3_Err = templ.JoinStringErrs(t.SavePath)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1219, Col: 12}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var111))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 149, "</span></td><!-- Info Hash --><td class=\"px-3 py-2\" data-col=\"infohash\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if t.InfohashV1 != "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 150, "<span class=\"block truncate font-mono text-muted-foreground text-xs max-w-[8rem]\" title=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var112 string
+					templ_7745c5c3_Var112, templ_7745c5c3_Err = templ.JoinStringErrs(t.InfohashV1)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1225, Col: 102}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var112))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 151, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var113 string
+					templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.JoinStringErrs(t.InfohashV1)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1225, Col: 119}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var113))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 152, "</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else if t.InfohashV2 != "" {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 153, "<span class=\"block truncate font-mono text-muted-foreground text-xs max-w-[8rem]\" title=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var114 string
+					templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.JoinStringErrs(t.InfohashV2)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1227, Col: 102}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var114))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 154, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var115 string
+					templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.JoinStringErrs(t.InfohashV2)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1227, Col: 119}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var115))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 156, "<span class=\"block truncate font-mono text-muted-foreground text-xs max-w-[8rem]\" title=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var116 string
+					templ_7745c5c3_Var116, templ_7745c5c3_Err = templ.JoinStringErrs(t.Hash)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1229, Col: 96}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var116))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 157, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var117 string
+					templ_7745c5c3_Var117, templ_7745c5c3_Err = templ.JoinStringErrs(t.Hash)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1229, Col: 107}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var117))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 158, "</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 159, "</td><!-- Availability --><td class=\"px-3 py-2 text-right whitespace-nowrap tabular-nums text-muted-foreground text-xs\" data-col=\"availability\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				if t.Availability > 0 {
+					var templ_7745c5c3_Var118 string
+					templ_7745c5c3_Var118, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.1f%%", t.Availability*100))
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1235, Col: 43}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var118))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 160, "<span>—</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 161, "</td></tr>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1257,108 +2130,108 @@ func TorrentsPagination(p TorrentsProps) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var70 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var70 == nil {
-			templ_7745c5c3_Var70 = templ.NopComponent
+		templ_7745c5c3_Var119 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var119 == nil {
+			templ_7745c5c3_Var119 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		pages := totalPages(p.Total, p.PageSize)
 		if pages > 1 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<div class=\"flex items-center justify-between py-2 px-1 text-sm shrink-0\"><span class=\"text-muted-foreground\">Page ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 162, "<div class=\"flex items-center justify-between py-2 px-1 text-sm shrink-0\"><span class=\"text-muted-foreground\">Page ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var71 string
-			templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.Page))
+			var templ_7745c5c3_Var120 string
+			templ_7745c5c3_Var120, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(p.Page))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 837, Col: 19}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1251, Col: 19}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, " of ")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var120))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var72 string
-			templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(pages))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 837, Col: 38}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var72))
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 163, " of ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "</span><div class=\"flex items-center gap-1\">")
+			var templ_7745c5c3_Var121 string
+			templ_7745c5c3_Var121, templ_7745c5c3_Err = templ.JoinStringErrs(itoa(pages))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1251, Col: 38}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var121))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 164, "</span><div class=\"flex items-center gap-1\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if p.Page > 1 {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "<button hx-get=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 165, "<button hx-get=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var73 string
-				templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
+				var templ_7745c5c3_Var122 string
+				templ_7745c5c3_Var122, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 842, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1256, Col: 44}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var73))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var122))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var74 string
-				templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(`{"page":"` + itoa(p.Page-1) + `","status":"` + p.Status + `","category":"` + p.Category + `","tag":"` + p.Tag + `","search":"` + p.Search + `","instance_id":"` + itoa(p.InstanceID) + `"}`)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 846, Col: 198}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 166, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "\" class=\"rounded-md border border-input bg-background px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors\">← Prev</button> ")
+				var templ_7745c5c3_Var123 string
+				templ_7745c5c3_Var123, templ_7745c5c3_Err = templ.JoinStringErrs(`{"page":"` + itoa(p.Page-1) + `"}`)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1260, Col: 45}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var123))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 167, "\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"rounded-md border border-input bg-background px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors\">← Prev</button> ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if p.Page < pages {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "<button hx-get=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 168, "<button hx-get=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var75 string
-				templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
+				var templ_7745c5c3_Var124 string
+				templ_7745c5c3_Var124, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/torrents")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 854, Col: 44}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1268, Col: 44}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var124))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var76 string
-				templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(`{"page":"` + itoa(p.Page+1) + `","status":"` + p.Status + `","category":"` + p.Category + `","tag":"` + p.Tag + `","search":"` + p.Search + `","instance_id":"` + itoa(p.InstanceID) + `"}`)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 858, Col: 198}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 169, "\" hx-target=\"#torrents-table-body\" hx-swap=\"innerHTML\" hx-push-url=\"false\" hx-vals=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "\" class=\"rounded-md border border-input bg-background px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors\">Next →</button>")
+				var templ_7745c5c3_Var125 string
+				templ_7745c5c3_Var125, templ_7745c5c3_Err = templ.JoinStringErrs(`{"page":"` + itoa(p.Page+1) + `"}`)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents.templ`, Line: 1272, Col: 45}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var125))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 170, "\" hx-include=\"#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-expr,#torrents-search\" class=\"rounded-md border border-input bg-background px-3 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground transition-colors\">Next →</button>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 171, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
