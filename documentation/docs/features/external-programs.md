@@ -6,7 +6,7 @@ description: Launch scripts or applications from the torrent context menu.
 
 # External Programs
 
-Launch scripts or desktop applications directly from the torrent context menu. Each program definition stores the executable path, optional arguments, and path-mapping rules so qui can pass torrent metadata to your tools.
+Launch scripts or desktop applications directly from the torrent context menu. Each program definition stores the executable path, optional arguments, and path-mapping rules so rui can pass torrent metadata to your tools.
 
 ## Security: Allow List
 
@@ -23,11 +23,11 @@ Leave the list empty to keep the previous behaviour (any path accepted). The all
 
 ## Where Programs Run
 
-External programs always run on the same machine (or container) that is hosting the qui backend, not on the browser client. Make sure any executable paths, mounts, or environment variables are available to that host process. When you deploy qui inside Docker, the program runs inside the container unless you mount the executable in.
+External programs always run on the same machine (or container) that is hosting the rui backend, not on the browser client. Make sure any executable paths, mounts, or environment variables are available to that host process. When you deploy rui inside Docker, the program runs inside the container unless you mount the executable in.
 
 ## Creating and Editing a Program
 
-1. Open qui and go to **Settings → External Programs**
+1. Open rui and go to **Settings → External Programs**
 2. Click **Create External Program**
 3. Fill in the form fields, then press **Create**. Toggle **Enable this program** to make it available in torrent menus
 4. Use the edit and delete actions in the list to maintain existing programs
@@ -37,9 +37,9 @@ External programs always run on the same machine (or container) that is hosting 
 | Field | Description |
 |-------|-------------|
 | **Name** | Display label shown in the torrent context menu and settings list. Must be unique. |
-| **Program Path** | Absolute path to the executable or script. Use the host path seen by the qui backend (e.g. `/usr/local/bin/my-script.sh`, `C:\Scripts\postprocess.bat`, `C:\python312\python.exe`). |
-| **Arguments Template** | Optional string of command-line arguments. qui substitutes torrent metadata placeholders before spawning the process. |
-| **Path Mappings** | Optional array of `from → to` prefixes that rewrite remote qBittorrent paths into local mount points. Helpful when qui runs locally but qBittorrent stores data elsewhere. |
+| **Program Path** | Absolute path to the executable or script. Use the host path seen by the rui backend (e.g. `/usr/local/bin/my-script.sh`, `C:\Scripts\postprocess.bat`, `C:\python312\python.exe`). |
+| **Arguments Template** | Optional string of command-line arguments. rui substitutes torrent metadata placeholders before spawning the process. |
+| **Path Mappings** | Optional array of `from → to` prefixes that rewrite remote qBittorrent paths into local mount points. Helpful when rui runs locally but qBittorrent stores data elsewhere. |
 | **Launch in terminal window** | Opens the program in an interactive terminal window. See [Supported Terminal Emulators](#supported-terminal-emulators) for the list of detected terminals. Disable for GUI apps or background daemons. |
 | **Enable this program** | Determines whether the program shows up in the torrent context menu. |
 
@@ -70,13 +70,13 @@ Arguments are parsed with shell-style quoting and each placeholder is replaced w
 D:\Upload Assistant\upload.py {save_path}\{name}
 ```
 
-qui splits the template into arguments before substitutions are run, so you do not need to wrap values in extra quotes unless the called application expects them.
+rui splits the template into arguments before substitutions are run, so you do not need to wrap values in extra quotes unless the called application expects them.
 
 ## Path Mappings
 
-Use path mappings when the filesystem paths reported by qBittorrent do not match the paths visible to qui. Each mapping replaces the longest matching prefix.
+Use path mappings when the filesystem paths reported by qBittorrent do not match the paths visible to rui. Each mapping replaces the longest matching prefix.
 
-| Remote path (from qBittorrent) | Local path seen by qui | Mapping |
+| Remote path (from qBittorrent) | Local path seen by rui | Mapping |
 |--------------------------------|------------------------|---------|
 | `/data/torrents` | `/mnt/qbt` | `from=/data/torrents`, `to=/mnt/qbt` |
 | `Z:\downloads` | `/srv/downloads` | `from=Z:\downloads`, `to=/srv/downloads` |
@@ -88,13 +88,13 @@ Given the template above, `{save_path}` becomes `/mnt/qbt/Movies` instead of `/d
 - **Enable terminal window** for scripts that need interaction or visible output.
 - **Disable terminal window** for GUI applications or background tasks.
 
-Programs run asynchronously - qui does not wait for completion.
+Programs run asynchronously - rui does not wait for completion.
 
 ### Supported Terminal Emulators
 
-When "Launch in terminal window" is enabled, qui automatically detects and uses an available terminal emulator. Detection priority:
+When "Launch in terminal window" is enabled, rui automatically detects and uses an available terminal emulator. Detection priority:
 
-1. **TERM_PROGRAM environment variable** - If qui is running inside a terminal, that terminal is preferred
+1. **TERM_PROGRAM environment variable** - If rui is running inside a terminal, that terminal is preferred
 2. **Cross-platform terminals** (checked on all platforms):
    - WezTerm
    - Hyper
@@ -123,7 +123,7 @@ Terminal windows stay open after the command finishes, allowing you to inspect o
 1. Select one or more torrents
 2. Right-click to open the context menu
 3. Hover **External Programs**, then click the program name
-4. qui queues one execution per selected torrent. Results are reported via toast notifications (success, partial success, or failure)
+4. rui queues one execution per selected torrent. Results are reported via toast notifications (success, partial success, or failure)
 
 Execution requests include the torrents from the currently selected instance only. Disabled programs are hidden from the submenu. Command failures emitted by the host OS are logged at `info`/`debug` level through zerolog; enable debug logging to see the full command line and any non-zero exit codes.
 

@@ -13,7 +13,7 @@ Configure it in **Cross-Seed > Dir Scan**.
 ## Requirements
 
 - At least one qBittorrent instance must have **Local filesystem access** enabled in Instance Settings.
-- qui must be able to read the files directly (same host or shared mounts as the target qBittorrent instance).
+- rui must be able to read the files directly (same host or shared mounts as the target qBittorrent instance).
 - Prowlarr or Jackett must be configured with at least one enabled indexer.
 - Optional: Sonarr/Radarr configured in **Settings > Integrations** for external ID lookups (IMDb/TMDb/TVDb).
 
@@ -56,15 +56,15 @@ Create one Dir Scan entry per category folder. Don't point at a parent folder co
 
 ## Docker and Path Mapping
 
-When qui and qBittorrent run in separate containers or see different mount points, you need path mapping.
+When rui and qBittorrent run in separate containers or see different mount points, you need path mapping.
 
 ### "Local filesystem access" explained
 
-Enabling **Local filesystem access** on a qBittorrent instance tells qui:
-1. qui can read files directly from the filesystem (same paths or mapped paths).
-2. qui should use file-based matching (inode checks, size verification) rather than relying solely on qBittorrent's API.
+Enabling **Local filesystem access** on a qBittorrent instance tells rui:
+1. rui can read files directly from the filesystem (same paths or mapped paths).
+2. rui should use file-based matching (inode checks, size verification) rather than relying solely on qBittorrent's API.
 
-This requires qui to have read access to the actual files, either on the same host or via shared network/volume mounts.
+This requires rui to have read access to the actual files, either on the same host or via shared network/volume mounts.
 
 ### Recommended: Use the same volume paths
 
@@ -72,7 +72,7 @@ The simplest setup is to mount volumes at the same path in both containers:
 
 ```yaml title="docker-compose.yml"
 services:
-  qui:
+  rui:
     volumes:
       - /mnt/storage:/mnt/storage
 
@@ -86,21 +86,21 @@ When both containers see `/data/media/movies`, no path mapping is needed. Leave 
 ### Path mapping example (different mount points)
 
 Your setup:
-- qui container mounts: `-v /mnt/storage:/data`
+- rui container mounts: `-v /mnt/storage:/data`
 - qBittorrent container mounts: `-v /mnt/storage:/downloads`
 
-qui sees files at `/data/media/movies/Movie.2024/movie.mkv`
+rui sees files at `/data/media/movies/Movie.2024/movie.mkv`
 qBittorrent sees the same file at `/downloads/media/movies/Movie.2024/movie.mkv`
 
 Configure Dir Scan:
 - **Directory Path**: `/data/media/movies`
 - **qBittorrent Path Prefix**: `/downloads/media/movies`
 
-When qui finds a match, it tells qBittorrent to add the torrent pointing at `/downloads/media/movies/Movie.2024/` instead of `/data/media/movies/Movie.2024/`.
+When rui finds a match, it tells qBittorrent to add the torrent pointing at `/downloads/media/movies/Movie.2024/` instead of `/data/media/movies/Movie.2024/`.
 
 ## How It Works
 
-For each configured scan directory, qui:
+For each configured scan directory, rui:
 
 1. Enumerates immediate children of the directory path.
 2. For each child (folder or file), recursively collects all files within.
@@ -200,7 +200,7 @@ Each scan directory has its own configuration:
 
 | Setting | Description |
 |---------|-------------|
-| Directory Path | The path qui scans (immediate children become searchees). |
+| Directory Path | The path rui scans (immediate children become searchees). |
 | qBittorrent Path Prefix | Path mapping for container setups. See [Docker and Path Mapping](#docker-and-path-mapping). |
 | Target qBittorrent Instance | Where matched torrents are added. Must have Local filesystem access enabled. |
 | Category override | Overrides the global Default Category for this directory. |
@@ -288,7 +288,7 @@ Click a run to see details including failure reasons for individual items.
 - Ensure the target instance has Local filesystem access enabled.
 
 **Permissions errors:**
-- qui must have read access to the scan path.
+- rui must have read access to the scan path.
 - Check container volume mounts if running in Docker.
 
 **Wrong path mapping:**

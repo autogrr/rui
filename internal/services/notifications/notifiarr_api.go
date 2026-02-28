@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	notifiarrAPIEndpoint         = "https://notifiarr.com/api/v1/notification/qui"
+	notifiarrAPIEndpoint         = "https://notifiarr.com/api/v1/notification/rui"
 	notifiarrAPIValidateEndpoint = "https://notifiarr.com/api/v1/user/validate"
 	notifiarrAPITimeout          = 30 * time.Second
 	notifiarrAPIValidateTimeout  = 10 * time.Second

@@ -397,7 +397,7 @@ func (h *Handler) Routes(r chi.Router) {
 
 		pr.Post("/api/v2/torrents/reannounce", h.handleReannounce)
 
-		// Register intercepted endpoints (these use qui's sync manager or special handling)
+		// Register intercepted endpoints (these use rui's sync manager or special handling)
 		pr.Post("/api/v2/auth/login", h.handleAuthLogin)
 		pr.Get("/api/v2/sync/maindata", h.handleSyncMainData)
 		pr.Get("/api/v2/sync/torrentPeers", h.handleTorrentPeers)
@@ -627,7 +627,7 @@ func (h *Handler) validateQueryParams(w http.ResponseWriter, r *http.Request, al
 	return true
 }
 
-// handleTorrentsInfo handles /api/v2/torrents/info using qui's sync manager
+// handleTorrentsInfo handles /api/v2/torrents/info using rui's sync manager
 func (h *Handler) handleTorrentsInfo(w http.ResponseWriter, r *http.Request) {
 	ctx := qbittorrent.WithSkipTrackerHydration(r.Context())
 	instanceID := GetInstanceIDFromContext(ctx)
@@ -730,9 +730,9 @@ func (h *Handler) handleTorrentsInfo(w http.ResponseWriter, r *http.Request) {
 		Int("limit", limit).
 		Int("offset", offset).
 		Int("hashCount", uniqueHashCount).
-		Msg("Handling torrents/info request via qui sync manager")
+		Msg("Handling torrents/info request via rui sync manager")
 
-	// Use qui's sync manager
+	// Use rui's sync manager
 	response, err := h.syncManager.GetTorrentsWithFilters(ctx, instanceID, limit, offset, sort, order, "", filters)
 	if err != nil {
 		log.Error().
@@ -743,7 +743,7 @@ func (h *Handler) handleTorrentsInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert qui's TorrentView format back to qBittorrent's Torrent format
+	// Convert rui's TorrentView format back to qBittorrent's Torrent format
 	// The TorrentView embeds qbt.Torrent, so we can extract it
 	torrents := make([]any, len(response.Torrents))
 	for i, tv := range response.Torrents {
@@ -763,7 +763,7 @@ func (h *Handler) handleTorrentsInfo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// handleTorrentSearch handles torrents/search requests using qui's sync manager with advanced filtering
+// handleTorrentSearch handles torrents/search requests using rui's sync manager with advanced filtering
 func (h *Handler) handleTorrentSearch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	instanceID := GetInstanceIDFromContext(ctx)
@@ -809,7 +809,7 @@ func (h *Handler) handleTorrentSearch(w http.ResponseWriter, r *http.Request) {
 	// Build filter options from qBittorrent API parameters
 	filters := qbittorrent.FilterOptions{}
 
-	// Map standard qBittorrent parameters to qui filter
+	// Map standard qBittorrent parameters to rui filter
 	if filter != "" {
 		filters.Status = []string{filter}
 	}
@@ -845,21 +845,21 @@ func (h *Handler) handleTorrentSearch(w http.ResponseWriter, r *http.Request) {
 		Str("order", order).
 		Int("limit", limit).
 		Int("offset", offset).
-		Msg("Handling torrents/qui request with qui sync manager")
+		Msg("Handling torrents/rui request with rui sync manager")
 
-	// Use qui's sync manager to get filtered torrents
+	// Use rui's sync manager to get filtered torrents
 	response, err := h.syncManager.GetTorrentsWithFilters(ctx, instanceID, limit, offset, sort, order, search, filters)
 	if err != nil {
 		log.Error().
 			Err(err).
 			Int("instanceId", instanceID).
 			Str("search", search).
-			Msg("Failed to get torrents with qui filters")
+			Msg("Failed to get torrents with rui filters")
 		h.writeProxyError(w)
 		return
 	}
 
-	// Return full qui response with metadata
+	// Return full rui response with metadata
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
@@ -868,7 +868,7 @@ func (h *Handler) handleTorrentSearch(w http.ResponseWriter, r *http.Request) {
 		log.Error().
 			Err(err).
 			Int("instanceId", instanceID).
-			Msg("Failed to encode qui response")
+			Msg("Failed to encode rui response")
 	}
 }
 
@@ -886,7 +886,7 @@ func (h *Handler) handleCategories(w http.ResponseWriter, r *http.Request) {
 	log.Debug().
 		Int("instanceId", instanceID).
 		Str("client", clientAPIKey.ClientName).
-		Msg("Handling categories request via qui sync manager")
+		Msg("Handling categories request via rui sync manager")
 
 	categories, err := h.syncManager.GetCategories(ctx, instanceID)
 	if err != nil {
@@ -924,7 +924,7 @@ func (h *Handler) handleTags(w http.ResponseWriter, r *http.Request) {
 	log.Debug().
 		Int("instanceId", instanceID).
 		Str("client", clientAPIKey.ClientName).
-		Msg("Handling tags request via qui sync manager")
+		Msg("Handling tags request via rui sync manager")
 
 	tags, err := h.syncManager.GetTags(ctx, instanceID)
 	if err != nil {
@@ -967,7 +967,7 @@ func (h *Handler) handleTorrentProperties(w http.ResponseWriter, r *http.Request
 		Int("instanceId", instanceID).
 		Str("client", clientAPIKey.ClientName).
 		Str("hash", hash).
-		Msg("Handling torrent properties request via qui sync manager")
+		Msg("Handling torrent properties request via rui sync manager")
 
 	properties, err := h.syncManager.GetTorrentProperties(ctx, instanceID, hash)
 	if err != nil {
@@ -1011,7 +1011,7 @@ func (h *Handler) handleTorrentTrackers(w http.ResponseWriter, r *http.Request) 
 		Int("instanceId", instanceID).
 		Str("client", clientAPIKey.ClientName).
 		Str("hash", hash).
-		Msg("Handling torrent trackers request via qui sync manager")
+		Msg("Handling torrent trackers request via rui sync manager")
 
 	trackers, err := h.syncManager.GetTorrentTrackers(ctx, instanceID, hash)
 	if err != nil {
@@ -1131,7 +1131,7 @@ func (h *Handler) handleTorrentFiles(w http.ResponseWriter, r *http.Request) {
 		Int("instanceId", instanceID).
 		Str("client", clientAPIKey.ClientName).
 		Str("hash", hash).
-		Msg("Handling torrent files request via qui sync manager")
+		Msg("Handling torrent files request via rui sync manager")
 
 	files, err := h.syncManager.GetTorrentFiles(ctx, instanceID, hash)
 	if err != nil {

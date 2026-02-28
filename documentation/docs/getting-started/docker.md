@@ -1,7 +1,7 @@
 ---
 sidebar_position: 3
 title: Docker
-description: Run qui in Docker with compose or standalone.
+description: Run rui in Docker with compose or standalone.
 ---
 
 import CodeBlock from '@theme/CodeBlock';
@@ -38,21 +38,21 @@ Our release workflow builds multi-architecture images (`linux/amd64`, `linux/arm
 ### Deploy from the Docker tab
 
 1. Open **Docker → Add Container**
-2. Set **Name** to `qui`
+2. Set **Name** to `rui`
 3. Set **Repository** to `ghcr.io/autogrr/rui:latest`
 4. Keep the default **Network Type** (`bridge` works for most setups)
 5. Add a port mapping: **Host port** `7476` → **Container port** `7476`
-6. Add a path mapping: **Container Path** `/config` → **Host Path** `/mnt/user/appdata/qui`
+6. Add a path mapping: **Container Path** `/config` → **Host Path** `/mnt/user/appdata/rui`
 7. Enable **Advanced View** (top right)
 8. Set **Icon URL** to `https://raw.githubusercontent.com/autogrr/rui/main/web/public/icon.png`
 9. Set **WebUI** to `http://[IP]:[PORT:7476]`
-10. Set **Extra Parameters** to `--user="99:100"` (if you ran qui without this before you will need to change the ownership for the config and hardlink folders to `nobody`)
-11. (Optional) add environment variables for advanced settings (e.g., `QUI__BASE_URL`, `QUI__LOG_LEVEL`, `TZ`)
+10. Set **Extra Parameters** to `--user="99:100"` (if you ran rui without this before you will need to change the ownership for the config and hardlink folders to `nobody`)
+11. (Optional) add environment variables for advanced settings (e.g., `RUI__BASE_URL`, `RUI__LOG_LEVEL`, `TZ`)
 12. Click **Apply** to pull the image and start the container
 
 The `/config` mount stores `config.toml`, the SQLite database, and logs. Point it at your preferred appdata share so settings persist across upgrades.
 
-If the app logs to stdout, check logs via Docker → qui → Logs; if it writes to files, they'll be under `/config`.
+If the app logs to stdout, check logs via Docker → rui → Logs; if it writes to files, they'll be under `/config`.
 
 ### Updating
 

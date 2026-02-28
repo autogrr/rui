@@ -1184,7 +1184,7 @@ func (s *Service) ReconcileInterruptedRuns(ctx context.Context) {
 	}
 
 	now := time.Now().UTC()
-	const msg = "run interrupted (qui restarted or crashed)"
+	const msg = "run interrupted (rui restarted or crashed)"
 
 	searchCount, err := s.automationStore.MarkInterruptedSearchRuns(ctx, now, msg)
 	if err != nil {

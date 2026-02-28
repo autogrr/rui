@@ -134,7 +134,7 @@ func runUserCommand(cmd *cobra.Command, args ...string) (string, error) {
 }
 
 func databasePath(configDir string) string {
-	return filepath.Join(configDir, "qui.db")
+	return filepath.Join(configDir, "rui.db")
 }
 
 func openDatabase(t *testing.T, path string) *database.DB {

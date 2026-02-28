@@ -9,11 +9,11 @@ function HeroSection() {
     <header className={styles.hero}>
       <div className={styles.heroContent}>
         <img
-          src="/img/qui.png"
-          alt="qui logo"
+          src="/img/rui.png"
+          alt="rui logo"
           className={styles.heroLogo}
         />
-        <h1 className={styles.heroTitle}>qui</h1>
+        <h1 className={styles.heroTitle}>rui</h1>
         <p className={styles.heroTagline}>
           Modern web interface for qBittorrent
         </p>
@@ -42,8 +42,8 @@ function ScreenshotSection() {
     <section className={styles.screenshot}>
       <div className={styles.screenshotContainer}>
         <img
-          src="/img/qui-hero.png"
-          alt="qui interface screenshot"
+          src="/img/rui-hero.png"
+          alt="rui interface screenshot"
           className={styles.screenshotImage}
         />
       </div>

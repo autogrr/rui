@@ -20,7 +20,7 @@ import (
 // setupTestPool creates a new ClientPool for testing
 func setupTestPool(t *testing.T) *ClientPool {
 	// Create temp directory for test database
-	tmpDir, err := os.MkdirTemp("", "qui-pool-test-*")
+	tmpDir, err := os.MkdirTemp("", "rui-pool-test-*")
 	require.NoError(t, err)
 	t.Cleanup(func() { os.RemoveAll(tmpDir) })
 

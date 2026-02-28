@@ -10,7 +10,7 @@ endif
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 GIT_COMMIT := $(shell git rev-parse HEAD 2> /dev/null)
 GIT_TAG := $(shell git describe --abbrev=0 --tags)
-BINARY_NAME = qui
+BINARY_NAME = rui
 BUILD_DIR = build
 WEB_DIR = web
 INTERNAL_WEB_DIR = internal/web
@@ -65,7 +65,7 @@ frontend: themes-fetch
 # Build backend
 backend: templ-generate
 	@echo "Building backend..."
-	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/qui
+	go build $(LDFLAGS) -o $(BINARY_NAME) ./cmd/rui
 
 # Development mode - run both frontend and backend
 dev:

@@ -19,7 +19,7 @@ func TestGetDefaultConfigDirRespectsXDGConfigHome(t *testing.T) {
 
 	dir := GetDefaultConfigDir()
 
-	expected := filepath.Join(tmpDir, "qui")
+	expected := filepath.Join(tmpDir, "rui")
 	assert.Equal(t, filepath.Clean(expected), filepath.Clean(dir))
 }
 
@@ -39,11 +39,11 @@ func TestGetDefaultConfigDirFallsBackToOsDefault(t *testing.T) {
 	var expected string
 	if runtime.GOOS == "windows" {
 		t.Setenv("APPDATA", tmpDir)
-		expected = filepath.Join(tmpDir, "qui")
+		expected = filepath.Join(tmpDir, "rui")
 	} else {
 		t.Setenv("APPDATA", "")
 		t.Setenv("HOME", tmpDir)
-		expected = filepath.Join(tmpDir, ".config", "qui")
+		expected = filepath.Join(tmpDir, ".config", "rui")
 	}
 
 	dir := GetDefaultConfigDir()

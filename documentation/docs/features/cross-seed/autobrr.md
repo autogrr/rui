@@ -5,14 +5,14 @@ title: autobrr Integration
 
 # autobrr Integration
 
-qui integrates with autobrr through webhook endpoints, enabling real-time cross-seed detection when autobrr announces new releases.
+rui integrates with autobrr through webhook endpoints, enabling real-time cross-seed detection when autobrr announces new releases.
 
 ## How It Works
 
 1. autobrr sees a new release from a tracker
-2. autobrr sends the torrent name to qui's `/api/cross-seed/webhook/check` endpoint
-3. qui searches your qBittorrent instances for matching content
-4. qui responds with:
+2. autobrr sends the torrent name to rui's `/api/cross-seed/webhook/check` endpoint
+3. rui searches your qBittorrent instances for matching content
+4. rui responds with:
    - `200 OK` – matching torrent is complete and ready to cross-seed
    - `202 Accepted` – matching torrent exists but still downloading; retry later
    - `404 Not Found` – no matching torrent exists
@@ -20,7 +20,7 @@ qui integrates with autobrr through webhook endpoints, enabling real-time cross-
 
 ## Setup
 
-### 1. Create an API Key in qui
+### 1. Create an API Key in rui
 
 - Go to **Settings → API Keys**
 - Click **Create API Key**
@@ -30,7 +30,7 @@ qui integrates with autobrr through webhook endpoints, enabling real-time cross-
 ### 2. Configure autobrr External Filter
 
 :::important
-Create a **new autobrr filter dedicated to qui**.
+Create a **new autobrr filter dedicated to rui**.
 :::
 
 :::note
@@ -40,9 +40,9 @@ You must also set up the **Action** in [Apply Endpoint](#apply-endpoint).
 :::
 
 :::tip
-**Docker Compose:** if autobrr and qui are both containers, `localhost` inside autobrr is the autobrr container, not qui.
+**Docker Compose:** if autobrr and rui are both containers, `localhost` inside autobrr is the autobrr container, not rui.
 
-Use your qui container hostname instead (often the Compose service name), for example: `http://qui:7476/api/cross-seed/webhook/check`.
+Use your rui container hostname instead (often the Compose service name), for example: `http://rui:7476/api/cross-seed/webhook/check`.
 :::
 
 In your new autobrr filter, go to **External** tab → **Add new**:
@@ -50,7 +50,7 @@ In your new autobrr filter, go to **External** tab → **Add new**:
 | Field                     | Value                                                |
 | ------------------------- | ---------------------------------------------------- |
 | Type                      | `Webhook`                                            |
-| Name                      | `qui`                                                |
+| Name                      | `rui`                                                |
 | On Error                  | `Reject`                                             |
 | Endpoint                  | `http://localhost:7476/api/cross-seed/webhook/check` |
 | HTTP Method               | `POST`                                               |
@@ -97,7 +97,7 @@ When `/check` returns `200 OK`, send the torrent to `/api/cross-seed/apply`:
 | Field       | Value                                                                |
 | ----------- | -------------------------------------------------------------------- |
 | Action Type | `Webhook`                                                            |
-| Name        | `qui cross-seed`                                                     |
+| Name        | `rui cross-seed`                                                     |
 | Endpoint    | `http://localhost:7476/api/cross-seed/apply?apikey=YOUR_QUI_API_KEY` |
 
 **Payload (JSON):**
@@ -121,7 +121,7 @@ When `/check` returns `200 OK`, send the torrent to `/api/cross-seed/apply`:
 - `skipIfExists` (optional) - Skip adding if the torrent already exists
 - `findIndividualEpisodes` (optional) - Override the global episode matching setting
 
-Cross-seeded torrents are added paused with `skip_checking=true`. qui polls the torrent state and auto-resumes if progress meets the size tolerance threshold. If progress is too low, it remains paused for manual review.
+Cross-seeded torrents are added paused with `skip_checking=true`. rui polls the torrent state and auto-resumes if progress meets the size tolerance threshold. If progress is too low, it remains paused for manual review.
 
 ### Troubleshooting: autobrr matches, but nothing gets added to qBittorrent
 
@@ -131,13 +131,13 @@ Use this when autobrr shows the filter accepted the release (or your Discord not
    - The External webhook (`/check`) does not add torrents.
    - You need an autobrr **Action** (Webhook) that calls `/api/cross-seed/apply` (above).
 2. **Fix Docker networking if you're using containers**
-   - `http://localhost:7476/...` only works if autobrr can reach qui on its own `localhost`.
-   - In Docker Compose, use the qui service hostname (example): `http://qui:7476/api/cross-seed/apply?apikey=...`.
+   - `http://localhost:7476/...` only works if autobrr can reach rui on its own `localhost`.
+   - In Docker Compose, use the rui service hostname (example): `http://rui:7476/api/cross-seed/apply?apikey=...`.
 3. **Double-check auth**
    - `/check`: header `X-API-Key=...`
    - `/apply`: query string `?apikey=...` (as shown in this guide)
-4. **Verify qui can talk to qBittorrent**
-   - qui UI: **Settings → Instances → Test Connection**
+4. **Verify rui can talk to qBittorrent**
+   - rui UI: **Settings → Instances → Test Connection**
 5. **Check paused torrents**
    - Cross-seeds are often added **paused**. Look in qBittorrent's paused list (and any cross-seed tag/category you configured).
 
@@ -162,4 +162,4 @@ This is useful when:
 Exclude filters take precedence over include filters. Tag matching is case-sensitive. When both category and tag include filters are configured, a torrent must pass both filter checks (matching at least one allowed category AND at least one allowed tag).
 :::
 
-Configure in qui UI: **Cross-Seed → Auto → Webhook / autobrr**
+Configure in rui UI: **Cross-Seed → Auto → Webhook / autobrr**

@@ -49,7 +49,7 @@ func TestValidateNotifiarrAPIKeyValid(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	endpoint := server.URL + "/api/v1/notification/qui"
+	endpoint := server.URL + "/api/v1/notification/rui"
 	rawURL := "notifiarrapi://abc123?endpoint=" + url.QueryEscape(endpoint)
 
 	err := ValidateNotifiarrAPIKey(context.Background(), rawURL)
@@ -73,7 +73,7 @@ func TestValidateNotifiarrAPIKeyInvalid(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	endpoint := server.URL + "/api/v1/notification/qui"
+	endpoint := server.URL + "/api/v1/notification/rui"
 	rawURL := "notifiarrapi://abc123?endpoint=" + url.QueryEscape(endpoint)
 
 	err := ValidateNotifiarrAPIKey(context.Background(), rawURL)

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
 // Package ui provides the server-rendered HTTP handlers and templates for the
-// qui web interface built with Go templ + templui + HTMX + Alpine.js.
+// rui web interface built with Go templ + templui + HTMX + Alpine.js.
 package ui
 
 import (

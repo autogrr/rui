@@ -4,7 +4,7 @@ title: Introduction
 description: Fast, modern interface for qBittorrent with cross-seeding, automations, and backups.
 ---
 
-# qui
+# rui
 
 A web interface for qBittorrent. Manage multiple qBittorrent instances from a single application.
 
@@ -14,7 +14,7 @@ A web interface for qBittorrent. Manage multiple qBittorrent instances from a si
 - **Multi-Instance Support**: Manage all your qBittorrent instances from one place
 - **Large Collections**: Handles thousands of torrents efficiently
 - **Themeable**: Multiple color themes available
-- **Base URL Support**: Serve from a subdirectory (e.g., `/qui/`) for reverse proxy setups
+- **Base URL Support**: Serve from a subdirectory (e.g., `/rui/`) for reverse proxy setups
 - **OIDC Single Sign-On**: Authenticate through your OpenID Connect provider
 - **External Programs**: Launch custom scripts from the torrent context menu
 - **Tracker Reannounce**: Automatically fix stalled torrents when qBittorrent doesn't retry fast enough
@@ -30,21 +30,21 @@ A web interface for qBittorrent. Manage multiple qBittorrent instances from a si
 Right-click any magnet or torrent link to add it directly to your qBittorrent instances:
 
 - [Chrome Extension](https://chromewebstore.google.com/detail/kbjnjgihepmcoilegnghgpmijbecoili)
-- [Firefox Add-on](https://addons.mozilla.org/en-US/firefox/addon/qui/)
+- [Firefox Add-on](https://addons.mozilla.org/en-US/firefox/addon/rui/)
 
 ## Quick Start
 
 Get started in minutes:
 
-1. [Install qui](/docs/getting-started/installation)
-2. Open your browser to http://localhost:7476
+1. [Install rui](/docs/getting-started/installation)
+2. Open your browser to http://localhost:7420
 3. Create your admin account
 4. Add your qBittorrent instance(s)
 5. Start managing your torrents
 
 ## Community
 
-Join our friendly and welcoming community on [Discord](https://discord.autobrr.com/qui)! Connect with fellow autobrr users, get advice, and share your experiences.
+Join our friendly and welcoming community on [Discord](https://discord.autobrr.com/rui)! Connect with fellow autobrr users, get advice, and share your experiences.
 
 ## License
 
@@ -52,6 +52,6 @@ GPL-2.0-or-later
 
 ## Supported Torrent Clients
 
-qui currently only supports qBittorrent. It communicates directly with the qBittorrent Web API. Support for other torrent clients such as Deluge, rTorrent, and Transmission is not yet available, but we hope to support them all in the future.
+rui currently only supports qBittorrent. It communicates directly with the qBittorrent Web API. Support for other torrent clients such as Deluge, rTorrent, and Transmission is not yet available, but we hope to support them all in the future.
 
 For details on which qBittorrent versions are compatible, see the [qBittorrent Version Compatibility](./advanced/compatibility.md) page.

@@ -288,7 +288,7 @@ func (h *NotificationsHandler) TestTarget(w http.ResponseWriter, r *http.Request
 	}
 	message := strings.TrimSpace(req.Message)
 	if message == "" {
-		message = "This is a test notification from qui."
+		message = "This is a test notification from rui."
 	}
 
 	target, err := h.store.GetByID(r.Context(), id)

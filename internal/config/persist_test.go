@@ -15,7 +15,7 @@ func TestUpdateLogSettingsInTOMLUpdatesCommentedKeysInPlace(t *testing.T) {
 # Log file path
 # If not defined, logs to stdout
 # Optional
-#logPath = "log/qui.log"
+#logPath = "log/rui.log"
 
 # Log rotation
 # Maximum log file size in megabytes before rotation
@@ -35,7 +35,7 @@ logLevel = "INFO"
 [httpTimeouts]
 #readTimeout = 60
 `
-	updated := updateLogSettingsInTOML(content, "DEBUG", "/config/qui.log", 50, 3)
+	updated := updateLogSettingsInTOML(content, "DEBUG", "/config/rui.log", 50, 3)
 
 	if strings.Contains(updated, "# Log settings") {
 		t.Fatalf("unexpected appended log settings section:\n%s", updated)
@@ -54,7 +54,7 @@ logLevel = "INFO"
 		t.Fatalf("logPath appended after httpTimeouts section:\n%s", updated)
 	}
 
-	if !strings.Contains(updated, `logPath = "/config/qui.log"`) {
+	if !strings.Contains(updated, `logPath = "/config/rui.log"`) {
 		t.Fatalf("logPath not updated in place:\n%s", updated)
 	}
 	if !strings.Contains(updated, "logMaxSize = 50") {
@@ -69,18 +69,18 @@ logLevel = "INFO"
 }
 
 func TestUpdateLogSettingsInTOMLDoesNotDuplicateWhenActiveAndCommented(t *testing.T) {
-	content := `logPath = "/existing/qui.log"
-#logPath = "log/qui.log"
+	content := `logPath = "/existing/rui.log"
+#logPath = "log/rui.log"
 logLevel = "INFO"
 logMaxSize = 10
 logMaxBackups = 2
 `
-	updated := updateLogSettingsInTOML(content, "DEBUG", "/config/qui.log", 50, 3)
+	updated := updateLogSettingsInTOML(content, "DEBUG", "/config/rui.log", 50, 3)
 
 	if got := countTrimmedPrefix(updated, "logPath = "); got != 1 {
 		t.Fatalf("expected exactly one active logPath, got %d:\n%s", got, updated)
 	}
-	if !strings.Contains(updated, `#logPath = "log/qui.log"`) {
+	if !strings.Contains(updated, `#logPath = "log/rui.log"`) {
 		t.Fatalf("commented logPath should remain untouched:\n%s", updated)
 	}
 	if strings.Contains(updated, "# Log settings") {
@@ -89,34 +89,34 @@ logMaxBackups = 2
 }
 
 func TestUpdateLogSettingsInTOMLPreservesCommentWhenActiveComesLater(t *testing.T) {
-	content := `#logPath = "log/qui.log"
-logPath = "/existing/qui.log"
+	content := `#logPath = "log/rui.log"
+logPath = "/existing/rui.log"
 logLevel = "INFO"
 logMaxSize = 10
 logMaxBackups = 2
 `
-	updated := updateLogSettingsInTOML(content, "DEBUG", "/config/qui.log", 50, 3)
+	updated := updateLogSettingsInTOML(content, "DEBUG", "/config/rui.log", 50, 3)
 
 	if got := countTrimmedPrefix(updated, "logPath = "); got != 1 {
 		t.Fatalf("expected exactly one active logPath, got %d:\n%s", got, updated)
 	}
-	if !strings.Contains(updated, `#logPath = "log/qui.log"`) {
+	if !strings.Contains(updated, `#logPath = "log/rui.log"`) {
 		t.Fatalf("commented logPath should remain untouched:\n%s", updated)
 	}
 }
 
 func TestUpdateLogSettingsInTOMLPromotesCommentedKeysWhenNoActiveExists(t *testing.T) {
-	content := `#logPath = "log/qui.log"
+	content := `#logPath = "log/rui.log"
 #logLevel = "INFO"
 #logMaxSize = 50
 #logMaxBackups = 3
 `
-	updated := updateLogSettingsInTOML(content, "DEBUG", "/config/qui.log", 99, 7)
+	updated := updateLogSettingsInTOML(content, "DEBUG", "/config/rui.log", 99, 7)
 
 	if strings.Contains(updated, "# Log settings") {
 		t.Fatalf("unexpected appended settings:\n%s", updated)
 	}
-	if !strings.Contains(updated, `logPath = "/config/qui.log"`) {
+	if !strings.Contains(updated, `logPath = "/config/rui.log"`) {
 		t.Fatalf("expected promoted logPath:\n%s", updated)
 	}
 	if !strings.Contains(updated, `logLevel = "DEBUG"`) {

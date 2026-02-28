@@ -6,13 +6,13 @@ description: Cross-seed using Orpheus/Redacted Gazelle APIs, optionally alongsid
 
 # OPS/RED (Gazelle)
 
-qui can cross-seed between Orpheus (OPS) and Redacted (RED) using the trackers' Gazelle JSON APIs.
+rui can cross-seed between Orpheus (OPS) and Redacted (RED) using the trackers' Gazelle JSON APIs.
 
 :::tip TL;DR
 - Want the best OPS/RED cross-seed coverage: enable Gazelle and set **both** API keys.
 - If you set **only one** key, Gazelle matching still works, but coverage is **partial**:
-  - OPS-sourced torrents need the **RED** key (because qui queries the opposite site)
-  - RED-sourced torrents need the **OPS** key (because qui queries the opposite site)
+  - OPS-sourced torrents need the **RED** key (because rui queries the opposite site)
+  - RED-sourced torrents need the **OPS** key (because rui queries the opposite site)
 - "Library Scan" (Seeded Torrent Search) can run in Gazelle-only mode without Torznab, but run it sparingly and use an interval of **10+ seconds**.
 :::
 
@@ -38,21 +38,21 @@ These map to the Gazelle API sites:
 
 ## Keys And Coverage (ELI5)
 
-You can configure one key or both. What qui can query depends on what you seed.
+You can configure one key or both. What rui can query depends on what you seed.
 
-- If a torrent is sourced from **OPS**, qui tries to find it on **RED**. That requires a **RED key**.
-- If a torrent is sourced from **RED**, qui tries to find it on **OPS**. That requires an **OPS key**.
+- If a torrent is sourced from **OPS**, rui tries to find it on **RED**. That requires a **RED key**.
+- If a torrent is sourced from **RED**, rui tries to find it on **OPS**. That requires an **OPS key**.
 
 If you only set one key, expect this:
 
-- Mixed OPS+RED libraries: some torrents will be "no match" simply because qui cannot query the needed opposite site.
-- Non-OPS/RED torrents: qui will query whichever Gazelle sites you configured (one or both).
+- Mixed OPS+RED libraries: some torrents will be "no match" simply because rui cannot query the needed opposite site.
+- Non-OPS/RED torrents: rui will query whichever Gazelle sites you configured (one or both).
 
 ## What Happens If Gazelle Isn't Configured
 
 If Gazelle is disabled or no API keys are set:
 
-- qui falls back to Torznab (Jackett/Prowlarr) where available
+- rui falls back to Torznab (Jackett/Prowlarr) where available
 - Gazelle-only modes (Torznab disabled) cannot run
 
 ## How It Matches
@@ -77,7 +77,7 @@ UI: **Cross-Seed -> Rules -> Gazelle (OPS/RED)**
 
 ### "torznab disabled but gazelle not configured"
 
-You tried to run in Gazelle-only mode (Torznab disabled), but qui has no usable Gazelle client.
+You tried to run in Gazelle-only mode (Torznab disabled), but rui has no usable Gazelle client.
 
 Fix:
 
@@ -97,7 +97,7 @@ Example: only RED key is set.
 
 ## Rate Limiting
 
-Requests to OPS/RED are rate-limited and **shared across the whole qui process**, so running multiple qBittorrent instances does not multiply API pressure.
+Requests to OPS/RED are rate-limited and **shared across the whole rui process**, so running multiple qBittorrent instances does not multiply API pressure.
 
 ### Library Scan Without Torznab
 

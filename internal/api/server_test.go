@@ -108,7 +108,7 @@ func newTestDependencies(t *testing.T) *Dependencies {
 		require.NoError(t, err)
 	}
 
-	trackerIconService, err := trackericons.NewService(t.TempDir(), "qui-test")
+	trackerIconService, err := trackericons.NewService(t.TempDir(), "rui-test")
 	require.NoError(t, err)
 
 	trackerCustomizationStore := models.NewTrackerCustomizationStore(db)

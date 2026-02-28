@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 /**
- * qui documentation theme - based on minimal.css
+ * rui documentation theme - based on minimal.css
  *
- * Maps the qui web theme (OKLch colors) to Docusaurus Infima variables.
+ * Maps the rui web theme (OKLch colors) to Docusaurus Infima variables.
  * Maintains visual consistency between the app and documentation.
  */
 
@@ -13,7 +13,7 @@
  * ========================================================================= */
 
 :root {
-  /* Primary - neutral dark gray (matches qui's --primary) */
+  /* Primary - neutral dark gray (matches rui's --primary) */
   --ifm-color-primary: #2a2a2a;
   --ifm-color-primary-dark: #1f1f1f;
   --ifm-color-primary-darker: #1a1a1a;
@@ -71,7 +71,7 @@
   --ifm-global-shadow-md: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 1px 2px -1px rgba(0, 0, 0, 0.10);
   --ifm-global-shadow-tl: 0 1px 3px 0 rgba(0, 0, 0, 0.10), 0 4px 6px -1px rgba(0, 0, 0, 0.10);
 
-  /* Border radius - matches qui's --radius */
+  /* Border radius - matches rui's --radius */
   --ifm-global-radius: 0.625rem;
   --ifm-button-border-radius: 0.5rem;
   --ifm-alert-border-radius: 0.625rem;

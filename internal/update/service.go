@@ -6,132 +6,44 @@ package update
 
 import (
 	"context"
-	"sync"
-	"time"
 
 	"github.com/autogrr/rui/pkg/version"
 
 	"github.com/rs/zerolog"
 )
 
-const defaultCheckInterval = 2 * time.Hour
-
-// Service periodically checks api.autobrr.com for new qui releases and caches the latest result.
+// Service is a no-op stub. Outbound update checks have been removed from rui.
+// The struct is kept so that callers (API handlers, etc.) can still reference it
+// without code changes, but it never makes network requests.
 type Service struct {
 	log            zerolog.Logger
 	currentVersion string
-
-	mu             sync.RWMutex
-	releaseChecker *version.Checker
-	latestRelease  *version.Release
-	lastChecked    time.Time
-	lastTag        string
-	isEnabled      bool
 }
 
-// NewService creates a new update Service instance.
-func NewService(log zerolog.Logger, enabled bool, currentVersion, userAgent string) *Service {
-	svc := &Service{
+// NewService creates a new (no-op) update Service instance.
+// The enabled and userAgent parameters are accepted for API compatibility but ignored.
+func NewService(log zerolog.Logger, _ bool, currentVersion, _ string) *Service {
+	return &Service{
 		log:            log.With().Str("component", "update").Logger(),
 		currentVersion: currentVersion,
-		releaseChecker: version.NewChecker("autobrr", "qui", userAgent),
-		isEnabled:      enabled,
-	}
-	return svc
-}
-
-// Start launches a background loop that periodically checks for updates while the context is active.
-func (s *Service) Start(ctx context.Context) {
-	go func() {
-		// Run an initial check shortly after startup so the banner can appear quickly.
-		s.initialCheck(ctx)
-
-		ticker := time.NewTicker(defaultCheckInterval)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				s.CheckUpdates(ctx)
-			}
-		}
-	}()
-}
-
-func (s *Service) initialCheck(ctx context.Context) {
-	timer := time.NewTimer(2 * time.Second)
-	defer timer.Stop()
-
-	select {
-	case <-ctx.Done():
-		return
-	case <-timer.C:
-		s.CheckUpdates(ctx)
 	}
 }
 
-// GetLatestRelease returns the last known release if a newer version has been found.
+// Start is a no-op. Outbound update checks have been removed from rui.
+func (s *Service) Start(_ context.Context) {}
+
+// GetLatestRelease always returns nil. Outbound update checks have been removed.
 func (s *Service) GetLatestRelease(_ context.Context) *version.Release {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.latestRelease
+	return nil
 }
 
-// CheckUpdates triggers a refresh of the latest release information if updates are enabled.
-func (s *Service) CheckUpdates(ctx context.Context) {
-	if !s.isEnabled {
-		s.log.Trace().Msg("skipping update check - disabled in config")
-		return
-	}
+// CheckUpdates is a no-op. Outbound update checks have been removed.
+func (s *Service) CheckUpdates(_ context.Context) {}
 
-	if _, err := s.CheckUpdateAvailable(ctx); err != nil {
-		s.log.Error().Err(err).Msg("error checking new release")
-	}
+// CheckUpdateAvailable is a no-op. Always returns nil.
+func (s *Service) CheckUpdateAvailable(_ context.Context) (*version.Release, error) {
+	return nil, nil
 }
 
-// CheckUpdateAvailable performs an update check and returns the new release if one is available.
-func (s *Service) CheckUpdateAvailable(ctx context.Context) (*version.Release, error) {
-	s.log.Trace().Msg("checking for updates")
-
-	newAvailable, release, err := s.releaseChecker.CheckNewVersion(ctx, s.currentVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	if !newAvailable || release == nil {
-		s.mu.Lock()
-		s.latestRelease = nil
-		s.mu.Unlock()
-		return nil, nil
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.lastTag == release.TagName {
-		s.lastChecked = time.Now()
-		return s.latestRelease, nil
-	}
-
-	s.lastTag = release.TagName
-	s.lastChecked = time.Now()
-	s.latestRelease = release
-
-	s.log.Info().Str("tag", release.TagName).Msg("new qui release detected")
-
-	return release, nil
-}
-
-// SetEnabled toggles whether periodic update checks should run.
-func (s *Service) SetEnabled(enabled bool) {
-	s.isEnabled = enabled
-	if !enabled {
-		s.mu.Lock()
-		s.latestRelease = nil
-		s.lastTag = ""
-		s.lastChecked = time.Time{}
-		s.mu.Unlock()
-	}
-}
+// SetEnabled is a no-op. Kept for API compatibility.
+func (s *Service) SetEnabled(_ bool) {}

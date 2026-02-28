@@ -79,7 +79,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Get("/rss", h.GetRSS)
 			r.Get("/settings", h.GetSettings)
 			r.Get("/settings/{section}", h.GetSettings)
-			r.Get("/instances", h.GetInstances)
+			r.Get("/instances", func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, h.baseURL()+"/ui/settings/instances", http.StatusSeeOther)
+			})
 			r.Get("/dir-scan", h.GetDirScan)
 
 			// Instance CRUD (HTMX-driven).
@@ -87,6 +89,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Put("/instances/{id}", h.PutInstance)
 			r.Delete("/instances/{id}", h.DeleteInstance)
 			r.Post("/instances/{id}/toggle", h.PostInstanceToggle)
+			r.Post("/instances/test", h.PostInstanceTest)
+			r.Post("/instances/{id}/test", h.PostInstanceTestByID)
 
 			// HTMX partial fragments — return HTML snippets, not full pages.
 			r.Get("/partials/instances", h.GetInstancesListPartial)
@@ -98,6 +102,16 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Get("/partials/torrents/{hash}", h.GetTorrentDetailPartial)
 			r.Post("/partials/torrents/action", h.PostTorrentsAction)
 			r.Post("/partials/torrents/add", h.PostAddTorrent)
+			r.Post("/partials/torrents/set-category", h.PostTorrentSetCategory)
+			r.Post("/partials/torrents/add-tags", h.PostTorrentAddTags)
+			r.Post("/partials/torrents/remove-tags", h.PostTorrentRemoveTags)
+			r.Post("/partials/torrents/set-location", h.PostTorrentSetLocation)
+			r.Post("/partials/torrents/set-limits", h.PostTorrentSetLimits)
+			r.Post("/partials/torrents/rename", h.PostTorrentRename)
+			r.Post("/partials/torrents/file-priority", h.PostTorrentFilePriority)
+			r.Get("/partials/torrents/export/{hash}", h.GetTorrentExport)
+			r.Post("/partials/torrents/add-trackers", h.PostTorrentAddTrackers)
+			r.Post("/partials/torrents/remove-trackers", h.PostTorrentRemoveTrackers)
 			// SSE stream — pushes torrent-update events; HTMX SSE extension picks
 			// these up to trigger table refreshes while preserving filter state.
 			r.Get("/sse/torrents", h.StreamTorrentsSSE)

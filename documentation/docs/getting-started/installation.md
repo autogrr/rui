@@ -1,7 +1,7 @@
 ---
 sidebar_position: 1
 title: Installation
-description: Install qui on Linux with a single command.
+description: Install rui on Linux with a single command.
 ---
 
 # Installation
@@ -18,10 +18,10 @@ wget $(curl -s https://api.github.com/repos/autogrr/rui/releases/latest | grep b
 Run with root or sudo. If you do not have root, or are on a shared system, place the binaries somewhere in your home directory like `~/.bin`.
 
 ```bash
-tar -C /usr/local/bin -xzf qui*.tar.gz
+tar -C /usr/local/bin -xzf rui*.tar.gz
 ```
 
-This will extract qui to `/usr/local/bin`. Note: If the command fails, prefix it with `sudo` and re-run again.
+This will extract rui to `/usr/local/bin`. Note: If the command fails, prefix it with `sudo` and re-run again.
 
 ## Manual Download
 
@@ -31,20 +31,20 @@ Download the latest release for your platform from the [releases page](https://g
 
 ```bash
 # Make it executable (Linux/macOS)
-chmod +x qui
+chmod +x rui
 
 # Run
-./qui serve
+./rui serve
 ```
 
 The web interface will be available at http://localhost:7476
 
 ## Updating
 
-qui includes a built-in update command that automatically downloads and installs the latest release:
+rui includes a built-in update command that automatically downloads and installs the latest release:
 
 ```bash
-./qui update
+./rui update
 ```
 
 ## First Setup

@@ -184,7 +184,7 @@ jobs:
 
             **Documentation Checks:**
             Map code changes to documentation files in `documentation/docs/`:
-            - New CLI flag in `cmd/qui/` → `configuration/cli-commands.md`
+            - New CLI flag in `cmd/rui/` → `configuration/cli-commands.md`
             - New env var → `configuration/environment.md`
             - New API endpoint → `api/overview.md`
             - Automation condition change → `features/automations.md`

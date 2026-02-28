@@ -6,9 +6,8 @@ package version
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -63,58 +62,29 @@ type Asset struct {
 	BrowserDownloadURL string    `json:"browser_download_url"`
 }
 
-// Checker talks to api.autobrr.com to determine whether a newer release is available.
+// errCallHomeDisabled is returned by the Checker since outbound update checks
+// have been removed from rui.
+var errCallHomeDisabled = errors.New("outbound update checks are disabled")
+
+// Checker is a no-op stub. Outbound update checks to api.autobrr.com have been
+// removed — rui never phones home.
 type Checker struct {
 	Owner     string
 	Repo      string
 	UserAgent string
-
-	httpClient *http.Client
 }
 
-// NewChecker returns a configured Checker for the provided repository.
+// NewChecker returns a Checker stub. No outbound requests are made.
 func NewChecker(owner, repo, userAgent string) *Checker {
 	return &Checker{
 		Owner:     owner,
 		Repo:      repo,
 		UserAgent: userAgent,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
 	}
 }
 
-func (c *Checker) get(ctx context.Context) (*Release, error) {
-	url := fmt.Sprintf("https://api.autobrr.com/repos/%s/%s/releases/latest", c.Owner, c.Repo)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	if c.UserAgent != "" {
-		req.Header.Set("User-Agent", c.UserAgent)
-	}
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error getting releases for %s: %s", c.Repo, resp.Status)
-	}
-
-	var release Release
-	dec := json.NewDecoder(resp.Body)
-	if err := dec.Decode(&release); err != nil {
-		return nil, err
-	}
-
-	return &release, nil
+func (c *Checker) get(_ context.Context) (*Release, error) {
+	return nil, errCallHomeDisabled
 }
 
 // CheckNewVersion returns whether a newer release is available and the release metadata.

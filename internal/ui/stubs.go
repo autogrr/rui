@@ -90,11 +90,10 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 
 	rows, total, targetID := h.fetchTorrentRows(ctx, instanceID, search, status, category, tag, tracker, savepath, expr, sortCol, sortOrder)
 
-	// Load sidebar data for the full page render.
+	// Load categories and tags for the add-torrent dialog datalists.
+	// Tracker domains and save paths are derived client-side from row data.
 	var cats []string
 	var tagList []string
-	var trackers []string
-	var savepaths []string
 	if targetID > 0 && h.syncManager != nil {
 		if catMap, err := h.syncManager.GetCategories(ctx, targetID); err == nil {
 			for name := range catMap {
@@ -105,30 +104,6 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 		if t, err := h.syncManager.GetTags(ctx, targetID); err == nil {
 			tagList = t
 			sort.Strings(tagList)
-		}
-		// Derive unique tracker domains and save paths from the full unfiltered list.
-		if all, err := h.syncManager.GetAllTorrents(ctx, targetID); err == nil {
-			trackerSet := make(map[string]struct{}, 64)
-			savepathSet := make(map[string]struct{}, 64)
-			for _, t := range all {
-				if qbt.Deref(t.Tracker) != "" {
-					if domain := h.syncManager.ExtractDomainFromURL(qbt.Deref(t.Tracker)); domain != "" && domain != "Unknown" {
-						trackerSet[domain] = struct{}{}
-					}
-				}
-				if qbt.Deref(t.SavePath) != "" {
-					sp := strings.ReplaceAll(qbt.Deref(t.SavePath), "\\\\", "/")
-					savepathSet[sp] = struct{}{}
-				}
-			}
-			for k := range trackerSet {
-				trackers = append(trackers, k)
-			}
-			for k := range savepathSet {
-				savepaths = append(savepaths, k)
-			}
-			sort.Strings(trackers)
-			sort.Strings(savepaths)
 		}
 	}
 
@@ -149,8 +124,6 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 		Total:          total,
 		Categories:     cats,
 		Tags:           tagList,
-		Trackers:       trackers,
-		SavePaths:      savepaths,
 		FilterTracker:  tracker,
 		FilterSavePath: savepath,
 	}))
@@ -229,16 +202,16 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID int, search, 
 		filters.Status = []string{status}
 	}
 	if category != "" {
-		filters.Categories = []string{category}
+		filters.Categories = splitComma(category)
 	}
 	if tag != "" {
-		filters.Tags = []string{tag}
+		filters.Tags = splitComma(tag)
 	}
 	if tracker != "" {
-		filters.Trackers = []string{tracker}
+		filters.Trackers = splitComma(tracker)
 	}
 	if savepath != "" {
-		filters.SavePaths = []string{savepath}
+		filters.SavePaths = splitComma(savepath)
 	}
 	if expr != "" {
 		filters.Expr = expr
@@ -262,8 +235,17 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID int, search, 
 		if tv.Torrent == nil {
 			continue
 		}
+		// Hash: prefer the legacy hash field; fall back to infohash_v1 / infohash_v2
+		// because qBittorrent 5.x sync/maindata only populates those fields.
+		torrentHash := qbt.Deref(tv.Hash)
+		if torrentHash == "" {
+			torrentHash = qbt.Deref(tv.InfoHashV1)
+		}
+		if torrentHash == "" {
+			torrentHash = qbt.Deref(tv.InfoHashV2)
+		}
 		rows = append(rows, pages.TorrentRow{
-			Hash:          qbt.Deref(tv.Hash),
+				Hash:          torrentHash,
 			Name:          qbt.Deref(tv.Name),
 			State:         string(qbt.Deref(tv.State)),
 			SizeB:         qbt.Deref(tv.Size),
@@ -309,6 +291,21 @@ func intParam(s string, def int) int {
 		return def
 	}
 	return v
+}
+
+// splitComma splits a comma-separated string into non-empty trimmed parts.
+// This supports multi-select sidebar filters where multiple values are joined
+// with commas in the hidden input (e.g. "linux,movies,tv").
+func splitComma(s string) []string {
+	parts := strings.Split(s, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // ------------------------------------------------------------------
@@ -390,6 +387,12 @@ func (h *Handler) GetSettings(w http.ResponseWriter, r *http.Request) {
 				props.TrackerCustomizations = customs
 			}
 		}
+	case pages.SettingsSectionInstances:
+		items := make([]pages.InstanceListItem, 0, len(insts))
+		for _, inst := range insts {
+			items = append(items, instanceToStaticItem(inst))
+		}
+		props.InstanceItems = items
 	}
 
 	render(w, r, http.StatusOK, pages.Settings(props))

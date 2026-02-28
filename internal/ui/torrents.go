@@ -17,7 +17,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	qbt "github.com/autogrr/go-qbittorrent"
-	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/ui/pages"
 )
@@ -55,6 +54,7 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 
 	// Pull basic metadata (name, state, category, tags) from the cache.
 	var name, state, category, tags string
+	var torrentFound bool
 	if torrents, err := h.syncManager.GetTorrents(ctx, targetID, qbt.TorrentFilterOptions{
 		Hashes: []string{hash},
 	}); err == nil {
@@ -63,6 +63,7 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 			state = string(qbt.Deref(t.State))
 			category = qbt.Deref(t.Category)
 			tags = qbt.Deref(t.Tags)
+			torrentFound = true
 			break
 		}
 	}
@@ -74,8 +75,10 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 	webSeeds, _ := h.syncManager.GetTorrentWebSeeds(ctx, targetID, hash)
 
 	// Fetch cross-seed local matches (best-effort, errors are non-fatal).
+	// Only attempt when the torrent was confirmed in the cache — avoids noisy
+	// "torrent not found" logs on every click when sync hasn't completed yet.
 	var crossSeedMatches []pages.CrossSeedMatch
-	if h.crossSeedService != nil {
+	if h.crossSeedService != nil && torrentFound {
 		if resp, err := h.crossSeedService.FindLocalMatches(ctx, targetID, hash, false); err == nil && resp != nil {
 			for _, m := range resp.Matches {
 				crossSeedMatches = append(crossSeedMatches, pages.CrossSeedMatch{
@@ -90,8 +93,6 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 					Size:         m.Size,
 				})
 			}
-		} else if err != nil {
-			log.Debug().Err(err).Str("hash", hash).Msg("ui: cross-seed local match check failed (non-fatal)")
 		}
 	}
 
@@ -104,15 +105,20 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 	}
 
 	render(w, r, http.StatusOK, pages.TorrentDetailPanel(pages.TorrentDetailProps{
-		BaseURL:          h.baseURL(),
-		InstanceID:       targetID,
-		Hash:             hash,
-		Name:             name,
-		State:            state,
-		Category:         category,
-		Tags:             tags,
-		Properties:       props,
-		Files:            func() []qbt.TorrentFile { if files != nil { return *files }; return nil }(),
+		BaseURL:    h.baseURL(),
+		InstanceID: targetID,
+		Hash:       hash,
+		Name:       name,
+		State:      state,
+		Category:   category,
+		Tags:       tags,
+		Properties: props,
+		Files: func() []qbt.TorrentFile {
+			if files != nil {
+				return *files
+			}
+			return nil
+		}(),
 		Trackers:         trackers,
 		Peers:            peers,
 		WebSeeds:         webSeeds,

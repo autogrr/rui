@@ -640,7 +640,7 @@ func (h *Handler) PostNotificationTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	testErr := h.notificationService.SendTest(r.Context(), target, "Test notification", "This is a test notification from qui.")
+	testErr := h.notificationService.SendTest(r.Context(), target, "Test notification", "This is a test notification from rui.")
 	if testErr != nil {
 		log.Debug().Err(testErr).Int("id", id).Msg("ui: notification test failed")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

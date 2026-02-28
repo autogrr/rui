@@ -39,15 +39,15 @@ const minimalDarkTheme: PrismTheme = {
 };
 
 const config: Config = {
-  title: "qui",
+  title: "rui",
   tagline: "Modern web interface for qBittorrent",
   favicon: "img/favicon.png",
 
-  url: "https://getqui.com",
+  url: "https://getrui.com",
   baseUrl: "/",
 
-  organizationName: "autobrr",
-  projectName: "qui",
+  organizationName: "autogrr",
+  projectName: "rui",
 
   onBrokenLinks: "throw",
 
@@ -107,16 +107,16 @@ const config: Config = {
   ],
 
   themeConfig: {
-    image: "img/qui-hero.png",
+    image: "img/rui-hero.png",
     colorMode: {
       defaultMode: "dark",
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: "qui",
+      title: "rui",
       logo: {
-        alt: "qui Logo",
-        src: "img/qui.png",
+        alt: "rui Logo",
+        src: "img/rui.png",
       },
       items: [
         {
@@ -126,7 +126,7 @@ const config: Config = {
           label: "Docs",
         },
         {
-          href: "https://discord.autobrr.com/qui",
+          href: "https://discord.autobrr.com/rui",
           position: "right",
           className: "header-discord-link",
           "aria-label": "Discord",
@@ -164,7 +164,7 @@ const config: Config = {
           items: [
             {
               label: "Discord",
-              href: "https://discord.autobrr.com/qui",
+              href: "https://discord.autobrr.com/rui",
             },
             {
               label: "GitHub Issues",
@@ -185,11 +185,11 @@ const config: Config = {
             },
             {
               label: "llms.txt",
-              href: "https://getqui.com/llms.txt",
+              href: "https://getrui.com/llms.txt",
             },
             {
               label: "llms-full.txt",
-              href: "https://getqui.com/llms-full.txt",
+              href: "https://getrui.com/llms-full.txt",
             },
           ],
         },

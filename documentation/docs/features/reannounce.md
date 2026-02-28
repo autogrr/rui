@@ -6,11 +6,11 @@ description: Automatically fix stalled torrents by reannouncing to trackers.
 
 # Tracker Reannounce
 
-qui can automatically fix stalled torrents by reannouncing them to trackers. This helps when a tracker fails to register a new upload immediately, ensuring your torrents start seeding without manual intervention.
+rui can automatically fix stalled torrents by reannouncing them to trackers. This helps when a tracker fails to register a new upload immediately, ensuring your torrents start seeding without manual intervention.
 
-qBittorrent doesn't retry failed announces quickly. When a tracker is slow to register a new upload or returns an error, you may be stuck waiting for a long time. qui handles this automatically and gracefully.
+qBittorrent doesn't retry failed announces quickly. When a tracker is slow to register a new upload or returns an error, you may be stuck waiting for a long time. rui handles this automatically and gracefully.
 
-qui never spams trackers. While a tracker is still updating or waiting for a response, qui waits patiently. It only acts once a tracker has responded and there's an actual problem to fix.
+rui never spams trackers. While a tracker is still updating or waiting for a response, rui waits patiently. It only acts once a tracker has responded and there's an actual problem to fix.
 
 ## Quick Start
 
@@ -19,7 +19,7 @@ qui never spams trackers. While a tracker is still updating or waiting for a res
 3. In the **Tracker Reannounce** section, toggle **Enabled** to turn it on.
 4. Click **Save Changes**.
 
-That's it! qui will now monitor stalled torrents in the background.
+That's it! rui will now monitor stalled torrents in the background.
 
 ## Configuration
 
@@ -46,7 +46,7 @@ You can choose which torrents to monitor:
 
 ### Quick Retry
 
-By default, qui waits about **2 minutes** between reannounce attempts for the same torrent (a per-torrent cooldown between scans).
+By default, rui waits about **2 minutes** between reannounce attempts for the same torrent (a per-torrent cooldown between scans).
 
 - **Enable Quick Retry** to use the **Retry Interval** (default 7s) as the cooldown instead. This helps stalled torrents recover faster.
 - The **Retry Interval** controls both the spacing of retries inside each scan attempt and, with Quick Retry enabled, the cooldown between scans.

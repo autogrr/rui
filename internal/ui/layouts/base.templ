@@ -23,9 +23,9 @@ templ Base(p BaseProps) {
 			<style>[x-cloak]{display:none !important}</style>
 			<title>
 				if p.Title != "" {
-					{ p.Title } — qui
+					{ p.Title } — rui
 				} else {
-					qui
+					rui
 				}
 			</title>
 			<!-- Favicon -->
@@ -39,7 +39,7 @@ templ Base(p BaseProps) {
 					var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 					if (isDark) document.documentElement.classList.add('dark');
 					else document.documentElement.classList.remove('dark');
-					var colorTheme = localStorage.getItem('qui:color-theme');
+					var colorTheme = localStorage.getItem('rui:color-theme');
 					if (colorTheme) document.documentElement.setAttribute('data-theme', colorTheme);
 					else document.documentElement.removeAttribute('data-theme');
 				})();

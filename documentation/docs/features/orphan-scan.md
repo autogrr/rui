@@ -13,19 +13,19 @@ Finds and removes files in your download directories that aren't associated with
 
 ## How It Works
 
-1. **Scan roots are determined dynamically** - qui scans all unique `SavePath` directories from your current torrents, not qBittorrent's default download directory
+1. **Scan roots are determined dynamically** - rui scans all unique `SavePath` directories from your current torrents, not qBittorrent's default download directory
 2. Files not referenced by any torrent are flagged as orphans
 3. You preview the list before confirming deletion
 4. Empty directories are cleaned up after file deletion
 
 :::note
-qui normalizes Unicode paths to canonical NFC form during matching. This avoids false orphans when equivalent composed/decomposed names are reported differently. On normalization-sensitive filesystems, two byte-distinct canonical-equivalent names are treated as one logical path.
+rui normalizes Unicode paths to canonical NFC form during matching. This avoids false orphans when equivalent composed/decomposed names are reported differently. On normalization-sensitive filesystems, two byte-distinct canonical-equivalent names are treated as one logical path.
 :::
 
 :::info
-If you have multiple **active** qBittorrent instances with `Has local filesystem access` enabled, and their torrent `SavePath` directories overlap, qui also protects files referenced by torrents from those other instances (even when scanning a single instance).
+If you have multiple **active** qBittorrent instances with `Has local filesystem access` enabled, and their torrent `SavePath` directories overlap, rui also protects files referenced by torrents from those other instances (even when scanning a single instance).
 
-To do this safely, qui must be able to determine whether scan roots overlap. If any other local-access instance is unreachable/not ready, the scan fails to avoid false positives.
+To do this safely, rui must be able to determine whether scan roots overlap. If any other local-access instance is unreachable/not ready, the scan fails to avoid false positives.
 :::
 
 :::warning
@@ -55,12 +55,12 @@ Directories are only scanned if at least one torrent points to them. If you dele
 
 ## Max Files Per Run Behavior
 
-- Scan scope is still full: qui walks all scan roots each run.
+- Scan scope is still full: rui walks all scan roots each run.
 - Then it sorts orphan candidates by your selected preview sort.
 - Then it applies `Max files per run` and marks the run as truncated when more candidates exist.
 - Deletion only operates on files saved in that run's preview list.
 
-**Example:** If 5,000 files are scanned, 2,000 are orphan candidates, and `Max files per run` is 1,000, qui scans all 5,000, saves the top 1,000 candidates for preview/deletion, and marks the run truncated.
+**Example:** If 5,000 files are scanned, 2,000 are orphan candidates, and `Max files per run` is 1,000, rui scans all 5,000, saves the top 1,000 candidates for preview/deletion, and marks the run truncated.
 
 ### FAQ
 

@@ -93,7 +93,7 @@ templ Dashboard(p DashboardProps) {
 					}
 				}
 			} else {
-				<!-- SSE wrapper: pushes dashboard-update events; falls back to 30 s polling -->
+				<!-- SSE wrapper: pushes dashboard-update events; falls back to polling -->
 				<div
 					hx-ext="sse"
 					sse-connect={ p.BaseURL + "/ui/sse/dashboard" }
@@ -111,15 +111,16 @@ templ Dashboard(p DashboardProps) {
 							@DashboardSkeleton()
 						</div>
 					</div>
-				</div>
-				<!-- Tracker breakdown — lazy loaded and re-polled every 60 s as a safety net -->
-				<div
-					id="tracker-breakdown"
-					hx-get={ p.BaseURL + "/ui/partials/dashboard/tracker-breakdown" }
-					hx-trigger="load, every 60s"
-					hx-swap="outerHTML"
-				>
-					@DashboardTrackerBreakdownSkeleton()
+					<!-- Tracker breakdown — SSE-driven with 60 s polling fallback -->
+					<div
+						id="tracker-breakdown"
+						hx-get={ p.BaseURL + "/ui/partials/dashboard/tracker-breakdown" }
+						hx-trigger="load, sse:dashboard-update, every 60s"
+						hx-swap="innerHTML"
+						class="mt-6"
+					>
+						@DashboardTrackerBreakdownSkeleton()
+					</div>
 				</div>
 			}
 		</div>
@@ -419,74 +420,70 @@ type TrackerBreakdownRow struct {
 
 // DashboardTrackerBreakdownSkeleton renders a loading placeholder for the tracker breakdown card.
 templ DashboardTrackerBreakdownSkeleton() {
-	<div id="tracker-breakdown">
-		@card.Card(card.Props{}) {
-			@card.Header(card.HeaderProps{}) {
-				@skeleton.Skeleton(skeleton.Props{Class: "h-5 w-40"})
-				@skeleton.Skeleton(skeleton.Props{Class: "h-3 w-64 mt-1"})
-			}
-			@card.Content(card.ContentProps{}) {
-				<div class="space-y-2">
-					for range 4 {
-						@skeleton.Skeleton(skeleton.Props{Class: "h-8 w-full"})
-					}
-				</div>
-			}
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@skeleton.Skeleton(skeleton.Props{Class: "h-5 w-40"})
+			@skeleton.Skeleton(skeleton.Props{Class: "h-3 w-64 mt-1"})
 		}
-	</div>
+		@card.Content(card.ContentProps{}) {
+			<div class="space-y-2">
+				for range 4 {
+					@skeleton.Skeleton(skeleton.Props{Class: "h-8 w-full"})
+				}
+			</div>
+		}
+	}
 }
 
 // DashboardTrackerBreakdown renders per-tracker aggregated stats.
 templ DashboardTrackerBreakdown(rows []TrackerBreakdownRow, baseURL string) {
-	<div id="tracker-breakdown">
-		@card.Card(card.Props{}) {
-			@card.Header(card.HeaderProps{}) {
-				@card.Title(card.TitleProps{}) {
-					Tracker Breakdown
-				}
-				@card.Description(card.DescriptionProps{}) {
-					Torrent distribution across trackers
-				}
+	@card.Card(card.Props{}) {
+		@card.Header(card.HeaderProps{}) {
+			@card.Title(card.TitleProps{}) {
+				Tracker Breakdown
 			}
-			@card.Content(card.ContentProps{}) {
-				if len(rows) == 0 {
-					<p class="text-sm text-muted-foreground text-center py-4">No tracker data available.</p>
-				} else {
-					<div class="overflow-x-auto">
-						<table class="w-full text-sm">
-							<thead>
-								<tr class="border-b text-muted-foreground text-xs">
-									<th class="pb-2 text-left font-medium">Tracker</th>
-									<th class="pb-2 text-right font-medium">Total</th>
-									<th class="pb-2 text-right font-medium">Seeding</th>
-									<th class="pb-2 text-right font-medium">Downloading</th>
-									<th class="pb-2 text-right font-medium">↑ Speed</th>
-									<th class="pb-2 text-right font-medium">↓ Speed</th>
-									<th class="pb-2 text-right font-medium">Size</th>
-								</tr>
-							</thead>
-							<tbody>
-								for _, row := range rows {
-									<tr class="border-b last:border-0 hover:bg-muted/40 transition-colors">
-										<td class="py-2 pr-4 font-medium">
-											{ row.DisplayName }
-											if row.DisplayName != row.Domain && row.Domain != "" {
-												<span class="ml-1 text-xs text-muted-foreground">({ row.Domain })</span>
-											}
-										</td>
-										<td class="py-2 text-right tabular-nums">{ itoa(row.TorrentCount) }</td>
-										<td class="py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{ itoa(row.Seeding) }</td>
-										<td class="py-2 text-right tabular-nums text-blue-600 dark:text-blue-400">{ itoa(row.Downloading) }</td>
-										<td class="py-2 text-right tabular-nums">{ formatBytesPerSec(row.UpSpeed) }</td>
-										<td class="py-2 text-right tabular-nums">{ formatBytesPerSec(row.DlSpeed) }</td>
-										<td class="py-2 text-right tabular-nums">{ formatBytes(uint64(row.TotalSize)) }</td>
-									</tr>
-								}
-							</tbody>
-						</table>
-					</div>
-				}
+			@card.Description(card.DescriptionProps{}) {
+				Torrent distribution across trackers
 			}
 		}
-	</div>
+		@card.Content(card.ContentProps{}) {
+			if len(rows) == 0 {
+				<p class="text-sm text-muted-foreground text-center py-4">No tracker data available.</p>
+			} else {
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b text-muted-foreground text-xs">
+								<th class="pb-2 text-left font-medium">Tracker</th>
+								<th class="pb-2 text-right font-medium">Total</th>
+								<th class="pb-2 text-right font-medium">Seeding</th>
+								<th class="pb-2 text-right font-medium">Downloading</th>
+								<th class="pb-2 text-right font-medium">↑ Speed</th>
+								<th class="pb-2 text-right font-medium">↓ Speed</th>
+								<th class="pb-2 text-right font-medium">Size</th>
+							</tr>
+						</thead>
+						<tbody>
+							for _, row := range rows {
+								<tr class="border-b last:border-0 hover:bg-muted/40 transition-colors">
+									<td class="py-2 pr-4 font-medium">
+										{ row.DisplayName }
+										if row.DisplayName != row.Domain && row.Domain != "" {
+											<span class="ml-1 text-xs text-muted-foreground">({ row.Domain })</span>
+										}
+									</td>
+									<td class="py-2 text-right tabular-nums">{ itoa(row.TorrentCount) }</td>
+									<td class="py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{ itoa(row.Seeding) }</td>
+									<td class="py-2 text-right tabular-nums text-blue-600 dark:text-blue-400">{ itoa(row.Downloading) }</td>
+									<td class="py-2 text-right tabular-nums">{ formatBytesPerSec(row.UpSpeed) }</td>
+									<td class="py-2 text-right tabular-nums">{ formatBytesPerSec(row.DlSpeed) }</td>
+									<td class="py-2 text-right tabular-nums">{ formatBytes(uint64(row.TotalSize)) }</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		}
+	}
 }

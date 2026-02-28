@@ -4,7 +4,7 @@ body:
     attributes:
       value: |
         > [!IMPORTANT]
-        > Before opening a discussion, please check the [documentation](https://qui.autobrr.com) and search existing [Discussions](https://github.com/autogrr/rui/discussions) and [Issues](https://github.com/autogrr/rui/issues).
+        > Before opening a discussion, please check the [documentation](https://rui.autobrr.com) and search existing [Discussions](https://github.com/autogrr/rui/discussions) and [Issues](https://github.com/autogrr/rui/issues).
         >
         > Code contributions: PR creation is restricted to collaborators only, so start here (or open an Issue) to coordinate changes.
 
@@ -36,13 +36,13 @@ body:
       label: Environment
       description: |
         Please provide:
-        - qui version (`qui version` or from the UI footer)
+        - rui version (`rui version` or from the UI footer)
         - qBittorrent version(s)
         - Deployment method (Docker, binary, seedbox installer)
         - OS (if relevant)
         - Reverse proxy / OIDC setup (if relevant to the issue)
       placeholder: |
-        - qui: 1.11.0
+        - rui: 1.11.0
         - qBittorrent: 5.1.2
         - Unraid OS 7.2.3
       render: text
@@ -53,10 +53,10 @@ body:
     attributes:
       label: Relevant logs
       description: |
-        If applicable, include logs from qui. You can capture logs from:
+        If applicable, include logs from rui. You can capture logs from:
         - **Settings > Logs** - Click any entry to copy it
         - **Log file** - If `logPath` is set in config.toml
-        - **Docker** - `docker logs qui`
+        - **Docker** - `docker logs rui`
         - **Stdout** - If running the binary directly
 
         Set log level to TRACE for more detail (Settings > Logs > gear icon).

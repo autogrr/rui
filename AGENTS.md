@@ -13,7 +13,7 @@ names use `rui`/`autogrr`. Do **not** revert to `qui`/`autobrr` import paths.
 
 ## Project Structure & Module Organization
 
-The Go backend lives in `cmd/qui` (entrypoint) and `internal/` modules for configuration,
+The Go backend lives in `cmd/rui` (entrypoint) and `internal/` modules for configuration,
 qBittorrent, metrics, and API routing; shared helpers sit in `pkg/`.
 
 **The primary UI is the server-rendered templ interface in `internal/ui/`** — see the
@@ -240,7 +240,7 @@ PRs need a clear summary, testing checklist, and UI screenshots for visual tweak
 
 ## Security & Configuration Tips
 
-Load secrets such as `THEMES_REPO_TOKEN` via `.env` so the Makefile can fetch premium themes, and keep the file out of version control. Record configuration defaults in `config.toml` but evolve runtime schema through Go migrations rather than editing `qui.db` directly. Drop cached databases and logs (`qui.db*`, `logs/`) from commits to avoid leaking local data.
+Load secrets such as `THEMES_REPO_TOKEN` via `.env` so the Makefile can fetch premium themes, and keep the file out of version control. Record configuration defaults in `config.toml` but evolve runtime schema through Go migrations rather than editing `rui.db` directly. Drop cached databases and logs (`rui.db*`, `logs/`) from commits to avoid leaking local data.
 
 ## API & Database Change Rules
 
@@ -251,7 +251,7 @@ Load secrets such as `THEMES_REPO_TOKEN` via `.env` so the Makefile can fetch pr
 ## Architecture Quick Reference
 
 ```text
-cmd/qui/main.go              CLI entrypoint (serve, generate-config, create-user, etc.)
+cmd/rui/main.go              CLI entrypoint (serve, generate-config, create-user, etc.)
 internal/api/                REST API HTTP handlers + middleware (chi router)
 internal/ui/                 Server-rendered UI: templ pages, HTMX partials, SSE endpoints
   ├── components/            templui component library (owned, version-controlled)

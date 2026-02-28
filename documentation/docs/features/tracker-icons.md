@@ -6,11 +6,11 @@ description: Automatic favicon caching for tracker hosts.
 
 # Tracker Icons
 
-Cached icons live in your data directory under `tracker-icons/` (next to `qui.db`). Icons are stored as 16×16 PNGs; anything larger than 1024×1024 is rejected.
+Cached icons live in your data directory under `tracker-icons/` (next to `rui.db`). Icons are stored as 16×16 PNGs; anything larger than 1024×1024 is rejected.
 
-qui automatically downloads a favicon the first time it encounters a tracker host and caches it for future sessions. Failed downloads are retried automatically.
+rui automatically downloads a favicon the first time it encounters a tracker host and caches it for future sessions. Failed downloads are retried automatically.
 
-Set `trackerIconsFetchEnabled = false` in `config.toml` (or `QUI__TRACKER_ICONS_FETCH_ENABLED=false`) to disable these network fetches.
+Set `trackerIconsFetchEnabled = false` in `config.toml` (or `RUI__TRACKER_ICONS_FETCH_ENABLED=false`) to disable these network fetches.
 
 ## Add Icons Manually
 
@@ -25,8 +25,8 @@ If you have a library of icons, preload them via a mapping file: `tracker-icons/
 The file can be either a plain JSON object or a snippet exported as `const trackerIcons = { ... };`.
 
 - Keys must be the real tracker hostnames (e.g. `tracker.example.org`)
-- If you include a `www.*` host, qui automatically mirrors the icon to the bare hostname when missing
-- On startup qui decodes each data URL, normalises the image to 16×16, and writes the PNG to `<host>.png`
+- If you include a `www.*` host, rui automatically mirrors the icon to the bare hostname when missing
+- On startup rui decodes each data URL, normalises the image to 16×16, and writes the PNG to `<host>.png`
 
 ### JSON Example
 

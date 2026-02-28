@@ -646,7 +646,7 @@ func TestCheckMissedBackupsFirstRun(t *testing.T) {
 	}
 	require.NoError(t, store.UpsertSettings(ctx, settings))
 
-	// No previous runs exist - this is the first time qui is running
+	// No previous runs exist - this is the first time rui is running
 
 	// Run checkMissedBackups
 	err := svc.checkMissedBackups(ctx)

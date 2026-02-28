@@ -52,9 +52,9 @@ func main() {
 	config.InitDefaultLogger(buildinfo.Version)
 
 	var rootCmd = &cobra.Command{
-		Use:   "qui",
+		Use:   "rui",
 		Short: "A self-hosted qBittorrent WebUI alternative",
-		Long: `qui - A modern, self-hosted web interface for managing
+		Long: `rui - A modern, self-hosted web interface for managing
 multiple qBittorrent instances with support for 10k+ torrents.`,
 	}
 
@@ -65,7 +65,6 @@ multiple qBittorrent instances with support for 10k+ torrents.`,
 	rootCmd.AddCommand(RunGenerateConfigCommand())
 	rootCmd.AddCommand(RunCreateUserCommand())
 	rootCmd.AddCommand(RunChangePasswordCommand())
-	rootCmd.AddCommand(RunUpdateCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -86,7 +85,7 @@ func RunServeCommand() *cobra.Command {
 		Short: "Start the server",
 	}
 
-	command.Flags().StringVar(&configDir, "config-dir", "", "config directory path (default is OS-specific: ~/.config/qui/ or %APPDATA%\\qui\\). For backward compatibility, can also be a direct path to a .toml file")
+	command.Flags().StringVar(&configDir, "config-dir", "", "config directory path (default is OS-specific: ~/.config/rui/ or %APPDATA%\\rui\\). For backward compatibility, can also be a direct path to a .toml file")
 	command.Flags().StringVar(&dataDir, "data-dir", "", "data directory for database and other files (default is next to config file)")
 	command.Flags().StringVar(&logPath, "log-path", "", "log file path (default is stdout)")
 	command.Flags().BoolVar(&pprofFlag, "pprof", false, "enable pprof server on :6060")
@@ -102,7 +101,7 @@ func RunServeCommand() *cobra.Command {
 func RunVersionCommand(version string) *cobra.Command {
 	var command = &cobra.Command{
 		Use:   "version",
-		Short: "Print the version number of qui",
+		Short: "Print the version number of rui",
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println(version)
 		},
@@ -120,12 +119,12 @@ func RunGenerateConfigCommand() *cobra.Command {
 		Long: `Generate a default configuration file without starting the server.
 
 If no --config-dir is specified, uses the OS-specific default location:
-- Linux/macOS: ~/.config/qui/config.toml
-- Windows: %APPDATA%\qui\config.toml
+- Linux/macOS: ~/.config/rui/config.toml
+- Windows: %APPDATA%\rui\config.toml
 
 You can specify either a directory path or a direct file path:
-- Directory: qui generate-config --config-dir /path/to/config/
-- File: qui generate-config --config-dir /path/to/myconfig.toml`,
+- Directory: rui generate-config --config-dir /path/to/config/
+- File: rui generate-config --config-dir /path/to/myconfig.toml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var configPath string
 			if configDir != "" {
@@ -193,8 +192,8 @@ This command allows you to create the initial user account that is required
 for authentication. Only one user account can exist in the system.
 
 If no --config-dir is specified, uses the OS-specific default location:
-- Linux/macOS: ~/.config/qui/config.toml
-- Windows: %APPDATA%\qui\config.toml`,
+- Linux/macOS: ~/.config/rui/config.toml
+- Windows: %APPDATA%\rui\config.toml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Initialize configuration
 			cfg, err := config.New(configDir, buildinfo.Version)
@@ -281,8 +280,8 @@ func RunChangePasswordCommand() *cobra.Command {
 This command allows you to change the password for the existing user account.
 
 If no --config-dir is specified, uses the OS-specific default location:
-- Linux/macOS: ~/.config/qui/config.toml
-- Windows: %APPDATA%\qui\config.toml`,
+- Linux/macOS: ~/.config/rui/config.toml
+- Windows: %APPDATA%\rui\config.toml`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.New(configDir, buildinfo.Version)
 			if err != nil {
@@ -373,24 +372,17 @@ If no --config-dir is specified, uses the OS-specific default location:
 func RunUpdateCommand() *cobra.Command {
 	var command = &cobra.Command{
 		Use:                   "update",
-		Short:                 "Update qui",
-		Long:                  `Update qui to the latest version.`,
+		Short:                 "Self-update is disabled",
+		Long:                  `Self-update has been removed from rui. Outbound requests are not made.`,
 		DisableFlagsInUseLine: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			updater := update.NewUpdater(update.Config{
 				Repository: "autogrr/rui",
 				Version:    buildinfo.Version,
 			})
-			return updater.Run(cmd.Context())
+			return updater.Run()
 		},
 	}
-
-	command.SetUsageTemplate(`Usage:
-  {{.CommandPath}}
-
-Flags:
-{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}
-`)
 
 	return command
 }
@@ -420,11 +412,11 @@ func (app *Application) runServer() {
 
 	// Override with CLI flags if provided
 	if app.dataDir != "" {
-		os.Setenv("QUI__DATA_DIR", app.dataDir)
+		os.Setenv("RUI__DATA_DIR", app.dataDir)
 		cfg.SetDataDir(app.dataDir)
 	}
 	if app.logPath != "" {
-		os.Setenv("QUI__LOG_PATH", app.logPath)
+		os.Setenv("RUI__LOG_PATH", app.logPath)
 		cfg.Config.LogPath = app.logPath
 	}
 
@@ -434,16 +426,16 @@ func (app *Application) runServer() {
 
 	cfg.ApplyLogConfig()
 
-	log.Info().Str("version", buildinfo.Version).Msg("Starting qui")
+	log.Info().Str("version", buildinfo.Version).Msg("Starting rui")
 
 	switch {
 	case cfg.Config.IsAuthDisabled():
 		if err := cfg.Config.ValidateAuthDisabledConfig(); err != nil {
 			log.Fatal().Err(err).Msg("Authentication is disabled but authDisabledAllowedCIDRs is invalid or empty")
 		}
-		log.Warn().Strs("authDisabledAllowedCIDRs", cfg.Config.AuthDisabledAllowedCIDRs).Msg("Authentication is disabled via QUI__AUTH_DISABLED. Access is restricted to authDisabledAllowedCIDRs. Make sure qui is behind a reverse proxy with its own authentication.")
+		log.Warn().Strs("authDisabledAllowedCIDRs", cfg.Config.AuthDisabledAllowedCIDRs).Msg("Authentication is disabled via RUI__AUTH_DISABLED. Access is restricted to authDisabledAllowedCIDRs. Make sure rui is behind a reverse proxy with its own authentication.")
 	case cfg.Config.AuthDisabled != cfg.Config.IAcknowledgeThisIsABadIdea:
-		log.Warn().Msg("Only one of QUI__AUTH_DISABLED and QUI__I_ACKNOWLEDGE_THIS_IS_A_BAD_IDEA is set. Authentication remains enabled. Set both to disable authentication.")
+		log.Warn().Msg("Only one of RUI__AUTH_DISABLED and RUI__I_ACKNOWLEDGE_THIS_IS_A_BAD_IDEA is set. Authentication remains enabled. Set both to disable authentication.")
 	}
 
 	trackerIconService, err := trackericons.NewService(cfg.GetDataDir(), buildinfo.UserAgent)

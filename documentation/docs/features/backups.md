@@ -6,7 +6,7 @@ description: Schedule and restore qBittorrent instance backups.
 
 # Backups & Restore
 
-qui can take scheduled or ad-hoc snapshots of a qBittorrent instance. Each snapshot includes the torrent archive, tags, categories (with save paths), and cached `.torrent` blobs so that you can recreate the original state later.
+rui can take scheduled or ad-hoc snapshots of a qBittorrent instance. Each snapshot includes the torrent archive, tags, categories (with save paths), and cached `.torrent` blobs so that you can recreate the original state later.
 
 ## Restore Modes
 
@@ -30,4 +30,4 @@ Every restore begins with a dry-run preview so you can inspect planned changes. 
 
 ## Importing Backups
 
-Downloaded backups can be imported into any qui instance. Useful for migrating to a new server or recovering after data loss. Click **Import** on the Backups page and select the backup file. All export formats are supported.
+Downloaded backups can be imported into any rui instance. Useful for migrating to a new server or recovering after data loss. Click **Import** on the Backups page and select the backup file. All export formats are supported.

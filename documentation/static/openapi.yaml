@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: qui API
-  description: qui API for managing multiple qBittorrent instances
+  title: rui API
+  description: rui API for managing multiple qBittorrent instances
   version: 1.0.0
   license:
     name: GPL-2.0-or-later
@@ -749,7 +749,7 @@ paths:
                   description: Set to true to disable TLS certificate verification (for trusted self-signed certificates).
                 hasLocalFilesystemAccess:
                   type: boolean
-                  description: Set to true if qui can access this instance's download paths locally (required for hardlink detection in automations).
+                  description: Set to true if rui can access this instance's download paths locally (required for hardlink detection in automations).
                 useHardlinks:
                   type: boolean
                   description: Enable hardlink mode for cross-seed operations on this instance.
@@ -842,7 +842,7 @@ paths:
                   description: Set to true to disable TLS certificate verification (for trusted self-signed certificates).
                 hasLocalFilesystemAccess:
                   type: boolean
-                  description: Set to true if qui can access this instance's download paths locally (required for hardlink detection in automations).
+                  description: Set to true if rui can access this instance's download paths locally (required for hardlink detection in automations).
                 useHardlinks:
                   type: boolean
                   description: Enable hardlink mode for cross-seed operations on this instance.
@@ -2926,7 +2926,7 @@ paths:
         * `200 OK` – at least one matching torrent is fully downloaded and ready for cross-seeding
         * `202 Accepted` – matching torrents exist but the data is still downloading; retry `/check` until it returns `200` (ready) or `404`
         * `404 Not Found` – no matches exist (recommendation `skip`)
-        This endpoint is designed for autobrr filter external webhooks. When `instanceIds` is omitted or empty, qui will search every configured instance. Provide a subset of IDs to restrict the scan.
+        This endpoint is designed for autobrr filter external webhooks. When `instanceIds` is omitted or empty, rui will search every configured instance. Provide a subset of IDs to restrict the scan.
       parameters:
         - name: apikey
           in: query
@@ -2951,7 +2951,7 @@ paths:
                   type: array
                   items:
                     type: integer
-                  description: Optional list of qBittorrent instance IDs to consider. When omitted or empty, qui searches all configured instances.
+                  description: Optional list of qBittorrent instance IDs to consider. When omitted or empty, rui searches all configured instances.
                   example: [1, 2, 3]
                 size:
                   type: integer
@@ -2989,7 +2989,7 @@ paths:
       tags:
         - Cross-Seed
       summary: Add a cross-seed torrent provided by autobrr
-      description: Accepts a torrent file from autobrr, matches it against the requested instances, and adds it with alignment wherever a complete match exists. When `instanceIds` is omitted or empty, qui attempts to inject the torrent into every configured instance that has a match.
+      description: Accepts a torrent file from autobrr, matches it against the requested instances, and adds it with alignment wherever a complete match exists. When `instanceIds` is omitted or empty, rui attempts to inject the torrent into every configured instance that has a match.
       parameters:
         - name: apikey
           in: query
@@ -3013,7 +3013,7 @@ paths:
                   type: array
                   items:
                     type: integer
-                  description: Optional list of target instance IDs. When omitted or empty, qui attempts to cross-seed into any instance that has a complete match.
+                  description: Optional list of target instance IDs. When omitted or empty, rui attempts to cross-seed into any instance that has a complete match.
                   example: [1, 2]
                 category:
                   type: string
@@ -3245,7 +3245,7 @@ paths:
       tags:
         - System
       summary: Check for latest version
-      description: Check if a newer version of qui is available
+      description: Check if a newer version of rui is available
       responses:
         '200':
           description: Update available - newer version found
@@ -3988,7 +3988,7 @@ components:
           description: When true, TLS certificate errors from the upstream qBittorrent instance are ignored.
         hasLocalFilesystemAccess:
           type: boolean
-          description: When true, qui can access this instance's download paths locally (required for hardlink detection in automations).
+          description: When true, rui can access this instance's download paths locally (required for hardlink detection in automations).
         useHardlinks:
           type: boolean
           description: When true, cross-seed operations use hardlink mode for this instance.
@@ -4210,7 +4210,7 @@ components:
         path:
           type: string
           description: Path to log file (empty for stdout only)
-          example: "/var/log/qui/qui.log"
+          example: "/var/log/rui/rui.log"
         maxSize:
           type: integer
           description: Maximum size of log file in megabytes before rotation
@@ -4241,7 +4241,7 @@ components:
         path:
           type: string
           description: Path to log file
-          example: "/var/log/qui/qui.log"
+          example: "/var/log/rui/rui.log"
         maxSize:
           type: integer
           description: Maximum log file size in MB
@@ -4305,7 +4305,7 @@ components:
           type: string
           nullable: true
           description: The release name/title
-          example: "qui v1.2.3 - Bug fixes and improvements"
+          example: "rui v1.2.3 - Bug fixes and improvements"
         html_url:
           type: string
           format: uri

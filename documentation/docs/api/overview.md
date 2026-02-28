@@ -11,7 +11,7 @@ Interactive API documentation is available at `/api/docs` using Swagger UI. You 
 
 ## API Keys
 
-API keys allow programmatic access to qui without using session cookies. Create and manage them in Settings → API Keys.
+API keys allow programmatic access to rui without using session cookies. Create and manage them in Settings → API Keys.
 
 Include your API key in the `X-API-Key` header:
 

@@ -1,12 +1,12 @@
-# Contributing to qui
+# Contributing to rui
 
 Thanks for taking interest in contribution! We welcome anyone who wants to contribute.
 
 If you have an idea for a bigger feature or a change then we are happy to discuss it before you start working on it.
 It is usually a good idea to make sure it aligns with the project and is a good fit.
-Open an issue or post in #dev-general on [Discord](https://discord.autobrr.com/qui).
+Open an issue or post in #dev-general on [Discord](https://discord.autobrr.com/rui).
 
-This document is a guide to help you through the process of contributing to qui.
+This document is a guide to help you through the process of contributing to rui.
 
 ## Become a contributor
 
@@ -15,7 +15,7 @@ This document is a guide to help you through the process of contributing to qui.
 
 ## Developer guide
 
-This guide helps you get started developing qui.
+This guide helps you get started developing rui.
 
 ## Dependencies
 
@@ -51,7 +51,7 @@ You need to have the Go toolchain installed and Node.js with `pnpm` as the packa
 Clone the project and change dir:
 
 ```shell
-git clone github.com/YOURNAME/qui && cd qui
+git clone github.com/YOURNAME/rui && cd rui
 ```
 
 ## Frontend
@@ -91,7 +91,7 @@ go mod tidy
 Run the project:
 
 ```shell
-go run cmd/qui/main.go
+go run cmd/rui/main.go
 ```
 
 This uses the default `config.toml` and runs the API on [http://localhost:7476](http://localhost:7476).
@@ -104,7 +104,7 @@ To build the backend, run:
 make backend
 ```
 
-This will output a binary named `qui` in the current directory
+This will output a binary named `rui` in the current directory
 
 You can also build the frontend and the backend at once with:
 

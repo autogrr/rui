@@ -1,14 +1,14 @@
-# qui
+# rui
 
 A fast, modern web interface for qBittorrent. Supports managing multiple qBittorrent instances from a single, lightweight application.
 
 <div align="center">
-  <img src=".github/assets/qui.png" alt="qui" width="100%" />
+  <img src="https://raw.githubusercontent.com/autogrr/.github/main/rui.png" alt="rui" width="100%" />
 </div>
 
 ## Documentation
 
-Full documentation available at **[getqui.com](https://getqui.com)**
+Full documentation available at **[getrui.com](https://getrui.com)**
 
 ## Quick Start
 
@@ -17,10 +17,10 @@ Full documentation available at **[getqui.com](https://getqui.com)**
 ```bash
 # Download and extract the latest release
 wget $(curl -s https://api.github.com/repos/autogrr/rui/releases/latest | grep browser_download_url | grep linux_x86_64 | cut -d\" -f4)
-tar -C /usr/local/bin -xzf qui*.tar.gz
+tar -C /usr/local/bin -xzf rui*.tar.gz
 
 # Run
-./qui serve
+./rui serve
 ```
 
 The web interface will be available at http://localhost:7476
@@ -46,7 +46,7 @@ docker run -d \
 
 ## Community
 
-Join our community on [Discord](https://discord.autobrr.com/qui)!
+Join our community on [Discord](https://discord.autobrr.com/rui)!
 
 ## Support
 

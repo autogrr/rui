@@ -94,7 +94,7 @@ templ Authenticated(p AuthProps) {
 							x-transition:enter-start="opacity-0"
 							x-transition:enter-end="opacity-100"
 						>
-							qui
+							rui
 						</span>
 					</a>
 				</div>
@@ -107,13 +107,6 @@ templ Authenticated(p AuthProps) {
 				@separator.Separator(separator.Props{Class: "mx-2"})
 				<!-- Bottom: version + collapse toggle -->
 				<div class="px-2 py-3 space-y-0.5">
-					<!-- Instances nav item (always goes to management page) -->
-					@sidebarNavItem(NavItem{
-						ID:    "instances",
-						Title: "Instances",
-						Href:  "/ui/instances",
-						Icon:  "server",
-					}, p.CurrentPath, p.ActiveInstance)
 					<!-- Sidebar collapse toggle button (desktop only) -->
 					<div class="mt-1">
 						@button.Button(button.Props{
@@ -170,7 +163,6 @@ templ Authenticated(p AuthProps) {
 						for _, item := range []NavItem{
 							{ID: "dashboard", Title: "Home", Href: "/ui/dashboard", Icon: "house"},
 							{ID: "search", Title: "Search", Href: "/ui/search", Icon: "search"},
-							{ID: "instances", Title: "Instances", Href: "/ui/instances", Icon: "server"},
 							{ID: "settings", Title: "Settings", Href: "/ui/settings", Icon: "settings"},
 						} {
 							<a
@@ -291,7 +283,7 @@ templ instanceSelector(instances []Instance, active *Instance, baseURL string) {
 				}
 				<div class="my-1 h-px bg-border mx-1"></div>
 				<a
-					href={ templ.SafeURL(baseURL + "/ui/instances") }
+					href={ templ.SafeURL(baseURL + "/ui/settings/instances") }
 					class="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
 				>
 					<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -32,7 +32,7 @@ func TestService_ListIcons_NormalizesFilenamesAndAddsWWWAlias(t *testing.T) {
 	t.Parallel()
 
 	dataDir := t.TempDir()
-	svc, err := NewService(dataDir, "qui-test")
+	svc, err := NewService(dataDir, "rui-test")
 	require.NoError(t, err)
 
 	iconPath := filepath.Join(dataDir, iconDirName, "MyTracker.COM.PNG")
@@ -51,7 +51,7 @@ func TestService_ListIcons_StripsWWWPrefixAlias(t *testing.T) {
 	t.Parallel()
 
 	dataDir := t.TempDir()
-	svc, err := NewService(dataDir, "qui-test")
+	svc, err := NewService(dataDir, "rui-test")
 	require.NoError(t, err)
 
 	iconPath := filepath.Join(dataDir, iconDirName, "www.Example.ORG.png")
@@ -74,7 +74,7 @@ func (waitForContextDoneTransport) RoundTrip(req *http.Request) (*http.Response,
 
 func TestService_GetIcon_RecordsFailureWhenContextExpiresDuringFetch(t *testing.T) {
 	dataDir := t.TempDir()
-	svc, err := NewService(dataDir, "qui-test")
+	svc, err := NewService(dataDir, "rui-test")
 	require.NoError(t, err)
 
 	svc.client.Transport = waitForContextDoneTransport{}

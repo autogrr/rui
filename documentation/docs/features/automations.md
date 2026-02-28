@@ -319,19 +319,19 @@ Grouping lets an automation treat "related torrents" as a single unit for:
 `GROUP_SIZE` and `IS_GROUPED` can be scoped per condition row:
 
 - Set `groupId` on each `GROUP_SIZE` / `IS_GROUPED` condition if you want explicit per-row grouping.
-- If a grouped condition row has no `groupId`, qui uses `conditions.grouping.defaultGroupId`.
+- If a grouped condition row has no `groupId`, rui uses `conditions.grouping.defaultGroupId`.
 - If no default is configured, legacy unscoped grouped conditions fall back to `cross_seed_content_save_path`.
 
 This allows multiple grouped conditions in the same workflow, each using different grouping strategies.
 
 ### Action Expansion
 
-Some actions accept a `groupId`. When set, qui expands the action to all torrents in that group.
+Some actions accept a `groupId`. When set, rui expands the action to all torrents in that group.
 
 Group expansion semantics are strict:
 
 - Every member in the expanded group must satisfy the action condition checks for that rule.
-- If any member fails (or the group cannot be resolved), qui skips the entire grouped action.
+- If any member fails (or the group cannot be resolved), rui skips the entire grouped action.
 - There is no "trigger-only fallback" when `groupId` is set.
 
 Built-in group IDs:
@@ -439,7 +439,7 @@ Delete actions can specify a `groupId` to expand the deletion to all torrents in
 
 When a torrent matches the rule, the system finds other torrents that point to the same downloaded files (cross-seeds/duplicates) and deletes them together. This is useful when you want to fully remove content and all its cross-seeded copies at once.
 
-- **Safe expansion**: If qui can't safely confirm another torrent uses the same files, it won't be included in the deletion.
+- **Safe expansion**: If rui can't safely confirm another torrent uses the same files, it won't be included in the deletion.
 - **Safety-first**: If verification can't complete for any reason, the entire group is skipped rather than risking broken torrents.
 - **Preview**: The delete preview shows all torrents that would be deleted, with cross-seeds marked.
 
@@ -591,7 +591,7 @@ The `HARDLINK_SCOPE` field lets automations distinguish between torrents whose f
 
 #### How scope is determined
 
-When an automation references `HARDLINK_SCOPE`, qui builds a hardlink index by calling `Lstat()` on every file of every torrent in qBittorrent. For each file it extracts:
+When an automation references `HARDLINK_SCOPE`, rui builds a hardlink index by calling `Lstat()` on every file of every torrent in qBittorrent. For each file it extracts:
 
 - The **inode** and **device ID** — uniquely identifying the file on disk.
 - The **nlink count** — the total number of hardlinks to that inode, as reported by the filesystem.
@@ -610,7 +610,7 @@ It then counts how many unique file paths across the entire qBittorrent torrent 
 
 #### Unknown scope and safety behavior
 
-If qui cannot `Lstat()` **any** file in a torrent — due to wrong paths, missing permissions, or inaccessible storage — that torrent receives no scope entry. All `HARDLINK_SCOPE` conditions evaluate to `false` for that torrent, regardless of the operator or value. This is a safety measure to prevent unintended deletions of torrents qui cannot fully inspect.
+If rui cannot `Lstat()` **any** file in a torrent — due to wrong paths, missing permissions, or inaccessible storage — that torrent receives no scope entry. All `HARDLINK_SCOPE` conditions evaluate to `false` for that torrent, regardless of the operator or value. This is a safety measure to prevent unintended deletions of torrents rui cannot fully inspect.
 
 To diagnose this, enable debug logging and look for the "hardlink index built" log message, which reports an `inaccessible` count.
 
@@ -618,17 +618,17 @@ To diagnose this, enable debug logging and look for the "hardlink index built" l
 
 For hardlink scope detection to work in Docker:
 
-1. **Paths must match exactly.** qui must be able to read files at the same paths qBittorrent reports. If qBittorrent says a torrent's save path is `/data/torrents/radarr/`, qui must be able to access `/data/torrents/radarr/` inside its container.
+1. **Paths must match exactly.** rui must be able to read files at the same paths qBittorrent reports. If qBittorrent says a torrent's save path is `/data/torrents/radarr/`, rui must be able to access `/data/torrents/radarr/` inside its container.
 
-2. **Same underlying storage.** Both containers must share the same host mount so that inode numbers are consistent. If qui and qBittorrent access the same files through different host mounts or different bind-mount configurations, inode numbers may not match.
+2. **Same underlying storage.** Both containers must share the same host mount so that inode numbers are consistent. If rui and qBittorrent access the same files through different host mounts or different bind-mount configurations, inode numbers may not match.
 
 3. **Single mount, not subdivided.** Mount the common parent directory rather than mounting subdirectories separately. For example, if your data lives under `/mnt/media/data` on the host:
 
 ```yaml
 services:
-  qui:
+  rui:
     volumes:
-      - /home/user/docker/qui:/config
+      - /home/user/docker/rui:/config
       - /mnt/media/data:/data # single mount covering both torrents and library
 ```
 
@@ -642,7 +642,7 @@ Hardlink scope detection depends on the kernel reporting accurate `nlink` values
 - **Some NAS appliance filesystems** and **overlay filesystems** (overlayfs) may behave similarly.
 - **Network filesystems** (NFS, CIFS/SMB) generally report accurate nlink values but behavior varies by server implementation.
 
-On affected filesystems, every torrent appears to have scope `none` because nlink is always 1. There is no workaround within qui — this is a kernel/filesystem limitation. If you suspect this issue, run `stat` on a file you know is hardlinked and check the "Links" count.
+On affected filesystems, every torrent appears to have scope `none` because nlink is always 1. There is no workaround within rui — this is a kernel/filesystem limitation. If you suspect this issue, run `stat` on a file you know is hardlinked and check the "Links" count.
 
 Hardlinks also cannot span across different filesystems. If your torrent data and media library are on separate filesystems (or separate Docker volumes backed by different host paths), Sonarr/Radarr will copy instead of hardlink, and scope detection has nothing to detect.
 
@@ -709,7 +709,7 @@ This works because when Sonarr/Radarr upgrades a release, the old library hardli
 
 If the automation is matching torrents you expect to be protected, verify:
 
-1. qui can access all torrent files at the paths qBittorrent reports (check debug logs for inaccessible files).
+1. rui can access all torrent files at the paths qBittorrent reports (check debug logs for inaccessible files).
 2. Your filesystem reports accurate nlink values (`stat <file>` should show Links > 1 for hardlinked files).
 3. Your Docker volume mounts do not overlap or subdivide the storage in a way that breaks inode consistency.
 
@@ -790,7 +790,7 @@ The UI and API prevent combining `Remove (keep files)` mode with Free Space cond
 :::
 
 :::note
-After removing files, qui waits ~5 minutes before running Free Space deletes again to allow qBittorrent to refresh its disk free space reading. The UI prevents selecting 1 minute intervals for Free Space delete rules.
+After removing files, rui waits ~5 minutes before running Free Space deletes again to allow qBittorrent to refresh its disk free space reading. The UI prevents selecting 1 minute intervals for Free Space delete rules.
 :::
 
 #### Free Space Source

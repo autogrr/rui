@@ -952,7 +952,7 @@ func (s *Service) executeDeletion(ctx context.Context, instanceID int, runID int
 		if sawReadOnly {
 			failureMessage = fmt.Sprintf("Deletion failed for %d file(s): filesystem is read-only. If running via Docker, remove ':ro' from the volume mapping for your downloads path.", failedDeletes)
 		} else if sawPermissionDenied {
-			failureMessage = fmt.Sprintf("Deletion failed for %d file(s): permission denied. Check that the qui process has write access to the download directories.", failedDeletes)
+			failureMessage = fmt.Sprintf("Deletion failed for %d file(s): permission denied. Check that the rui process has write access to the download directories.", failedDeletes)
 		} else {
 			failureMessage = fmt.Sprintf("Deletion failed for %d file(s). Check the file details for specific errors.", failedDeletes)
 		}

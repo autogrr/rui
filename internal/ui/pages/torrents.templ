@@ -68,8 +68,6 @@ Expr       string // optional expr-lang filter expression
 // Sidebar data (populated for full page renders only)
 Categories    []string
 Tags          []string
-Trackers      []string // unique tracker domains, sorted
-SavePaths     []string // unique save paths, sorted
 FilterTracker  string
 FilterSavePath string
 }
@@ -299,9 +297,9 @@ for _, sf := range []struct{ val, label string }{
 {"", "All"},
 {"downloading", "Downloading"},
 {"uploading", "Seeding"},
-{"pausedDL", "Paused"},
-{"pausedUP", "Completed"},
-{"error", "Error"},
+{"paused", "Paused"},
+{"completed", "Completed"},
+{"errored", "Error"},
 } {
 <li>
 <button
@@ -312,41 +310,53 @@ hx-push-url="false"
 hx-vals={ `{"status":"` + sf.val + `"}` }
 hx-include="#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr,#torrents-search"
 class={
-"w-full text-left px-2 py-1 rounded-md transition-colors",
+"w-full text-left px-2 py-1 rounded-md transition-colors flex items-center justify-between",
 templ.KV("bg-primary/10 text-primary font-medium", p.Status == sf.val),
 templ.KV("text-muted-foreground hover:bg-accent hover:text-foreground", p.Status != sf.val),
 }
 >
-{ sf.label }
+<span>{ sf.label }</span>
+<span
+id={ "sb-status-count-" + sf.val }
+class={
+"tabular-nums text-xs",
+templ.KV("text-primary/70", p.Status == sf.val),
+templ.KV("text-muted-foreground/60", p.Status != sf.val),
+}
+></span>
 </button>
 </li>
 }
 </ul>
 </div>
-<!-- Categories section (JS-populated via VirtualList from vt-sidebar-json) -->
+<!-- Categories section (derived from row data) -->
 <div id="vt-sidebar-cats-section" class="hidden">
 <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Categories</p>
+<input id="vt-cat-filter" type="text" placeholder="Filter…" class="w-full mb-1 h-6 rounded border border-input bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring" oninput="_filterSidebar('cats')"/>
 <div id="vt-cat-scroll" class="max-h-48 overflow-y-auto">
 <ul id="vt-sidebar-cats" class="space-y-0.5"></ul>
 </div>
 </div>
-<!-- Tags section (JS-populated) -->
+<!-- Tags section -->
 <div id="vt-sidebar-tags-section" class="hidden">
 <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Tags</p>
+<input id="vt-tag-filter" type="text" placeholder="Filter…" class="w-full mb-1 h-6 rounded border border-input bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring" oninput="_filterSidebar('tags')"/>
 <div id="vt-tag-scroll" class="max-h-36 overflow-y-auto">
 <ul id="vt-sidebar-tags" class="space-y-0.5"></ul>
 </div>
 </div>
-<!-- Trackers section (JS-populated) -->
+<!-- Trackers section -->
 <div id="vt-sidebar-trackers-section" class="hidden">
 <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Trackers</p>
+<input id="vt-tracker-filter" type="text" placeholder="Filter…" class="w-full mb-1 h-6 rounded border border-input bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring" oninput="_filterSidebar('trackers')"/>
 <div id="vt-tracker-scroll" class="max-h-36 overflow-y-auto">
 <ul id="vt-sidebar-trackers" class="space-y-0.5"></ul>
 </div>
 </div>
-<!-- Save Paths section (JS-populated) -->
+<!-- Save Paths section -->
 <div id="vt-sidebar-savepaths-section" class="hidden">
 <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Save Paths</p>
+<input id="vt-savepath-filter" type="text" placeholder="Filter…" class="w-full mb-1 h-6 rounded border border-input bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-ring" oninput="_filterSidebar('savepaths')"/>
 <div id="vt-savepath-scroll" class="max-h-36 overflow-y-auto">
 <ul id="vt-sidebar-savepaths" class="space-y-0.5"></ul>
 </div>
@@ -645,6 +655,27 @@ class="ml-auto rounded-md px-2 py-1 text-xs text-muted-foreground hover:text-for
 ✕ Clear
 </button>
 </div>
+
+<!-- Global status bar -->
+<div
+id="status-bar"
+class="flex items-center justify-between rounded-lg border border-border bg-background/80 px-3 py-1.5 text-xs text-muted-foreground tabular-nums"
+>
+<div class="flex items-center gap-4">
+<span id="sb-total">0 torrents</span>
+<span id="sb-selected" class="hidden">0 selected</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+<span id="sb-dl">0 B/s</span>
+</span>
+<span class="flex items-center gap-1 text-green-600 dark:text-green-400">
+<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 14 12 9 7 14"/><line x1="12" y1="9" x2="12" y2="21"/></svg>
+<span id="sb-up">0 B/s</span>
+</span>
+</div>
+</div>
 </div>
 
 <!-- Right detail panel (shown when a torrent row is clicked) -->
@@ -656,6 +687,161 @@ class="w-96 shrink-0 rounded-lg border border-border bg-background overflow-hidd
 <div id="torrent-detail-panel" class="h-full overflow-hidden flex flex-col">
 <!-- Loaded via HTMX when a row is clicked -->
 </div>
+</div>
+</div>
+</div>
+
+<!-- Context menu (positioned via JS) -->
+<div
+id="ctx-menu"
+class="fixed z-50 hidden min-w-[12rem] rounded-lg border border-border bg-background shadow-xl py-1 text-sm"
+@click.outside="document.getElementById('ctx-menu').classList.add('hidden')"
+>
+<button type="button" onclick="ctxAction('resume')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5 text-green-500" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>Resume
+</button>
+<button type="button" onclick="ctxAction('pause')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5 text-muted-foreground" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>Pause
+</button>
+<button type="button" onclick="ctxAction('forceStart')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10" fill="currentColor"/></svg>Force Start
+</button>
+<div class="my-1 border-t border-border"></div>
+<button type="button" onclick="ctxAction('recheck')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Force Recheck
+</button>
+<button type="button" onclick="ctxAction('reannounce')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Reannounce
+</button>
+<button type="button" onclick="ctxAction('toggleSequentialDownload')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="4"/><polyline points="6 10 12 4 18 10"/></svg>Toggle Sequential
+</button>
+<div class="my-1 border-t border-border"></div>
+<!-- Priority submenu -->
+<div class="relative" x-data="{ open: false, _timer: null }" @mouseenter="clearTimeout(_timer); _timer = setTimeout(() => open = true, 200)" @mouseleave="clearTimeout(_timer); open = false">
+<button type="button" class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<span class="flex items-center gap-2"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>Queue</span>
+<svg class="h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+</button>
+<div x-show="open" x-cloak class="absolute left-full top-0 ml-1 min-w-[10rem] rounded-lg border border-border bg-background shadow-xl py-1 z-50">
+<button type="button" onclick="ctxAction('topPriority')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Move to Top</button>
+<button type="button" onclick="ctxAction('increasePriority')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Move Up</button>
+<button type="button" onclick="ctxAction('decreasePriority')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Move Down</button>
+<button type="button" onclick="ctxAction('bottomPriority')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Move to Bottom</button>
+</div>
+</div>
+<div class="my-1 border-t border-border"></div>
+<button type="button" onclick="ctxShowCategoryDialog()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Set Category…
+</button>
+<button type="button" onclick="ctxShowTagDialog()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>Tags…
+</button>
+<button type="button" onclick="ctxShowLocationDialog()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Set Location…
+</button>
+<button type="button" onclick="ctxShowLimitsDialog()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Set Limits…
+</button>
+<button type="button" onclick="ctxShowRenameDialog()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename…
+</button>
+<div class="my-1 border-t border-border"></div>
+<!-- Copy submenu -->
+<div class="relative" x-data="{ open: false, _timer: null }" @mouseenter="clearTimeout(_timer); _timer = setTimeout(() => open = true, 200)" @mouseleave="clearTimeout(_timer); open = false">
+<button type="button" class="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<span class="flex items-center gap-2"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</span>
+<svg class="h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+</button>
+<div x-show="open" x-cloak class="absolute left-full top-0 ml-1 min-w-[10rem] rounded-lg border border-border bg-background shadow-xl py-1 z-50">
+<button type="button" onclick="ctxCopy('name')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Name</button>
+<button type="button" onclick="ctxCopy('hash')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Hash</button>
+<button type="button" onclick="ctxCopy('magnet')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Magnet Link</button>
+</div>
+</div>
+<button type="button" onclick="ctxExport()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export .torrent
+</button>
+<div class="my-1 border-t border-border"></div>
+<button type="button" onclick="ctxAction('delete')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Delete
+</button>
+<button type="button" onclick="ctxAction('deleteWithFiles')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Delete + Files
+</button>
+</div>
+
+<!-- Set Category dialog -->
+<div id="ctx-category-dialog" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-background/80 backdrop-blur-sm">
+<div class="w-96 rounded-xl border border-border bg-background shadow-xl p-5 space-y-3" @click.outside="document.getElementById('ctx-category-dialog').classList.add('hidden')">
+<h3 class="font-semibold text-sm">Set Category</h3>
+<input id="ctx-category-input" type="text" autocomplete="off" placeholder="Filter or type category name…" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" oninput="ctxFilterCategories()" onkeydown="ctxCategoryKeydown(event)"/>
+<div id="ctx-category-listbox" class="hidden max-h-56 overflow-y-auto rounded-md border border-input bg-background text-sm"></div>
+<div class="flex justify-end gap-2">
+<button type="button" onclick="document.getElementById('ctx-category-dialog').classList.add('hidden')" class="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent transition-colors">Cancel</button>
+<button type="button" onclick="ctxSubmitCategory()" class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">Apply</button>
+</div>
+</div>
+</div>
+
+<!-- Add/Remove Tags dialog -->
+<div id="ctx-tags-dialog" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-background/80 backdrop-blur-sm">
+<div class="w-80 rounded-xl border border-border bg-background shadow-xl p-5 space-y-4" @click.outside="document.getElementById('ctx-tags-dialog').classList.add('hidden')">
+<h3 class="font-semibold text-sm">Manage Tags</h3>
+<div class="space-y-2">
+<label class="block text-xs font-medium text-muted-foreground">Add tags (comma-separated)</label>
+<input id="ctx-add-tags-input" type="text" placeholder="tag1, tag2" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" onkeydown="if(event.key==='Enter'){event.preventDefault();ctxSubmitTags();}"/>
+</div>
+<div class="space-y-2">
+<label class="block text-xs font-medium text-muted-foreground">Remove tags (comma-separated)</label>
+<input id="ctx-remove-tags-input" type="text" placeholder="tag-to-remove" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/>
+</div>
+<div class="flex justify-end gap-2">
+<button type="button" onclick="document.getElementById('ctx-tags-dialog').classList.add('hidden')" class="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent transition-colors">Cancel</button>
+<button type="button" onclick="ctxSubmitTags()" class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">Apply</button>
+</div>
+</div>
+</div>
+
+<!-- Set Location dialog -->
+<div id="ctx-location-dialog" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-background/80 backdrop-blur-sm">
+<div class="w-96 rounded-xl border border-border bg-background shadow-xl p-5 space-y-4" @click.outside="document.getElementById('ctx-location-dialog').classList.add('hidden')">
+<h3 class="font-semibold text-sm">Set Location</h3>
+<input id="ctx-location-input" type="text" placeholder="/path/to/save" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" onkeydown="if(event.key==='Enter'){event.preventDefault();ctxSubmitLocation();}"/>
+<div class="flex justify-end gap-2">
+<button type="button" onclick="document.getElementById('ctx-location-dialog').classList.add('hidden')" class="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent transition-colors">Cancel</button>
+<button type="button" onclick="ctxSubmitLocation()" class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">Move</button>
+</div>
+</div>
+</div>
+
+<!-- Set Limits dialog -->
+<div id="ctx-limits-dialog" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-background/80 backdrop-blur-sm">
+<div class="w-96 rounded-xl border border-border bg-background shadow-xl p-5 space-y-4" @click.outside="document.getElementById('ctx-limits-dialog').classList.add('hidden')">
+<h3 class="font-semibold text-sm">Set Speed &amp; Share Limits</h3>
+<div class="grid grid-cols-2 gap-3">
+<div><label class="block text-xs font-medium text-muted-foreground mb-1">Download (KiB/s)</label><input id="ctx-dl-limit" type="number" min="-1" placeholder="-1 = global" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/></div>
+<div><label class="block text-xs font-medium text-muted-foreground mb-1">Upload (KiB/s)</label><input id="ctx-ul-limit" type="number" min="-1" placeholder="-1 = global" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/></div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div><label class="block text-xs font-medium text-muted-foreground mb-1">Ratio limit</label><input id="ctx-ratio-limit" type="number" step="0.1" min="-2" placeholder="-2 = global" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/></div>
+<div><label class="block text-xs font-medium text-muted-foreground mb-1">Seed time (min)</label><input id="ctx-seed-time-limit" type="number" min="-2" placeholder="-2 = global" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"/></div>
+</div>
+<div class="flex justify-end gap-2">
+<button type="button" onclick="document.getElementById('ctx-limits-dialog').classList.add('hidden')" class="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent transition-colors">Cancel</button>
+<button type="button" onclick="ctxSubmitLimits()" class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">Apply</button>
+</div>
+</div>
+</div>
+
+<!-- Rename dialog -->
+<div id="ctx-rename-dialog" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-background/80 backdrop-blur-sm">
+<div class="w-96 rounded-xl border border-border bg-background shadow-xl p-5 space-y-4" @click.outside="document.getElementById('ctx-rename-dialog').classList.add('hidden')">
+<h3 class="font-semibold text-sm">Rename Torrent</h3>
+<input id="ctx-rename-input" type="text" placeholder="New name" class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" onkeydown="if(event.key==='Enter'){event.preventDefault();ctxSubmitRename();}"/>
+<div class="flex justify-end gap-2">
+<button type="button" onclick="document.getElementById('ctx-rename-dialog').classList.add('hidden')" class="rounded-md border border-input px-3 py-1.5 text-sm hover:bg-accent transition-colors">Cancel</button>
+<button type="button" onclick="ctxSubmitRename()" class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">Rename</button>
 </div>
 </div>
 </div>
@@ -954,8 +1140,6 @@ class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foregrou
 
 <!-- Column defaults JSON (read by JS below; Go expressions can't appear inside <script> text) -->
 @TorrentsColDefaults()
-<!-- Sidebar filter lists JSON (categories, tags, trackers, save paths) -->
-@TorrentsSidebarJSON(p)
 <!-- Virtual scroll + sort arrows + filter chips + expr builder JS -->
 <script>
 // ── Expr field definitions ──────────────────────────────────────────────────
@@ -1383,12 +1567,44 @@ function renderFilterChips() {
   var status   = (document.getElementById('current-status')   || {value:''}).value || '';
   var category = (document.getElementById('current-category') || {value:''}).value || '';
   var tag      = (document.getElementById('current-tag')      || {value:''}).value || '';
+  var tracker  = (document.getElementById('current-tracker')  || {value:''}).value || '';
+  var savepath = (document.getElementById('current-savepath') || {value:''}).value || '';
   var search   = (document.getElementById('torrents-search')  || {value:''}).value || '';
   var expr     = (document.getElementById('current-expr')     || {value:''}).value || '';
   var parts = [];
   if (status)   parts.push({ label: 'State == "' + (_stateLabels[status] || status) + '"', rawLabel: 'State == "' + status + '"', clear: 'status' });
-  if (category) parts.push({ label: 'Category == "' + category + '"', clear: 'category' });
-  if (tag)      parts.push({ label: 'Tags contains "' + tag + '"', clear: 'tag' });
+  if (category) {
+    var cats = category.split(',');
+    if (cats.length === 1) {
+      parts.push({ label: 'Category == "' + category + '"', clear: 'category' });
+    } else {
+      parts.push({ label: 'Category in [' + cats.join(', ') + ']', clear: 'category' });
+    }
+  }
+  if (tag) {
+    var tags = tag.split(',');
+    if (tags.length === 1) {
+      parts.push({ label: 'Tags contains "' + tag + '"', clear: 'tag' });
+    } else {
+      parts.push({ label: 'Tags in [' + tags.join(', ') + ']', clear: 'tag' });
+    }
+  }
+  if (tracker) {
+    var trks = tracker.split(',');
+    if (trks.length === 1) {
+      parts.push({ label: 'Tracker == "' + tracker + '"', clear: 'tracker' });
+    } else {
+      parts.push({ label: 'Tracker in [' + trks.join(', ') + ']', clear: 'tracker' });
+    }
+  }
+  if (savepath) {
+    var sps = savepath.split(',');
+    if (sps.length === 1) {
+      parts.push({ label: 'SavePath == "' + savepath + '"', clear: 'savepath' });
+    } else {
+      parts.push({ label: 'SavePath in [' + sps.join(', ') + ']', clear: 'savepath' });
+    }
+  }
   if (search)   parts.push({ label: 'Name ~ "' + search + '"', clear: 'search' });
   if (expr)     parts.push({ label: expr.length>50 ? expr.substring(0,50)+'…' : expr, title: expr, clear: 'expr' });
   chips.innerHTML = parts.map(function(p) {
@@ -1422,38 +1638,144 @@ function triggerTableRefresh() {
 }
 
 // ── Sidebar filter lists ─────────────────────────────────────────────────────
-// Each section (categories, tags, trackers, save paths) uses VirtualList in
-// ul/li mode so only visible items occupy the DOM regardless of list size.
+// Sidebar sections are derived entirely from _vtList.rows so they auto-refresh
+// on every SSE-driven data swap. Each section supports:
+//   - A filter input to narrow the visible items
+//   - Multi-select via Ctrl+Click (toggle) or Shift+Click (range)
+//   - VirtualList for efficient rendering of large lists
+
 var _vtSidebarLists = {};
+var _vtSidebarCounts = {};
+var _vtSidebarAllItems = {}; // { cats: ['', 'cat1', ...], tags: [...], ... }
 
-function initSidebars() {
-  var el = document.getElementById('vt-sidebar-json');
-  if (!el) return;
-  var data;
-  try { data = JSON.parse(el.textContent); } catch(e) { return; }
+// Sidebar section config: key -> { sectionId, scrollId, ulId, filterInputId, filterType, inputId }
+var _sidebarCfg = {
+  cats:      { sectionId: 'vt-sidebar-cats-section',      scrollId: 'vt-cat-scroll',      ulId: 'vt-sidebar-cats',      filterInputId: 'vt-cat-filter',      filterType: 'category', inputId: 'current-category' },
+  tags:      { sectionId: 'vt-sidebar-tags-section',      scrollId: 'vt-tag-scroll',      ulId: 'vt-sidebar-tags',      filterInputId: 'vt-tag-filter',      filterType: 'tag',      inputId: 'current-tag' },
+  trackers:  { sectionId: 'vt-sidebar-trackers-section',  scrollId: 'vt-tracker-scroll',  ulId: 'vt-sidebar-trackers',  filterInputId: 'vt-tracker-filter',  filterType: 'tracker',  inputId: 'current-tracker' },
+  savepaths: { sectionId: 'vt-sidebar-savepaths-section', scrollId: 'vt-savepath-scroll', ulId: 'vt-sidebar-savepaths', filterInputId: 'vt-savepath-filter', filterType: 'savepath', inputId: 'current-savepath' },
+};
 
-  _initSidebarSection('cats',      'vt-sidebar-cats-section', 'vt-cat-scroll',      'vt-sidebar-cats',      [''].concat(data.categories || []), 'category',  'current-category');
-  _initSidebarSection('tags',      'vt-sidebar-tags-section', 'vt-tag-scroll',      'vt-sidebar-tags',      [''].concat(data.tags       || []), 'tag',       'current-tag');
-  _initSidebarSection('trackers',  'vt-sidebar-trackers-section', 'vt-tracker-scroll', 'vt-sidebar-trackers', [''].concat(data.trackers  || []), 'tracker',   'current-tracker');
-  _initSidebarSection('savepaths', 'vt-sidebar-savepaths-section','vt-savepath-scroll','vt-sidebar-savepaths',[''].concat(data.savePaths || []), 'savepath',  'current-savepath');
+// _lastSidebarClickIdx tracks the last-clicked item index per section for Shift+Click range select.
+var _lastSidebarClickIdx = {};
+
+function _computeSidebarCounts() {
+  var counts = { category: {}, tag: {}, tracker: {}, savepath: {} };
+  if (!_vtList) return counts;
+  var rows = _vtList.rows || [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var cat = r.Category || '';
+    counts.category[cat] = (counts.category[cat] || 0) + 1;
+    if (r.Tags) {
+      var tgs = r.Tags.split(',');
+      for (var j = 0; j < tgs.length; j++) {
+        var tg = tgs[j].trim();
+        if (tg) counts.tag[tg] = (counts.tag[tg] || 0) + 1;
+      }
+    }
+    var tr = _extractTrackerDomain(r.Tracker);
+    counts.tracker[tr] = (counts.tracker[tr] || 0) + 1;
+    var sp = r.SavePath || '';
+    counts.savepath[sp] = (counts.savepath[sp] || 0) + 1;
+  }
+  _vtSidebarCounts = counts;
+  return counts;
 }
 
-function _initSidebarSection(key, sectionId, scrollId, ulId, items, filterType, inputId) {
-  var section = document.getElementById(sectionId);
+// _extractTrackerDomain extracts the full hostname from a tracker URL,
+// matching the server-side ExtractDomainFromURL behaviour (e.g.
+// "http://tracker.example.com:8080/announce" → "tracker.example.com").
+function _extractTrackerDomain(url) {
+  if (!url) return '';
+  try { return new URL(url).hostname.toLowerCase(); } catch(e) { return url; }
+}
+
+// _extractSidebarItems derives sorted unique items from _vtList.rows for each section.
+function _extractSidebarItems() {
+  var cats = {}, tags = {}, trackers = {}, savepaths = {};
+  if (_vtList) {
+    var rows = _vtList.rows || [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (r.Category) cats[r.Category] = 1;
+      if (r.Tags) {
+        var tgs = r.Tags.split(',');
+        for (var j = 0; j < tgs.length; j++) {
+          var tg = tgs[j].trim();
+          if (tg) tags[tg] = 1;
+        }
+      }
+      var dom = _extractTrackerDomain(r.Tracker);
+      if (dom) trackers[dom] = 1;
+      if (r.SavePath) savepaths[r.SavePath] = 1;
+    }
+  }
+  _vtSidebarAllItems.cats      = [''].concat(Object.keys(cats).sort());
+  _vtSidebarAllItems.tags      = [''].concat(Object.keys(tags).sort());
+  _vtSidebarAllItems.trackers  = [''].concat(Object.keys(trackers).sort());
+  _vtSidebarAllItems.savepaths = [''].concat(Object.keys(savepaths).sort());
+}
+
+// _getActiveSet returns the Set of currently selected values for a hidden input.
+function _getActiveSet(inputId) {
+  var el = document.getElementById(inputId);
+  var val = el ? el.value : '';
+  if (!val) return new Set();
+  return new Set(val.split(',').map(function(s){ return s.trim(); }).filter(Boolean));
+}
+
+// _setActiveValues writes selected values back to the hidden input as comma-separated.
+function _setActiveValues(inputId, values) {
+  var el = document.getElementById(inputId);
+  if (el) el.value = Array.from(values).join(',');
+}
+
+function initSidebars() {
+  _computeSidebarCounts();
+  _extractSidebarItems();
+
+  for (var key in _sidebarCfg) {
+    _initSidebarSection(key);
+  }
+}
+
+function _initSidebarSection(key) {
+  var cfg = _sidebarCfg[key];
+  var section = document.getElementById(cfg.sectionId);
   if (!section) return;
-  // Hide section if only the synthetic "All" item exists (server had no data)
-  if (items.length <= 1) { section.classList.add('hidden'); return; }
+  var allItems = _vtSidebarAllItems[key] || [''];
+  // Hide if only the "All" placeholder exists
+  if (allItems.length <= 1) { section.classList.add('hidden'); return; }
   section.classList.remove('hidden');
-  var makeItem = function(val) { return _makeSidebarBtn(val, filterType, inputId, key); };
+  // Apply text filter
+  var filterEl = document.getElementById(cfg.filterInputId);
+  var q = filterEl ? filterEl.value.toLowerCase() : '';
+  var items = q ? allItems.filter(function(v){ return v === '' || v.toLowerCase().indexOf(q) !== -1; }) : allItems;
+
+  var makeItem = function(val) { return _makeSidebarBtn(val, cfg.filterType, cfg.inputId, key, items); };
   if (_vtSidebarLists[key]) {
-    // Re-use existing instance; update render fn (active item may have changed)
     _vtSidebarLists[key]._renderRow = makeItem;
-    _vtSidebarLists[key].load(items);
+    // Avoid full DOM teardown if items haven't changed — just refresh
+    // rendered buttons (counts / active state) via invalidate + render.
+    var prev = _vtSidebarLists[key].rows;
+    var changed = prev.length !== items.length;
+    if (!changed) {
+      for (var ci = 0; ci < items.length; ci++) {
+        if (items[ci] !== prev[ci]) { changed = true; break; }
+      }
+    }
+    if (changed) {
+      _vtSidebarLists[key].load(items);
+    } else {
+      _vtSidebarLists[key].invalidate();
+      _vtSidebarLists[key].render();
+    }
     return;
   }
   _vtSidebarLists[key] = new VirtualList({
-    containerId : scrollId,
-    tbodyId     : ulId,
+    containerId : cfg.scrollId,
+    tbodyId     : cfg.ulId,
     rowTag      : 'li',
     colSpan     : 1,
     renderRow   : makeItem,
@@ -1463,21 +1785,64 @@ function _initSidebarSection(key, sectionId, scrollId, ulId, items, filterType, 
   _vtSidebarLists[key].load(items);
 }
 
-function _makeSidebarBtn(val, filterType, inputId, listKey) {
+// _filterSidebar is called by the filter input's oninput handler.
+function _filterSidebar(key) {
+  _initSidebarSection(key);
+}
+
+function _makeSidebarBtn(val, filterType, inputId, listKey, itemList) {
   var label   = val || 'All';
-  var activeEl = document.getElementById(inputId);
-  var isActive = (activeEl ? activeEl.value : '') === val;
+  var activeSet = _getActiveSet(inputId);
+  // "All" is active when nothing is selected
+  var isActive = val === '' ? activeSet.size === 0 : activeSet.has(val);
   var li = document.createElement('li');
   li.style.listStyle = 'none';
   var btn = document.createElement('button');
   btn.type = 'button';
   btn.title = label;
-  btn.className = 'w-full text-left px-2 py-1 rounded-md truncate transition-colors ' +
+  btn.className = 'w-full text-left px-2 py-1 rounded-md transition-colors flex items-center justify-between gap-1 min-w-0 ' +
     (isActive ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground');
-  btn.textContent = label;
-  btn.addEventListener('click', function() {
-    if (activeEl) activeEl.value = val;
-    // Refresh sidebar to update active highlight on visible rows
+  var labelSpan = document.createElement('span');
+  labelSpan.className = 'truncate min-w-0';
+  labelSpan.textContent = label;
+  btn.appendChild(labelSpan);
+  // Count badge
+  var counts = _vtSidebarCounts[filterType] || {};
+  var count = val === '' ? (_vtList ? _vtList.rows.length : 0) : (counts[val] || 0);
+  if (count > 0) {
+    var badge = document.createElement('span');
+    badge.className = 'shrink-0 tabular-nums text-xs ' + (isActive ? 'text-primary/70' : 'text-muted-foreground/60');
+    badge.textContent = count;
+    btn.appendChild(badge);
+  }
+  btn.addEventListener('click', function(e) {
+    if (val === '') {
+      // "All" clears all selections
+      _setActiveValues(inputId, new Set());
+      _lastSidebarClickIdx[listKey] = -1;
+    } else if (e.shiftKey && _lastSidebarClickIdx[listKey] >= 0 && itemList) {
+      // Shift+Click: range select from last clicked to current
+      var curIdx = itemList.indexOf(val);
+      if (curIdx >= 0) {
+        var lo = Math.min(_lastSidebarClickIdx[listKey], curIdx);
+        var hi = Math.max(_lastSidebarClickIdx[listKey], curIdx);
+        var s = _getActiveSet(inputId);
+        for (var ri = lo; ri <= hi; ri++) {
+          if (itemList[ri] !== '') s.add(itemList[ri]);
+        }
+        _setActiveValues(inputId, s);
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      // Ctrl/Cmd+Click: toggle individual item
+      var s = _getActiveSet(inputId);
+      if (s.has(val)) { s.delete(val); } else { s.add(val); }
+      _setActiveValues(inputId, s);
+    } else {
+      // Plain click: single select (replaces selection)
+      _setActiveValues(inputId, new Set([val]));
+    }
+    _lastSidebarClickIdx[listKey] = itemList ? itemList.indexOf(val) : -1;
+    // Re-render sidebar to update highlights
     var list = _vtSidebarLists[listKey];
     if (list) { list.invalidate(); list.render(); }
     triggerTableRefresh();
@@ -1486,6 +1851,291 @@ function _makeSidebarBtn(val, filterType, inputId, listKey) {
   li.appendChild(btn);
   return li;
 }
+
+// ── Context menu ─────────────────────────────────────────────────────────────
+var _ctxHash = '';
+var _ctxName = '';
+var _ctxSavePath = '';
+var _ctxCategory = '';
+var _ctxTags = '';
+
+function showContextMenu(e, t) {
+  e.preventDefault();
+  _ctxHash     = t.Hash || t.InfohashV1 || t.InfohashV2 || '';
+  _ctxName     = t.Name || '';
+  _ctxSavePath = t.SavePath || '';
+  _ctxCategory = t.Category || '';
+  _ctxTags     = t.Tags || '';
+  var menu = document.getElementById('ctx-menu');
+  if (!menu) return;
+  menu.classList.remove('hidden');
+  // Position near cursor, clamped to viewport.
+  var mx = e.clientX, my = e.clientY;
+  menu.style.left = '0'; menu.style.top = '0'; // reset for measurement
+  var mw = menu.offsetWidth, mh = menu.offsetHeight;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  if (mx + mw > vw) mx = vw - mw - 4;
+  if (my + mh > vh) my = vh - mh - 4;
+  if (mx < 0) mx = 4;
+  if (my < 0) my = 4;
+  menu.style.left = mx + 'px';
+  menu.style.top  = my + 'px';
+}
+
+function _hideCtxMenu() {
+  var m = document.getElementById('ctx-menu');
+  if (m) m.classList.add('hidden');
+}
+
+function _ctxHashes() {
+  // If multiple selected and the right-clicked torrent is in selection, use all.
+  if (_checkedHashes.size > 0 && _checkedHashes.has(_ctxHash)) {
+    return Array.from(_checkedHashes);
+  }
+  return [_ctxHash];
+}
+
+function ctxAction(action) {
+  _hideCtxMenu();
+  var hashes = _ctxHashes();
+  if (!hashes.length || !_ctxHash) return;
+  var body = new URLSearchParams();
+  hashes.forEach(function(h){ body.append('hashes', h); });
+  body.append('action', action);
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/action', { method: 'POST', body: body })
+    .then(function(resp) { return resp.text(); })
+    .then(function(html) {
+      var slot = document.getElementById('vt-data-slot');
+      if (slot) { slot.innerHTML = html; initVirtualScroll(); initSidebars(); applySortArrows(); renderFilterChips(); }
+    });
+}
+
+var _ctxAllCategories = [];
+var _ctxCategoryCursor = -1;
+
+function ctxShowCategoryDialog() {
+  _hideCtxMenu();
+  var dlg = document.getElementById('ctx-category-dialog');
+  if (!dlg) return;
+  var inp = document.getElementById('ctx-category-input');
+  if (inp) { inp.value = _ctxCategory; }
+  // Load categories from the sidebar items derived from row data.
+  _ctxAllCategories = (_vtSidebarAllItems.cats || []).filter(function(c){ return c !== ''; }).slice().sort();
+  _ctxCategoryCursor = -1;
+  ctxFilterCategories();
+  dlg.classList.remove('hidden');
+  if (inp) { inp.focus(); inp.select(); }
+}
+
+function ctxFilterCategories() {
+  var inp = document.getElementById('ctx-category-input');
+  var lb  = document.getElementById('ctx-category-listbox');
+  if (!lb) return;
+  if (_ctxAllCategories.length === 0) { lb.classList.add('hidden'); return; }
+  var q = inp ? inp.value.toLowerCase() : '';
+  var matches = q
+    ? _ctxAllCategories.filter(function(c){ return c.toLowerCase().indexOf(q) !== -1; })
+    : _ctxAllCategories;
+  _ctxCategoryCursor = -1;
+  var MAX = 200;
+  var shown = matches.slice(0, MAX);
+  var html = '';
+  if (!q) {
+    html += '<div class="px-3 py-1.5 cursor-pointer hover:bg-accent text-muted-foreground italic text-xs border-b border-border" data-val="" onclick="ctxPickCategory(this)">— clear category —</div>';
+  }
+  if (shown.length === 0) {
+    html += '<div class="px-3 py-2 text-muted-foreground text-xs">No matches</div>';
+  } else {
+    shown.forEach(function(c) {
+      html += '<div class="px-3 py-1.5 cursor-pointer hover:bg-accent truncate" data-val="' + _escHtml(c) + '" onclick="ctxPickCategory(this)">' + _escHtml(c) + '</div>';
+    });
+    if (matches.length > MAX) {
+      html += '<div class="px-3 py-1.5 text-muted-foreground text-xs border-t border-border select-none">' + (matches.length - MAX) + ' more — keep typing to narrow</div>';
+    }
+  }
+  lb.innerHTML = html;
+  lb.classList.remove('hidden');
+}
+
+function ctxPickCategory(el) {
+  var inp = document.getElementById('ctx-category-input');
+  if (inp) inp.value = el.getAttribute('data-val');
+  var lb = document.getElementById('ctx-category-listbox');
+  if (lb) lb.classList.add('hidden');
+}
+
+function ctxCategoryKeydown(e) {
+  var lb    = document.getElementById('ctx-category-listbox');
+  var items = lb ? Array.from(lb.querySelectorAll('[data-val]')) : [];
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_ctxCategoryCursor >= 0 && items[_ctxCategoryCursor]) {
+      ctxPickCategory(items[_ctxCategoryCursor]);
+    }
+    ctxSubmitCategory();
+    return;
+  }
+  if (e.key === 'Escape') {
+    document.getElementById('ctx-category-dialog').classList.add('hidden');
+    return;
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _ctxCategoryCursor = Math.min(_ctxCategoryCursor + 1, items.length - 1);
+    items.forEach(function(el, i){ el.classList.toggle('bg-accent', i === _ctxCategoryCursor); });
+    if (items[_ctxCategoryCursor]) items[_ctxCategoryCursor].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _ctxCategoryCursor = Math.max(_ctxCategoryCursor - 1, -1);
+    items.forEach(function(el, i){ el.classList.toggle('bg-accent', i === _ctxCategoryCursor); });
+    if (_ctxCategoryCursor >= 0 && items[_ctxCategoryCursor]) items[_ctxCategoryCursor].scrollIntoView({ block: 'nearest' });
+  }
+}
+
+function ctxSubmitCategory() {
+  var inp = document.getElementById('ctx-category-input');
+  var value = inp ? inp.value : '';
+  var hashes = _ctxHashes();
+  var body = new URLSearchParams();
+  hashes.forEach(function(h){ body.append('hashes', h); });
+  body.append('category', value);
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/set-category', { method: 'POST', body: body })
+    .then(function(){ document.getElementById('ctx-category-dialog').classList.add('hidden'); triggerTableRefresh(); });
+}
+
+function ctxShowTagDialog() {
+  _hideCtxMenu();
+  var dlg = document.getElementById('ctx-tags-dialog');
+  if (!dlg) return;
+  var addInp = document.getElementById('ctx-add-tags-input');
+  var rmInp  = document.getElementById('ctx-remove-tags-input');
+  if (addInp) addInp.value = '';
+  if (rmInp) rmInp.value = '';
+  dlg.classList.remove('hidden');
+  if (addInp) addInp.focus();
+}
+
+function ctxSubmitTags() {
+  var addInp = document.getElementById('ctx-add-tags-input');
+  var rmInp  = document.getElementById('ctx-remove-tags-input');
+  var addVal = addInp ? addInp.value.trim() : '';
+  var rmVal  = rmInp  ? rmInp.value.trim()  : '';
+  var hashes = _ctxHashes();
+  var promises = [];
+  if (addVal) {
+    var body = new URLSearchParams();
+    hashes.forEach(function(h){ body.append('hashes', h); });
+    body.append('tags', addVal);
+    body.append('instance_id', String(_vtInstanceID));
+    promises.push(fetch(_vtBaseURL + '/ui/partials/torrents/add-tags', { method: 'POST', body: body }));
+  }
+  if (rmVal) {
+    var body2 = new URLSearchParams();
+    hashes.forEach(function(h){ body2.append('hashes', h); });
+    body2.append('tags', rmVal);
+    body2.append('instance_id', String(_vtInstanceID));
+    promises.push(fetch(_vtBaseURL + '/ui/partials/torrents/remove-tags', { method: 'POST', body: body2 }));
+  }
+  Promise.all(promises).then(function(){ document.getElementById('ctx-tags-dialog').classList.add('hidden'); triggerTableRefresh(); });
+}
+
+function ctxShowLocationDialog() {
+  _hideCtxMenu();
+  var dlg = document.getElementById('ctx-location-dialog');
+  if (!dlg) return;
+  var inp = document.getElementById('ctx-location-input');
+  if (inp) inp.value = _ctxSavePath;
+  dlg.classList.remove('hidden');
+  if (inp) inp.focus();
+}
+
+function ctxSubmitLocation() {
+  var inp = document.getElementById('ctx-location-input');
+  var location = inp ? inp.value.trim() : '';
+  if (!location) return;
+  var hashes = _ctxHashes();
+  var body = new URLSearchParams();
+  hashes.forEach(function(h){ body.append('hashes', h); });
+  body.append('location', location);
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/set-location', { method: 'POST', body: body })
+    .then(function(){ document.getElementById('ctx-location-dialog').classList.add('hidden'); triggerTableRefresh(); });
+}
+
+function ctxShowLimitsDialog() {
+  _hideCtxMenu();
+  var dlg = document.getElementById('ctx-limits-dialog');
+  if (!dlg) return;
+  dlg.classList.remove('hidden');
+  ['ctx-dl-limit','ctx-ul-limit','ctx-ratio-limit','ctx-seed-time-limit'].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=''; });
+}
+
+function ctxSubmitLimits() {
+  var hashes = _ctxHashes();
+  var body = new URLSearchParams();
+  hashes.forEach(function(h){ body.append('hashes', h); });
+  body.append('instance_id', String(_vtInstanceID));
+  var dlL = document.getElementById('ctx-dl-limit');
+  var ulL = document.getElementById('ctx-ul-limit');
+  var rtL = document.getElementById('ctx-ratio-limit');
+  var stL = document.getElementById('ctx-seed-time-limit');
+  if (dlL && dlL.value !== '') body.append('dl_limit', dlL.value);
+  if (ulL && ulL.value !== '') body.append('up_limit', ulL.value);
+  if (rtL && rtL.value !== '') body.append('ratio_limit', rtL.value);
+  if (stL && stL.value !== '') body.append('seed_time_limit', stL.value);
+  fetch(_vtBaseURL + '/ui/partials/torrents/set-limits', { method: 'POST', body: body })
+    .then(function(){ document.getElementById('ctx-limits-dialog').classList.add('hidden'); });
+}
+
+function ctxShowRenameDialog() {
+  _hideCtxMenu();
+  var dlg = document.getElementById('ctx-rename-dialog');
+  if (!dlg) return;
+  var inp = document.getElementById('ctx-rename-input');
+  if (inp) inp.value = _ctxName;
+  dlg.classList.remove('hidden');
+  if (inp) { inp.focus(); inp.select(); }
+}
+
+function ctxSubmitRename() {
+  var inp = document.getElementById('ctx-rename-input');
+  var name = inp ? inp.value.trim() : '';
+  if (!name) return;
+  var body = new URLSearchParams();
+  body.append('hash', _ctxHash);
+  body.append('name', name);
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/rename', { method: 'POST', body: body })
+    .then(function(){ document.getElementById('ctx-rename-dialog').classList.add('hidden'); triggerTableRefresh(); });
+}
+
+function ctxCopy(type) {
+  _hideCtxMenu();
+  var text = '';
+  if (type === 'name') text = _ctxName;
+  else if (type === 'hash') text = _ctxHash;
+  else if (type === 'magnet') text = 'magnet:?xt=urn:btih:' + _ctxHash;
+  if (text && navigator.clipboard) navigator.clipboard.writeText(text);
+}
+
+function ctxExport() {
+  _hideCtxMenu();
+  if (!_ctxHash) return;
+  window.open(_vtBaseURL + '/ui/partials/torrents/export/' + _ctxHash + '?instance_id=' + _vtInstanceID, '_blank');
+}
+
+// Close context menu on scroll or escape.
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    _hideCtxMenu();
+    ['ctx-category-dialog','ctx-tags-dialog','ctx-location-dialog','ctx-limits-dialog','ctx-rename-dialog'].forEach(function(id) {
+      var d = document.getElementById(id); if (d) d.classList.add('hidden');
+    });
+  }
+});
+document.getElementById('torrents-scroll-container')?.addEventListener('scroll', _hideCtxMenu);
 
 // ── Sort arrows ──────────────────────────────────────────────────────────────
 function applySortArrows() {
@@ -1535,6 +2185,66 @@ function initVirtualScroll() {
     });
   }
   _vtList.load(data.rows || []);
+  _updateStatusBar();
+  _updateStatusCounts();
+}
+
+// ── Status bar ───────────────────────────────────────────────────────────────
+function _updateStatusBar() {
+  if (!_vtList) return;
+  var rows = _vtList.rows || [];
+  var dl = 0, up = 0;
+  for (var i = 0; i < rows.length; i++) {
+    dl += (rows[i].DlSpeed || 0);
+    up += (rows[i].UpSpeed || 0);
+  }
+  var el;
+  el = document.getElementById('sb-total');
+  if (el) el.textContent = rows.length + ' torrent' + (rows.length !== 1 ? 's' : '');
+  el = document.getElementById('sb-dl');
+  if (el) el.textContent = dl > 0 ? _vtFmtBytes(dl) + '/s' : '0 B/s';
+  el = document.getElementById('sb-up');
+  if (el) el.textContent = up > 0 ? _vtFmtBytes(up) + '/s' : '0 B/s';
+
+  var selEl = document.getElementById('sb-selected');
+  if (selEl) {
+    var cnt = _checkedHashes ? _checkedHashes.size : 0;
+    if (cnt > 0) { selEl.textContent = cnt + ' selected'; selEl.classList.remove('hidden'); }
+    else { selEl.classList.add('hidden'); }
+  }
+}
+
+// ── Status counts ────────────────────────────────────────────────────────────
+var _statusGroupMap = {
+  'downloading': 'downloading', 'metaDL': 'downloading', 'allocating': 'downloading',
+  'stalledDL': 'downloading', 'forcedDL': 'downloading', 'queuedDL': 'downloading',
+  'uploading': 'uploading', 'stalledUP': 'uploading', 'forcedUP': 'uploading', 'queuedUP': 'uploading',
+  'pausedDL': 'paused', 'stoppedDL': 'paused', 'pausedUP': 'completed', 'stoppedUP': 'completed',
+  'error': 'errored', 'missingFiles': 'errored',
+  'checkingUP': 'downloading', 'checkingDL': 'downloading', 'checkingResumeData': 'downloading',
+};
+
+function _updateStatusCounts() {
+  if (!_vtList) return;
+  var rows = _vtList.rows || [];
+  var c = { downloading: 0, uploading: 0, paused: 0, completed: 0, errored: 0 };
+  for (var i = 0; i < rows.length; i++) {
+    var grp = _statusGroupMap[rows[i].State] || '';
+    if (grp) c[grp]++;
+  }
+  var el;
+  el = document.getElementById('sb-status-count-');
+  if (el) el.textContent = rows.length || '';
+  el = document.getElementById('sb-status-count-downloading');
+  if (el) el.textContent = c.downloading || '';
+  el = document.getElementById('sb-status-count-uploading');
+  if (el) el.textContent = c.uploading || '';
+  el = document.getElementById('sb-status-count-paused');
+  if (el) el.textContent = c.paused || '';
+  el = document.getElementById('sb-status-count-completed');
+  if (el) el.textContent = c.completed || '';
+  el = document.getElementById('sb-status-count-errored');
+  if (el) el.textContent = c.errored || '';
 }
 
 // ── Row renderer ─────────────────────────────────────────────────────────────
@@ -1605,7 +2315,7 @@ function _vtIsDownloading(state) {
 
 function _createRow(t) {
   var sl = _vtStateLabel(t.State||''), label = sl[0], badge = sl[1];
-  var hash = t.Hash || '';
+  var hash = t.Hash || t.InfohashV1 || t.InfohashV2 || '';
   var h = '';
   h += '<td class="px-2 py-2 w-8" onclick="event.stopPropagation()"><input type="checkbox" name="hashes" value="'+_vtEsc(hash)+'" class="rounded" onclick="event.stopPropagation()"/></td>';
   h += '<td class="px-3 py-2 max-w-xs"><span class="block truncate font-medium" title="'+_vtEsc(t.Name)+'">'+_vtEsc(t.Name)+'</span></td>';
@@ -1640,6 +2350,10 @@ function _createRow(t) {
   tr.setAttribute('hx-get', _vtBaseURL + '/ui/partials/torrents/' + hash + '?instance_id=' + _vtInstanceID);
   tr.setAttribute('hx-target', '#torrent-detail-panel');
   tr.setAttribute('hx-swap', 'innerHTML');
+  // Bind right-click context menu — pass full torrent object for metadata.
+  (function(torrent) {
+    tr.addEventListener('contextmenu', function(e) { showContextMenu(e, torrent); });
+  })(t);
   tr.innerHTML = h;
   if (window.htmx) htmx.process(tr);
   return tr;
@@ -1678,6 +2392,7 @@ function selectAll(checked) {
   }
   _restoreCheckboxes();
   _updateBulkBar();
+  _updateStatusBar();
   var sa = document.getElementById('select-all');
   if (sa) { sa.checked = checked && _vtList && _vtList.rows.length > 0; sa.indeterminate = false; }
 }
@@ -1700,7 +2415,77 @@ document.addEventListener('change', function(e) {
   else { _checkedHashes.delete(e.target.value); }
   _updateBulkBar();
   _updateSelectAll();
+  _updateStatusBar();
 });
+
+// ── Detail panel handlers ────────────────────────────────────────────────────
+// Delegated event listener for file priority <select> changes.
+document.addEventListener('change', function(e) {
+  var sel = e.target;
+  if (!sel || !sel.classList.contains('file-prio-select')) return;
+  var hash = sel.dataset.hash, inst = sel.dataset.instance, idx = sel.dataset.fileIndex;
+  if (!hash || !inst || idx === undefined) return;
+  sel.disabled = true;
+  sel.classList.add('opacity-50');
+  var body = new URLSearchParams();
+  body.append('hash', hash);
+  body.append('instance_id', inst);
+  body.append('indices', idx);
+  body.append('priority', sel.value);
+  fetch(_vtBaseURL + '/ui/partials/torrents/file-priority', {
+    method: 'POST',
+    body: body,
+    credentials: 'same-origin'
+  }).then(function(resp) {
+    sel.disabled = false;
+    sel.classList.remove('opacity-50');
+    if (!resp.ok) {
+      console.error('file-priority failed:', resp.status, resp.statusText);
+      // Refresh panel to restore server state
+      var panel = document.getElementById('torrent-detail-panel');
+      if (panel) htmx.ajax('GET', _vtBaseURL + '/ui/partials/torrents/' + hash + '?instance_id=' + inst, {target: panel, swap: 'innerHTML'});
+    }
+  }).catch(function(err) {
+    sel.disabled = false;
+    sel.classList.remove('opacity-50');
+    console.error('file-priority error:', err);
+  });
+});
+
+// Delegated click listener for tracker remove buttons.
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.tracker-remove-btn');
+  if (!btn) return;
+  var hash = btn.dataset.hash, inst = btn.dataset.instance, url = btn.dataset.url;
+  if (!hash || !inst || !url) return;
+  if (!confirm('Remove tracker: ' + url + '?')) return;
+  var body = new URLSearchParams();
+  body.append('hash', hash);
+  body.append('instance_id', inst);
+  body.append('url', url);
+  fetch(_vtBaseURL + '/ui/partials/torrents/remove-trackers', { method: 'POST', body: body }).then(function(resp) {
+    if (resp.ok) {
+      // Refresh detail panel.
+      var panel = document.getElementById('torrent-detail-panel');
+      if (panel) htmx.ajax('GET', _vtBaseURL + '/ui/partials/torrents/' + hash + '?instance_id=' + inst, {target: panel, swap: 'innerHTML'});
+    }
+  });
+});
+
+// Add trackers from the detail panel (called by Alpine @click).
+function handleAddTrackers(hash, instanceID, urls) {
+  if (!urls || !urls.trim()) return;
+  var body = new URLSearchParams();
+  body.append('hash', hash);
+  body.append('instance_id', instanceID);
+  body.append('urls', urls.trim());
+  fetch(_vtBaseURL + '/ui/partials/torrents/add-trackers', { method: 'POST', body: body }).then(function(resp) {
+    if (resp.ok) {
+      var panel = document.getElementById('torrent-detail-panel');
+      if (panel) htmx.ajax('GET', _vtBaseURL + '/ui/partials/torrents/' + hash + '?instance_id=' + instanceID, {target: panel, swap: 'innerHTML'});
+    }
+  });
+}
 
 // ── Column visibility ────────────────────────────────────────────────────────
 var _tblColDefaults = JSON.parse(document.getElementById('col-defaults-json').textContent);
@@ -1770,6 +2555,7 @@ document.body.addEventListener('htmx:afterSwap', function(e) {
     var sa = document.getElementById('select-all');
     if (sa) { sa.checked = false; sa.indeterminate = false; }
     initVirtualScroll();
+    initSidebars();
     applySortArrows();
     renderFilterChips();
   }

@@ -26,7 +26,7 @@ This command generates static content into the `build` directory.
 
 ## Deployment
 
-Documentation is deployed to [getqui.com](https://getqui.com) via Netlify.
+Documentation is deployed to [getrui.com](https://getrui.com) via Netlify.
 
 **Automatic deployment**: Pushes to version tags (`v*`) trigger the `.github/workflows/docs.yml` workflow, which builds and deploys to Netlify automatically.
 

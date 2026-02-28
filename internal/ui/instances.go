@@ -7,9 +7,11 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -330,6 +332,107 @@ func (h *Handler) PostInstanceToggle(w http.ResponseWriter, r *http.Request) {
 }
 
 // ------------------------------------------------------------------
+// POST /ui/instances/test  → test connection from form fields
+// POST /ui/instances/{id}/test → test saved instance connection
+// ------------------------------------------------------------------
+
+// PostInstanceTest tests connectivity to a qBittorrent instance using form values.
+// Returns an HTML snippet with the test result for HTMX swap.
+func (h *Handler) PostInstanceTest(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	host := strings.TrimSpace(r.FormValue("host"))
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+	tlsSkipVerify := r.FormValue("tls_skip_verify") == "on"
+	authBypass := r.FormValue("auth_bypass") == "on"
+	showBasicAuth := r.FormValue("show_basic_auth") == "on"
+	basicUsername := r.FormValue("basic_username")
+	basicPassword := r.FormValue("basic_password")
+
+	if host == "" {
+		render(w, r, http.StatusOK, pages.InstanceTestResult(false, "URL is required"))
+		return
+	}
+
+	if authBypass {
+		username = ""
+		password = ""
+	}
+
+	var basicUserPtr, basicPassPtr *string
+	if showBasicAuth && basicUsername != "" {
+		basicUserPtr = &basicUsername
+		basicPassPtr = &basicPassword
+	}
+
+	// If editing an existing instance and password is blank, use stored password.
+	idStr := r.FormValue("instance_id")
+	if idStr != "" && password == "" {
+		if id, err := strconv.Atoi(idStr); err == nil {
+			if existing, err := h.instanceStore.Get(r.Context(), id); err == nil {
+				if decrypted, err := h.instanceStore.GetDecryptedPassword(existing); err == nil {
+					password = decrypted
+				}
+			}
+		}
+	}
+
+	start := time.Now()
+	_, err := qbittorrent.NewClientWithTimeout(0, host, username, password, basicUserPtr, basicPassPtr, tlsSkipVerify, 10*time.Second)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		render(w, r, http.StatusOK, pages.InstanceTestResult(false, err.Error()))
+		return
+	}
+
+	render(w, r, http.StatusOK, pages.InstanceTestResult(true, fmt.Sprintf("Connected successfully in %dms", elapsed.Milliseconds())))
+}
+
+// PostInstanceTestByID tests connectivity to a saved instance by its ID.
+func (h *Handler) PostInstanceTestByID(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	inst, err := h.instanceStore.Get(r.Context(), id)
+	if err != nil {
+		http.Error(w, "instance not found", http.StatusNotFound)
+		return
+	}
+
+	password, err := h.instanceStore.GetDecryptedPassword(inst)
+	if err != nil {
+		render(w, r, http.StatusOK, pages.InstanceTestResult(false, "Failed to decrypt password: "+err.Error()))
+		return
+	}
+
+	basicUserPtr := inst.BasicUsername
+	basicPassPtr, err := h.instanceStore.GetDecryptedBasicPassword(inst)
+	if err != nil {
+		render(w, r, http.StatusOK, pages.InstanceTestResult(false, "Failed to decrypt basic auth password: "+err.Error()))
+		return
+	}
+
+	start := time.Now()
+	_, connErr := qbittorrent.NewClientWithTimeout(0, inst.Host, inst.Username, password, basicUserPtr, basicPassPtr, inst.TLSSkipVerify, 10*time.Second)
+	elapsed := time.Since(start)
+
+	if connErr != nil {
+		render(w, r, http.StatusOK, pages.InstanceTestResult(false, connErr.Error()))
+		return
+	}
+
+	render(w, r, http.StatusOK, pages.InstanceTestResult(true, fmt.Sprintf("Connected successfully in %dms", elapsed.Milliseconds())))
+}
+
+// ------------------------------------------------------------------
 // Helpers
 // ------------------------------------------------------------------
 
@@ -373,6 +476,9 @@ func (h *Handler) renderInstanceSuccessPartial(w http.ResponseWriter, r *http.Re
 	for _, inst := range insts {
 		items = append(items, instanceToStaticItem(inst))
 	}
+	// Close the dialog via HX-Trigger header — the form element gets destroyed
+	// during the OOB swap, so hx-on::after-request can't fire reliably.
+	w.Header().Set("HX-Trigger", "instance-dialog-close")
 	render(w, r, http.StatusOK, pages.InstanceFormSuccessOOB(items, h.baseURL()))
 }
 

@@ -62,7 +62,7 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/manifest.webmanifest", h.serveAssets)
 
 	// Serve favicon and other root assets
-	r.Get("/qui.png", h.serveAssets)
+	r.Get("/rui.png", h.serveAssets)
 	r.Get("/favicon.png", h.serveAssets)
 	r.Get("/apple-touch-icon.png", h.serveAssets)
 	r.Get("/pwa-192x192.png", h.serveAssets)
@@ -229,7 +229,7 @@ func (h *Handler) serveSPA(w http.ResponseWriter, r *http.Request) {
 		// Fix favicon and app icons
 		modifiedContent = strings.ReplaceAll(modifiedContent, `href="/favicon.png"`, `href="`+basePrefix+`/favicon.png"`)
 		modifiedContent = strings.ReplaceAll(modifiedContent, `href="/apple-touch-icon.png"`, `href="`+basePrefix+`/apple-touch-icon.png"`)
-		modifiedContent = strings.ReplaceAll(modifiedContent, `href="/qui.png"`, `href="`+basePrefix+`/qui.png"`)
+		modifiedContent = strings.ReplaceAll(modifiedContent, `href="/rui.png"`, `href="`+basePrefix+`/rui.png"`)
 		modifiedContent = strings.ReplaceAll(modifiedContent, `src="/swizzin.png"`, `src="`+basePrefix+`/swizzin.png"`)
 
 		// Fix PWA files

@@ -54,12 +54,12 @@ func Base(p BaseProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " — qui")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " — rui")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "qui")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "rui")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -90,7 +90,7 @@ func Base(p BaseProps) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"><!-- Theme initializer: apply dark class before first paint to prevent FOUC --><script>\n\t\t\t\t(function () {\n\t\t\t\t\tvar theme = localStorage.getItem('qui_theme') || 'system';\n\t\t\t\t\tvar isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);\n\t\t\t\t\tif (isDark) document.documentElement.classList.add('dark');\n\t\t\t\t\telse document.documentElement.classList.remove('dark');\n\t\t\t\t\tvar colorTheme = localStorage.getItem('qui:color-theme');\n\t\t\t\t\tif (colorTheme) document.documentElement.setAttribute('data-theme', colorTheme);\n\t\t\t\t\telse document.documentElement.removeAttribute('data-theme');\n\t\t\t\t})();\n\t\t\t</script></head><body class=\"min-h-screen bg-background text-foreground antialiased\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"><!-- Theme initializer: apply dark class before first paint to prevent FOUC --><script>\n\t\t\t\t(function () {\n\t\t\t\t\tvar theme = localStorage.getItem('qui_theme') || 'system';\n\t\t\t\t\tvar isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);\n\t\t\t\t\tif (isDark) document.documentElement.classList.add('dark');\n\t\t\t\t\telse document.documentElement.classList.remove('dark');\n\t\t\t\t\tvar colorTheme = localStorage.getItem('rui:color-theme');\n\t\t\t\t\tif (colorTheme) document.documentElement.setAttribute('data-theme', colorTheme);\n\t\t\t\t\telse document.documentElement.removeAttribute('data-theme');\n\t\t\t\t})();\n\t\t\t</script></head><body class=\"min-h-screen bg-background text-foreground antialiased\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

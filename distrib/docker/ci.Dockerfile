@@ -47,7 +47,7 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="\
     -X github.com/autogrr/rui/internal/buildinfo.Version=${VERSION} \
     -X github.com/autogrr/rui/internal/buildinfo.Date=${BUILDTIME} \
     -X github.com/autogrr/rui/internal/buildinfo.Commit=${REVISION}" \
-    -o qui ./cmd/qui
+    -o rui ./cmd/rui
 
 # Final stage
 FROM alpine:latest AS runner
@@ -70,7 +70,7 @@ WORKDIR /config
 VOLUME /config
 
 # Copy binary from build stage
-COPY --from=go-builder /app/qui /usr/local/bin/
+COPY --from=go-builder /app/rui /usr/local/bin/
 
 EXPOSE 7476
 
@@ -78,5 +78,5 @@ EXPOSE 7476
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:7476/health || exit 1
 
-ENTRYPOINT ["/usr/local/bin/qui"]
+ENTRYPOINT ["/usr/local/bin/rui"]
 CMD ["serve"]

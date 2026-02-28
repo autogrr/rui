@@ -164,7 +164,7 @@ type TrackerHealthCounts struct {
 // ValidatedTrackerMapping holds pre-validated tracker-to-hash relationships.
 // This is built from actual torrent data (not stale MainData.Trackers) and is:
 // - Refreshed in background every 60 seconds (catches external qBittorrent UI changes)
-// - Updated immediately when tracker edits happen through qui
+// - Updated immediately when tracker edits happen through rui
 // This avoids the performance hit of validating every (hash, domain) pair on each request.
 type ValidatedTrackerMapping struct {
 	HashToDomains  map[string]map[string]struct{} // hash -> set of domains
@@ -925,14 +925,13 @@ func (sm *SyncManager) GetTorrentsWithFilters(ctx context.Context, instanceID in
 	trackerStatusFilters := filtersRequireTrackerData(filters)
 	needsManualStatusFiltering := trackerStatusFilters
 	needsTrackerHydration := trackerStatusFilters || needsTrackerHealthSorting
+	// The in-memory SyncState.GetTorrentSlice() returns all torrents and does
+	// not honour TorrentFilterOptions.Filter, so every non-empty status filter
+	// must go through the manual filtering path.
 	if !needsManualStatusFiltering && len(filters.Status) > 0 {
 		for _, status := range filters.Status {
-			switch qbt.TorrentFilter(status) {
-			case qbt.FilterActive, qbt.FilterInactive, qbt.FilterChecking, qbt.FilterMoving, qbt.FilterErrored, qbt.FilterDownloading, qbt.FilterSeeding:
+			if status != "" && status != "all" {
 				needsManualStatusFiltering = true
-			}
-
-			if needsManualStatusFiltering {
 				break
 			}
 		}
@@ -1136,6 +1135,11 @@ func (sm *SyncManager) GetTorrentsWithFilters(ctx context.Context, instanceID in
 	if sort == "seen_complete" {
 		sm.sortTorrentsByTimestamp(filteredTorrents, order == "desc", func(t qbt.Torrent) int64 { return ptrInt64(t.SeenComplete) })
 	}
+
+	// Generic field sorts — covers numeric, float, and string fields that need
+	// only a straightforward comparison (no special-case handling like priority
+	// zero-pinning or ETA infinity).
+	sm.sortTorrentsByGenericField(filteredTorrents, sort, order == "desc")
 
 	// Calculate stats from filtered torrents
 	stats := sm.calculateStats(filteredTorrents)
@@ -5046,6 +5050,131 @@ func (sm *SyncManager) sortTorrentsByTimestamp(torrents []qbt.Torrent, desc bool
 			}
 			return cmp.Compare(tsA, tsB)
 		}
+		return compareByStateThenName(a, b)
+	})
+}
+
+// sortTorrentsByGenericField handles the simple comparison sorts for fields that
+// don't require special-case logic (unlike priority, eta, timestamps, etc.).
+// Fields already handled by dedicated sort functions are skipped (no-op).
+func (sm *SyncManager) sortTorrentsByGenericField(torrents []qbt.Torrent, sort string, desc bool) {
+	// Skip fields that have dedicated sort functions.
+	switch sort {
+	case "", "name", "state", "tracker", "priority", "eta",
+		"last_activity", "added_on", "completion_on", "seen_complete":
+		return
+	}
+
+	if len(torrents) <= 1 {
+		return
+	}
+
+	applyDir := func(result int) int {
+		if desc {
+			return -result
+		}
+		return result
+	}
+
+	slices.SortStableFunc(torrents, func(a, b qbt.Torrent) int {
+		switch sort {
+		case "size":
+			if r := cmp.Compare(ptrInt64(a.Size), ptrInt64(b.Size)); r != 0 {
+				return applyDir(r)
+			}
+		case "total_size":
+			if r := cmp.Compare(ptrInt64(a.TotalSize), ptrInt64(b.TotalSize)); r != 0 {
+				return applyDir(r)
+			}
+		case "progress":
+			if r := cmp.Compare(ptrFloat64(a.Progress), ptrFloat64(b.Progress)); r != 0 {
+				return applyDir(r)
+			}
+		case "dlspeed":
+			if r := cmp.Compare(ptrInt64(a.DlSpeed), ptrInt64(b.DlSpeed)); r != 0 {
+				return applyDir(r)
+			}
+		case "upspeed":
+			if r := cmp.Compare(ptrInt64(a.UpSpeed), ptrInt64(b.UpSpeed)); r != 0 {
+				return applyDir(r)
+			}
+		case "ratio":
+			if r := cmp.Compare(ptrFloat64(a.Ratio), ptrFloat64(b.Ratio)); r != 0 {
+				return applyDir(r)
+			}
+		case "uploaded":
+			if r := cmp.Compare(ptrInt64(a.Uploaded), ptrInt64(b.Uploaded)); r != 0 {
+				return applyDir(r)
+			}
+		case "downloaded":
+			if r := cmp.Compare(ptrInt64(a.Downloaded), ptrInt64(b.Downloaded)); r != 0 {
+				return applyDir(r)
+			}
+		case "amount_left":
+			if r := cmp.Compare(ptrInt64(a.AmountLeft), ptrInt64(b.AmountLeft)); r != 0 {
+				return applyDir(r)
+			}
+		case "num_seeds":
+			if r := cmp.Compare(ptrInt(a.NumSeeds), ptrInt(b.NumSeeds)); r != 0 {
+				return applyDir(r)
+			}
+		case "num_leechs":
+			if r := cmp.Compare(ptrInt(a.NumLeechs), ptrInt(b.NumLeechs)); r != 0 {
+				return applyDir(r)
+			}
+		case "num_complete":
+			if r := cmp.Compare(ptrInt(a.NumComplete), ptrInt(b.NumComplete)); r != 0 {
+				return applyDir(r)
+			}
+		case "num_incomplete":
+			if r := cmp.Compare(ptrInt(a.NumIncomplete), ptrInt(b.NumIncomplete)); r != 0 {
+				return applyDir(r)
+			}
+		case "category":
+			if r := strings.Compare(strings.ToLower(ptrStr(a.Category)), strings.ToLower(ptrStr(b.Category))); r != 0 {
+				return applyDir(r)
+			}
+		case "tags":
+			if r := strings.Compare(strings.ToLower(ptrStr(a.Tags)), strings.ToLower(ptrStr(b.Tags))); r != 0 {
+				return applyDir(r)
+			}
+		case "seeding_time":
+			if r := cmp.Compare(ptrInt64(a.SeedingTime), ptrInt64(b.SeedingTime)); r != 0 {
+				return applyDir(r)
+			}
+		case "time_active":
+			if r := cmp.Compare(ptrInt64(a.TimeActive), ptrInt64(b.TimeActive)); r != 0 {
+				return applyDir(r)
+			}
+		case "availability":
+			if r := cmp.Compare(ptrFloat64(a.Availability), ptrFloat64(b.Availability)); r != 0 {
+				return applyDir(r)
+			}
+		case "save_path":
+			if r := strings.Compare(strings.ToLower(ptrStr(a.SavePath)), strings.ToLower(ptrStr(b.SavePath))); r != 0 {
+				return applyDir(r)
+			}
+		case "dl_limit":
+			if r := cmp.Compare(ptrInt64(a.DlLimit), ptrInt64(b.DlLimit)); r != 0 {
+				return applyDir(r)
+			}
+		case "up_limit":
+			if r := cmp.Compare(ptrInt64(a.UpLimit), ptrInt64(b.UpLimit)); r != 0 {
+				return applyDir(r)
+			}
+		case "completed":
+			if r := cmp.Compare(ptrInt64(a.Completed), ptrInt64(b.Completed)); r != 0 {
+				return applyDir(r)
+			}
+		case "ratio_limit":
+			if r := cmp.Compare(ptrFloat64(a.RatioLimit), ptrFloat64(b.RatioLimit)); r != 0 {
+				return applyDir(r)
+			}
+		default:
+			// Unknown sort field — no-op, preserve existing order.
+			return 0
+		}
+		// Tiebreaker: state priority → name → hash.
 		return compareByStateThenName(a, b)
 	})
 }

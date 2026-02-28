@@ -28,7 +28,7 @@ import (
 	"github.com/autogrr/rui/internal/domain"
 )
 
-var envPrefix = "QUI__"
+var envPrefix = "RUI__"
 
 type AppConfig struct {
 	Config  *domain.Config
@@ -108,7 +108,7 @@ func (c *AppConfig) defaults() {
 	c.viper.SetDefault("logMaxSize", 50)
 	c.viper.SetDefault("logMaxBackups", 3)
 	c.viper.SetDefault("dataDir", "") // Empty means auto-detect (next to config file)
-	c.viper.SetDefault("checkForUpdates", true)
+	c.viper.SetDefault("checkForUpdates", false)
 	c.viper.SetDefault("trackerIconsFetchEnabled", true)
 	c.viper.SetDefault("crossSeedRecoverErroredTorrents", false)
 	c.viper.SetDefault("pprofEnabled", false)
@@ -272,9 +272,9 @@ func (c *AppConfig) applyDynamicChanges(previousAuthSettings authReloadSettings)
 
 	switch {
 	case c.Config.IsAuthDisabled():
-		log.Warn().Strs("authDisabledAllowedCIDRs", c.Config.AuthDisabledAllowedCIDRs).Msg("Authentication is disabled via QUI__AUTH_DISABLED. Access is restricted to authDisabledAllowedCIDRs. Make sure qui is behind a reverse proxy with its own authentication.")
+		log.Warn().Strs("authDisabledAllowedCIDRs", c.Config.AuthDisabledAllowedCIDRs).Msg("Authentication is disabled via RUI__AUTH_DISABLED. Access is restricted to authDisabledAllowedCIDRs. Make sure rui is behind a reverse proxy with its own authentication.")
 	case c.Config.AuthDisabled != c.Config.IAcknowledgeThisIsABadIdea:
-		log.Warn().Msg("Only one of QUI__AUTH_DISABLED and QUI__I_ACKNOWLEDGE_THIS_IS_A_BAD_IDEA is set. Authentication remains enabled. Set both to disable authentication.")
+		log.Warn().Msg("Only one of RUI__AUTH_DISABLED and RUI__I_ACKNOWLEDGE_THIS_IS_A_BAD_IDEA is set. Authentication remains enabled. Set both to disable authentication.")
 	}
 
 	c.notifyListeners()
@@ -414,10 +414,10 @@ host = "{{ .host }}"
 port = {{ .port }}
 
 # Base URL
-# Set custom baseUrl eg /qui/ to serve in subdirectory.
+# Set custom baseUrl eg /rui/ to serve in subdirectory.
 # Not needed for subdomain, or by accessing with :port directly.
 # Optional
-#baseUrl = "/qui/"
+#baseUrl = "/rui/"
 
 # Session secret
 # Auto-generated if not provided
@@ -428,7 +428,7 @@ sessionSecret = "{{ .sessionSecret }}"
 # Log file path
 # If not defined, logs to stdout
 # Optional
-#logPath = "log/qui.log"
+#logPath = "log/rui.log"
 
 # Log rotation
 # Maximum log file size in megabytes before rotation
@@ -440,15 +440,15 @@ sessionSecret = "{{ .sessionSecret }}"
 #logMaxBackups = {{ .logMaxBackups }}
 
 # Data directory (default: next to config file)
-# Database file (qui.db) will be created inside this directory
-#dataDir = "/var/db/qui"
+# Database file (rui.db) will be created inside this directory
+#dataDir = "/var/db/rui"
 
-# Check for new releases via api.autobrr.com
-# Default: true
-#checkForUpdates = true
+# Check for new releases (disabled — rui does not make outbound requests)
+# Default: false
+#checkForUpdates = false
 
 # Tracker icon fetching
-# Disable to prevent qui from requesting tracker favicons from remote trackers.
+# Disable to prevent rui from requesting tracker favicons from remote trackers.
 # Default: true
 #trackerIconsFetchEnabled = true
 
@@ -486,7 +486,7 @@ logLevel = "{{ .logLevel }}"
 #metricsBasicAuthUsers = ""
 
 # External program allow list
-# Restrict which executables can be started from qui.
+# Restrict which executables can be started from rui.
 # Provide absolute paths to binaries or directories. Leave commented to allow any program.
 #externalProgramAllowList = [
 #       "/usr/local/bin/my-script",
@@ -554,27 +554,27 @@ func GetDefaultConfigDir() string {
 		if xdgConfig == "/config" {
 			return xdgConfig
 		}
-		// Otherwise append qui subdirectory
-		return filepath.Join(xdgConfig, "qui")
+		// Otherwise append rui subdirectory
+		return filepath.Join(xdgConfig, "rui")
 	}
 
 	switch runtime.GOOS {
 	case "windows":
-		// Use %APPDATA%\qui on Windows
+		// Use %APPDATA%\rui on Windows
 		if appData := os.Getenv("APPDATA"); appData != "" {
-			return filepath.Join(appData, "qui")
+			return filepath.Join(appData, "rui")
 		}
 		// Fallback to home directory
 		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, "AppData", "Roaming", "qui")
+			return filepath.Join(home, "AppData", "Roaming", "rui")
 		}
-		return filepath.Join(".", "qui")
+		return filepath.Join(".", "rui")
 	default:
-		// Use ~/.config/qui for Unix-like systems
+		// Use ~/.config/rui for Unix-like systems
 		if home, err := os.UserHomeDir(); err == nil {
-			return filepath.Join(home, ".config", "qui")
+			return filepath.Join(home, ".config", "rui")
 		}
-		return filepath.Join(".", ".config", "qui")
+		return filepath.Join(".", ".config", "rui")
 	}
 }
 
@@ -700,7 +700,7 @@ func (c *AppConfig) resolveDataDir() {
 
 // GetDatabasePath returns the path to the database file
 func (c *AppConfig) GetDatabasePath() string {
-	return filepath.Join(c.dataDir, "qui.db")
+	return filepath.Join(c.dataDir, "rui.db")
 }
 
 // GetDataDir returns the resolved data directory path.

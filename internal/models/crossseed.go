@@ -86,7 +86,7 @@ type CrossSeedAutomationSettings struct {
 	SkipPieceBoundarySafetyCheck bool `json:"skipPieceBoundarySafetyCheck"` // Skip piece boundary safety check (risky: may corrupt existing seeded data)
 
 	// Gazelle (OPS/RED) cross-seed settings.
-	// When enabled, qui uses the tracker JSON APIs to find matches for OPS/RED torrents
+	// When enabled, rui uses the tracker JSON APIs to find matches for OPS/RED torrents
 	// instead of Torznab. Keys are stored encrypted and are redacted in API responses.
 	GazelleEnabled bool   `json:"gazelleEnabled"`
 	RedactedAPIKey string `json:"redactedApiKey,omitempty"`

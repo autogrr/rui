@@ -74,12 +74,14 @@ func (h *Handler) StreamDashboardSSE(w http.ResponseWriter, r *http.Request) {
 			}
 
 			var connected, dlSpeed, upSpeed int64
-			var total, downloading, seeding int
+			var total, downloading, seeding, trackerDown int
+			var altSpeed bool
 
 			// All reads are atomic pointer loads — no torrent list copy.
 			if client, cerr := h.syncManager.GetClientOffline(ctx, inst.ID); cerr == nil && client != nil {
 				if ss := client.GetCachedServerState(); ss != nil {
 					connected = 1
+					altSpeed = qbt.Deref(ss.UseAltSpeedLimits)
 					if qbt.Deref(ss.DlInfoSpeed) > 0 {
 						dlSpeed = qbt.Deref(ss.DlInfoSpeed) / speedBucket
 					}
@@ -92,10 +94,19 @@ func (h *Handler) StreamDashboardSSE(w http.ResponseWriter, r *http.Request) {
 					downloading = counts.Downloading
 					seeding = counts.Seeding
 				}
+				// Include per-tracker row counts so tracker breakdown
+				// changes also trigger a dashboard-update event.
+				for _, row := range client.GetCachedTrackerRows() {
+					fmt.Fprintf(h64, "t|%s|%d|", row.Domain, row.Count) //nolint:errcheck
+				}
+			}
+			// Tracker-down count from health cache.
+			if hc := h.syncManager.GetTrackerHealthCounts(inst.ID); hc != nil {
+				trackerDown = hc.TrackerDown
 			}
 
-			fmt.Fprintf(h64, "%d|%d|%d|%d|%d|%d|", //nolint:errcheck
-				inst.ID, connected, total, downloading, seeding, dlSpeed+upSpeed)
+			fmt.Fprintf(h64, "%d|%d|%d|%d|%d|%d|%d|%v|", //nolint:errcheck
+				inst.ID, connected, total, downloading, seeding, dlSpeed+upSpeed, trackerDown, altSpeed)
 		}
 
 		return fmt.Sprintf("%x", h64.Sum64())

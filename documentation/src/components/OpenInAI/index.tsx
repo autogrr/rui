@@ -90,7 +90,7 @@ async function copyText(value: string): Promise<void> {
 
 function getPrompt(title: string, pageUrl: string, markdownUrl: string | null): string {
   const lines = [
-    "Answer questions about this qui docs page.",
+    "Answer questions about this rui docs page.",
     `Title: ${title}`,
     `Page URL: ${pageUrl}`,
   ];

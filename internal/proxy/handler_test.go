@@ -45,8 +45,8 @@ func TestHandlerRewriteRequest_PathJoining(t *testing.T) {
 		},
 		{
 			name:        "custom base",
-			baseURL:     "/qui/",
-			requestPath: "/qui/proxy/" + apiKey + "/api/v2/app/webapiVersion",
+			baseURL:     "/rui/",
+			requestPath: "/rui/proxy/" + apiKey + "/api/v2/app/webapiVersion",
 		},
 	}
 

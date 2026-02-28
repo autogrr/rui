@@ -64,13 +64,13 @@ func TestCORSAllowsXRequestedWithHeader(t *testing.T) {
 
 func TestCORSPreflightWithCustomBaseURL(t *testing.T) {
 	deps := newTestDependencies(t)
-	deps.Config.Config.BaseURL = "/qui"
+	deps.Config.Config.BaseURL = "/rui"
 
 	server := NewServer(deps)
 	router, err := server.Handler()
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodOptions, "/qui/api/auth/me", nil)
+	req := httptest.NewRequest(http.MethodOptions, "/rui/api/auth/me", nil)
 	req.Header.Set("Origin", "https://example.com")
 	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
 

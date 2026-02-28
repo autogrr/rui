@@ -86,7 +86,7 @@ func saveUploadToTemp(src io.Reader, filename string) (string, error) {
 		ext = ".tmp"
 	}
 
-	tmpFile, err := os.CreateTemp("", "qui-import-*"+ext)
+	tmpFile, err := os.CreateTemp("", "rui-import-*"+ext)
 	if err != nil {
 		return "", fmt.Errorf("create temp file: %w", err)
 	}
@@ -505,7 +505,7 @@ func (h *BackupsHandler) DownloadRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := fmt.Sprintf("qui-backup_instance-%d_%s_%s.%s", instanceID, strings.ToLower(string(run.Kind)), run.RequestedAt.Format("2006-01-02_15-04-05"), extension)
+	filename := fmt.Sprintf("rui-backup_instance-%d_%s_%s.%s", instanceID, strings.ToLower(string(run.Kind)), run.RequestedAt.Format("2006-01-02_15-04-05"), extension)
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 
@@ -777,7 +777,7 @@ func extractZipToDisk(archivePath string) (*ExtractedArchive, error) {
 		return nil, fmt.Errorf("open zip: %w", err)
 	}
 
-	tempDir, err := os.MkdirTemp("", "qui-extract-*")
+	tempDir, err := os.MkdirTemp("", "rui-extract-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
 	}
@@ -928,7 +928,7 @@ func extractTarXzToDisk(archivePath string) (*ExtractedArchive, error) {
 
 // extractTarReaderToDisk extracts a tar stream to a temp directory.
 func extractTarReaderToDisk(r io.Reader) (*ExtractedArchive, error) {
-	tempDir, err := os.MkdirTemp("", "qui-extract-*")
+	tempDir, err := os.MkdirTemp("", "rui-extract-*")
 	if err != nil {
 		return nil, fmt.Errorf("create temp dir: %w", err)
 	}

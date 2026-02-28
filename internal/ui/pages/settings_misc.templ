@@ -77,14 +77,14 @@ templ SettingsDatetimeSection(p SettingsProps) {
 				dateFormat: 'MMM D, YYYY',
 				timeFormat: '24h',
 				init() {
-					this.timezone   = localStorage.getItem('qui:tz')         || 'browser';
-					this.dateFormat = localStorage.getItem('qui:dateFormat') || 'MMM D, YYYY';
-					this.timeFormat = localStorage.getItem('qui:timeFormat') || '24h';
+					this.timezone   = localStorage.getItem('rui:tz')         || 'browser';
+					this.dateFormat = localStorage.getItem('rui:dateFormat') || 'MMM D, YYYY';
+					this.timeFormat = localStorage.getItem('rui:timeFormat') || '24h';
 				},
 				save() {
-					localStorage.setItem('qui:tz',         this.timezone);
-					localStorage.setItem('qui:dateFormat', this.dateFormat);
-					localStorage.setItem('qui:timeFormat', this.timeFormat);
+					localStorage.setItem('rui:tz',         this.timezone);
+					localStorage.setItem('rui:dateFormat', this.dateFormat);
+					localStorage.setItem('rui:timeFormat', this.timeFormat);
 				},
 			};
 		}
@@ -197,21 +197,21 @@ templ SettingsThemesSection(p SettingsProps) {
 				scheme: 'system',
 				colorTheme: '',
 				init() {
-					this.scheme = localStorage.getItem('qui:theme') || 'system';
-					this.colorTheme = localStorage.getItem('qui:color-theme') || '';
+					this.scheme = localStorage.getItem('rui:theme') || 'system';
+					this.colorTheme = localStorage.getItem('rui:color-theme') || '';
 				},
 				select(value) {
 					this.scheme = value;
-					localStorage.setItem('qui:theme', value);
+					localStorage.setItem('rui:theme', value);
 					applyTheme(value);
 				},
 				selectColor(value) {
 					this.colorTheme = value;
 					if (value) {
-						localStorage.setItem('qui:color-theme', value);
+						localStorage.setItem('rui:color-theme', value);
 						document.documentElement.setAttribute('data-theme', value);
 					} else {
-						localStorage.removeItem('qui:color-theme');
+						localStorage.removeItem('rui:color-theme');
 						document.documentElement.removeAttribute('data-theme');
 					}
 				},
@@ -226,7 +226,7 @@ templ SettingsThemesSection(p SettingsProps) {
 
 		// Apply on page load
 		(function() {
-			const stored = localStorage.getItem('qui:theme') || 'system';
+			const stored = localStorage.getItem('rui:theme') || 'system';
 			applyTheme(stored);
 		})();
 	</script>
@@ -327,7 +327,7 @@ templ settingsLogsContent(p SettingsProps) {
 							<label class="text-sm font-medium" for="log-path">Log File Path (optional)</label>
 							<input id="log-path" name="path" type="text"
 								class="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-								placeholder="/var/log/qui/qui.log"/>
+								placeholder="/var/log/rui/rui.log"/>
 						</div>
 					</div>
 					@button.Button(button.Props{Type: button.TypeSubmit}) {

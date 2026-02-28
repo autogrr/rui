@@ -250,7 +250,7 @@ func (s *Service) Start(ctx context.Context) {
 }
 
 // recoverIncompleteRuns marks any pending or running backup runs as failed.
-// This handles the case where qui was restarted while backups were in progress.
+// This handles the case where rui was restarted while backups were in progress.
 func (s *Service) recoverIncompleteRuns(ctx context.Context) error {
 	incompleteRuns, err := s.store.FindIncompleteRuns(ctx)
 	if err != nil {
@@ -652,7 +652,7 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 		slug = fmt.Sprintf("instance-%d", j.instanceID)
 	}
 
-	manifestFileName := fmt.Sprintf("qui-backup_%s_%s_%s_manifest.json", slug, j.kind, timestamp)
+	manifestFileName := fmt.Sprintf("rui-backup_%s_%s_%s_manifest.json", slug, j.kind, timestamp)
 	manifestAbsPath := filepath.Join(baseAbs, manifestFileName)
 	manifestRelPath := filepath.Join(baseRel, manifestFileName)
 

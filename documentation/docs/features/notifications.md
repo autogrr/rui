@@ -6,7 +6,7 @@ description: Send events to Shoutrrr targets and Notifiarr.
 
 # Notifications
 
-qui supports both the Notifiarr API and Shoutrrr targets. Configure one or more targets in **Settings → Notifications** and choose which events to send.
+rui supports both the Notifiarr API and Shoutrrr targets. Configure one or more targets in **Settings → Notifications** and choose which events to send.
 
 ## Setup
 
@@ -48,7 +48,7 @@ Notes:
 For prettier output similar to Discord embeds, use the native Notifiarr API scheme:
 
 - `notifiarrapi://apikey`
-- Optional override: `notifiarrapi://apikey?endpoint=https://notifiarr.com/api/v1/notification/qui`
+- Optional override: `notifiarrapi://apikey?endpoint=https://notifiarr.com/api/v1/notification/rui`
 
 ## Shoutrrr URLs
 
@@ -60,7 +60,7 @@ Use any Shoutrrr-supported URL scheme. A few examples:
 - `telegram://token@chat-id`
 - `gotify://host/token`
 
-Notifiarr can also include optional parameters such as `channel` or `name`, e.g. `notifiarr://apikey?name=qui&channel=123456789`.
+Notifiarr can also include optional parameters such as `channel` or `name`, e.g. `notifiarr://apikey?name=rui&channel=123456789`.
 
 See the Shoutrrr documentation for the full list of services and URL formats:
 https://github.com/nicholas-fedor/shoutrrr

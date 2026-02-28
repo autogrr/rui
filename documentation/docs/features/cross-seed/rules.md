@@ -110,7 +110,7 @@ Priority order:
 
 **Do:**
 - Use autoTMM consistently across your torrents
-- Let qui create cross-seed categories automatically
+- Let rui create cross-seed categories automatically
 - Keep category structures simple
 - Use prefix mode with `/` (e.g., `cross/`) if you want all cross-seeds grouped under one parent category
 

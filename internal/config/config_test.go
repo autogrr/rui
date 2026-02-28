@@ -33,7 +33,7 @@ func TestDatabasePathResolution(t *testing.T) {
 			prepare: func(t *testing.T, tmpDir string) (string, string, string) {
 				configPath := filepath.Join(tmpDir, "config.toml")
 				require.NoError(t, os.WriteFile(configPath, []byte(testConfigContent), 0o644))
-				return configPath, "", filepath.Join(tmpDir, "qui.db")
+				return configPath, "", filepath.Join(tmpDir, "rui.db")
 			},
 		},
 		{
@@ -44,7 +44,7 @@ func TestDatabasePathResolution(t *testing.T) {
 				require.NoError(t, os.MkdirAll(dataDir, 0o755))
 				content := testConfigContent + fmt.Sprintf("dataDir = %q\n", dataDir)
 				require.NoError(t, os.WriteFile(configPath, []byte(content), 0o644))
-				return configPath, "", filepath.Join(dataDir, "qui.db")
+				return configPath, "", filepath.Join(dataDir, "rui.db")
 			},
 		},
 		{
@@ -57,7 +57,7 @@ func TestDatabasePathResolution(t *testing.T) {
 				require.NoError(t, os.MkdirAll(envDataDir, 0o755))
 				content := testConfigContent + fmt.Sprintf("dataDir = %q\n", configDataDir)
 				require.NoError(t, os.WriteFile(configPath, []byte(content), 0o644))
-				return configPath, envDataDir, filepath.Join(envDataDir, "qui.db")
+				return configPath, envDataDir, filepath.Join(envDataDir, "rui.db")
 			},
 		},
 	}
@@ -199,7 +199,7 @@ func TestNewLoadsConfigFromFileOrDirectory(t *testing.T) {
 			prepare: func(t *testing.T, tmpDir string) (string, string, int, string) {
 				configPath := filepath.Join(tmpDir, "myconfig.toml")
 				require.NoError(t, os.WriteFile(configPath, []byte(testConfigContent), 0o644))
-				return configPath, "localhost", 8080, filepath.Join(tmpDir, "qui.db")
+				return configPath, "localhost", 8080, filepath.Join(tmpDir, "rui.db")
 			},
 		},
 		{
@@ -209,7 +209,7 @@ func TestNewLoadsConfigFromFileOrDirectory(t *testing.T) {
 				require.NoError(t, os.MkdirAll(configDir, 0o755))
 				content := "host = \"0.0.0.0\"\nport = 9090\nsessionSecret = \"dir-secret\"\n"
 				require.NoError(t, os.WriteFile(filepath.Join(configDir, "config.toml"), []byte(content), 0o644))
-				return configDir, "0.0.0.0", 9090, filepath.Join(configDir, "qui.db")
+				return configDir, "0.0.0.0", 9090, filepath.Join(configDir, "rui.db")
 			},
 		},
 	}

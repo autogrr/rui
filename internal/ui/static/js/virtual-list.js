@@ -40,6 +40,7 @@
     this._colSpan     = opts.colSpan     || 1;
     this._rowTag      = (opts.rowTag     || 'tr').toLowerCase();
     this._rh          = opts.rowHeight   || 40;
+    this._initialRh   = this._rh;
     this._overscan    = opts.overscan    || 5;
     this._renderRow   = opts.renderRow;
     this._emptyText   = opts.emptyText   || 'No items.';
@@ -109,7 +110,7 @@
   VirtualList.prototype.load = function (rows) {
     this.rows   = rows || [];
     this._cache = {};
-    this._rh    = 40; // reset so height is re-measured
+    this._rh    = this._initialRh; // reset to configured estimate, not hardcoded 40
 
     var tbody     = this._el(this._tbid);
     var container = this._el(this._cid);
@@ -123,10 +124,16 @@
     tbody.appendChild(this._mkSpacer(this._topId));
     tbody.appendChild(this._mkSpacer(this._botId));
 
-    // Attach scroll listener once per instance
+    // Attach scroll + resize listeners once per instance
     if (!this._listening) {
       var self = this;
       container.addEventListener('scroll', function () { self.render(); }, { passive: true });
+      window.addEventListener('resize', function () { self.render(); }, { passive: true });
+      // Re-render when the scroll container itself is resized (e.g. detail panel open/close)
+      if (typeof ResizeObserver !== 'undefined') {
+        this._containerRO = new ResizeObserver(function () { self.render(); });
+        this._containerRO.observe(container);
+      }
       this._listening = true;
     }
 
@@ -204,6 +211,20 @@
       if (first && first !== bot) {
         var h = first.getBoundingClientRect().height;
         if (h > 4) this._rh = h;
+      }
+    }
+
+    // Prune cache entries far outside the visible range to bound memory usage.
+    // Keep a generous buffer (4x overscan) to avoid re-creating rows on small scrolls.
+    var pruneMargin = overscan * 4;
+    var keepStart = Math.max(0, startIdx - pruneMargin);
+    var keepEnd   = Math.min(total, endIdx + pruneMargin);
+    for (var key in cache) {
+      if (cache.hasOwnProperty(key)) {
+        var idx = parseInt(key, 10);
+        if (idx < keepStart || idx >= keepEnd) {
+          delete cache[key];
+        }
       }
     }
 

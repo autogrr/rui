@@ -49,7 +49,7 @@ export default function ApiPage(): ReactNode {
   return (
     <Layout
       title="API Reference"
-      description="qui REST API documentation"
+      description="rui REST API documentation"
       noFooter
     >
       <ApiReference />

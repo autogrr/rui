@@ -32,7 +32,7 @@ var sharedTransport = func() *http.Transport {
 }()
 
 // sharedLimiters ensures we don't create one rate limiter per qBittorrent instance/client.
-// Rate limits are per tracker host and must be shared across the whole qui process.
+// Rate limits are per tracker host and must be shared across the whole rui process.
 var sharedLimiters sync.Map // map[string]*rate.Limiter
 
 type TrackerSpec struct {

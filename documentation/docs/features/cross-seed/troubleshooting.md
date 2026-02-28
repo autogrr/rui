@@ -9,11 +9,11 @@ title: Troubleshooting
 
 ### Rate limiting (HTTP 429)
 
-Indexers limit how frequently you can make requests. If you see errors like `"indexer TorrentLeech rate-limited until..."`, qui has recorded the cooldown and will skip that indexer until it's available. Check the **Scheduler Activity** panel on the Indexers page to see which indexers are in cooldown and when they'll be ready.
+Indexers limit how frequently you can make requests. If you see errors like `"indexer TorrentLeech rate-limited until..."`, rui has recorded the cooldown and will skip that indexer until it's available. Check the **Scheduler Activity** panel on the Indexers page to see which indexers are in cooldown and when they'll be ready.
 
 ### Release didn't match
 
-qui uses strict matching to ensure cross-seeds have identical files. Both releases must match on:
+rui uses strict matching to ensure cross-seeds have identical files. Both releases must match on:
 - Title, year, and release group
 - Resolution (1080p, 2160p)
 - Source (WEB-DL, BluRay) and collection (AMZN, NF)
@@ -42,7 +42,7 @@ In reuse mode (the default), most cross-seeds are added with hash verification s
 
 ### 1. Name or folder alignment needed
 
-When the cross-seed torrent has a different display name or root folder, qui renames them to match. qBittorrent must recheck to verify files at the new paths.
+When the cross-seed torrent has a different display name or root folder, rui renames them to match. qBittorrent must recheck to verify files at the new paths.
 
 ### 2. Extra files in source torrent
 
@@ -59,7 +59,7 @@ When the source torrent contains files not on disk (NFO, SRT, samples not matchi
 Common causes:
 - **Filesystem mismatch**: Hardlink base directory is on a different filesystem/volume than the download paths. Hardlinks cannot cross filesystems.
 - **Missing local filesystem access**: The target instance doesn't have "Local filesystem access" enabled in Instance Settings.
-- **Permissions**: qui cannot read the instance's content paths or write to the hardlink base directory.
+- **Permissions**: rui cannot read the instance's content paths or write to the hardlink base directory.
 - **Invalid base directory**: The hardlink base directory path doesn't exist and couldn't be created.
 
 ## "Files not found" after cross-seed (default mode)
@@ -103,7 +103,7 @@ Torrents containing disc-based media (Blu-ray `BDMV` or DVD `VIDEO_TS` folder st
 
 **What to do:**
 1. If **Skip recheck** is enabled in Cross-Seed Rules, disc-layout matches will be skipped.
-2. Otherwise, qui triggers a recheck automatically and will only auto-resume once the recheck reaches **100%**.
+2. Otherwise, rui triggers a recheck automatically and will only auto-resume once the recheck reaches **100%**.
 3. If you have auto-resume disabled, resume manually after verifying it reaches 100%.
 
 The result message will indicate when this policy applies (example): `"disc layout detected (BDMV), full recheck required"`
@@ -137,7 +137,7 @@ The `toRawJson` function (from Sprig) properly escapes special characters and ou
 
 ## Cross-seed in wrong category
 
-- Check your cross-seed settings in qui
+- Check your cross-seed settings in rui
 - Verify the matched torrent has the expected category
 
 ## autoTMM unexpectedly enabled/disabled

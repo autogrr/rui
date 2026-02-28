@@ -68,7 +68,27 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 					if p.Category != "" {
 						<span class="text-xs text-muted-foreground truncate">{ p.Category }</span>
 					}
+					if p.Tags != "" {
+						<span class="text-xs text-muted-foreground truncate">{ p.Tags }</span>
+					}
 				</div>
+				<!-- Progress bar -->
+				if p.Properties != nil {
+					{{ pctVal := detailProgressPct(p.Properties) }}
+					{{ pctStr := fmt.Sprintf("%.1f%%", pctVal) }}
+					<div class="mt-1.5 flex items-center gap-2">
+						<div class="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+							<div
+								class={ "h-full rounded-full transition-all",
+									templ.KV("bg-blue-500", pctVal < 100),
+									templ.KV("bg-green-500", pctVal >= 100),
+								}
+								style={ fmt.Sprintf("width: %s", pctStr) }
+							></div>
+						</div>
+						<span class="text-xs tabular-nums text-muted-foreground shrink-0">{ pctStr }</span>
+					</div>
+				}
 			</div>
 			<!-- Close button -->
 			<button
@@ -139,14 +159,19 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 					<table class="w-full">
 						<thead class="sticky top-0 bg-muted/80 text-left">
 							<tr class="border-b border-border">
+								<th class="px-3 py-1.5 font-medium text-muted-foreground w-8">#</th>
 								<th class="px-3 py-1.5 font-medium text-muted-foreground">Name</th>
 								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-20">Size</th>
 								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">Done</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground w-24">Priority</th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-border">
 							for _, f := range p.Files {
 								<tr class="hover:bg-muted/40">
+									<td class="px-3 py-1 text-muted-foreground tabular-nums">
+										{ strconv.Itoa(qbt.Deref(f.Index)) }
+									</td>
 									<td class="px-3 py-1 max-w-xs">
 										<span class="block truncate" title={ qbt.Deref(f.Name) }>{ qbt.Deref(f.Name) }</span>
 									</td>
@@ -154,7 +179,29 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 										{ formatBytes(uint64(qbt.Deref(f.Size))) }
 									</td>
 									<td class="px-3 py-1 text-right whitespace-nowrap tabular-nums">
-										{ fmt.Sprintf("%.0f%%", qbt.Deref(f.Progress)*100) }
+										<!-- Progress bar + percentage -->
+										<div class="flex items-center gap-1 justify-end">
+											<div class="w-8 h-1 rounded-full bg-muted overflow-hidden">
+												<div
+													class="h-full rounded-full bg-primary"
+													style={ fmt.Sprintf("width: %.0f%%", qbt.Deref(f.Progress)*100) }
+												></div>
+											</div>
+											<span>{ fmt.Sprintf("%.0f%%", qbt.Deref(f.Progress)*100) }</span>
+										</div>
+									</td>
+									<td class="px-3 py-1">
+										<select
+											class="file-prio-select h-6 w-full rounded border border-input bg-background px-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+											data-hash={ p.Hash }
+											data-instance={ strconv.Itoa(p.InstanceID) }
+											data-file-index={ strconv.Itoa(qbt.Deref(f.Index)) }
+										>
+											<option value="0" selected?={ filePriorityVal(f) == 0 }>Skip</option>
+											<option value="1" selected?={ filePriorityVal(f) == 1 }>Normal</option>
+											<option value="6" selected?={ filePriorityVal(f) == 6 }>High</option>
+											<option value="7" selected?={ filePriorityVal(f) == 7 }>Maximum</option>
+										</select>
 									</td>
 								</tr>
 							}
@@ -164,7 +211,7 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 			</div>
 
 			<!-- Trackers tab -->
-			<div x-show="tab === 'trackers'">
+			<div x-show="tab === 'trackers'" x-data="{ showAddTracker: false, newTrackerURLs: '' }">
 				if len(p.Trackers) == 0 {
 					<p class="p-3 text-muted-foreground">No trackers available.</p>
 				} else {
@@ -174,12 +221,13 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 								<th class="px-3 py-1.5 font-medium text-muted-foreground">URL</th>
 								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">Seeds</th>
 								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">Peers</th>
-								<th class="px-3 py-1.5 font-medium text-muted-foreground w-36">Status</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground w-24">Status</th>
+								<th class="px-3 py-1.5 font-medium text-muted-foreground w-8"></th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-border">
 							for _, tr := range p.Trackers {
-								<tr class="hover:bg-muted/40">
+								<tr class="hover:bg-muted/40 group">
 									<td class="px-3 py-1 max-w-xs">
 										<span class="block truncate text-xs" title={ qbt.Deref(tr.URL) }>{ qbt.Deref(tr.URL) }</span>
 										if qbt.Deref(tr.Message) != "" {
@@ -205,11 +253,62 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 											{ trackerStatusLabel(int(qbt.Deref(tr.Status))) }
 										</span>
 									</td>
+									<td class="px-3 py-1">
+										if isRealTrackerURL(qbt.Deref(tr.URL)) {
+											<button
+												class="tracker-remove-btn opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground hover:text-destructive transition-all"
+												title="Remove tracker"
+												data-hash={ p.Hash }
+												data-instance={ strconv.Itoa(p.InstanceID) }
+												data-url={ qbt.Deref(tr.URL) }
+											>
+												<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+											</button>
+										}
+									</td>
 								</tr>
 							}
 						</tbody>
 					</table>
 				}
+				<!-- Add Tracker -->
+				<div class="border-t border-border p-2">
+					<template x-if="!showAddTracker">
+						<button
+							@click="showAddTracker = true"
+							class="flex items-center gap-1.5 text-xs text-primary hover:underline"
+						>
+							<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+							Add Tracker
+						</button>
+					</template>
+					<template x-if="showAddTracker">
+						<div class="space-y-2">
+							<textarea
+								x-model="newTrackerURLs"
+								rows="3"
+								placeholder="One tracker URL per line"
+								class="w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+							></textarea>
+							<div class="flex gap-2 justify-end">
+								<button
+									@click="showAddTracker = false; newTrackerURLs = ''"
+									class="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
+								>
+									Cancel
+								</button>
+								<button
+									class="tracker-add-btn rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+									data-hash={ p.Hash }
+									data-instance={ strconv.Itoa(p.InstanceID) }
+									@click="handleAddTrackers($el.dataset.hash, $el.dataset.instance, newTrackerURLs); showAddTracker = false; newTrackerURLs = ''"
+								>
+									Add
+								</button>
+							</div>
+						</div>
+					</template>
+				</div>
 			</div>
 
 			<!-- Peers tab -->
@@ -379,4 +478,30 @@ func boolStr(b bool) string {
 		return "Yes"
 	}
 	return "No"
+}
+
+// filePriorityVal extracts the integer file priority, defaulting to 1 (Normal).
+func filePriorityVal(f qbt.TorrentFile) int {
+	if f.Priority == nil {
+		return 1
+	}
+	return int(*f.Priority)
+}
+
+// isRealTrackerURL returns true if the URL is an actual tracker (not DHT/PeX/LSD).
+func isRealTrackerURL(url string) bool {
+	return url != "" && url != "** [DHT] **" && url != "** [PeX] **" && url != "** [LSD] **"
+}
+
+// detailProgressPct computes completion percentage from PiecesHave/PiecesNum.
+func detailProgressPct(props *qbt.TorrentProperties) float64 {
+	if props == nil {
+		return 0
+	}
+	total := qbt.Deref(props.PiecesNum)
+	have := qbt.Deref(props.PiecesHave)
+	if total <= 0 {
+		return 0
+	}
+	return float64(have) / float64(total) * 100
 }

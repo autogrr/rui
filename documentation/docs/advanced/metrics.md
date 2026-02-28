@@ -23,10 +23,10 @@ metricsPort = 9074         # Standard Prometheus port range
 ### Environment Variables
 
 ```bash
-QUI__METRICS_ENABLED=true
-QUI__METRICS_HOST=0.0.0.0    # Optional: bind to all interfaces if needed
-QUI__METRICS_PORT=9074       # Optional: custom port
-QUI__METRICS_BASIC_AUTH_USERS="user:$2y$10$hash"  # Optional: basic auth
+RUI__METRICS_ENABLED=true
+RUI__METRICS_HOST=0.0.0.0    # Optional: bind to all interfaces if needed
+RUI__METRICS_PORT=9074       # Optional: custom port
+RUI__METRICS_BASIC_AUTH_USERS="user:$2y$10$hash"  # Optional: basic auth
 ```
 
 ## Available Metrics
@@ -41,7 +41,7 @@ Configure Prometheus to scrape the dedicated metrics port (no authentication req
 
 ```yaml
 scrape_configs:
-  - job_name: 'qui'
+  - job_name: 'rui'
     static_configs:
       - targets: ['localhost:9074']
     metrics_path: /metrics

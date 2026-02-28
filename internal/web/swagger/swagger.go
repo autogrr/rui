@@ -57,7 +57,7 @@ func (h *Handler) ServeSwaggerUI(w http.ResponseWriter, r *http.Request) {
 
 	// Replace URLs in the HTML with base URL aware paths
 	openAPIPath := h.baseURL + "/api/openapi.json"
-	faviconPath := h.baseURL + "/qui.png"
+	faviconPath := h.baseURL + "/rui.png"
 
 	html := strings.ReplaceAll(swaggerHTML, "{{OPENAPI_URL}}", openAPIPath)
 	html = strings.ReplaceAll(html, "{{FAVICON_URL}}", faviconPath)

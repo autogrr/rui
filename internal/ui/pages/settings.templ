@@ -13,6 +13,7 @@ import (
 	"github.com/autogrr/rui/internal/ui/components/badge"
 	"github.com/autogrr/rui/internal/ui/components/button"
 	"github.com/autogrr/rui/internal/ui/components/card"
+	"github.com/autogrr/rui/internal/ui/components/dialog"
 	"github.com/autogrr/rui/internal/ui/components/separator"
 	"github.com/autogrr/rui/internal/ui/layouts"
 )
@@ -34,6 +35,7 @@ const (
 	SettingsSectionThemes         = "themes"
 	SettingsSectionLogs           = "logs"
 	SettingsSectionTrackers       = "trackers"
+	SettingsSectionInstances      = "instances"
 )
 
 // SettingsProps holds data for the settings page.
@@ -60,6 +62,8 @@ type SettingsProps struct {
 	NotificationTargets []*models.NotificationTarget
 	// tracker customizations section
 	TrackerCustomizations []*models.TrackerCustomization
+	// instances section
+	InstanceItems []InstanceListItem
 }
 
 // settingsNavItem describes one settings navigation entry.
@@ -94,6 +98,7 @@ templ Settings(p SettingsProps) {
 				{ID: SettingsSectionSearchCache, Label: "Search Cache", Href: p.BaseURL + "/ui/settings/" + SettingsSectionSearchCache},
 			}},
 			{Label: "Connections", Items: []settingsNavItem{
+				{ID: SettingsSectionInstances, Label: "Instances", Href: p.BaseURL + "/ui/settings/" + SettingsSectionInstances},
 				{ID: SettingsSectionIntegrations, Label: "Integrations", Href: p.BaseURL + "/ui/settings/" + SettingsSectionIntegrations},
 				{ID: SettingsSectionClientAPI, Label: "Client API", Href: p.BaseURL + "/ui/settings/" + SettingsSectionClientAPI},
 			}},
@@ -164,12 +169,14 @@ templ Settings(p SettingsProps) {
 				case SettingsSectionThemes:
 					@SettingsThemesSection(p)
 				case SettingsSectionLogs:
-					@SettingsLogsSection(p)					case SettingsSectionTrackers:
-						@SettingsTrackersSection(p)				default:
+					@SettingsLogsSection(p)				case SettingsSectionTrackers:
+						@SettingsTrackersSection(p)				case SettingsSectionInstances:
+					@SettingsInstancesSection(p)
+				default:
 					@settingsGeneralSection(p)
 				}
 				<p class="text-xs text-muted-foreground">
-					Settings are read from the configuration file. Restart qui after making changes.
+					Settings are read from the configuration file. Restart rui after making changes.
 				</p>
 			</div>
 		</div>
@@ -408,7 +415,7 @@ templ settingsAPIKeysSection(p SettingsProps) {
 						API Keys
 					}
 					@card.Description(card.DescriptionProps{}) {
-						API keys allow external applications to access qui.
+						API keys allow external applications to access rui.
 					}
 				</div>
 				<button
@@ -557,4 +564,50 @@ templ settingsSecuritySection(p SettingsProps) {
 // fmtAPIKeyTime formats an API key time.
 func fmtAPIKeyTime(t time.Time) string {
 	return t.Format("Jan 2, 2006 15:04")
+}
+
+// SettingsInstancesSection renders the instances management section within settings.
+templ SettingsInstancesSection(p SettingsProps) {
+	<div class="space-y-6">
+		<!-- Close the instance dialog when the server sends HX-Trigger: instance-dialog-close -->
+		<script>
+			document.body.addEventListener('instance-dialog-close', function() {
+				if (window.tui && window.tui.dialog) window.tui.dialog.close('instance-dialog');
+			});
+		</script>
+		<!-- Section header -->
+		<div class="flex items-center justify-between gap-4">
+			<div>
+				<h2 class="text-lg font-semibold tracking-tight">Instances</h2>
+				<p class="text-sm text-muted-foreground mt-1">Manage your qBittorrent connections.</p>
+			</div>
+			<button
+				type="button"
+				class="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+				onclick="window.tui.dialog.open('instance-dialog')"
+				hx-get={ p.BaseURL + "/ui/partials/instances/form" }
+				hx-target="#instance-form-slot"
+				hx-swap="innerHTML"
+				hx-push-url="false"
+			>
+				<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+				Add Instance
+			</button>
+		</div>
+
+		<!-- Dialog: add/edit form -->
+		@dialog.Dialog(dialog.Props{ID: "instance-dialog"}) {
+			@dialog.Content(dialog.ContentProps{
+				Class:           "sm:max-w-2xl overflow-y-auto max-h-[90vh]",
+				HideCloseButton: true,
+			}) {
+				<div id="instance-form-slot"></div>
+			}
+		}
+
+		<!-- Instance list -->
+		<div id="instance-list">
+			@InstanceListPartial(p.InstanceItems, p.BaseURL)
+		</div>
+	</div>
 }

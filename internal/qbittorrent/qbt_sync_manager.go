@@ -34,6 +34,12 @@ type QBTSyncManager struct {
 	// OnUpdate call for use in GetData(). Protected by mu.
 	lastTrackers   map[string][]string
 	lastCategories map[string]qbt.Category
+
+	// triggerAfterSync is set in newQBTSyncManager to the wrapped OnUpdate
+	// function. It is invoked once in Start() after the initial synchronous
+	// Sync() call so that GetCachedServerState / GetCachedTorrentCounts are
+	// populated before the background loop's first tick.
+	triggerAfterSync func(*qbt.SyncState)
 }
 
 // newQBTSyncManager constructs a QBTSyncManager.
@@ -55,7 +61,7 @@ func newQBTSyncManager(
 	}
 
 	// Wrap OnUpdate: synthesise a *MainData so existing handlers keep working.
-	opts.OnUpdate = func(state *qbt.SyncState) {
+	wrappedOnUpdate := func(state *qbt.SyncState) {
 		if state == nil {
 			return
 		}
@@ -104,6 +110,8 @@ func newQBTSyncManager(
 			Trackers:        currTrackers,
 		})
 	}
+	opts.OnUpdate = wrappedOnUpdate
+	sm.triggerAfterSync = wrappedOnUpdate
 
 	// Wrap OnError: old signature is func(error), new is func(error) bool.
 	if legacyOnError != nil {
@@ -126,6 +134,12 @@ func newQBTSyncManager(
 func (sm *QBTSyncManager) Start(ctx context.Context) error {
 	if _, err := sm.SyncManager.Sync(ctx); err != nil {
 		return err
+	}
+	// Immediately fire the OnUpdate-equivalent callback with the initial state
+	// so that GetCachedServerState / GetCachedTorrentCounts / GetCachedTrackerRows
+	// are populated before the background polling loop's first tick (~1 s).
+	if state := sm.SyncManager.State(); state != nil && sm.triggerAfterSync != nil {
+		sm.triggerAfterSync(state)
 	}
 	sm.SyncManager.Start(ctx)
 	return nil

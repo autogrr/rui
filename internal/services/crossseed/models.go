@@ -383,7 +383,7 @@ type WebhookCheckRequest struct {
 	// Size is the total torrent size in bytes (optional - enables size validation if provided)
 	Size uint64 `json:"size,omitempty"`
 	// FindIndividualEpisodes overrides the default behavior when matching season packs vs episodes.
-	// When omitted, qui uses the automation setting; when set, this explicitly forces the behavior.
+	// When omitted, rui uses the automation setting; when set, this explicitly forces the behavior.
 	FindIndividualEpisodes *bool `json:"findIndividualEpisodes,omitempty"`
 }
 
@@ -405,7 +405,7 @@ type WebhookCheckResponse struct {
 	Recommendation string              `json:"recommendation"` // "download" or "skip"
 }
 
-// AutobrrApplyRequest represents autobrr pushing a torrent directly to qui for application.
+// AutobrrApplyRequest represents autobrr pushing a torrent directly to rui for application.
 type AutobrrApplyRequest struct {
 	TorrentData string `json:"torrentData"`
 	// InstanceIDs optionally scopes the apply request to specific instances; omit or pass an empty array to target all matches.

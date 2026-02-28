@@ -19,10 +19,10 @@ Hardlink mode is an opt-in cross-seeding strategy that creates a hardlinked copy
 
 - Requires **Local filesystem access** on the target qBittorrent instance.
 - Hardlink base directory must be on the **same filesystem/volume** as the instance's download paths (hardlinks can't cross filesystems).
-- qui must be able to read the instance's content paths and write to the hardlink base directory.
+- rui must be able to read the instance's content paths and write to the hardlink base directory.
 
 :::tip Multi-filesystem setups
-If your downloads span multiple filesystems (e.g., `/mnt/disk1`, `/mnt/disk2`), you can specify **multiple base directories** separated by commas. qui will automatically select the first directory that's on the same filesystem as the source files.
+If your downloads span multiple filesystems (e.g., `/mnt/disk1`, `/mnt/disk2`), you can specify **multiple base directories** separated by commas. rui will automatically select the first directory that's on the same filesystem as the source files.
 
 Example: `/mnt/disk1/cross-seed, /mnt/disk2/cross-seed, /mnt/disk3/cross-seed`
 :::
@@ -40,7 +40,7 @@ Example: `/mnt/disk1/cross-seed, /mnt/disk2/cross-seed, /mnt/disk3/cross-seed`
 
 Configure in Cross-Seed → Hardlink Mode → (select instance):
 
-- **Hardlink base directory**: Path(s) on the qui host where hardlink trees are created. For multi-filesystem setups, specify multiple paths separated by commas (e.g., `/mnt/disk1/cross-seed, /mnt/disk2/cross-seed`).
+- **Hardlink base directory**: Path(s) on the rui host where hardlink trees are created. For multi-filesystem setups, specify multiple paths separated by commas (e.g., `/mnt/disk1/cross-seed, /mnt/disk2/cross-seed`).
 - **Directory preset**:
   - `flat`: `base/TorrentName--shortHash/...`
   - `by-tracker`: `base/<tracker>/TorrentName--shortHash/...`
@@ -48,7 +48,7 @@ Configure in Cross-Seed → Hardlink Mode → (select instance):
 
 ### Isolation Folders
 
-For `by-tracker` and `by-instance` presets, qui determines whether an isolation folder is needed based on the torrent's file structure:
+For `by-tracker` and `by-instance` presets, rui determines whether an isolation folder is needed based on the torrent's file structure:
 
 - **Torrents with a root folder** (e.g., `Movie/video.mkv`, `Movie/subs.srt`) → files already have a common top-level directory, no isolation folder needed
 - **Rootless torrents** (e.g., `video.mkv`, `subs.srt` at top level) → isolation folder added to prevent file conflicts
