@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 
 	"github.com/autogrr/rui/internal/models"
 )
@@ -78,26 +78,26 @@ func TestBuildFileMap_CrossInstance(t *testing.T) {
 	svc.getAllTorrentsProvider = func(_ context.Context, instanceID int) ([]qbt.Torrent, error) {
 		switch instanceID {
 		case 1:
-			return []qbt.Torrent{{Hash: "A", SavePath: root, State: qbt.TorrentStatePausedUp}}, nil
+			return []qbt.Torrent{{Hash: qbt.Ptr("A"), SavePath: qbt.Ptr(root), State: qbt.Ptr(qbt.StatePausedUP)}}, nil
 		case 2:
-			return []qbt.Torrent{{Hash: "B", SavePath: root, State: qbt.TorrentStatePausedUp}}, nil
+			return []qbt.Torrent{{Hash: qbt.Ptr("B"), SavePath: qbt.Ptr(root), State: qbt.Ptr(qbt.StatePausedUP)}}, nil
 		default:
 			return nil, nil
 		}
 	}
 
-	svc.getTorrentFilesBatchProvider = func(_ context.Context, instanceID int, _ []string) (map[string]qbt.TorrentFiles, error) {
+	svc.getTorrentFilesBatchProvider = func(_ context.Context, instanceID int, _ []string) (map[string][]qbt.TorrentFile, error) {
 		switch instanceID {
 		case 1:
-			return map[string]qbt.TorrentFiles{
-				"a": {{Name: "one.mkv", Size: 1}},
+			return map[string][]qbt.TorrentFile{
+				"a": {{Name: qbt.Ptr("one.mkv"), Size: qbt.Ptr(int64(1))}},
 			}, nil
 		case 2:
-			return map[string]qbt.TorrentFiles{
-				"b": {{Name: "two.mkv", Size: 1}},
+			return map[string][]qbt.TorrentFile{
+				"b": {{Name: qbt.Ptr("two.mkv"), Size: qbt.Ptr(int64(1))}},
 			}, nil
 		default:
-			return map[string]qbt.TorrentFiles{}, nil
+			return map[string][]qbt.TorrentFile{}, nil
 		}
 	}
 
@@ -156,12 +156,12 @@ func TestBuildFileMap_BailsWhenOtherLocalInstanceUnavailable(t *testing.T) {
 	}
 
 	svc.getAllTorrentsProvider = func(_ context.Context, _ int) ([]qbt.Torrent, error) {
-		return []qbt.Torrent{{Hash: "A", SavePath: root, State: qbt.TorrentStatePausedUp}}, nil
+		return []qbt.Torrent{{Hash: qbt.Ptr("A"), SavePath: qbt.Ptr(root), State: qbt.Ptr(qbt.StatePausedUP)}}, nil
 	}
 
-	svc.getTorrentFilesBatchProvider = func(_ context.Context, _ int, _ []string) (map[string]qbt.TorrentFiles, error) {
-		return map[string]qbt.TorrentFiles{
-			"a": {{Name: "one.mkv", Size: 1}},
+	svc.getTorrentFilesBatchProvider = func(_ context.Context, _ int, _ []string) (map[string][]qbt.TorrentFile, error) {
+		return map[string][]qbt.TorrentFile{
+			"a": {{Name: qbt.Ptr("one.mkv"), Size: qbt.Ptr(int64(1))}},
 		}, nil
 	}
 
@@ -207,20 +207,20 @@ func TestBuildFileMap_BailsWhenOverlappingInstanceFileMapUnavailable(t *testing.
 	svc.getAllTorrentsProvider = func(_ context.Context, instanceID int) ([]qbt.Torrent, error) {
 		switch instanceID {
 		case 1:
-			return []qbt.Torrent{{Hash: "A", SavePath: root, State: qbt.TorrentStatePausedUp}}, nil
+			return []qbt.Torrent{{Hash: qbt.Ptr("A"), SavePath: qbt.Ptr(root), State: qbt.Ptr(qbt.StatePausedUP)}}, nil
 		case 2:
-			return []qbt.Torrent{{Hash: "B", SavePath: root, State: qbt.TorrentStatePausedUp}}, nil
+			return []qbt.Torrent{{Hash: qbt.Ptr("B"), SavePath: qbt.Ptr(root), State: qbt.Ptr(qbt.StatePausedUP)}}, nil
 		default:
 			return nil, nil
 		}
 	}
 
-	svc.getTorrentFilesBatchProvider = func(_ context.Context, instanceID int, _ []string) (map[string]qbt.TorrentFiles, error) {
+	svc.getTorrentFilesBatchProvider = func(_ context.Context, instanceID int, _ []string) (map[string][]qbt.TorrentFile, error) {
 		if instanceID == 2 {
 			return nil, offlineErr
 		}
-		return map[string]qbt.TorrentFiles{
-			"a": {{Name: "one.mkv", Size: 1}},
+		return map[string][]qbt.TorrentFile{
+			"a": {{Name: qbt.Ptr("one.mkv"), Size: qbt.Ptr(int64(1))}},
 		}, nil
 	}
 
@@ -266,26 +266,26 @@ func TestBuildFileMap_DoesNotMergeWhenNoOverlap(t *testing.T) {
 	svc.getAllTorrentsProvider = func(_ context.Context, instanceID int) ([]qbt.Torrent, error) {
 		switch instanceID {
 		case 1:
-			return []qbt.Torrent{{Hash: "A", SavePath: rootA, State: qbt.TorrentStatePausedUp}}, nil
+			return []qbt.Torrent{{Hash: qbt.Ptr("A"), SavePath: qbt.Ptr(rootA), State: qbt.Ptr(qbt.StatePausedUP)}}, nil
 		case 2:
-			return []qbt.Torrent{{Hash: "B", SavePath: rootB, State: qbt.TorrentStatePausedUp}}, nil
+			return []qbt.Torrent{{Hash: qbt.Ptr("B"), SavePath: qbt.Ptr(rootB), State: qbt.Ptr(qbt.StatePausedUP)}}, nil
 		default:
 			return nil, nil
 		}
 	}
 
-	svc.getTorrentFilesBatchProvider = func(_ context.Context, instanceID int, _ []string) (map[string]qbt.TorrentFiles, error) {
+	svc.getTorrentFilesBatchProvider = func(_ context.Context, instanceID int, _ []string) (map[string][]qbt.TorrentFile, error) {
 		switch instanceID {
 		case 1:
-			return map[string]qbt.TorrentFiles{
-				"a": {{Name: "one.mkv", Size: 1}},
+			return map[string][]qbt.TorrentFile{
+				"a": {{Name: qbt.Ptr("one.mkv"), Size: qbt.Ptr(int64(1))}},
 			}, nil
 		case 2:
-			return map[string]qbt.TorrentFiles{
-				"b": {{Name: "two.mkv", Size: 1}},
+			return map[string][]qbt.TorrentFile{
+				"b": {{Name: qbt.Ptr("two.mkv"), Size: qbt.Ptr(int64(1))}},
 			}, nil
 		default:
-			return map[string]qbt.TorrentFiles{}, nil
+			return map[string][]qbt.TorrentFile{}, nil
 		}
 	}
 
@@ -346,14 +346,14 @@ func TestBuildFileMap_StaleNonOverlappingRootsDoNotBypassSafety(t *testing.T) {
 
 	svc.getAllTorrentsProvider = func(_ context.Context, instanceID int) ([]qbt.Torrent, error) {
 		if instanceID == 1 {
-			return []qbt.Torrent{{Hash: "A", SavePath: rootA, State: qbt.TorrentStatePausedUp}}, nil
+			return []qbt.Torrent{{Hash: qbt.Ptr("A"), SavePath: qbt.Ptr(rootA), State: qbt.Ptr(qbt.StatePausedUP)}}, nil
 		}
 		return nil, nil
 	}
 
-	svc.getTorrentFilesBatchProvider = func(_ context.Context, _ int, _ []string) (map[string]qbt.TorrentFiles, error) {
-		return map[string]qbt.TorrentFiles{
-			"a": {{Name: "one.mkv", Size: 1}},
+	svc.getTorrentFilesBatchProvider = func(_ context.Context, _ int, _ []string) (map[string][]qbt.TorrentFile, error) {
+		return map[string][]qbt.TorrentFile{
+			"a": {{Name: qbt.Ptr("one.mkv"), Size: qbt.Ptr(int64(1))}},
 		}, nil
 	}
 

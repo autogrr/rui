@@ -10,7 +10,7 @@ import (
 	"strings"
 	"text/template"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/models"
@@ -177,15 +177,17 @@ func processTorrents(
 
 	// Stable sort for deterministic pagination: oldest first, then by hash
 	sort.Slice(torrents, func(i, j int) bool {
-		if torrents[i].AddedOn != torrents[j].AddedOn {
-			return torrents[i].AddedOn < torrents[j].AddedOn
+		ai := qbt.Deref(torrents[i].AddedOn)
+		aj := qbt.Deref(torrents[j].AddedOn)
+		if ai != aj {
+			return ai < aj
 		}
-		return torrents[i].Hash < torrents[j].Hash
+		return qbt.Deref(torrents[i].Hash) < qbt.Deref(torrents[j].Hash)
 	})
 
 	for _, torrent := range torrents {
 		// Skip if recently processed
-		if skipCheck != nil && skipCheck(torrent.Hash) {
+		if skipCheck != nil && skipCheck(qbt.Deref(torrent.Hash)) {
 			continue
 		}
 
@@ -196,9 +198,9 @@ func processTorrents(
 
 		// Initialize state for this torrent
 		state := &torrentDesiredState{
-			hash:         torrent.Hash,
-			name:         torrent.Name,
-			currentTags:  parseTorrentTags(torrent.Tags),
+			hash:         qbt.Deref(torrent.Hash),
+			name:         qbt.Deref(torrent.Name),
+			currentTags:  parseTorrentTags(qbt.Deref(torrent.Tags)),
 			tagActions:   make(map[string]string),
 			tagRuleByTag: make(map[string]ruleRef),
 		}
@@ -221,7 +223,7 @@ func processTorrents(
 
 		// Only store if there are actions to take
 		if hasActions(state) {
-			states[torrent.Hash] = state
+			states[qbt.Deref(torrent.Hash)] = state
 		}
 	}
 
@@ -305,8 +307,8 @@ func processRuleForTorrent(rule *models.Automation, torrent qbt.Torrent, state *
 				stats.PauseApplied++
 			}
 			// Only pause if not already paused/stopped
-			if torrent.State != qbt.TorrentStatePausedUp && torrent.State != qbt.TorrentStatePausedDl &&
-				torrent.State != qbt.TorrentStateStoppedUp && torrent.State != qbt.TorrentStateStoppedDl {
+			if qbt.Deref(torrent.State) != qbt.StatePausedUP && qbt.Deref(torrent.State) != qbt.StatePausedDL &&
+				qbt.Deref(torrent.State) != qbt.StateStoppedUP && qbt.Deref(torrent.State) != qbt.StateStoppedDL {
 				state.shouldPause = true
 				state.shouldResume = false // Clear conflicting resume from earlier rule if any
 				state.pauseRule = ruleRef{id: rule.ID, name: rule.Name}
@@ -328,8 +330,8 @@ func processRuleForTorrent(rule *models.Automation, torrent qbt.Torrent, state *
 			}
 
 			// Only resume if currently paused/stopped
-			if torrent.State == qbt.TorrentStatePausedUp || torrent.State == qbt.TorrentStatePausedDl ||
-				torrent.State == qbt.TorrentStateStoppedUp || torrent.State == qbt.TorrentStateStoppedDl {
+			if qbt.Deref(torrent.State) == qbt.StatePausedUP || qbt.Deref(torrent.State) == qbt.StatePausedDL ||
+				qbt.Deref(torrent.State) == qbt.StateStoppedUP || qbt.Deref(torrent.State) == qbt.StateStoppedDL {
 				state.shouldResume = true
 				state.shouldPause = false // Clear conflicting pause from earlier rule if any
 				state.resumeRule = ruleRef{id: rule.ID, name: rule.Name}
@@ -350,9 +352,9 @@ func processRuleForTorrent(rule *models.Automation, torrent qbt.Torrent, state *
 				stats.RecheckApplied++
 			}
 			// Avoid re-triggering while already checking.
-			if torrent.State != qbt.TorrentStateCheckingUp &&
-				torrent.State != qbt.TorrentStateCheckingDl &&
-				torrent.State != qbt.TorrentStateCheckingResumeData {
+			if qbt.Deref(torrent.State) != qbt.StateCheckingUP &&
+				qbt.Deref(torrent.State) != qbt.StateCheckingDL &&
+				qbt.Deref(torrent.State) != qbt.StateCheckingResumeData {
 				state.shouldRecheck = true
 				state.recheckRule = ruleRef{id: rule.ID, name: rule.Name}
 			}
@@ -548,10 +550,10 @@ func shouldBlockCategoryChangeForCrossSeeds(torrent qbt.Torrent, protectedCatego
 		return false
 	}
 	for _, other := range group {
-		if other.Hash == torrent.Hash {
+		if qbt.Deref(other.Hash) == qbt.Deref(torrent.Hash) {
 			continue
 		}
-		if containsStringFold(protectedCategories, other.Category) {
+		if containsStringFold(protectedCategories, qbt.Deref(other.Category)) {
 			return true
 		}
 	}
@@ -580,7 +582,7 @@ func shouldBlockMoveForCrossSeeds(torrent qbt.Torrent, moveAction *models.MoveAc
 	// If we have any other torrent in the same cross-seed group, evaluate the condition for each torrent.
 	// Block if any cross-seed does NOT match the condition.
 	for _, other := range group {
-		if other.Hash == torrent.Hash {
+		if qbt.Deref(other.Hash) == qbt.Deref(torrent.Hash) {
 			continue
 		}
 		if !EvaluateConditionWithContext(moveAction.Condition, other, evalCtx, 0) {
@@ -592,7 +594,7 @@ func shouldBlockMoveForCrossSeeds(torrent qbt.Torrent, moveAction *models.MoveAc
 }
 
 func inSavePath(torrent qbt.Torrent, savePath string) bool {
-	return normalizePath(torrent.SavePath) == normalizePath(savePath)
+	return normalizePath(qbt.Deref(torrent.SavePath)) == normalizePath(savePath)
 }
 
 // resolveMovePath returns the path to use for a move. The path is executed as a
@@ -605,10 +607,10 @@ func resolveMovePath(path string, torrent qbt.Torrent, state *torrentDesiredStat
 	}
 
 	data := map[string]any{
-		"Name":                torrent.Name,
-		"Hash":                torrent.Hash,
-		"Category":            torrent.Category,
-		"IsolationFolderName": pathutil.IsolationFolderName(torrent.Hash, torrent.Name),
+		"Name":                qbt.Deref(torrent.Name),
+		"Hash":                qbt.Deref(torrent.Hash),
+		"Category":            qbt.Deref(torrent.Category),
+		"IsolationFolderName": pathutil.IsolationFolderName(qbt.Deref(torrent.Hash), qbt.Deref(torrent.Name)),
 		"Tracker":             tracker,
 	}
 
@@ -823,14 +825,14 @@ func updateCumulativeFreeSpaceCleared(torrent qbt.Torrent, evalCtx *EvalContext,
 	// whole hardlink group via expansion; this avoids affecting other delete modes.
 	if deleteMode == DeleteModeWithFilesIncludeCrossSeeds &&
 		evalCtx.HardlinkSignatureByHash != nil && evalCtx.HardlinkSignaturesToClear != nil {
-		if sig, ok := evalCtx.HardlinkSignatureByHash[torrent.Hash]; ok && sig != "" {
+		if sig, ok := evalCtx.HardlinkSignatureByHash[qbt.Deref(torrent.Hash)]; ok && sig != "" {
 			if _, counted := evalCtx.HardlinkSignaturesToClear[sig]; counted {
 				// Already counted this hardlink group
 				return
 			}
 			// Mark signature as counted and add size
 			evalCtx.HardlinkSignaturesToClear[sig] = struct{}{}
-			evalCtx.SpaceToClear += torrent.Size
+			evalCtx.SpaceToClear += qbt.Deref(torrent.Size)
 			return
 		}
 	}
@@ -839,7 +841,7 @@ func updateCumulativeFreeSpaceCleared(torrent qbt.Torrent, evalCtx *EvalContext,
 	crossSeedKey, ok := makeCrossSeedKey(torrent)
 	if !ok {
 		// If the torrent cannot be a cross-seed, we add the file size to the cumulative space to clear
-		evalCtx.SpaceToClear += torrent.Size
+		evalCtx.SpaceToClear += qbt.Deref(torrent.Size)
 		return
 	}
 
@@ -849,6 +851,6 @@ func updateCumulativeFreeSpaceCleared(torrent qbt.Torrent, evalCtx *EvalContext,
 	}
 
 	// This is a new torrent, so we add the file size to the cumulative space to clear
-	evalCtx.SpaceToClear += torrent.Size
+	evalCtx.SpaceToClear += qbt.Deref(torrent.Size)
 	evalCtx.FilesToClear[crossSeedKey] = struct{}{}
 }

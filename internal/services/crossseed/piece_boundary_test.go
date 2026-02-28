@@ -564,7 +564,7 @@ func TestDifferentPieceLengthsAffectSafety(t *testing.T) {
 }
 
 // TestPathFormatMatchesSourceFiles verifies that BuildFilesForBoundaryCheck
-// produces paths that match the format of qbt.TorrentFiles (sourceFiles).
+// produces paths that match the format of []qbt.TorrentFile (sourceFiles).
 func TestPathFormatMatchesSourceFiles(t *testing.T) {
 	const pieceLength = int64(16)
 

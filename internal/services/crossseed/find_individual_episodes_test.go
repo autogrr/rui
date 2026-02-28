@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/autobrr/autobrr/pkg/ttlcache"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/internal/models"
@@ -30,19 +30,19 @@ func TestProcessAutomationCandidatePropagatesEpisodeFlag(t *testing.T) {
 
 	sync := newEpisodeSyncManager()
 	packTorrent := qbt.Torrent{
-		Hash:     "packhash",
-		Name:     "Show.S01.1080p.BluRay-GROUP",
-		Progress: 1.0,
-		Category: "tv",
+		Hash:     qbt.Ptr("packhash"),
+		Name:     qbt.Ptr("Show.S01.1080p.BluRay-GROUP"),
+		Progress: qbt.Ptr(float64(1.0)),
+		Category: qbt.Ptr("tv"),
 	}
 	sync.torrents[instanceID] = []qbt.Torrent{packTorrent}
-	sync.files[instanceID] = map[string]qbt.TorrentFiles{
-		strings.ToLower(packTorrent.Hash): {
-			{Name: "Show.S01E01.1080p.BluRay-GROUP.mkv", Size: 1024},
+	sync.files[instanceID] = map[string][]qbt.TorrentFile{
+		strings.ToLower(qbt.Deref(packTorrent.Hash)): {
+			{Name: qbt.Ptr("Show.S01E01.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))},
 		},
 	}
 	sync.props[instanceID] = map[string]*qbt.TorrentProperties{
-		strings.ToLower(packTorrent.Hash): {SavePath: "/downloads"},
+		strings.ToLower(qbt.Deref(packTorrent.Hash)): {SavePath: qbt.Ptr("/downloads")},
 	}
 
 	service := &Service{
@@ -109,9 +109,9 @@ func TestApplyTorrentSearchResultsPropagatesEpisodeFlag(t *testing.T) {
 	ctx := context.Background()
 	instanceID := 2
 	sourceTorrent := qbt.Torrent{
-		Hash:     "abc123",
-		Name:     "Show.S01.1080p.BluRay-GROUP",
-		Progress: 1.0,
+		Hash:     qbt.Ptr("abc123"),
+		Name:     qbt.Ptr("Show.S01.1080p.BluRay-GROUP"),
+		Progress: qbt.Ptr(float64(1.0)),
 	}
 
 	sync := newEpisodeSyncManager()
@@ -135,7 +135,7 @@ func TestApplyTorrentSearchResultsPropagatesEpisodeFlag(t *testing.T) {
 		GUID:        "guid-2",
 		Size:        2048,
 	}
-	service.cacheSearchResults(instanceID, sourceTorrent.Hash, []TorrentSearchResult{cached})
+	service.cacheSearchResults(instanceID, qbt.Deref(sourceTorrent.Hash), []TorrentSearchResult{cached})
 
 	var captured *CrossSeedRequest
 	service.crossSeedInvoker = func(ctx context.Context, req *CrossSeedRequest) (*CrossSeedResponse, error) {
@@ -167,7 +167,7 @@ func TestApplyTorrentSearchResultsPropagatesEpisodeFlag(t *testing.T) {
 		FindIndividualEpisodes: true,
 	}
 
-	_, err := service.ApplyTorrentSearchResults(ctx, instanceID, sourceTorrent.Hash, req)
+	_, err := service.ApplyTorrentSearchResults(ctx, instanceID, qbt.Deref(sourceTorrent.Hash), req)
 	require.NoError(t, err)
 	require.NotNil(t, captured)
 	require.True(t, captured.FindIndividualEpisodes, "apply requests must propagate episode flag")
@@ -195,14 +195,14 @@ func (f *episodeInstanceStore) List(_ context.Context) ([]*models.Instance, erro
 
 type episodeSyncManager struct {
 	torrents map[int][]qbt.Torrent
-	files    map[int]map[string]qbt.TorrentFiles
+	files    map[int]map[string][]qbt.TorrentFile
 	props    map[int]map[string]*qbt.TorrentProperties
 }
 
 func newEpisodeSyncManager() *episodeSyncManager {
 	return &episodeSyncManager{
 		torrents: make(map[int][]qbt.Torrent),
-		files:    make(map[int]map[string]qbt.TorrentFiles),
+		files:    make(map[int]map[string][]qbt.TorrentFile),
 		props:    make(map[int]map[string]*qbt.TorrentProperties),
 	}
 }
@@ -217,12 +217,12 @@ func (f *episodeSyncManager) GetTorrents(_ context.Context, instanceID int, filt
 	return copied, nil
 }
 
-func (f *episodeSyncManager) GetTorrentFilesBatch(_ context.Context, instanceID int, hashes []string) (map[string]qbt.TorrentFiles, error) {
-	result := make(map[string]qbt.TorrentFiles, len(hashes))
+func (f *episodeSyncManager) GetTorrentFilesBatch(_ context.Context, instanceID int, hashes []string) (map[string][]qbt.TorrentFile, error) {
+	result := make(map[string][]qbt.TorrentFile, len(hashes))
 	if instFiles, ok := f.files[instanceID]; ok {
 		for _, h := range hashes {
 			if files, ok := instFiles[strings.ToLower(h)]; ok {
-				cp := make(qbt.TorrentFiles, len(files))
+				cp := make([]qbt.TorrentFile, len(files))
 				copy(cp, files)
 				result[normalizeHash(h)] = cp
 			}
@@ -246,7 +246,7 @@ func (f *episodeSyncManager) GetTorrentProperties(_ context.Context, instanceID 
 			return &cp, nil
 		}
 	}
-	return &qbt.TorrentProperties{SavePath: "/downloads"}, nil
+	return &qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")}, nil
 }
 
 func (f *episodeSyncManager) GetAppPreferences(_ context.Context, _ int) (qbt.AppPreferences, error) {
@@ -273,7 +273,7 @@ func (f *episodeSyncManager) ExtractDomainFromURL(string) string {
 	return ""
 }
 
-func (f *episodeSyncManager) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (f *episodeSyncManager) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, nil
 }
 

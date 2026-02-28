@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

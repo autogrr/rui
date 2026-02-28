@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/moistari/rls"
 
 	"github.com/autogrr/rui/pkg/releases"
@@ -21,7 +21,7 @@ func parsedTorrentRelease(t qbt.Torrent, ctx *EvalContext) *rls.Release {
 		empty := &rls.Release{}
 		return empty
 	}
-	return ctx.ReleaseParser.Parse(t.Name)
+	return ctx.ReleaseParser.Parse(qbt.Deref(t.Name))
 }
 
 func torrentContentType(t qbt.Torrent, ctx *EvalContext) string {
@@ -38,7 +38,7 @@ func torrentEffectiveName(t qbt.Torrent, ctx *EvalContext) string {
 	// Prefer parsed title, fall back to normalized raw name.
 	title := strings.TrimSpace(r.Title)
 	if title == "" {
-		return stringutils.NormalizeForMatching(t.Name)
+		return stringutils.NormalizeForMatching(qbt.Deref(t.Name))
 	}
 
 	base := stringutils.NormalizeForMatching(title)

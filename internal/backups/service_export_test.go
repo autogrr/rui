@@ -7,12 +7,11 @@ package backups
 import (
 	"errors"
 	"testing"
-
-	qbt "github.com/autobrr/go-qbittorrent"
 )
 
 func TestIsExportMetadataUnavailable(t *testing.T) {
-	if !isExportMetadataUnavailable(qbt.ErrTorrentMetdataNotDownloadedYet) {
+	metadataErr := errors.New("could not get export; torrent hash: deadbeef | status code: 409: unexpected status code")
+	if !isExportMetadataUnavailable(metadataErr) {
 		t.Fatal("expected metadata-not-downloaded error to be treated as skippable")
 	}
 

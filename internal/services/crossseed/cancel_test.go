@@ -7,7 +7,7 @@ package crossseed
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 )
 
 func TestCancelAutomationRun_NoActiveRun(t *testing.T) {
@@ -58,14 +58,14 @@ func TestShouldSkipErroredTorrent(t *testing.T) {
 		recoverEnabled bool
 		shouldSkip     bool
 	}{
-		{"error state, recovery disabled", qbt.TorrentStateError, false, true},
-		{"missingFiles state, recovery disabled", qbt.TorrentStateMissingFiles, false, true},
-		{"completed state, recovery disabled", qbt.TorrentStatePausedUp, false, false},
-		{"seeding state, recovery disabled", qbt.TorrentStateUploading, false, false},
-		{"downloading state, recovery disabled", qbt.TorrentStateDownloading, false, false},
-		{"error state, recovery enabled", qbt.TorrentStateError, true, false},
-		{"missingFiles state, recovery enabled", qbt.TorrentStateMissingFiles, true, false},
-		{"completed state, recovery enabled", qbt.TorrentStatePausedUp, true, false},
+		{"error state, recovery disabled", qbt.StateError, false, true},
+		{"missingFiles state, recovery disabled", qbt.StateMissingFiles, false, true},
+		{"completed state, recovery disabled", qbt.StatePausedUP, false, false},
+		{"seeding state, recovery disabled", qbt.StateUploading, false, false},
+		{"downloading state, recovery disabled", qbt.StateDownloading, false, false},
+		{"error state, recovery enabled", qbt.StateError, true, false},
+		{"missingFiles state, recovery enabled", qbt.StateMissingFiles, true, false},
+		{"completed state, recovery enabled", qbt.StatePausedUP, true, false},
 	}
 
 	for _, tt := range tests {
@@ -94,10 +94,10 @@ func TestRecoverErroredTorrentsEnabled_DefaultDisabled(t *testing.T) {
 	}
 
 	// With default (false), errored torrents should be skipped
-	if !s.shouldSkipErroredTorrent(qbt.TorrentStateError) {
+	if !s.shouldSkipErroredTorrent(qbt.StateError) {
 		t.Error("expected errored torrents to be skipped when recovery is disabled")
 	}
-	if !s.shouldSkipErroredTorrent(qbt.TorrentStateMissingFiles) {
+	if !s.shouldSkipErroredTorrent(qbt.StateMissingFiles) {
 		t.Error("expected missingFiles torrents to be skipped when recovery is disabled")
 	}
 }

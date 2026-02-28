@@ -260,13 +260,15 @@ func (cp *ClientPool) createClientWithTimeout(ctx context.Context, instanceID in
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
-	// Store in pool (need write lock for this)
+	// Store in pool (need write lock for this) and grab shared state in one pass.
 	cp.mu.Lock()
 	cp.clients[instanceID] = client
 	// Reset failure tracking on successful connection
 	cp.resetFailureTrackingLocked(instanceID)
 	completionHandler := cp.completionHandler
 	addedHandler := cp.addedHandler
+	sm := cp.syncManager
+	closed := cp.closed
 	cp.mu.Unlock()
 
 	if completionHandler != nil {
@@ -276,6 +278,12 @@ func (cp *ClientPool) createClientWithTimeout(ctx context.Context, instanceID in
 		client.SetTorrentAddedHandler(addedHandler)
 	}
 
+	// Set the domain extractor BEFORE starting the sync manager so the very
+	// first OnUpdate callback can already compute the tracker breakdown rows.
+	if sm != nil && !closed {
+		client.SetDomainExtractor(sm.ExtractDomainFromURL)
+	}
+
 	// Start the sync manager
 	if err := client.StartSyncManager(ctx); err != nil {
 		log.Warn().Err(err).Int("instanceID", instanceID).Msg("Failed to start sync manager")
@@ -283,10 +291,6 @@ func (cp *ClientPool) createClientWithTimeout(ctx context.Context, instanceID in
 	}
 
 	// Start background tracker health refresh if SyncManager is set and pool isn't closed
-	cp.mu.RLock()
-	sm := cp.syncManager
-	closed := cp.closed
-	cp.mu.RUnlock()
 	if sm != nil && !closed {
 		sm.StartTrackerHealthRefresh(instanceID)
 	}

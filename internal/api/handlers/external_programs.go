@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
@@ -300,7 +300,7 @@ func (h *ExternalProgramsHandler) ExecuteExternalProgram(w http.ResponseWriter, 
 	}
 
 	// Fetch all torrents once (O(m) instead of O(n·m) where n=hashes, m=torrents)
-	torrents, err := client.GetTorrents(qbt.TorrentFilterOptions{})
+	torrents, err := client.GetTorrents(ctx, qbt.TorrentFilterOptions{})
 	if err != nil {
 		log.Error().Err(err).Int("instanceId", req.InstanceID).Msg("Failed to get torrents from instance")
 		http.Error(w, fmt.Sprintf("Failed to get torrents: %v", err), http.StatusInternalServerError)
@@ -310,7 +310,7 @@ func (h *ExternalProgramsHandler) ExecuteExternalProgram(w http.ResponseWriter, 
 	// Build hash index for O(1) lookups
 	torrentIndex := make(map[string]*qbt.Torrent, len(torrents))
 	for i := range torrents {
-		torrentIndex[strings.ToLower(torrents[i].Hash)] = &torrents[i]
+		torrentIndex[strings.ToLower(qbt.Deref(torrents[i].Hash))] = &torrents[i]
 	}
 
 	// Execute for each torrent hash using the shared service

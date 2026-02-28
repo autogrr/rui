@@ -8,7 +8,7 @@ import (
 	"maps"
 	"sync"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 
 	"github.com/autogrr/rui/internal/services/jackett"
 )

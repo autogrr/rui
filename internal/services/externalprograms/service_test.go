@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -78,7 +78,7 @@ func TestService_Execute_NilService(t *testing.T) {
 
 	result := s.Execute(context.Background(), ExecuteRequest{
 		ProgramID:  1,
-		Torrent:    &qbt.Torrent{Hash: "abc123"},
+		Torrent:    &qbt.Torrent{Hash: qbt.Ptr("abc123")},
 		InstanceID: 1,
 	})
 
@@ -94,7 +94,7 @@ func TestService_Execute_NilProgramStore(t *testing.T) {
 
 	result := s.Execute(context.Background(), ExecuteRequest{
 		ProgramID:  1,
-		Torrent:    &qbt.Torrent{Hash: "abc123"},
+		Torrent:    &qbt.Torrent{Hash: qbt.Ptr("abc123")},
 		InstanceID: 1,
 	})
 
@@ -116,7 +116,7 @@ func TestService_Execute_WithProgramObject(t *testing.T) {
 
 	result := s.Execute(context.Background(), ExecuteRequest{
 		Program:    program,
-		Torrent:    &qbt.Torrent{Hash: "abc123"},
+		Torrent:    &qbt.Torrent{Hash: qbt.Ptr("abc123")},
 		InstanceID: 1,
 	})
 
@@ -151,8 +151,8 @@ func TestService_Execute_DisabledProgram(t *testing.T) {
 	}
 
 	torrent := &qbt.Torrent{
-		Hash: "abc123",
-		Name: "Test Torrent",
+		Hash: qbt.Ptr("abc123"),
+		Name: qbt.Ptr("Test Torrent"),
 	}
 
 	result := s.Execute(context.Background(), ExecuteRequest{
@@ -184,8 +184,8 @@ func TestService_Execute_PathBlocked(t *testing.T) {
 	}
 
 	torrent := &qbt.Torrent{
-		Hash: "abc123",
-		Name: "Test Torrent",
+		Hash: qbt.Ptr("abc123"),
+		Name: qbt.Ptr("Test Torrent"),
 	}
 
 	result := s.Execute(context.Background(), ExecuteRequest{
@@ -282,16 +282,15 @@ func TestService_IsPathAllowed_NilService(t *testing.T) {
 
 func TestBuildTorrentData(t *testing.T) {
 	torrent := &qbt.Torrent{
-		Hash:        "abc123def456",
-		Name:        "Test.Torrent.Name",
-		SavePath:    "/downloads/complete",
-		Category:    "movies",
-		Tags:        "tag1,tag2",
-		State:       qbt.TorrentStateUploading,
-		Size:        1024 * 1024 * 100, // 100 MB
-		Progress:    0.75,
-		ContentPath: "/downloads/complete/Test.Torrent.Name",
-		Comment:     "Test comment",
+		Hash:        qbt.Ptr("abc123def456"),
+		Name:        qbt.Ptr("Test.Torrent.Name"),
+		SavePath:    qbt.Ptr("/downloads/complete"),
+		Category:    qbt.Ptr("movies"),
+		Tags:        qbt.Ptr("tag1,tag2"),
+		State:       qbt.Ptr(qbt.StateUploading),
+		Size:        qbt.Ptr(int64(1024 * 1024 * 100)), // 100 MB
+		Progress:    qbt.Ptr(float64(0.75)),
+		ContentPath: qbt.Ptr("/downloads/complete/Test.Torrent.Name"),
 	}
 
 	pathMappings := []models.PathMapping{
@@ -309,14 +308,14 @@ func TestBuildTorrentData(t *testing.T) {
 	assert.Equal(t, "104857600", data["size"])
 	assert.Equal(t, "0.75", data["progress"])
 	assert.Equal(t, "/mnt/data/complete/Test.Torrent.Name", data["content_path"]) // Path mapped
-	assert.Equal(t, "Test comment", data["comment"])
+	assert.Empty(t, data["comment"])
 }
 
 func TestBuildTorrentData_NoPathMappings(t *testing.T) {
 	torrent := &qbt.Torrent{
-		Hash:        "abc123",
-		SavePath:    "/original/path",
-		ContentPath: "/original/path/file",
+		Hash:        qbt.Ptr("abc123"),
+		SavePath:    qbt.Ptr("/original/path"),
+		ContentPath: qbt.Ptr("/original/path/file"),
 	}
 
 	data := buildTorrentData(torrent, nil)
@@ -336,80 +335,80 @@ func TestBuildTorrentData_SpecialCharacters(t *testing.T) {
 		{
 			name: "shell command injection attempt in name",
 			torrent: &qbt.Torrent{
-				Hash: "abc123",
-				Name: "Movie; rm -rf /",
+				Hash: qbt.Ptr("abc123"),
+				Name: qbt.Ptr("Movie; rm -rf /"),
 			},
 			checkKey: "name",
 		},
 		{
 			name: "backtick command substitution in name",
 			torrent: &qbt.Torrent{
-				Hash: "abc123",
-				Name: "Movie `whoami`",
+				Hash: qbt.Ptr("abc123"),
+				Name: qbt.Ptr("Movie `whoami`"),
 			},
 			checkKey: "name",
 		},
 		{
 			name: "dollar command substitution in name",
 			torrent: &qbt.Torrent{
-				Hash: "abc123",
-				Name: "Movie $(whoami)",
+				Hash: qbt.Ptr("abc123"),
+				Name: qbt.Ptr("Movie $(whoami)"),
 			},
 			checkKey: "name",
 		},
 		{
 			name: "pipe command in name",
 			torrent: &qbt.Torrent{
-				Hash: "abc123",
-				Name: "Movie | cat /etc/passwd",
+				Hash: qbt.Ptr("abc123"),
+				Name: qbt.Ptr("Movie | cat /etc/passwd"),
 			},
 			checkKey: "name",
 		},
 		{
 			name: "ampersand background in name",
 			torrent: &qbt.Torrent{
-				Hash: "abc123",
-				Name: "Movie & rm -rf /",
+				Hash: qbt.Ptr("abc123"),
+				Name: qbt.Ptr("Movie & rm -rf /"),
 			},
 			checkKey: "name",
 		},
 		{
 			name: "quotes in name",
 			torrent: &qbt.Torrent{
-				Hash: "abc123",
-				Name: `Movie "with" 'quotes'`,
+				Hash: qbt.Ptr("abc123"),
+				Name: qbt.Ptr(`Movie "with" 'quotes'`),
 			},
 			checkKey: "name",
 		},
 		{
 			name: "newline injection in name",
 			torrent: &qbt.Torrent{
-				Hash: "abc123",
-				Name: "Movie\nrm -rf /",
+				Hash: qbt.Ptr("abc123"),
+				Name: qbt.Ptr("Movie\nrm -rf /"),
 			},
 			checkKey: "name",
 		},
 		{
 			name: "special chars in save_path",
 			torrent: &qbt.Torrent{
-				Hash:     "abc123",
-				SavePath: "/path/with spaces; rm -rf /",
+				Hash:     qbt.Ptr("abc123"),
+				SavePath: qbt.Ptr("/path/with spaces; rm -rf /"),
 			},
 			checkKey: "save_path",
 		},
 		{
 			name: "special chars in category",
 			torrent: &qbt.Torrent{
-				Hash:     "abc123",
-				Category: "movies; rm -rf /",
+				Hash:     qbt.Ptr("abc123"),
+				Category: qbt.Ptr("movies; rm -rf /"),
 			},
 			checkKey: "category",
 		},
 		{
 			name: "special chars in tags",
 			torrent: &qbt.Torrent{
-				Hash: "abc123",
-				Tags: "tag1,tag2; rm -rf /",
+				Hash: qbt.Ptr("abc123"),
+				Tags: qbt.Ptr("tag1,tag2; rm -rf /"),
 			},
 			checkKey: "tags",
 		},
@@ -425,7 +424,7 @@ func TestBuildTorrentData_SpecialCharacters(t *testing.T) {
 
 			// For name-based tests, verify the exact value is preserved
 			if tt.checkKey == "name" {
-				assert.Equal(t, tt.torrent.Name, data["name"])
+				assert.Equal(t, qbt.Deref(tt.torrent.Name), data["name"])
 			}
 		})
 	}
@@ -434,16 +433,15 @@ func TestBuildTorrentData_SpecialCharacters(t *testing.T) {
 func TestBuildTorrentData_EmptyFields(t *testing.T) {
 	// Test handling of empty and zero values
 	torrent := &qbt.Torrent{
-		Hash:        "",
-		Name:        "",
-		SavePath:    "",
-		Category:    "",
-		Tags:        "",
-		State:       "",
-		Size:        0,
-		Progress:    0,
-		ContentPath: "",
-		Comment:     "",
+		Hash:        qbt.Ptr(""),
+		Name:        qbt.Ptr(""),
+		SavePath:    qbt.Ptr(""),
+		Category:    qbt.Ptr(""),
+		Tags:        qbt.Ptr(""),
+		State:       qbt.Ptr(qbt.TorrentState("")),
+		Size:        qbt.Ptr(int64(0)),
+		Progress:    qbt.Ptr(float64(0)),
+		ContentPath: qbt.Ptr(""),
 	}
 
 	data := buildTorrentData(torrent, nil)
@@ -461,7 +459,7 @@ func TestBuildTorrentData_EmptyFields(t *testing.T) {
 }
 
 func TestExecuteRequest_Validate(t *testing.T) {
-	torrent := &qbt.Torrent{Hash: "abc123"}
+	torrent := &qbt.Torrent{Hash: qbt.Ptr("abc123")}
 	program := &models.ExternalProgram{ID: 1, Name: "Test"}
 
 	tests := []struct {

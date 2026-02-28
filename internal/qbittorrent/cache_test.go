@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/autobrr/autobrr/pkg/ttlcache"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -182,19 +182,19 @@ func TestCache_DifferentDataTypes(t *testing.T) {
 
 	// 4. Torrent properties (using available fields)
 	props := &qbt.TorrentProperties{
-		Hash:               "abc123",
-		Name:               "Test Movie 2023 1080p",
-		DownloadPath:       "/downloads/movies",
-		Comment:            "Test torrent comment",
-		TotalWasted:        0,
-		TotalUploaded:      268435456, // 256MB
-		TotalDownloaded:    805306368, // 768MB
-		UpLimit:            -1,
-		DlLimit:            -1,
-		SeedingTime:        0,
-		NbConnections:      50,
-		NbConnectionsLimit: 200,
-		ShareRatio:         0.33,
+		Hash:               qbt.Ptr("abc123"),
+		Name:               qbt.Ptr("Test Movie 2023 1080p"),
+		DownloadPath:       qbt.Ptr("/downloads/movies"),
+		Comment:            qbt.Ptr("Test torrent comment"),
+		TotalWasted:        qbt.Ptr(int64(0)),
+		TotalUploaded:      qbt.Ptr(int64(268435456)), // 256MB
+		TotalDownloaded:    qbt.Ptr(int64(805306368)), // 768MB
+		UpLimit:            qbt.Ptr(int64(-1)),
+		DlLimit:            qbt.Ptr(int64(-1)),
+		SeedingTime:        qbt.Ptr(int64(0)),
+		NbConnections:      qbt.Ptr(50),
+		NbConnectionsLimit: qbt.Ptr(200),
+		ShareRatio:         qbt.Ptr(0.33),
 	}
 	cache.Set("torrent:properties:1:abc123", props, 30*time.Second)
 
@@ -245,9 +245,9 @@ func TestCache_DifferentDataTypes(t *testing.T) {
 	// 4. Torrent properties
 	if cached, found := cache.Get("torrent:properties:1:abc123"); found {
 		if properties, ok := cached.(*qbt.TorrentProperties); ok {
-			assert.Equal(t, "abc123", properties.Hash)
-			assert.Equal(t, "Test Movie 2023 1080p", properties.Name)
-			assert.Equal(t, "/downloads/movies", properties.DownloadPath)
+			assert.Equal(t, "abc123", qbt.Deref(properties.Hash))
+			assert.Equal(t, "Test Movie 2023 1080p", qbt.Deref(properties.Name))
+			assert.Equal(t, "/downloads/movies", qbt.Deref(properties.DownloadPath))
 		} else {
 			t.Error("TorrentProperties type assertion failed")
 		}
@@ -295,10 +295,10 @@ func TestCache_KeyPatterns(t *testing.T) {
 		"tags:2":       []string{"drama", "horror"},
 
 		// Individual torrent data
-		"torrent:properties:1:hash123": &qbt.TorrentProperties{Hash: "hash123"},
-		"torrent:properties:2:hash456": &qbt.TorrentProperties{Hash: "hash456"},
-		"torrent:trackers:1:hash123":   []qbt.TorrentTracker{{Url: "http://tracker.example.com"}},
-		"torrent:files:1:hash123":      &qbt.TorrentFiles{},
+		"torrent:properties:1:hash123": &qbt.TorrentProperties{Hash: qbt.Ptr("hash123")},
+		"torrent:properties:2:hash456": &qbt.TorrentProperties{Hash: qbt.Ptr("hash456")},
+		"torrent:trackers:1:hash123":   []qbt.TorrentTracker{{URL: qbt.Ptr("http://tracker.example.com")}},
+		"torrent:files:1:hash123":      TorrentFiles{},
 		"torrent:webseeds:1:hash123":   []qbt.WebSeed{{URL: "http://webseed.example.com"}},
 
 		// Counts
@@ -356,19 +356,19 @@ func createTestTorrents(count int) []qbt.Torrent {
 	torrents := make([]qbt.Torrent, count)
 	for i := range count {
 		torrents[i] = qbt.Torrent{
-			Hash:     fmt.Sprintf("hash%d", i),
-			Name:     fmt.Sprintf("test-torrent-%d", i),
-			Size:     int64(1000000 + i*100000), // Varying sizes
-			Progress: float64(i) / float64(count),
-			DlSpeed:  int64(i * 1000),
-			UpSpeed:  int64(i * 500),
-			State:    qbt.TorrentStateDownloading,
-			Category: fmt.Sprintf("category%d", i%3),
-			Tags:     fmt.Sprintf("tag%d", i%2),
-			AddedOn:  int64(1600000000 + i*3600), // Different timestamps
-			Ratio:    float64(i) * 0.1,
-			ETA:      int64(3600 * (count - i)),
-			Tracker:  fmt.Sprintf("http://tracker%d.example.com/announce", i%2),
+			Hash:     qbt.Ptr(fmt.Sprintf("hash%d", i)),
+			Name:     qbt.Ptr(fmt.Sprintf("test-torrent-%d", i)),
+			Size:     qbt.Ptr(int64(1000000 + i*100000)), // Varying sizes
+			Progress: qbt.Ptr(float64(i) / float64(count)),
+			DlSpeed:  qbt.Ptr(int64(i * 1000)),
+			UpSpeed:  qbt.Ptr(int64(i * 500)),
+			State:    qbt.Ptr(qbt.StateDownloading),
+			Category: qbt.Ptr(fmt.Sprintf("category%d", i%3)),
+			Tags:     qbt.Ptr(fmt.Sprintf("tag%d", i%2)),
+			AddedOn:  qbt.Ptr(int64(1600000000 + i*3600)), // Different timestamps
+			Ratio:    qbt.Ptr(float64(i) * 0.1),
+			ETA:      qbt.Ptr(int64(3600 * (count - i))),
+			Tracker:  qbt.Ptr(fmt.Sprintf("http://tracker%d.example.com/announce", i%2)),
 		}
 	}
 	return torrents

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 )
@@ -23,26 +23,16 @@ func TestSyncManager_FilteringAndSorting(t *testing.T) {
 	// Create test torrents with different states
 	torrents := createTestTorrents(10)
 	// Set different states for testing
-	torrents[0].State = "downloading"
-	torrents[1].State = "uploading"
-	torrents[2].State = "pausedDL"
-	torrents[3].State = "error"
-	torrents[4].State = "stalledDL"
-	torrents[5].State = "stalledUP"
-	torrents[6].State = "downloading"
-	torrents[7].State = "uploading"
-	torrents[8].State = "pausedUP"
-	torrents[9].State = "queuedDL"
-
-	torrents[3].Trackers = []qbt.TorrentTracker{{
-		Status:  qbt.TrackerStatusNotWorking,
-		Message: "Torrent not registered on origin",
-	}}
-
-	torrents[4].Trackers = []qbt.TorrentTracker{{
-		Status:  qbt.TrackerStatusNotWorking,
-		Message: "Tracker is down for maintenance",
-	}}
+	torrents[0].State = qbt.Ptr(qbt.TorrentState("downloading"))
+	torrents[1].State = qbt.Ptr(qbt.TorrentState("uploading"))
+	torrents[2].State = qbt.Ptr(qbt.TorrentState("pausedDL"))
+	torrents[3].State = qbt.Ptr(qbt.TorrentState("error"))
+	torrents[4].State = qbt.Ptr(qbt.TorrentState("stalledDL"))
+	torrents[5].State = qbt.Ptr(qbt.TorrentState("stalledUP"))
+	torrents[6].State = qbt.Ptr(qbt.TorrentState("downloading"))
+	torrents[7].State = qbt.Ptr(qbt.TorrentState("uploading"))
+	torrents[8].State = qbt.Ptr(qbt.TorrentState("pausedUP"))
+	torrents[9].State = qbt.Ptr(qbt.TorrentState("queuedDL"))
 
 	t.Run("matchTorrentStatus filters correctly", func(t *testing.T) {
 		testCases := []struct {
@@ -55,8 +45,8 @@ func TestSyncManager_FilteringAndSorting(t *testing.T) {
 			{"paused", 2},
 			{"active", 4},
 			{"errored", 1},
-			{"unregistered", 1},
-			{"tracker_down", 1},
+			{"unregistered", 0},
+			{"tracker_down", 0},
 		}
 
 		for _, tc := range testCases {
@@ -75,8 +65,8 @@ func TestSyncManager_FilteringAndSorting(t *testing.T) {
 	t.Run("calculateStats computes correctly", func(t *testing.T) {
 		// Set known download/upload speeds for testing
 		for i := range torrents {
-			torrents[i].DlSpeed = int64(i * 1000) // 0, 1000, 2000, ...
-			torrents[i].UpSpeed = int64(i * 500)  // 0, 500, 1000, ...
+			torrents[i].DlSpeed = qbt.Ptr(int64(i * 1000)) // 0, 1000, 2000, ...
+			torrents[i].UpSpeed = qbt.Ptr(int64(i * 500))  // 0, 500, 1000, ...
 		}
 
 		stats := sm.calculateStats(torrents)
@@ -102,25 +92,25 @@ func TestSyncManager_TorrentIsUnregistered_TrackerUpdating(t *testing.T) {
 
 	t.Run("marks unregistered when updating message matches", func(t *testing.T) {
 		torrent := qbt.Torrent{
-			AddedOn: addedOn,
-			Trackers: []qbt.TorrentTracker{
-				{Status: qbt.TrackerStatusUpdating, Message: "Torrent not registered on tracker"},
-			},
+			AddedOn: qbt.Ptr(addedOn),
+		}
+		trackers := []qbt.TorrentTracker{
+			{Status: qbt.Ptr(qbt.TrackerUpdating), Message: qbt.Ptr("Torrent not registered on tracker")},
 		}
 
-		assert.True(t, sm.torrentIsUnregistered(&torrent))
+		assert.True(t, sm.torrentIsUnregistered(&torrent, trackers))
 	})
 
 	t.Run("ignores when working tracker present", func(t *testing.T) {
 		torrent := qbt.Torrent{
-			AddedOn: addedOn,
-			Trackers: []qbt.TorrentTracker{
-				{Status: qbt.TrackerStatusUpdating, Message: "Torrent not registered on tracker"},
-				{Status: qbt.TrackerStatusOK, Message: ""},
-			},
+			AddedOn: qbt.Ptr(addedOn),
+		}
+		trackers := []qbt.TorrentTracker{
+			{Status: qbt.Ptr(qbt.TrackerUpdating), Message: qbt.Ptr("Torrent not registered on tracker")},
+			{Status: qbt.Ptr(qbt.TrackerWorking), Message: qbt.Ptr("")},
 		}
 
-		assert.False(t, sm.torrentIsUnregistered(&torrent))
+		assert.False(t, sm.torrentIsUnregistered(&torrent, trackers))
 	})
 }
 
@@ -128,34 +118,31 @@ func TestSyncManager_TorrentTrackerIsDown_TrackerUpdating(t *testing.T) {
 	sm := &SyncManager{}
 
 	t.Run("does not mark tracker down when updating", func(t *testing.T) {
-		torrent := qbt.Torrent{
-			Trackers: []qbt.TorrentTracker{
-				{Status: qbt.TrackerStatusUpdating, Message: "Tracker is down for maintenance"},
-			},
+		torrent := qbt.Torrent{}
+		trackers := []qbt.TorrentTracker{
+			{Status: qbt.Ptr(qbt.TrackerUpdating), Message: qbt.Ptr("Tracker is down for maintenance")},
 		}
 
-		assert.False(t, sm.torrentTrackerIsDown(&torrent))
+		assert.False(t, sm.torrentTrackerIsDown(&torrent, trackers))
 	})
 
 	t.Run("marks tracker down when not working", func(t *testing.T) {
-		torrent := qbt.Torrent{
-			Trackers: []qbt.TorrentTracker{
-				{Status: qbt.TrackerStatusNotWorking, Message: "Tracker is down for maintenance"},
-			},
+		torrent := qbt.Torrent{}
+		trackers := []qbt.TorrentTracker{
+			{Status: qbt.Ptr(qbt.TrackerNotWorking), Message: qbt.Ptr("Tracker is down for maintenance")},
 		}
 
-		assert.True(t, sm.torrentTrackerIsDown(&torrent))
+		assert.True(t, sm.torrentTrackerIsDown(&torrent, trackers))
 	})
 
 	t.Run("ignores when working tracker present", func(t *testing.T) {
-		torrent := qbt.Torrent{
-			Trackers: []qbt.TorrentTracker{
-				{Status: qbt.TrackerStatusNotWorking, Message: "Tracker is down for maintenance"},
-				{Status: qbt.TrackerStatusOK, Message: ""},
-			},
+		torrent := qbt.Torrent{}
+		trackers := []qbt.TorrentTracker{
+			{Status: qbt.Ptr(qbt.TrackerNotWorking), Message: qbt.Ptr("Tracker is down for maintenance")},
+			{Status: qbt.Ptr(qbt.TrackerWorking), Message: qbt.Ptr("")},
 		}
 
-		assert.False(t, sm.torrentTrackerIsDown(&torrent))
+		assert.False(t, sm.torrentTrackerIsDown(&torrent, trackers))
 	})
 }
 
@@ -165,6 +152,7 @@ func TestSyncManager_TorrentBelongsToTrackerDomain(t *testing.T) {
 	tests := []struct {
 		name     string
 		torrent  *qbt.Torrent
+		trackers []qbt.TorrentTracker
 		domain   string
 		expected bool
 	}{
@@ -176,63 +164,58 @@ func TestSyncManager_TorrentBelongsToTrackerDomain(t *testing.T) {
 		},
 		{
 			name:     "empty trackers uses Tracker field - match",
-			torrent:  &qbt.Torrent{Tracker: "http://tracker.example.com/announce"},
+			torrent:  &qbt.Torrent{Tracker: qbt.Ptr("http://tracker.example.com/announce")},
 			domain:   "tracker.example.com",
 			expected: true,
 		},
 		{
 			name:     "empty trackers uses Tracker field - no match",
-			torrent:  &qbt.Torrent{Tracker: "http://tracker.example.com/announce"},
+			torrent:  &qbt.Torrent{Tracker: qbt.Ptr("http://tracker.example.com/announce")},
 			domain:   "other.com",
 			expected: false,
 		},
 		{
-			name: "trackers slice - first matches",
-			torrent: &qbt.Torrent{
-				Trackers: []qbt.TorrentTracker{
-					{Url: "http://first.com/announce"},
-					{Url: "http://second.com/announce"},
-				},
+			name:    "trackers slice - first matches",
+			torrent: &qbt.Torrent{},
+			trackers: []qbt.TorrentTracker{
+				{URL: qbt.Ptr("http://first.com/announce")},
+				{URL: qbt.Ptr("http://second.com/announce")},
 			},
 			domain:   "first.com",
 			expected: true,
 		},
 		{
-			name: "trackers slice - second matches",
-			torrent: &qbt.Torrent{
-				Trackers: []qbt.TorrentTracker{
-					{Url: "http://first.com/announce"},
-					{Url: "http://second.com/announce"},
-				},
+			name:    "trackers slice - second matches",
+			torrent: &qbt.Torrent{},
+			trackers: []qbt.TorrentTracker{
+				{URL: qbt.Ptr("http://first.com/announce")},
+				{URL: qbt.Ptr("http://second.com/announce")},
 			},
 			domain:   "second.com",
 			expected: true,
 		},
 		{
-			name: "trackers slice - none match",
-			torrent: &qbt.Torrent{
-				Trackers: []qbt.TorrentTracker{
-					{Url: "http://first.com/announce"},
-					{Url: "http://second.com/announce"},
-				},
+			name:    "trackers slice - none match",
+			torrent: &qbt.Torrent{},
+			trackers: []qbt.TorrentTracker{
+				{URL: qbt.Ptr("http://first.com/announce")},
+				{URL: qbt.Ptr("http://second.com/announce")},
 			},
 			domain:   "third.com",
 			expected: false,
 		},
 		{
-			name: "trackers slice takes precedence over Tracker field",
-			torrent: &qbt.Torrent{
-				Tracker: "http://tracker.example.com/announce",
-				Trackers: []qbt.TorrentTracker{
-					{Url: "http://different.com/announce"},
-				},
+			name:    "trackers slice takes precedence over Tracker field",
+			torrent: &qbt.Torrent{Tracker: qbt.Ptr("http://tracker.example.com/announce")},
+			trackers: []qbt.TorrentTracker{
+				{URL: qbt.Ptr("http://different.com/announce")},
 			},
 			domain:   "tracker.example.com",
 			expected: false, // Trackers slice doesn't contain this domain
 		},
 		{
 			name:     "empty domain",
-			torrent:  &qbt.Torrent{Tracker: "http://example.com/announce"},
+			torrent:  &qbt.Torrent{Tracker: qbt.Ptr("http://example.com/announce")},
 			domain:   "",
 			expected: false,
 		},
@@ -246,7 +229,7 @@ func TestSyncManager_TorrentBelongsToTrackerDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := sm.torrentBelongsToTrackerDomain(tt.torrent, tt.domain)
+			result := sm.torrentBelongsToTrackerDomain(tt.torrent, tt.domain, tt.trackers)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -509,10 +492,10 @@ func TestSyncManager_ApplyManualFilters_Exclusions(t *testing.T) {
 	sm := &SyncManager{}
 
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", State: qbt.TorrentStateUploading, Category: "movies", Tags: "tagA, tagB", Tracker: "http://trackerA.com/announce"},
-		{Hash: "hash2", State: qbt.TorrentStateDownloading, Category: "tv", Tags: "", Tracker: ""},
-		{Hash: "hash3", State: qbt.TorrentStateUploading, Category: "documentary", Tags: "tagC", Tracker: "udp://trackerb.com:80/announce"},
-		{Hash: "hash4", State: qbt.TorrentStateDownloading, Category: "movies", Tags: "tagC, tagD", Tracker: "https://trackerc.com/announce"},
+		{Hash: qbt.Ptr("hash1"), State: qbt.Ptr(qbt.StateUploading), Category: qbt.Ptr("movies"), Tags: qbt.Ptr("tagA, tagB"), Tracker: qbt.Ptr("http://trackerA.com/announce")},
+		{Hash: qbt.Ptr("hash2"), State: qbt.Ptr(qbt.StateDownloading), Category: qbt.Ptr("tv"), Tags: qbt.Ptr(""), Tracker: qbt.Ptr("")},
+		{Hash: qbt.Ptr("hash3"), State: qbt.Ptr(qbt.StateUploading), Category: qbt.Ptr("documentary"), Tags: qbt.Ptr("tagC"), Tracker: qbt.Ptr("udp://trackerb.com:80/announce")},
+		{Hash: qbt.Ptr("hash4"), State: qbt.Ptr(qbt.StateDownloading), Category: qbt.Ptr("movies"), Tags: qbt.Ptr("tagC, tagD"), Tracker: qbt.Ptr("https://trackerc.com/announce")},
 	}
 
 	mainData := &qbt.MainData{
@@ -526,7 +509,7 @@ func TestSyncManager_ApplyManualFilters_Exclusions(t *testing.T) {
 	hashes := func(ts []qbt.Torrent) []string {
 		result := make([]string, len(ts))
 		for i, torrent := range ts {
-			result[i] = torrent.Hash
+			result[i] = qbt.Deref(torrent.Hash)
 		}
 		return result
 	}
@@ -617,80 +600,68 @@ func TestSyncManager_SortTorrentsByStatus(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:    "unreg",
-			Name:    "Unregistered Torrent",
-			State:   qbt.TorrentStatePausedUp,
-			AddedOn: 20,
-			Trackers: []qbt.TorrentTracker{
-				{
-					Status:  qbt.TrackerStatusNotWorking,
-					Message: "Torrent not found in tracker database",
-				},
-			},
+			Hash:    qbt.Ptr("unreg"),
+			Name:    qbt.Ptr("Unregistered Torrent"),
+			State:   qbt.Ptr(qbt.StatePausedUP),
+			AddedOn: qbt.Ptr(int64(20)),
 		},
 		{
-			Hash:    "down",
-			Name:    "Tracker Down Torrent",
-			State:   qbt.TorrentStateStalledUp,
-			AddedOn: 18,
-			Trackers: []qbt.TorrentTracker{
-				{
-					Status:  qbt.TrackerStatusNotWorking,
-					Message: "Tracker is down",
-				},
-			},
+			Hash:    qbt.Ptr("down"),
+			Name:    qbt.Ptr("Tracker Down Torrent"),
+			State:   qbt.Ptr(qbt.StateStalledUP),
+			AddedOn: qbt.Ptr(int64(18)),
 		},
 		{
-			Hash:    "uploading",
-			Name:    "Seeding Torrent",
-			State:   qbt.TorrentStateUploading,
-			AddedOn: 15,
+			Hash:    qbt.Ptr("uploading"),
+			Name:    qbt.Ptr("Seeding Torrent"),
+			State:   qbt.Ptr(qbt.StateUploading),
+			AddedOn: qbt.Ptr(int64(15)),
 		},
 		{
-			Hash:    "uploading_old",
-			Name:    "Seeding Torrent Older",
-			State:   qbt.TorrentStateUploading,
-			AddedOn: 10,
+			Hash:    qbt.Ptr("uploading_old"),
+			Name:    qbt.Ptr("Seeding Torrent Older"),
+			State:   qbt.Ptr(qbt.StateUploading),
+			AddedOn: qbt.Ptr(int64(10)),
 		},
 		{
-			Hash:    "downloading",
-			Name:    "Downloading Torrent",
-			State:   qbt.TorrentStateDownloading,
-			AddedOn: 12,
+			Hash:    qbt.Ptr("downloading"),
+			Name:    qbt.Ptr("Downloading Torrent"),
+			State:   qbt.Ptr(qbt.StateDownloading),
+			AddedOn: qbt.Ptr(int64(12)),
 		},
 		{
-			Hash:    "paused",
-			Name:    "Paused Torrent",
-			State:   qbt.TorrentStatePausedDl,
-			AddedOn: 8,
+			Hash:    qbt.Ptr("paused"),
+			Name:    qbt.Ptr("Paused Torrent"),
+			State:   qbt.Ptr(qbt.StatePausedDL),
+			AddedOn: qbt.Ptr(int64(8)),
 		},
 		{
-			Hash:    "paused_old",
-			Name:    "Paused Torrent Older",
-			State:   qbt.TorrentStatePausedDl,
-			AddedOn: 4,
+			Hash:    qbt.Ptr("paused_old"),
+			Name:    qbt.Ptr("Paused Torrent Older"),
+			State:   qbt.Ptr(qbt.StatePausedDL),
+			AddedOn: qbt.Ptr(int64(4)),
 		},
 		{
-			Hash:    "stalled_dl",
-			Name:    "Stalled Downloading",
-			State:   qbt.TorrentStateStalledDl,
-			AddedOn: 6,
+			Hash:    qbt.Ptr("stalled_dl"),
+			Name:    qbt.Ptr("Stalled Downloading"),
+			State:   qbt.Ptr(qbt.StateStalledDL),
+			AddedOn: qbt.Ptr(int64(6)),
 		},
 	}
 
 	hashes := func(ts []qbt.Torrent) []string {
 		out := make([]string, len(ts))
 		for i, torrent := range ts {
-			out[i] = torrent.Hash
+			out[i] = qbt.Deref(torrent.Hash)
 		}
 		return out
 	}
 
 	sm.sortTorrentsByStatus(torrents, true, true)
-	assert.Equal(t, []string{"paused_old", "paused", "uploading_old", "uploading", "stalled_dl", "downloading", "down", "unreg"}, hashes(torrents))
+	assert.Equal(t, []string{"unreg", "paused_old", "paused", "down", "uploading_old", "uploading", "stalled_dl", "downloading"}, hashes(torrents))
 
 	sm.sortTorrentsByStatus(torrents, false, true)
-	assert.Equal(t, []string{"unreg", "down", "downloading", "stalled_dl", "uploading", "uploading_old", "paused", "paused_old"}, hashes(torrents))
+	assert.Equal(t, []string{"downloading", "stalled_dl", "uploading", "uploading_old", "down", "paused", "paused_old", "unreg"}, hashes(torrents))
 }
 
 func TestSyncManager_SortTorrentsByStatus_TieBreakAddedOn(t *testing.T) {
@@ -698,23 +669,23 @@ func TestSyncManager_SortTorrentsByStatus_TieBreakAddedOn(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:    "newer",
-			Name:    "Same State Newer",
-			State:   qbt.TorrentStateUploading,
-			AddedOn: 200,
+			Hash:    qbt.Ptr("newer"),
+			Name:    qbt.Ptr("Same State Newer"),
+			State:   qbt.Ptr(qbt.StateUploading),
+			AddedOn: qbt.Ptr(int64(200)),
 		},
 		{
-			Hash:    "older",
-			Name:    "Same State Older",
-			State:   qbt.TorrentStateUploading,
-			AddedOn: 100,
+			Hash:    qbt.Ptr("older"),
+			Name:    qbt.Ptr("Same State Older"),
+			State:   qbt.Ptr(qbt.StateUploading),
+			AddedOn: qbt.Ptr(int64(100)),
 		},
 	}
 
 	hashes := func(ts []qbt.Torrent) []string {
 		out := make([]string, len(ts))
 		for i, torrent := range ts {
-			out[i] = torrent.Hash
+			out[i] = qbt.Deref(torrent.Hash)
 		}
 		return out
 	}
@@ -730,15 +701,15 @@ func TestSyncManager_SortTorrentsByStatus_StoppedAfterSeeding(t *testing.T) {
 	sm := &SyncManager{}
 
 	torrents := []qbt.Torrent{
-		{Hash: "seeding", State: qbt.TorrentStateUploading, AddedOn: 3},
-		{Hash: "stopped", State: qbt.TorrentStateStoppedDl, AddedOn: 2},
-		{Hash: "stalled", State: qbt.TorrentStateStalledUp, AddedOn: 1},
+		{Hash: qbt.Ptr("seeding"), State: qbt.Ptr(qbt.StateUploading), AddedOn: qbt.Ptr(int64(3))},
+		{Hash: qbt.Ptr("stopped"), State: qbt.Ptr(qbt.StateStoppedDL), AddedOn: qbt.Ptr(int64(2))},
+		{Hash: qbt.Ptr("stalled"), State: qbt.Ptr(qbt.StateStalledUP), AddedOn: qbt.Ptr(int64(1))},
 	}
 
 	hashes := func(ts []qbt.Torrent) []string {
 		out := make([]string, len(ts))
 		for i, torrent := range ts {
-			out[i] = torrent.Hash
+			out[i] = qbt.Deref(torrent.Hash)
 		}
 		return out
 	}
@@ -753,12 +724,12 @@ func TestSyncManager_SearchFunctionality(t *testing.T) {
 
 	// Create test torrents with different names and properties using proper qbt.Torrent struct
 	torrents := []qbt.Torrent{
-		{Name: "Ubuntu.20.04.LTS.Desktop.amd64.iso", Category: "linux", Tags: "ubuntu,desktop", Hash: "hash1"},
-		{Name: "Windows.10.Pro.x64.iso", Category: "windows", Tags: "microsoft,os", Hash: "hash2"},
-		{Name: "ubuntu-20.04-server.iso", Category: "linux", Tags: "ubuntu,server", Hash: "hash3"},
-		{Name: "Movie.2023.1080p.BluRay.x264", Category: "movies", Tags: "action,2023", Hash: "hash4"},
-		{Name: "TV.Show.S01E01.1080p.HDTV.x264", Category: "tv", Tags: "drama,hdtv", Hash: "hash5"},
-		{Name: "Music.Album.2023.FLAC", Category: "music", Tags: "flac,2023", Hash: "hash6"},
+		{Name: qbt.Ptr("Ubuntu.20.04.LTS.Desktop.amd64.iso"), Category: qbt.Ptr("linux"), Tags: qbt.Ptr("ubuntu,desktop"), Hash: qbt.Ptr("hash1")},
+		{Name: qbt.Ptr("Windows.10.Pro.x64.iso"), Category: qbt.Ptr("windows"), Tags: qbt.Ptr("microsoft,os"), Hash: qbt.Ptr("hash2")},
+		{Name: qbt.Ptr("ubuntu-20.04-server.iso"), Category: qbt.Ptr("linux"), Tags: qbt.Ptr("ubuntu,server"), Hash: qbt.Ptr("hash3")},
+		{Name: qbt.Ptr("Movie.2023.1080p.BluRay.x264"), Category: qbt.Ptr("movies"), Tags: qbt.Ptr("action,2023"), Hash: qbt.Ptr("hash4")},
+		{Name: qbt.Ptr("TV.Show.S01E01.1080p.HDTV.x264"), Category: qbt.Ptr("tv"), Tags: qbt.Ptr("drama,hdtv"), Hash: qbt.Ptr("hash5")},
+		{Name: qbt.Ptr("Music.Album.2023.FLAC"), Category: qbt.Ptr("music"), Tags: qbt.Ptr("flac,2023"), Hash: qbt.Ptr("hash6")},
 	}
 
 	t.Run("filterTorrentsBySearch exact match", func(t *testing.T) {
@@ -770,7 +741,7 @@ func TestSyncManager_SearchFunctionality(t *testing.T) {
 		for _, result := range results {
 			// Should contain ubuntu in name or tags
 			assert.True(t,
-				contains(result.Name, "ubuntu") || contains(result.Tags, "ubuntu"),
+				contains(qbt.Deref(result.Name), "ubuntu") || contains(qbt.Deref(result.Tags), "ubuntu"),
 				"Result should contain 'ubuntu': %s", result.Name)
 		}
 	})
@@ -784,7 +755,7 @@ func TestSyncManager_SearchFunctionality(t *testing.T) {
 		for _, result := range results {
 			// Should contain 2023 in name or tags
 			assert.True(t,
-				contains(result.Name, "2023") || contains(result.Tags, "2023"),
+				contains(qbt.Deref(result.Name), "2023") || contains(qbt.Deref(result.Tags), "2023"),
 				"Result should contain '2023': %s", result.Name)
 		}
 	})
@@ -793,7 +764,7 @@ func TestSyncManager_SearchFunctionality(t *testing.T) {
 		results := sm.filterTorrentsBySearch(torrents, "hash4")
 
 		assert.Len(t, results, 1, "Should find torrent by hash")
-		assert.Equal(t, "Movie.2023.1080p.BluRay.x264", results[0].Name)
+		assert.Equal(t, "Movie.2023.1080p.BluRay.x264", qbt.Deref(results[0].Name))
 	})
 
 	t.Run("filterTorrentsByGlob pattern match", func(t *testing.T) {
@@ -803,7 +774,7 @@ func TestSyncManager_SearchFunctionality(t *testing.T) {
 		assert.GreaterOrEqual(t, len(results), 3, "Should find at least 3 ISO files")
 
 		for _, result := range results {
-			assert.Contains(t, result.Name, ".iso", "Result should be an ISO file: %s", result.Name)
+			assert.Contains(t, qbt.Deref(result.Name), ".iso", "Result should be an ISO file: %s", result.Name)
 		}
 	})
 
@@ -943,94 +914,67 @@ func TestSyncManager_GetDomainsForTorrent(t *testing.T) {
 		expected map[string]struct{}
 	}{
 		{
-			name: "Multiple trackers returns all domains",
+			name: "Single primary Tracker URL returns domain",
 			torrent: &qbt.Torrent{
-				Hash: "hash1",
-				Trackers: []qbt.TorrentTracker{
-					{Url: "https://tracker1.example.com/announce"},
-					{Url: "udp://tracker2.org:6969/announce"},
-					{Url: "http://tracker3.net:8080/announce"},
-				},
+				Hash:    qbt.Ptr("hash1"),
+				Tracker: qbt.Ptr("https://tracker1.example.com/announce"),
 			},
 			expected: map[string]struct{}{
 				"tracker1.example.com": {},
-				"tracker2.org":         {},
-				"tracker3.net":         {},
 			},
 		},
 		{
 			name: "Single Tracker field (legacy) returns domain",
 			torrent: &qbt.Torrent{
-				Hash:    "hash2",
-				Tracker: "https://legacy.tracker.com/announce",
+				Hash:    qbt.Ptr("hash2"),
+				Tracker: qbt.Ptr("https://legacy.tracker.com/announce"),
 			},
 			expected: map[string]struct{}{
 				"legacy.tracker.com": {},
 			},
 		},
 		{
-			name: "Trackers field takes precedence over Tracker field",
+			name: "Tracker field returns its domain",
 			torrent: &qbt.Torrent{
-				Hash:    "hash3",
-				Tracker: "https://legacy.tracker.com/announce",
-				Trackers: []qbt.TorrentTracker{
-					{Url: "https://primary.tracker.com/announce"},
-				},
+				Hash:    qbt.Ptr("hash3"),
+				Tracker: qbt.Ptr("https://legacy.tracker.com/announce"),
 			},
 			expected: map[string]struct{}{
-				"primary.tracker.com": {},
+				"legacy.tracker.com": {},
 			},
 		},
 		{
-			name: "Empty URL entries are filtered out",
+			name: "Empty Tracker field returns empty map",
 			torrent: &qbt.Torrent{
-				Hash: "hash4",
-				Trackers: []qbt.TorrentTracker{
-					{Url: "https://valid.tracker.com/announce"},
-					{Url: ""},
-					{Url: "https://another-valid.com/announce"},
-				},
-			},
-			expected: map[string]struct{}{
-				"valid.tracker.com": {},
-				"another-valid.com": {},
-			},
-		},
-		{
-			name: "Empty torrent returns empty map",
-			torrent: &qbt.Torrent{
-				Hash: "hash5",
+				Hash:    qbt.Ptr("hash4"),
+				Tracker: qbt.Ptr(""),
 			},
 			expected: map[string]struct{}{},
 		},
 		{
-			name: "Duplicate domains are deduplicated",
+			name: "Empty torrent returns empty map",
 			torrent: &qbt.Torrent{
-				Hash: "hash6",
-				Trackers: []qbt.TorrentTracker{
-					{Url: "https://tracker.example.com/announce"},
-					{Url: "http://tracker.example.com/scrape"},
-					{Url: "udp://tracker.example.com:6969"},
-				},
+				Hash: qbt.Ptr("hash5"),
+			},
+			expected: map[string]struct{}{},
+		},
+		{
+			name: "Tracker field with path returns domain",
+			torrent: &qbt.Torrent{
+				Hash:    qbt.Ptr("hash6"),
+				Tracker: qbt.Ptr("https://tracker.example.com/announce"),
 			},
 			expected: map[string]struct{}{
 				"tracker.example.com": {},
 			},
 		},
 		{
-			name: "Pseudo trackers are filtered out",
+			name: "Pseudo tracker is filtered out",
 			torrent: &qbt.Torrent{
-				Hash: "hash7",
-				Trackers: []qbt.TorrentTracker{
-					{Url: "** [DHT] **"},
-					{Url: "[PeX]"},
-					{Url: " [LSD] "},
-					{Url: "https://valid.tracker.com/announce"},
-				},
+				Hash:    qbt.Ptr("hash7"),
+				Tracker: qbt.Ptr("** [DHT] **"),
 			},
-			expected: map[string]struct{}{
-				"valid.tracker.com": {},
-			},
+			expected: map[string]struct{}{},
 		},
 	}
 

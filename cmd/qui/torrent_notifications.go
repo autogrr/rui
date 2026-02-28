@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/services/notifications"
@@ -29,11 +29,11 @@ func buildTorrentCompletedEvent(syncManager torrentNotificationSync, instanceID 
 	return notifications.Event{
 		Type:          notifications.EventTorrentCompleted,
 		InstanceID:    instanceID,
-		TorrentName:   torrent.Name,
-		TorrentHash:   torrent.Hash,
+		TorrentName:   qbt.Deref(torrent.Name),
+		TorrentHash:   qbt.Deref(torrent.Hash),
 		TrackerDomain: trackerDomainForTorrent(syncManager, torrent),
-		Category:      torrent.Category,
-		Tags:          parseTorrentTags(torrent.Tags),
+		Category:      qbt.Deref(torrent.Category),
+		Tags:          parseTorrentTags(qbt.Deref(torrent.Tags)),
 	}
 }
 
@@ -41,23 +41,23 @@ func buildTorrentAddedEvent(syncManager torrentNotificationSync, instanceID int,
 	return notifications.Event{
 		Type:                   notifications.EventTorrentAdded,
 		InstanceID:             instanceID,
-		TorrentName:            torrent.Name,
-		TorrentHash:            torrent.Hash,
-		TorrentAddedOn:         torrent.AddedOn,
-		TorrentETASeconds:      torrent.ETA,
-		TorrentState:           string(torrent.State),
-		TorrentProgress:        torrent.Progress,
-		TorrentRatio:           torrent.Ratio,
-		TorrentTotalSizeBytes:  torrent.TotalSize,
-		TorrentDownloadedBytes: torrent.Downloaded,
-		TorrentAmountLeftBytes: torrent.AmountLeft,
-		TorrentDlSpeedBps:      torrent.DlSpeed,
-		TorrentUpSpeedBps:      torrent.UpSpeed,
-		TorrentNumSeeds:        torrent.NumSeeds,
-		TorrentNumLeechs:       torrent.NumLeechs,
+		TorrentName:            qbt.Deref(torrent.Name),
+		TorrentHash:            qbt.Deref(torrent.Hash),
+		TorrentAddedOn:         qbt.Deref(torrent.AddedOn),
+		TorrentETASeconds:      qbt.Deref(torrent.ETA),
+		TorrentState:           string(qbt.Deref(torrent.State)),
+		TorrentProgress:        qbt.Deref(torrent.Progress),
+		TorrentRatio:           qbt.Deref(torrent.Ratio),
+		TorrentTotalSizeBytes:  qbt.Deref(torrent.TotalSize),
+		TorrentDownloadedBytes: qbt.Deref(torrent.Downloaded),
+		TorrentAmountLeftBytes: qbt.Deref(torrent.AmountLeft),
+		TorrentDlSpeedBps:      qbt.Deref(torrent.DlSpeed),
+		TorrentUpSpeedBps:      qbt.Deref(torrent.UpSpeed),
+		TorrentNumSeeds:        int64(qbt.Deref(torrent.NumSeeds)),
+		TorrentNumLeechs:       int64(qbt.Deref(torrent.NumLeechs)),
 		TrackerDomain:          trackerDomainForTorrent(syncManager, torrent),
-		Category:               torrent.Category,
-		Tags:                   parseTorrentTags(torrent.Tags),
+		Category:               qbt.Deref(torrent.Category),
+		Tags:                   parseTorrentTags(qbt.Deref(torrent.Tags)),
 	}
 }
 
@@ -84,7 +84,7 @@ func notifyTorrentAddedWithDelayAfter(ctx context.Context, syncManager torrentNo
 		<-timer.C
 
 		current := torrent
-		if refreshed, ok := refreshTorrentForNotification(baseCtx, syncManager, instanceID, torrent.Hash); ok {
+		if refreshed, ok := refreshTorrentForNotification(baseCtx, syncManager, instanceID, qbt.Deref(torrent.Hash)); ok {
 			current = refreshed
 		}
 
@@ -120,10 +120,10 @@ func refreshTorrentForNotification(ctx context.Context, syncManager torrentNotif
 }
 
 func trackerDomainForTorrent(syncManager torrentNotificationSync, torrent qbt.Torrent) string {
-	if syncManager == nil || strings.TrimSpace(torrent.Tracker) == "" {
+	if syncManager == nil || strings.TrimSpace(qbt.Deref(torrent.Tracker)) == "" {
 		return ""
 	}
-	return syncManager.ExtractDomainFromURL(torrent.Tracker)
+	return syncManager.ExtractDomainFromURL(qbt.Deref(torrent.Tracker))
 }
 
 func parseTorrentTags(raw string) []string {

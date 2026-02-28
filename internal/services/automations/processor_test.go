@@ -7,7 +7,7 @@ package automations
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/internal/models"
@@ -20,18 +20,18 @@ func TestProcessTorrents_CategoryBlockedByCrossSeedCategory(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "source",
-			Category:    "sonarr.cross",
-			SavePath:    "/data",
-			ContentPath: "/data/show",
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("source"),
+			Category:    qbt.Ptr("sonarr.cross"),
+			SavePath:    qbt.Ptr("/data"),
+			ContentPath: qbt.Ptr("/data/show"),
 		},
 		{
-			Hash:        "b",
-			Name:        "protected",
-			Category:    "sonarr",
-			SavePath:    "/data",
-			ContentPath: "/data/show",
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("protected"),
+			Category:    qbt.Ptr("sonarr"),
+			SavePath:    qbt.Ptr("/data"),
+			ContentPath: qbt.Ptr("/data/show"),
 		},
 	}
 
@@ -60,18 +60,18 @@ func TestProcessTorrents_CategoryAllowedWhenNoProtectedCrossSeed(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "source",
-			Category:    "sonarr.cross",
-			SavePath:    "/data",
-			ContentPath: "/data/show",
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("source"),
+			Category:    qbt.Ptr("sonarr.cross"),
+			SavePath:    qbt.Ptr("/data"),
+			ContentPath: qbt.Ptr("/data/show"),
 		},
 		{
-			Hash:        "b",
-			Name:        "other",
-			Category:    "other",
-			SavePath:    "/data",
-			ContentPath: "/data/show",
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("other"),
+			Category:    qbt.Ptr("other"),
+			SavePath:    qbt.Ptr("/data"),
+			ContentPath: qbt.Ptr("/data/show"),
 		},
 	}
 
@@ -104,18 +104,18 @@ func TestProcessTorrents_CategoryAllowedWhenProtectedCrossSeedDifferentSavePath(
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "source",
-			Category:    "sonarr.cross",
-			SavePath:    "/data",
-			ContentPath: "/data/show",
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("source"),
+			Category:    qbt.Ptr("sonarr.cross"),
+			SavePath:    qbt.Ptr("/data"),
+			ContentPath: qbt.Ptr("/data/show"),
 		},
 		{
-			Hash:        "b",
-			Name:        "protected-different-savepath",
-			Category:    "sonarr",
-			SavePath:    "/other",
-			ContentPath: "/data/show",
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("protected-different-savepath"),
+			Category:    qbt.Ptr("sonarr"),
+			SavePath:    qbt.Ptr("/other"),
+			ContentPath: qbt.Ptr("/data/show"),
 		},
 	}
 
@@ -144,22 +144,22 @@ func TestProcessTorrents_GroupConditionsUseConditionScopedGroupIDs(t *testing.T)
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "A.Release",
-			SavePath:    "/data/shared",
-			ContentPath: "/data/shared/release-a",
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("A.Release"),
+			SavePath:    qbt.Ptr("/data/shared"),
+			ContentPath: qbt.Ptr("/data/shared/release-a"),
 		},
 		{
-			Hash:        "b",
-			Name:        "B.Release",
-			SavePath:    "/data/shared",
-			ContentPath: "/data/shared/release-a",
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("B.Release"),
+			SavePath:    qbt.Ptr("/data/shared"),
+			ContentPath: qbt.Ptr("/data/shared/release-a"),
 		},
 		{
-			Hash:        "c",
-			Name:        "C.Release",
-			SavePath:    "/data/shared",
-			ContentPath: "/data/shared/release-c",
+			Hash:        qbt.Ptr("c"),
+			Name:        qbt.Ptr("C.Release"),
+			SavePath:    qbt.Ptr("/data/shared"),
+			ContentPath: qbt.Ptr("/data/shared/release-c"),
 		},
 	}
 
@@ -212,16 +212,16 @@ func TestProcessTorrents_GroupConditionWithoutGroupID_UsesDefaultFallback(t *tes
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "A.Release",
-			SavePath:    "/data/shared",
-			ContentPath: "/data/shared/release",
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("A.Release"),
+			SavePath:    qbt.Ptr("/data/shared"),
+			ContentPath: qbt.Ptr("/data/shared/release"),
 		},
 		{
-			Hash:        "b",
-			Name:        "B.Release",
-			SavePath:    "/data/shared",
-			ContentPath: "/data/shared/release",
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("B.Release"),
+			SavePath:    qbt.Ptr("/data/shared"),
+			ContentPath: qbt.Ptr("/data/shared/release"),
 		},
 	}
 
@@ -253,9 +253,9 @@ func TestProcessTorrents_GroupConditionWithoutGroupID_UsesDefaultFallback(t *tes
 func TestMoveSkippedWhenAlreadyInTargetPath(t *testing.T) {
 	// Test that move is skipped when torrent is already in the target path
 	torrent := qbt.Torrent{
-		Hash:     "abc123",
-		Name:     "Test Torrent",
-		SavePath: "/data/archive", // Already in target path
+		Hash:     qbt.Ptr("abc123"),
+		Name:     qbt.Ptr("Test Torrent"),
+		SavePath: qbt.Ptr("/data/archive"), // Already in target path
 	}
 
 	rule := &models.Automation{
@@ -268,8 +268,8 @@ func TestMoveSkippedWhenAlreadyInTargetPath(t *testing.T) {
 	}
 
 	state := &torrentDesiredState{
-		hash:        torrent.Hash,
-		name:        torrent.Name,
+		hash:        qbt.Deref(torrent.Hash),
+		name:        qbt.Deref(torrent.Name),
 		currentTags: make(map[string]struct{}),
 		tagActions:  make(map[string]string),
 	}
@@ -283,10 +283,10 @@ func TestMoveSkippedWhenAlreadyInTargetPath(t *testing.T) {
 
 func TestMoveWithGroupID_SetsGroupMetadata(t *testing.T) {
 	torrent := qbt.Torrent{
-		Hash:     "abc123",
-		Name:     "Test Torrent",
-		SavePath: "/data/downloads",
-		Ratio:    2.0,
+		Hash:     qbt.Ptr("abc123"),
+		Name:     qbt.Ptr("Test Torrent"),
+		SavePath: qbt.Ptr("/data/downloads"),
+		Ratio:    qbt.Ptr(float64(2.0)),
 	}
 
 	rule := &models.Automation{
@@ -310,8 +310,8 @@ func TestMoveWithGroupID_SetsGroupMetadata(t *testing.T) {
 	}
 
 	state := &torrentDesiredState{
-		hash:        torrent.Hash,
-		name:        torrent.Name,
+		hash:        qbt.Deref(torrent.Hash),
+		name:        qbt.Deref(torrent.Name),
 		currentTags: make(map[string]struct{}),
 		tagActions:  make(map[string]string),
 	}
@@ -332,9 +332,9 @@ func TestMoveWithGroupID_SetsGroupMetadata(t *testing.T) {
 func TestMovePathNormalization(t *testing.T) {
 	// Test that path normalization works (case insensitive, trailing slashes)
 	torrent := qbt.Torrent{
-		Hash:     "abc123",
-		Name:     "Test Torrent",
-		SavePath: "/Data/Archive/", // Different case and trailing slash
+		Hash:     qbt.Ptr("abc123"),
+		Name:     qbt.Ptr("Test Torrent"),
+		SavePath: qbt.Ptr("/Data/Archive/"), // Different case and trailing slash
 	}
 
 	rule := &models.Automation{
@@ -347,8 +347,8 @@ func TestMovePathNormalization(t *testing.T) {
 	}
 
 	state := &torrentDesiredState{
-		hash:        torrent.Hash,
-		name:        torrent.Name,
+		hash:        qbt.Deref(torrent.Hash),
+		name:        qbt.Deref(torrent.Name),
 		currentTags: make(map[string]struct{}),
 		tagActions:  make(map[string]string),
 	}
@@ -365,18 +365,18 @@ func TestMoveWithGroupID_IgnoresLegacyCrossSeedBlock(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "source",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       2.5,
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("source"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(2.5)),
 		},
 		{
-			Hash:        "b",
-			Name:        "cross-seed",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       1.0,
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("cross-seed"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(1.0)),
 		},
 	}
 
@@ -407,18 +407,18 @@ func TestMoveBlockedByCrossSeed(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "source",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       2.5,
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("source"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(2.5)),
 		},
 		{
-			Hash:        "b",
-			Name:        "cross-seed",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       2.0,
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("cross-seed"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(2.0)),
 		},
 	}
 
@@ -454,10 +454,10 @@ func TestMoveAllowedWhenNoCrossSeed(t *testing.T) {
 	// so it won't be blocked even with BlockIfCrossSeed=true
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "source",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("source"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
 		},
 	}
 
@@ -487,18 +487,18 @@ func TestMoveAllowedWhenBlockIfCrossSeedFalse(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "source",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       2.5,
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("source"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(2.5)),
 		},
 		{
-			Hash:        "b",
-			Name:        "cross-seed",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       2.0,
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("cross-seed"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(2.0)),
 		},
 	}
 
@@ -533,18 +533,18 @@ func TestMoveAllowedWhenCrossSeedMeetsCondition(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "source",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       2.5,
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("source"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(2.5)),
 		},
 		{
-			Hash:        "b",
-			Name:        "cross-seed",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       2.1,
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("cross-seed"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(2.1)),
 		},
 	}
 
@@ -579,18 +579,18 @@ func TestMoveWithConditionAndCrossSeedBlock(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "source",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       2.5, // Meets condition
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("source"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(2.5)), // Meets condition
 		},
 		{
-			Hash:        "b",
-			Name:        "cross-seed",
-			SavePath:    "/data/downloads",
-			ContentPath: "/data/downloads/contents",
-			Ratio:       2.0, // Does not meet condition
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("cross-seed"),
+			SavePath:    qbt.Ptr("/data/downloads"),
+			ContentPath: qbt.Ptr("/data/downloads/contents"),
+			Ratio:       qbt.Ptr(float64(2.0)), // Does not meet condition
 		},
 	}
 
@@ -621,9 +621,9 @@ func TestMoveWithConditionAndCrossSeedBlock(t *testing.T) {
 
 func TestResolveMovePath_Literal(t *testing.T) {
 	torrent := qbt.Torrent{
-		Hash:     "abc",
-		Name:     "Show.S01",
-		Category: "tv",
+		Hash:     qbt.Ptr("abc"),
+		Name:     qbt.Ptr("Show.S01"),
+		Category: qbt.Ptr("tv"),
 	}
 	resolved, ok := resolveMovePath("/data/archive", torrent, nil, nil)
 	require.True(t, ok)
@@ -632,9 +632,9 @@ func TestResolveMovePath_Literal(t *testing.T) {
 
 func TestResolveMovePath_Template(t *testing.T) {
 	torrent := qbt.Torrent{
-		Hash:     "abc",
-		Name:     "Movie.2024",
-		Category: "movies",
+		Hash:     qbt.Ptr("abc"),
+		Name:     qbt.Ptr("Movie.2024"),
+		Category: qbt.Ptr("movies"),
 	}
 	resolved, ok := resolveMovePath("/data/{{.Category}}", torrent, nil, nil)
 	require.True(t, ok)
@@ -643,21 +643,21 @@ func TestResolveMovePath_Template(t *testing.T) {
 
 func TestResolveMovePath_TemplateWithSanitize(t *testing.T) {
 	torrent := qbt.Torrent{
-		Hash:     "abc",
-		Name:     "Movie/2024:Bad*Name",
-		Category: "movies",
+		Hash:     qbt.Ptr("abc"),
+		Name:     qbt.Ptr("Movie/2024:Bad*Name"),
+		Category: qbt.Ptr("movies"),
 	}
 	resolved, ok := resolveMovePath("/data/{{ sanitize .Name }}", torrent, nil, nil)
 	require.True(t, ok)
-	expectedName := pathutil.SanitizePathSegment(torrent.Name)
+	expectedName := pathutil.SanitizePathSegment(qbt.Deref(torrent.Name))
 	require.Equal(t, "/data/"+expectedName, resolved)
 }
 
 func TestResolveMovePath_TrackerFallback(t *testing.T) {
 	torrent := qbt.Torrent{
-		Hash:     "abc",
-		Name:     "Show.S01",
-		Category: "tv",
+		Hash:     qbt.Ptr("abc"),
+		Name:     qbt.Ptr("Show.S01"),
+		Category: qbt.Ptr("tv"),
 	}
 	state := &torrentDesiredState{
 		trackerDomains: []string{"tracker.example.com"},
@@ -670,11 +670,11 @@ func TestResolveMovePath_TrackerFallback(t *testing.T) {
 func TestMoveAction_WithTemplatePath(t *testing.T) {
 	sm := qbittorrent.NewSyncManager(nil, nil)
 	torrent := qbt.Torrent{
-		Hash:        "abc",
-		Name:        "Show.S01",
-		Category:    "tv",
-		SavePath:    "/incoming",
-		ContentPath: "/incoming/Show.S01",
+		Hash:        qbt.Ptr("abc"),
+		Name:        qbt.Ptr("Show.S01"),
+		Category:    qbt.Ptr("tv"),
+		SavePath:    qbt.Ptr("/incoming"),
+		ContentPath: qbt.Ptr("/incoming/Show.S01"),
 	}
 	rules := []*models.Automation{{
 		ID:             1,
@@ -699,10 +699,10 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 
 		// Torrent without valid cross-seed paths
 		torrent := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000, // 50GB
-			ContentPath: "",          // Empty path prevents cross-seed key
-			SavePath:    "",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)), // 50GB
+			ContentPath: qbt.Ptr(""),          // Empty path prevents cross-seed key
+			SavePath:    qbt.Ptr(""),
 		}
 
 		updateCumulativeFreeSpaceCleared(torrent, evalCtx, DeleteModeWithFiles, nil)
@@ -718,10 +718,10 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 		}
 
 		torrent := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000, // 50GB
-			ContentPath: "/data/movie",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)), // 50GB
+			ContentPath: qbt.Ptr("/data/movie"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		updateCumulativeFreeSpaceCleared(torrent, evalCtx, DeleteModeWithFiles, nil)
@@ -738,18 +738,18 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 
 		// First torrent
 		torrent1 := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000, // 50GB
-			ContentPath: "/data/movie",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)), // 50GB
+			ContentPath: qbt.Ptr("/data/movie"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		// Cross-seed of first torrent (same paths, different hash)
 		torrent2 := qbt.Torrent{
-			Hash:        "def456",
-			Size:        50000000000, // Same size (cross-seed)
-			ContentPath: "/data/movie",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("def456"),
+			Size:        qbt.Ptr(int64(50000000000)), // Same size (cross-seed)
+			ContentPath: qbt.Ptr("/data/movie"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		allTorrents := []qbt.Torrent{torrent1, torrent2}
@@ -768,17 +768,17 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 		}
 
 		torrent1 := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000, // 50GB
-			ContentPath: "/data/movie1",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)), // 50GB
+			ContentPath: qbt.Ptr("/data/movie1"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		torrent2 := qbt.Torrent{
-			Hash:        "def456",
-			Size:        30000000000, // 30GB
-			ContentPath: "/data/movie2",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("def456"),
+			Size:        qbt.Ptr(int64(30000000000)), // 30GB
+			ContentPath: qbt.Ptr("/data/movie2"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		allTorrents := []qbt.Torrent{torrent1, torrent2}
@@ -791,10 +791,10 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 
 	t.Run("handles nil evalCtx gracefully", func(t *testing.T) {
 		torrent := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000,
-			ContentPath: "/data/movie",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)),
+			ContentPath: qbt.Ptr("/data/movie"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		// Should not panic
@@ -808,10 +808,10 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 		}
 
 		torrent := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000, // 50GB
-			ContentPath: "/data/movie",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)), // 50GB
+			ContentPath: qbt.Ptr("/data/movie"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		// Keep-files mode should not increase SpaceToClear
@@ -829,17 +829,17 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 
 		// Two torrents with same ContentPath = cross-seeds
 		torrent1 := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000, // 50GB
-			ContentPath: "/data/movie",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)), // 50GB
+			ContentPath: qbt.Ptr("/data/movie"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		torrent2 := qbt.Torrent{
-			Hash:        "def456",
-			Size:        50000000000,
-			ContentPath: "/data/movie", // Same content path = cross-seed
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("def456"),
+			Size:        qbt.Ptr(int64(50000000000)),
+			ContentPath: qbt.Ptr("/data/movie"), // Same content path = cross-seed
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		allTorrents := []qbt.Torrent{torrent1, torrent2}
@@ -860,10 +860,10 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 
 		// Only one torrent - no cross-seeds
 		torrent := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000, // 50GB
-			ContentPath: "/data/movie",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)), // 50GB
+			ContentPath: qbt.Ptr("/data/movie"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		allTorrents := []qbt.Torrent{torrent}
@@ -890,17 +890,17 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 		}
 
 		torrent1 := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000, // 50GB
-			ContentPath: "/data/movie1",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)), // 50GB
+			ContentPath: qbt.Ptr("/data/movie1"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		torrent2 := qbt.Torrent{
-			Hash:        "def456",
-			Size:        50000000000,    // Same size (hardlink copy)
-			ContentPath: "/data/movie2", // Different path, but same files via hardlinks
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("def456"),
+			Size:        qbt.Ptr(int64(50000000000)),    // Same size (hardlink copy)
+			ContentPath: qbt.Ptr("/data/movie2"), // Different path, but same files via hardlinks
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		allTorrents := []qbt.Torrent{torrent1, torrent2}
@@ -926,10 +926,10 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 		}
 
 		torrent := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000,
-			ContentPath: "/data/movie",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)),
+			ContentPath: qbt.Ptr("/data/movie"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		allTorrents := []qbt.Torrent{torrent}
@@ -955,17 +955,17 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 		}
 
 		torrent1 := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000,
-			ContentPath: "/data/movie1",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)),
+			ContentPath: qbt.Ptr("/data/movie1"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		torrent2 := qbt.Torrent{
-			Hash:        "def456",
-			Size:        30000000000,
-			ContentPath: "/data/movie2",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("def456"),
+			Size:        qbt.Ptr(int64(30000000000)),
+			ContentPath: qbt.Ptr("/data/movie2"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		allTorrents := []qbt.Torrent{torrent1, torrent2}
@@ -993,17 +993,17 @@ func TestUpdateCumulativeFreeSpaceCleared(t *testing.T) {
 		}
 
 		torrent1 := qbt.Torrent{
-			Hash:        "abc123",
-			Size:        50000000000,
-			ContentPath: "/data/movie1",
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("abc123"),
+			Size:        qbt.Ptr(int64(50000000000)),
+			ContentPath: qbt.Ptr("/data/movie1"),
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		torrent2 := qbt.Torrent{
-			Hash:        "def456",
-			Size:        50000000000,
-			ContentPath: "/data/movie2", // Different ContentPath
-			SavePath:    "/data",
+			Hash:        qbt.Ptr("def456"),
+			Size:        qbt.Ptr(int64(50000000000)),
+			ContentPath: qbt.Ptr("/data/movie2"), // Different ContentPath
+			SavePath:    qbt.Ptr("/data"),
 		}
 
 		allTorrents := []qbt.Torrent{torrent1, torrent2}
@@ -1025,11 +1025,11 @@ func TestProcessTorrents_FreeSpaceConditionStopsWhenSatisfied(t *testing.T) {
 	// Create 5 torrents with different ages, each 20GB
 	// Oldest first: torrent1, torrent2, torrent3, torrent4, torrent5
 	torrents := []qbt.Torrent{
-		{Hash: "e", Name: "torrent5", Size: 20000000000, AddedOn: 5000, SavePath: "/data", ContentPath: "/data/t5"},
-		{Hash: "c", Name: "torrent3", Size: 20000000000, AddedOn: 3000, SavePath: "/data", ContentPath: "/data/t3"},
-		{Hash: "a", Name: "torrent1", Size: 20000000000, AddedOn: 1000, SavePath: "/data", ContentPath: "/data/t1"},
-		{Hash: "d", Name: "torrent4", Size: 20000000000, AddedOn: 4000, SavePath: "/data", ContentPath: "/data/t4"},
-		{Hash: "b", Name: "torrent2", Size: 20000000000, AddedOn: 2000, SavePath: "/data", ContentPath: "/data/t2"},
+		{Hash: qbt.Ptr("e"), Name: qbt.Ptr("torrent5"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(5000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t5")},
+		{Hash: qbt.Ptr("c"), Name: qbt.Ptr("torrent3"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(3000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t3")},
+		{Hash: qbt.Ptr("a"), Name: qbt.Ptr("torrent1"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(1000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t1")},
+		{Hash: qbt.Ptr("d"), Name: qbt.Ptr("torrent4"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(4000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t4")},
+		{Hash: qbt.Ptr("b"), Name: qbt.Ptr("torrent2"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(2000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t2")},
 	}
 
 	// Rule: Delete if free space < 50GB
@@ -1089,9 +1089,9 @@ func TestProcessTorrents_FreeSpaceConditionWithCrossSeeds(t *testing.T) {
 	// torrent1 and torrent2 are cross-seeds (same 30GB file)
 	// torrent3 is independent (20GB)
 	torrents := []qbt.Torrent{
-		{Hash: "a", Name: "torrent1", Size: 30000000000, AddedOn: 1000, SavePath: "/data", ContentPath: "/data/movie"},
-		{Hash: "b", Name: "torrent2", Size: 30000000000, AddedOn: 2000, SavePath: "/data", ContentPath: "/data/movie"}, // Cross-seed of a
-		{Hash: "c", Name: "torrent3", Size: 20000000000, AddedOn: 3000, SavePath: "/data", ContentPath: "/data/other"},
+		{Hash: qbt.Ptr("a"), Name: qbt.Ptr("torrent1"), Size: qbt.Ptr(int64(30000000000)), AddedOn: qbt.Ptr(int64(1000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/movie")},
+		{Hash: qbt.Ptr("b"), Name: qbt.Ptr("torrent2"), Size: qbt.Ptr(int64(30000000000)), AddedOn: qbt.Ptr(int64(2000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/movie")}, // Cross-seed of a
+		{Hash: qbt.Ptr("c"), Name: qbt.Ptr("torrent3"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(3000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/other")},
 	}
 
 	// Rule: Delete if free space < 60GB
@@ -1147,9 +1147,9 @@ func TestProcessTorrents_SortsOldestFirst(t *testing.T) {
 
 	// Create torrents in random order
 	torrents := []qbt.Torrent{
-		{Hash: "c", Name: "newest", Size: 10000000000, AddedOn: 3000, SavePath: "/data", ContentPath: "/data/c"},
-		{Hash: "a", Name: "oldest", Size: 10000000000, AddedOn: 1000, SavePath: "/data", ContentPath: "/data/a"},
-		{Hash: "b", Name: "middle", Size: 10000000000, AddedOn: 2000, SavePath: "/data", ContentPath: "/data/b"},
+		{Hash: qbt.Ptr("c"), Name: qbt.Ptr("newest"), Size: qbt.Ptr(int64(10000000000)), AddedOn: qbt.Ptr(int64(3000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/c")},
+		{Hash: qbt.Ptr("a"), Name: qbt.Ptr("oldest"), Size: qbt.Ptr(int64(10000000000)), AddedOn: qbt.Ptr(int64(1000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/a")},
+		{Hash: qbt.Ptr("b"), Name: qbt.Ptr("middle"), Size: qbt.Ptr(int64(10000000000)), AddedOn: qbt.Ptr(int64(2000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/b")},
 	}
 
 	// Rule: Delete if free space < 15GB (only need to delete 1 torrent)
@@ -1191,9 +1191,9 @@ func TestProcessTorrents_DeterministicOrderWithSameAddedOn(t *testing.T) {
 
 	// Create torrents with same AddedOn time - should sort by hash
 	torrents := []qbt.Torrent{
-		{Hash: "zzz", Name: "torrent-z", Size: 10000000000, AddedOn: 1000, SavePath: "/data", ContentPath: "/data/z"},
-		{Hash: "aaa", Name: "torrent-a", Size: 10000000000, AddedOn: 1000, SavePath: "/data", ContentPath: "/data/a"},
-		{Hash: "mmm", Name: "torrent-m", Size: 10000000000, AddedOn: 1000, SavePath: "/data", ContentPath: "/data/m"},
+		{Hash: qbt.Ptr("zzz"), Name: qbt.Ptr("torrent-z"), Size: qbt.Ptr(int64(10000000000)), AddedOn: qbt.Ptr(int64(1000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/z")},
+		{Hash: qbt.Ptr("aaa"), Name: qbt.Ptr("torrent-a"), Size: qbt.Ptr(int64(10000000000)), AddedOn: qbt.Ptr(int64(1000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/a")},
+		{Hash: qbt.Ptr("mmm"), Name: qbt.Ptr("torrent-m"), Size: qbt.Ptr(int64(10000000000)), AddedOn: qbt.Ptr(int64(1000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/m")},
 	}
 
 	// Rule: Delete if free space < 15GB
@@ -1237,10 +1237,10 @@ func TestProcessTorrents_HandlesNilFilesToClearGracefully(t *testing.T) {
 	}
 
 	torrent := qbt.Torrent{
-		Hash:        "abc123",
-		Size:        50000000000,
-		ContentPath: "/data/movie",
-		SavePath:    "/data",
+		Hash:        qbt.Ptr("abc123"),
+		Size:        qbt.Ptr(int64(50000000000)),
+		ContentPath: qbt.Ptr("/data/movie"),
+		SavePath:    qbt.Ptr("/data"),
 	}
 
 	// Should not panic
@@ -1264,11 +1264,11 @@ func TestProcessTorrents_FreeSpaceWithKeepFilesDoesNotStopEarly(t *testing.T) {
 
 	// Create 5 torrents with different ages, each 20GB
 	torrents := []qbt.Torrent{
-		{Hash: "e", Name: "torrent5", Size: 20000000000, AddedOn: 5000, SavePath: "/data", ContentPath: "/data/t5"},
-		{Hash: "c", Name: "torrent3", Size: 20000000000, AddedOn: 3000, SavePath: "/data", ContentPath: "/data/t3"},
-		{Hash: "a", Name: "torrent1", Size: 20000000000, AddedOn: 1000, SavePath: "/data", ContentPath: "/data/t1"},
-		{Hash: "d", Name: "torrent4", Size: 20000000000, AddedOn: 4000, SavePath: "/data", ContentPath: "/data/t4"},
-		{Hash: "b", Name: "torrent2", Size: 20000000000, AddedOn: 2000, SavePath: "/data", ContentPath: "/data/t2"},
+		{Hash: qbt.Ptr("e"), Name: qbt.Ptr("torrent5"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(5000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t5")},
+		{Hash: qbt.Ptr("c"), Name: qbt.Ptr("torrent3"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(3000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t3")},
+		{Hash: qbt.Ptr("a"), Name: qbt.Ptr("torrent1"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(1000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t1")},
+		{Hash: qbt.Ptr("d"), Name: qbt.Ptr("torrent4"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(4000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t4")},
+		{Hash: qbt.Ptr("b"), Name: qbt.Ptr("torrent2"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(2000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/t2")},
 	}
 
 	// Rule: Delete if free space < 50GB, BUT with keep-files mode
@@ -1318,10 +1318,10 @@ func TestProcessTorrents_FreeSpaceWithPreserveCrossSeedsDoesNotCountCrossSeedFil
 	// torrent1, torrent2, torrent3 are ALL cross-seeds sharing the same files
 	// torrent4 is independent
 	torrents := []qbt.Torrent{
-		{Hash: "a", Name: "torrent1", Size: 30000000000, AddedOn: 1000, SavePath: "/data", ContentPath: "/data/movie"},
-		{Hash: "b", Name: "torrent2", Size: 30000000000, AddedOn: 2000, SavePath: "/data", ContentPath: "/data/movie"}, // Cross-seed
-		{Hash: "c", Name: "torrent3", Size: 30000000000, AddedOn: 3000, SavePath: "/data", ContentPath: "/data/movie"}, // Cross-seed
-		{Hash: "d", Name: "torrent4", Size: 20000000000, AddedOn: 4000, SavePath: "/data", ContentPath: "/data/other"},
+		{Hash: qbt.Ptr("a"), Name: qbt.Ptr("torrent1"), Size: qbt.Ptr(int64(30000000000)), AddedOn: qbt.Ptr(int64(1000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/movie")},
+		{Hash: qbt.Ptr("b"), Name: qbt.Ptr("torrent2"), Size: qbt.Ptr(int64(30000000000)), AddedOn: qbt.Ptr(int64(2000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/movie")}, // Cross-seed
+		{Hash: qbt.Ptr("c"), Name: qbt.Ptr("torrent3"), Size: qbt.Ptr(int64(30000000000)), AddedOn: qbt.Ptr(int64(3000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/movie")}, // Cross-seed
+		{Hash: qbt.Ptr("d"), Name: qbt.Ptr("torrent4"), Size: qbt.Ptr(int64(20000000000)), AddedOn: qbt.Ptr(int64(4000)), SavePath: qbt.Ptr("/data"), ContentPath: qbt.Ptr("/data/other")},
 	}
 
 	// Rule: Delete if free space < 50GB, with preserve-cross-seeds mode
@@ -1374,9 +1374,9 @@ func TestProcessTorrents_FreeSpaceWithPreserveCrossSeedsDoesNotCountCrossSeedFil
 
 func TestDeleteFreesSpace(t *testing.T) {
 	allTorrents := []qbt.Torrent{
-		{Hash: "a", Name: "torrent1", ContentPath: "/data/movie"},
-		{Hash: "b", Name: "torrent2", ContentPath: "/data/movie"}, // Cross-seed of a
-		{Hash: "c", Name: "torrent3", ContentPath: "/data/other"},
+		{Hash: qbt.Ptr("a"), Name: qbt.Ptr("torrent1"), ContentPath: qbt.Ptr("/data/movie")},
+		{Hash: qbt.Ptr("b"), Name: qbt.Ptr("torrent2"), ContentPath: qbt.Ptr("/data/movie")}, // Cross-seed of a
+		{Hash: qbt.Ptr("c"), Name: qbt.Ptr("torrent3"), ContentPath: qbt.Ptr("/data/other")},
 	}
 
 	t.Run("returns false for DeleteModeKeepFiles", func(t *testing.T) {
@@ -1417,9 +1417,9 @@ func TestProcessTorrents_PauseResume(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:  "a",
-			Name:  "test",
-			State: qbt.TorrentStateUploading,
+			Hash:  qbt.Ptr("a"),
+			Name:  qbt.Ptr("test"),
+			State: qbt.Ptr(qbt.StateUploading),
 		},
 	}
 
@@ -1459,10 +1459,10 @@ func TestProcessTorrents_SpeedLimits_TracksUploadAndDownloadRuleSourcesIndepende
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:    "a",
-			Name:    "test",
-			UpLimit: 0,
-			DlLimit: 0,
+			Hash:    qbt.Ptr("a"),
+			Name:    qbt.Ptr("test"),
+			UpLimit: qbt.Ptr(int64(0)),
+			DlLimit: qbt.Ptr(int64(0)),
 		},
 	}
 
@@ -1516,10 +1516,10 @@ func TestProcessTorrents_ShareLimits_TracksRatioAndSeedingRuleSourcesIndependent
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:             "a",
-			Name:             "test",
-			RatioLimit:       -2,
-			SeedingTimeLimit: -2,
+			Hash:             qbt.Ptr("a"),
+			Name:             qbt.Ptr("test"),
+			RatioLimit:       qbt.Ptr(float64(-2)),
+			SeedingTimeLimit: qbt.Ptr(int64(-2)),
 		},
 	}
 
@@ -1574,9 +1574,9 @@ func TestProcessTorrents_ResumeOverridesPause_WhenPaused(t *testing.T) {
 	// Torrent is currently paused
 	torrents := []qbt.Torrent{
 		{
-			Hash:  "a",
-			Name:  "test",
-			State: qbt.TorrentStatePausedDl,
+			Hash:  qbt.Ptr("a"),
+			Name:  qbt.Ptr("test"),
+			State: qbt.Ptr(qbt.StatePausedDL),
 		},
 	}
 
@@ -1619,9 +1619,9 @@ func TestProcessTorrents_PauseOverridesResume_WhenRunning(t *testing.T) {
 	// Torrent is currently running (downloading)
 	torrents := []qbt.Torrent{
 		{
-			Hash:  "a",
-			Name:  "test",
-			State: qbt.TorrentStateDownloading,
+			Hash:  qbt.Ptr("a"),
+			Name:  qbt.Ptr("test"),
+			State: qbt.Ptr(qbt.StateDownloading),
 		},
 	}
 
@@ -1663,10 +1663,10 @@ func TestProcessTorrents_ExternalProgram_ConditionMet(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:     "abc123",
-			Name:     "Test Torrent",
-			Ratio:    2.5, // Above the condition threshold
-			Category: "movies",
+			Hash:     qbt.Ptr("abc123"),
+			Name:     qbt.Ptr("Test Torrent"),
+			Ratio:    qbt.Ptr(float64(2.5)), // Above the condition threshold
+			Category: qbt.Ptr("movies"),
 		},
 	}
 
@@ -1704,10 +1704,10 @@ func TestProcessTorrents_ExternalProgram_ConditionNotMet(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:     "abc123",
-			Name:     "Test Torrent",
-			Ratio:    1.0, // Below the condition threshold
-			Category: "movies",
+			Hash:     qbt.Ptr("abc123"),
+			Name:     qbt.Ptr("Test Torrent"),
+			Ratio:    qbt.Ptr(float64(1.0)), // Below the condition threshold
+			Category: qbt.Ptr("movies"),
 		},
 	}
 
@@ -1740,9 +1740,9 @@ func TestProcessTorrents_ExternalProgram_NoCondition(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:     "abc123",
-			Name:     "Test Torrent",
-			Category: "movies",
+			Hash:     qbt.Ptr("abc123"),
+			Name:     qbt.Ptr("Test Torrent"),
+			Category: qbt.Ptr("movies"),
 		},
 	}
 
@@ -1774,9 +1774,9 @@ func TestProcessTorrents_ExternalProgram_Disabled(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:     "abc123",
-			Name:     "Test Torrent",
-			Category: "movies",
+			Hash:     qbt.Ptr("abc123"),
+			Name:     qbt.Ptr("Test Torrent"),
+			Category: qbt.Ptr("movies"),
 		},
 	}
 
@@ -1804,9 +1804,9 @@ func TestProcessTorrents_ExternalProgram_LastRuleWins(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:     "abc123",
-			Name:     "Test Torrent",
-			Category: "movies",
+			Hash:     qbt.Ptr("abc123"),
+			Name:     qbt.Ptr("Test Torrent"),
+			Category: qbt.Ptr("movies"),
 		},
 	}
 
@@ -1853,10 +1853,10 @@ func TestProcessTorrents_Tag_RemoveOnly_RemovesWhenConditionMatches(t *testing.T
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:    "abc123",
-			Name:    "Test Torrent",
-			Private: false,
-			Tags:    "TEST",
+			Hash:    qbt.Ptr("abc123"),
+			Name:    qbt.Ptr("Test Torrent"),
+			Private: qbt.Ptr(false),
+			Tags:    qbt.Ptr("TEST"),
 		},
 	}
 
@@ -1899,9 +1899,9 @@ func TestProcessTorrents_Tag_DeleteFromClient_ReaddsForMatchingTorrents(t *testi
 
 	torrents := []qbt.Torrent{
 		{
-			Hash: "abc123",
-			Name: "Matching Torrent",
-			Tags: "managed",
+			Hash: qbt.Ptr("abc123"),
+			Name: qbt.Ptr("Matching Torrent"),
+			Tags: qbt.Ptr("managed"),
 		},
 	}
 
@@ -1940,9 +1940,9 @@ func TestProcessTorrents_Tag_FullMode_NoOpForAlreadyMatchingTag(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash: "abc123",
-			Name: "Matching Torrent",
-			Tags: "managed",
+			Hash: qbt.Ptr("abc123"),
+			Name: qbt.Ptr("Matching Torrent"),
+			Tags: qbt.Ptr("managed"),
 		},
 	}
 
@@ -1976,10 +1976,10 @@ func TestProcessTorrents_ExternalProgram_CombinedWithOtherActions(t *testing.T) 
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:     "abc123",
-			Name:     "Test Torrent",
-			Category: "movies",
-			Tags:     "",
+			Hash:     qbt.Ptr("abc123"),
+			Name:     qbt.Ptr("Test Torrent"),
+			Category: qbt.Ptr("movies"),
+			Tags:     qbt.Ptr(""),
 		},
 	}
 

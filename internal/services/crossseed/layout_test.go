@@ -7,7 +7,7 @@ package crossseed
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/pkg/stringutils"
@@ -18,38 +18,38 @@ func TestClassifyTorrentLayout(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		files  qbt.TorrentFiles
+		files  []qbt.TorrentFile
 		expect TorrentLayout
 	}{
 		{
 			name: "single mkv with sidecar nfo",
-			files: qbt.TorrentFiles{
-				{Name: "Show.S01E01.1080p.WEB-DL.mkv", Size: 4 << 30},
-				{Name: "Show.S01E01.nfo", Size: 1024},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.1080p.WEB-DL.mkv"), Size: qbt.Ptr(int64(4 << 30))},
+				{Name: qbt.Ptr("Show.S01E01.nfo"), Size: qbt.Ptr(int64(1024))},
 			},
 			expect: LayoutFiles,
 		},
 		{
 			name: "rar multi-part release",
-			files: qbt.TorrentFiles{
-				{Name: "Release.part01.rar", Size: 2 << 30},
-				{Name: "Release.part02.r00", Size: 2 << 30},
-				{Name: "Release.sfv", Size: 2048},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Release.part01.rar"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("Release.part02.r00"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("Release.sfv"), Size: qbt.Ptr(int64(2048))},
 			},
 			expect: LayoutArchives,
 		},
 		{
 			name: "gz archive",
-			files: qbt.TorrentFiles{
-				{Name: "Archive.tar.gz", Size: 1 << 30},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Archive.tar.gz"), Size: qbt.Ptr(int64(1 << 30))},
 			},
 			expect: LayoutArchives,
 		},
 		{
 			name: "all ignored files (hardcoded patterns)",
-			files: qbt.TorrentFiles{
-				{Name: "readme.txt", Size: 512},
-				{Name: "info.nfo", Size: 1024},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("readme.txt"), Size: qbt.Ptr(int64(512))},
+				{Name: qbt.Ptr("info.nfo"), Size: qbt.Ptr(int64(1024))},
 			},
 			expect: LayoutUnknown,
 		},

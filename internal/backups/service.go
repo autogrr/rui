@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/models"
@@ -685,13 +685,13 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 			blobRelPath   *string
 		)
 
-		cachedTorrent, err := s.loadCachedTorrent(ctx, j.instanceID, torrent.Hash)
+		cachedTorrent, err := s.loadCachedTorrent(ctx, j.instanceID, qbt.Deref(torrent.Hash))
 		if err != nil {
-			log.Warn().Err(err).Str("hash", torrent.Hash).Msg("Failed to load cached torrent blob")
+			log.Warn().Err(err).Str("hash", qbt.Deref(torrent.Hash)).Msg("Failed to load cached torrent blob")
 		}
 		if cachedTorrent != nil {
 			data = cachedTorrent.data
-			suggestedName = torrent.Name
+			suggestedName = qbt.Deref(torrent.Name)
 			trackerDomain = trackerDomainFromTorrent(torrent)
 			rel := cachedTorrent.relPath
 			blobRelPath = &rel
@@ -702,19 +702,19 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 				return nil, err
 			}
 			var tracker string
-			data, suggestedName, tracker, err = s.syncManager.ExportTorrent(ctx, j.instanceID, torrent.Hash)
+			data, suggestedName, tracker, err = s.syncManager.ExportTorrent(ctx, j.instanceID, qbt.Deref(torrent.Hash))
 			if err != nil {
 				if isExportMetadataUnavailable(err) {
 					log.Warn().
 						Err(err).
-						Str("hash", torrent.Hash).
-						Str("name", torrent.Name).
+						Str("hash", qbt.Deref(torrent.Hash)).
+						Str("name", qbt.Deref(torrent.Name)).
 						Int("instanceID", j.instanceID).
 						Msg("Skipping torrent export; metadata not downloaded yet")
 					s.updateProgress(j.runID, idx+1)
 					continue
 				}
-				return nil, fmt.Errorf("export torrent %s: %w", torrent.Hash, err)
+				return nil, fmt.Errorf("export torrent %s: %w", qbt.Deref(torrent.Hash), err)
 			}
 			trackerDomain = tracker
 		}
@@ -722,17 +722,17 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 		if patchTrackers {
 			trackers := gatherTrackerURLs(ctx, s.syncManager, j.instanceID, torrent)
 			if patched, changed, err := patchTorrentTrackers(data, trackers); err != nil {
-				log.Warn().Err(err).Str("hash", torrent.Hash).Int("instanceID", j.instanceID).Msg("Failed to patch exported torrent trackers")
+				log.Warn().Err(err).Str("hash", qbt.Deref(torrent.Hash)).Int("instanceID", j.instanceID).Msg("Failed to patch exported torrent trackers")
 			} else if changed {
 				data = patched
 				// ensure cached entry is rebuilt with the corrected payload
 				blobRelPath = nil
-				log.Debug().Str("hash", torrent.Hash).Int("instanceID", j.instanceID).Str("webAPIVersion", webAPIVersion).Msg("Injected tracker metadata into exported torrent")
+				log.Debug().Str("hash", qbt.Deref(torrent.Hash)).Int("instanceID", j.instanceID).Str("webAPIVersion", webAPIVersion).Msg("Injected tracker metadata into exported torrent")
 			}
 		}
 
-		filename := torrentname.SanitizeExportFilename(suggestedName, torrent.Hash, trackerDomain, torrent.Hash)
-		category := strings.TrimSpace(torrent.Category)
+		filename := torrentname.SanitizeExportFilename(suggestedName, qbt.Deref(torrent.Hash), trackerDomain, qbt.Deref(torrent.Hash))
+		category := strings.TrimSpace(qbt.Deref(torrent.Category))
 		var categoryPtr *string
 		if category != "" {
 			categoryPtr = &category
@@ -743,7 +743,7 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 
 		rawTags := ""
 		if settings.IncludeTags {
-			rawTags = strings.TrimSpace(torrent.Tags)
+			rawTags = strings.TrimSpace(qbt.Deref(torrent.Tags))
 		}
 
 		archivePath := filename
@@ -780,14 +780,14 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 
 		totalBytes += int64(len(data))
 
-		infohashV1 := strings.TrimSpace(torrent.InfohashV1)
-		infohashV2 := strings.TrimSpace(torrent.InfohashV2)
+		infohashV1 := strings.TrimSpace(qbt.Deref(torrent.InfoHashV1))
+		infohashV2 := strings.TrimSpace(qbt.Deref(torrent.InfoHashV2))
 
 		item := models.BackupItem{
 			RunID:       j.runID,
-			TorrentHash: torrent.Hash,
-			Name:        torrent.Name,
-			SizeBytes:   torrent.TotalSize,
+			TorrentHash: qbt.Deref(torrent.Hash),
+			Name:        qbt.Deref(torrent.Name),
+			SizeBytes:   qbt.Deref(torrent.TotalSize),
 		}
 		if categoryPtr != nil {
 			item.Category = categoryPtr
@@ -811,10 +811,10 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 		items = append(items, item)
 
 		manifestItem := ManifestItem{
-			Hash:        torrent.Hash,
-			Name:        torrent.Name,
+			Hash:        qbt.Deref(torrent.Hash),
+			Name:        qbt.Deref(torrent.Name),
 			ArchivePath: uniquePath,
-			SizeBytes:   torrent.TotalSize,
+			SizeBytes:   qbt.Deref(torrent.TotalSize),
 		}
 		if categoryPtr != nil {
 			manifestItem.Category = categoryPtr
@@ -1000,10 +1000,7 @@ func isExportMetadataUnavailable(err error) bool {
 	if err == nil {
 		return false
 	}
-	if errors.Is(err, qbt.ErrTorrentMetdataNotDownloadedYet) {
-		return true
-	}
-	return strings.Contains(err.Error(), "status code: 409")
+	return strings.Contains(err.Error(), "status code: 409") || strings.Contains(err.Error(), "status code 409")
 }
 
 func (s *Service) GetProgress(runID int64) *BackupProgress {
@@ -1864,14 +1861,8 @@ func (s *Service) deleteFilesParallel(ctx context.Context, paths []string) {
 }
 
 func trackerDomainFromTorrent(t qbt.Torrent) string {
-	if host := hostFromURL(t.Tracker); host != "" {
+	if host := hostFromURL(qbt.Deref(t.Tracker)); host != "" {
 		return host
-	}
-
-	for _, tracker := range t.Trackers {
-		if host := hostFromURL(tracker.Url); host != "" {
-			return host
-		}
 	}
 
 	return ""

@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/autobrr/autobrr/pkg/sharedhttp"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -334,7 +334,7 @@ func (h *Handler) handleSyncMainData(w http.ResponseWriter, r *http.Request) {
 			client.UpdateWithMainData(&mainData)
 			log.Debug().
 				Int("instanceId", instanceID).
-				Int64("rid", mainData.Rid).
+				Int64("rid", int64(mainData.Rid)).
 				Int("torrentCount", len(mainData.Torrents)).
 				Bool("hasServerState", mainData.ServerState != (qbt.ServerState{})).
 				Int("categoryCount", len(mainData.Categories)).
@@ -343,7 +343,7 @@ func (h *Handler) handleSyncMainData(w http.ResponseWriter, r *http.Request) {
 		} else {
 			log.Debug().
 				Int("instanceId", instanceID).
-				Int64("rid", mainData.Rid).
+				Int64("rid", int64(mainData.Rid)).
 				Msg("Skipping incremental sync/maindata update")
 		}
 	}
@@ -1098,14 +1098,14 @@ func (h *Handler) handleTorrentPeers(w http.ResponseWriter, r *http.Request) {
 			log.Debug().
 				Int("instanceId", instanceID).
 				Str("hash", hash).
-				Int64("rid", peersData.Rid).
+				Int64("rid", int64(peersData.Rid)).
 				Int("peerCount", len(peersData.Peers)).
 				Msg("Updated local peer state from full sync/torrentPeers response")
 		} else {
 			log.Debug().
 				Int("instanceId", instanceID).
 				Str("hash", hash).
-				Int64("rid", peersData.Rid).
+				Int64("rid", int64(peersData.Rid)).
 				Msg("Skipping incremental sync/torrentPeers update")
 		}
 	}

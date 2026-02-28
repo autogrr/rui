@@ -7,7 +7,7 @@ package crossseed
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/moistari/rls"
 	"github.com/stretchr/testify/require"
 
@@ -17,29 +17,25 @@ import (
 func TestBuildFileRenamePlan_MovieRelease(t *testing.T) {
 	t.Parallel()
 
-	sourceFiles := qbt.TorrentFiles{
+	sourceFiles := []qbt.TorrentFile{
 		{
-			Name: "The Green Mile 1999 BluRay 1080p DTS 5.1 x264-VietHD/" +
-				"The Green Mile 1999 BluRay 1080p DTS 5.1 x264-VietHD.mkv",
-			Size: 1234,
+			Name: qbt.Ptr("The Green Mile 1999 BluRay 1080p DTS 5.1 x264-VietHD/" + "The Green Mile 1999 BluRay 1080p DTS 5.1 x264-VietHD.mkv"),
+			Size: qbt.Ptr(int64(1234)),
 		},
 		{
-			Name: "The Green Mile 1999 BluRay 1080p DTS 5.1 x264-VietHD/" +
-				"The Green Mile 1999 BluRay 1080p DTS 5.1 x264-VietHD.nfo",
-			Size: 200,
+			Name: qbt.Ptr("The Green Mile 1999 BluRay 1080p DTS 5.1 x264-VietHD/" + "The Green Mile 1999 BluRay 1080p DTS 5.1 x264-VietHD.nfo"),
+			Size: qbt.Ptr(int64(200)),
 		},
 	}
 
-	candidateFiles := qbt.TorrentFiles{
+	candidateFiles := []qbt.TorrentFile{
 		{
-			Name: "The.Green.Mile.1999.1080p.BluRay.DTS.x264-VietHD/" +
-				"The.Green.Mile.1999.1080p.BluRay.DTS.x264-VietHD.mkv",
-			Size: 1234,
+			Name: qbt.Ptr("The.Green.Mile.1999.1080p.BluRay.DTS.x264-VietHD/" + "The.Green.Mile.1999.1080p.BluRay.DTS.x264-VietHD.mkv"),
+			Size: qbt.Ptr(int64(1234)),
 		},
 		{
-			Name: "The.Green.Mile.1999.1080p.BluRay.DTS.x264-VietHD/" +
-				"The.Green.Mile.1999.1080p.BluRay.DTS.x264-VietHD.nfo",
-			Size: 200,
+			Name: qbt.Ptr("The.Green.Mile.1999.1080p.BluRay.DTS.x264-VietHD/" + "The.Green.Mile.1999.1080p.BluRay.DTS.x264-VietHD.nfo"),
+			Size: qbt.Ptr(int64(200)),
 		},
 	}
 
@@ -59,24 +55,24 @@ func TestBuildFileRenamePlan_MovieRelease(t *testing.T) {
 func TestBuildFileRenamePlan_SidecarMultiExt(t *testing.T) {
 	t.Parallel()
 
-	sourceFiles := qbt.TorrentFiles{
+	sourceFiles := []qbt.TorrentFile{
 		{
-			Name: "Show.Name.S01E01.1080p.WEB.H264-GRP/Show.Name.S01E01.1080p.WEB.H264-GRP.mkv",
-			Size: 10,
+			Name: qbt.Ptr("Show.Name.S01E01.1080p.WEB.H264-GRP/Show.Name.S01E01.1080p.WEB.H264-GRP.mkv"),
+			Size: qbt.Ptr(int64(10)),
 		},
 		{
-			Name: "Show.Name.S01E01.1080p.WEB.H264-GRP/Show.Name.S01E01.1080p.WEB.H264-GRP.mkv.nfo",
-			Size: 1,
+			Name: qbt.Ptr("Show.Name.S01E01.1080p.WEB.H264-GRP/Show.Name.S01E01.1080p.WEB.H264-GRP.mkv.nfo"),
+			Size: qbt.Ptr(int64(1)),
 		},
 	}
-	candidateFiles := qbt.TorrentFiles{
+	candidateFiles := []qbt.TorrentFile{
 		{
-			Name: "Show Name S01E01 1080p WEB H264-GRP/Show Name S01E01 1080p WEB H264-GRP.mkv",
-			Size: 10,
+			Name: qbt.Ptr("Show Name S01E01 1080p WEB H264-GRP/Show Name S01E01 1080p WEB H264-GRP.mkv"),
+			Size: qbt.Ptr(int64(10)),
 		},
 		{
-			Name: "Show Name S01E01 1080p WEB H264-GRP/Show Name S01E01 1080p WEB H264-GRP.nfo",
-			Size: 1,
+			Name: qbt.Ptr("Show Name S01E01 1080p WEB H264-GRP/Show Name S01E01 1080p WEB H264-GRP.nfo"),
+			Size: qbt.Ptr(int64(1)),
 		},
 	}
 
@@ -103,16 +99,16 @@ func TestBuildFileRenamePlan_SidecarMultiExt(t *testing.T) {
 func TestBuildFileRenamePlan_SingleFile(t *testing.T) {
 	t.Parallel()
 
-	sourceFiles := qbt.TorrentFiles{
+	sourceFiles := []qbt.TorrentFile{
 		{
-			Name: "Movie.Title.1080p.BluRay.x264-GRP.mkv",
-			Size: 4096,
+			Name: qbt.Ptr("Movie.Title.1080p.BluRay.x264-GRP.mkv"),
+			Size: qbt.Ptr(int64(4096)),
 		},
 	}
-	candidateFiles := qbt.TorrentFiles{
+	candidateFiles := []qbt.TorrentFile{
 		{
-			Name: "Movie_Title_1080p_BR_x264-GRP.mkv",
-			Size: 4096,
+			Name: qbt.Ptr("Movie_Title_1080p_BR_x264-GRP.mkv"),
+			Size: qbt.Ptr(int64(4096)),
 		},
 	}
 
@@ -127,13 +123,13 @@ func TestBuildFileRenamePlan_SingleFile(t *testing.T) {
 func TestBuildFileRenamePlan_AmbiguousSizes(t *testing.T) {
 	t.Parallel()
 
-	sourceFiles := qbt.TorrentFiles{
-		{Name: "Disc/Track01.flac", Size: 500},
-		{Name: "Disc/Track02.flac", Size: 500},
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Disc/Track01.flac"), Size: qbt.Ptr(int64(500))},
+		{Name: qbt.Ptr("Disc/Track02.flac"), Size: qbt.Ptr(int64(500))},
 	}
-	candidateFiles := qbt.TorrentFiles{
-		{Name: "Pack/CD1/TrackA.flac", Size: 500},
-		{Name: "Pack/CD2/TrackB.flac", Size: 500},
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Pack/CD1/TrackA.flac"), Size: qbt.Ptr(int64(500))},
+		{Name: qbt.Ptr("Pack/CD2/TrackB.flac"), Size: qbt.Ptr(int64(500))},
 	}
 
 	plan, unmatched := buildFileRenamePlan(sourceFiles, candidateFiles)
@@ -145,20 +141,20 @@ func TestBuildFileRenamePlan_AmbiguousSizes(t *testing.T) {
 func TestDetectCommonRoot(t *testing.T) {
 	t.Parallel()
 
-	files := qbt.TorrentFiles{
-		{Name: "Root/A.mkv"},
-		{Name: "Root/Sub/B.mkv"},
+	files := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Root/A.mkv")},
+		{Name: qbt.Ptr("Root/Sub/B.mkv")},
 	}
 	require.Equal(t, "Root", detectCommonRoot(files))
 
-	files = qbt.TorrentFiles{
-		{Name: "NoRootA.mkv"},
-		{Name: "Root/B.mkv"},
+	files = []qbt.TorrentFile{
+		{Name: qbt.Ptr("NoRootA.mkv")},
+		{Name: qbt.Ptr("Root/B.mkv")},
 	}
 	require.Equal(t, "", detectCommonRoot(files))
 
-	files = qbt.TorrentFiles{
-		{Name: "SingleFile.mkv"},
+	files = []qbt.TorrentFile{
+		{Name: qbt.Ptr("SingleFile.mkv")},
 	}
 	require.Equal(t, "", detectCommonRoot(files))
 }
@@ -213,115 +209,115 @@ func TestNeedsRenameAlignment(t *testing.T) {
 		name           string
 		torrentName    string
 		matchedName    string
-		sourceFiles    qbt.TorrentFiles
-		candidateFiles qbt.TorrentFiles
+		sourceFiles    []qbt.TorrentFile
+		candidateFiles []qbt.TorrentFile
 		expectedResult bool
 	}{
 		{
 			name:           "identical names and roots - no alignment needed",
 			torrentName:    "Movie.2024.1080p.BluRay.x264-GROUP",
 			matchedName:    "Movie.2024.1080p.BluRay.x264-GROUP",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2024.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2024.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: false,
 		},
 		{
 			name:           "different torrent names with folders - alignment needed",
 			torrentName:    "Movie 2024 1080p BluRay x264-GROUP",
 			matchedName:    "Movie.2024.1080p.BluRay.x264-GROUP",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie 2024 1080p BluRay x264-GROUP/movie.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2024.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie 2024 1080p BluRay x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: true,
 		},
 		{
 			name:           "different root folders - alignment needed",
 			torrentName:    "Movie.2024.1080p.BluRay.x264-GROUP",
 			matchedName:    "Movie.2024.1080p.BluRay.x264-GROUP",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie 2024/movie.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2024/movie.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie 2024/movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024/movie.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: true,
 		},
 		{
 			name:           "single file torrents same name - no alignment needed",
 			torrentName:    "movie.mkv",
 			matchedName:    "movie.mkv",
-			sourceFiles:    qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: false,
 		},
 		{
 			name:           "whitespace differences in names - no alignment needed",
 			torrentName:    "  Movie.2024  ",
 			matchedName:    "Movie.2024",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2024/movie.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2024/movie.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024/movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024/movie.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: false, // trimmed names match
 		},
 		{
 			name:           "single file to folder - no alignment needed (uses Subfolder layout)",
 			torrentName:    "Movie.2024.mkv",
 			matchedName:    "Movie.2024",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2024.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2024/Movie.2024.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024/Movie.2024.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: false, // handled by contentLayout=Subfolder (wraps source in folder, qBit strips .mkv)
 		},
 		{
 			name:           "folder to single file - no alignment needed (uses NoSubfolder layout)",
 			torrentName:    "Movie.2024",
 			matchedName:    "Movie.2024.mkv",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2024/Movie.2024.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2024.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024/Movie.2024.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: false, // handled by contentLayout=NoSubfolder (strips source's folder)
 		},
 		{
 			name:           "folder to single file with different file names - alignment needed",
 			torrentName:    "Vanderpump Rules S12E02 Manifest and Chill 1080p AMZN WEB-DL DDP2 0 H 264-NTb",
 			matchedName:    "Vanderpump.Rules.S12E02.Manifest.and.Chill.1080p.AMZN.WEB-DL.DDP2.0.H.264-NTb.mkv",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Vanderpump Rules S12E02 Manifest and Chill 1080p AMZN WEB-DL DDP2 0 H 264-NTb/Vanderpump Rules S12E02 Manifest and Chill 1080p AMZN WEB-DL DDP2 0 H 264-NTb.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Vanderpump.Rules.S12E02.Manifest.and.Chill.1080p.AMZN.WEB-DL.DDP2.0.H.264-NTb.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Vanderpump Rules S12E02 Manifest and Chill 1080p AMZN WEB-DL DDP2 0 H 264-NTb/Vanderpump Rules S12E02 Manifest and Chill 1080p AMZN WEB-DL DDP2 0 H 264-NTb.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Vanderpump.Rules.S12E02.Manifest.and.Chill.1080p.AMZN.WEB-DL.DDP2.0.H.264-NTb.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: true, // file names differ (spaces vs periods) - needs recheck after rename
 		},
 		{
 			name:           "single file to folder with different file names - alignment needed",
 			torrentName:    "Movie 2024 1080p BluRay x264-GROUP.mkv",
 			matchedName:    "Movie.2024.1080p.BluRay.x264-GROUP",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie 2024 1080p BluRay x264-GROUP.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2024.1080p.BluRay.x264-GROUP/Movie.2024.1080p.BluRay.x264-GROUP.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie 2024 1080p BluRay x264-GROUP.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP/Movie.2024.1080p.BluRay.x264-GROUP.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: true, // file names differ (spaces vs periods) - needs recheck after rename
 		},
 		{
 			name:        "folder to single file with multiple files - alignment needed when names differ",
 			torrentName: "Show S01E01",
 			matchedName: "Show.S01E01.mkv",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show S01E01/Show S01E01.mkv", Size: 1000000000},
-				{Name: "Show S01E01/Show S01E01.nfo", Size: 1024},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show S01E01/Show S01E01.mkv"), Size: qbt.Ptr(int64(1000000000))},
+				{Name: qbt.Ptr("Show S01E01/Show S01E01.nfo"), Size: qbt.Ptr(int64(1024))},
 			},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01E01.mkv", Size: 1000000000}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1000000000))}},
 			expectedResult: true, // main file name differs (spaces vs periods)
 		},
 		{
 			name:           "bare file to folder - folder name differs (apostrophe)",
 			torrentName:    "Someones.Movie.2014.mkv",
 			matchedName:    "Someone's.Movie.2014",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Someones.Movie.2014.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Someone's.Movie.2014/Someones.Movie.2014.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Someones.Movie.2014.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Someone's.Movie.2014/Someones.Movie.2014.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: true, // "Someones.Movie.2014" != "Someone's.Movie.2014"
 		},
 		{
 			name:           "bare file to folder - folder name differs (service name)",
 			torrentName:    "Movie.2024.Amazon.mkv",
 			matchedName:    "Movie.2024.AMZN",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2024.Amazon.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2024.AMZN/Movie.2024.Amazon.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.Amazon.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.AMZN/Movie.2024.Amazon.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: true, // "Movie.2024.Amazon" != "Movie.2024.AMZN"
 		},
 		{
 			name:           "bare file to folder - folder differs, filename equal (bug chain test)",
 			torrentName:    "Someones.Movie.2014.1080p.Amazon.WEB-DL.DD+5.1.x264-GRP.mkv",
 			matchedName:    "Someone's.Movie.2014.1080p.AMZN.WEB-DL.DD+5.1.x264-GRP",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Someones.Movie.2014.1080p.Amazon.WEB-DL.DD+5.1.x264-GRP.mkv", Size: 1500000000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Someone's.Movie.2014.1080p.AMZN.WEB-DL.DD+5.1.x264-GRP/Someones.Movie.2014.1080p.Amazon.WEB-DL.DD+5.1.x264-GRP.mkv", Size: 1500000000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Someones.Movie.2014.1080p.Amazon.WEB-DL.DD+5.1.x264-GRP.mkv"), Size: qbt.Ptr(int64(1500000000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Someone's.Movie.2014.1080p.AMZN.WEB-DL.DD+5.1.x264-GRP/Someones.Movie.2014.1080p.Amazon.WEB-DL.DD+5.1.x264-GRP.mkv"), Size: qbt.Ptr(int64(1500000000))}},
 			expectedResult: true, // Folder differs even though filenames match - must trigger recheck
 		},
 		// Tests for internal path differences (same root/name but different paths inside)
@@ -329,11 +325,11 @@ func TestNeedsRenameAlignment(t *testing.T) {
 			name:        "same root and name, different filename - alignment needed",
 			torrentName: "Show.S01",
 			matchedName: "Show.S01",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01/ep1.mkv", Size: 1000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01/ep1.mkv"), Size: qbt.Ptr(int64(1000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show.S01/Episode.1.mkv", Size: 1000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01/Episode.1.mkv"), Size: qbt.Ptr(int64(1000))},
 			},
 			expectedResult: true, // filenames differ inside matching root
 		},
@@ -341,11 +337,11 @@ func TestNeedsRenameAlignment(t *testing.T) {
 			name:        "same root and name and filename, different subfolder path - alignment needed",
 			torrentName: "Show.S01",
 			matchedName: "Show.S01",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01/Season 01/E01.mkv", Size: 1000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01/Season 01/E01.mkv"), Size: qbt.Ptr(int64(1000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show.S01/E01.mkv", Size: 1000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01/E01.mkv"), Size: qbt.Ptr(int64(1000))},
 			},
 			expectedResult: true, // subfolder structure differs
 		},
@@ -353,11 +349,11 @@ func TestNeedsRenameAlignment(t *testing.T) {
 			name:        "identical paths - no alignment needed",
 			torrentName: "Show.S01",
 			matchedName: "Show.S01",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01/E01.mkv", Size: 1000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01/E01.mkv"), Size: qbt.Ptr(int64(1000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show.S01/E01.mkv", Size: 1000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01/E01.mkv"), Size: qbt.Ptr(int64(1000))},
 			},
 			expectedResult: false, // paths are identical
 		},
@@ -374,68 +370,68 @@ func TestNeedsRenameAlignment(t *testing.T) {
 func TestFilesNeedRenaming(t *testing.T) {
 	tests := []struct {
 		name           string
-		sourceFiles    qbt.TorrentFiles
-		candidateFiles qbt.TorrentFiles
+		sourceFiles    []qbt.TorrentFile
+		candidateFiles []qbt.TorrentFile
 		expectedResult bool
 	}{
 		{
 			name:           "identical file names - no rename needed",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie/movie.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: false,
 		},
 		{
 			name:           "different punctuation (spaces vs periods) - rename needed",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show S01E01/Show S01E01.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01E01.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show S01E01/Show S01E01.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: true,
 		},
 		{
 			name:           "vanderpump rules case - spaces vs periods",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Vanderpump Rules S12E02 Manifest and Chill 1080p AMZN WEB-DL DDP2 0 H 264-NTb/Vanderpump Rules S12E02 Manifest and Chill 1080p AMZN WEB-DL DDP2 0 H 264-NTb.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Vanderpump.Rules.S12E02.Manifest.and.Chill.1080p.AMZN.WEB-DL.DDP2.0.H.264-NTb.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Vanderpump Rules S12E02 Manifest and Chill 1080p AMZN WEB-DL DDP2 0 H 264-NTb/Vanderpump Rules S12E02 Manifest and Chill 1080p AMZN WEB-DL DDP2 0 H 264-NTb.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Vanderpump.Rules.S12E02.Manifest.and.Chill.1080p.AMZN.WEB-DL.DDP2.0.H.264-NTb.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: true,
 		},
 		{
 			name:           "empty source files - no rename needed",
-			sourceFiles:    qbt.TorrentFiles{},
-			candidateFiles: qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: false,
 		},
 		{
 			name:           "empty candidate files - no rename needed",
-			sourceFiles:    qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{},
 			expectedResult: false,
 		},
 		{
 			name: "multiple files with matching names - no rename needed",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show/episode1.mkv", Size: 1000},
-				{Name: "Show/episode2.mkv", Size: 2000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show/episode1.mkv"), Size: qbt.Ptr(int64(1000))},
+				{Name: qbt.Ptr("Show/episode2.mkv"), Size: qbt.Ptr(int64(2000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "episode1.mkv", Size: 1000},
-				{Name: "episode2.mkv", Size: 2000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("episode1.mkv"), Size: qbt.Ptr(int64(1000))},
+				{Name: qbt.Ptr("episode2.mkv"), Size: qbt.Ptr(int64(2000))},
 			},
 			expectedResult: false,
 		},
 		{
 			name: "multiple files with one differing name - rename needed",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show/Show S01E01.mkv", Size: 1000},
-				{Name: "Show/Show S01E02.mkv", Size: 2000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show/Show S01E01.mkv"), Size: qbt.Ptr(int64(1000))},
+				{Name: qbt.Ptr("Show/Show S01E02.mkv"), Size: qbt.Ptr(int64(2000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.mkv", Size: 1000},
-				{Name: "Show.S01E02.mkv", Size: 2000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1000))},
+				{Name: qbt.Ptr("Show.S01E02.mkv"), Size: qbt.Ptr(int64(2000))},
 			},
 			expectedResult: true,
 		},
 		{
 			name:           "different sizes - no match possible, rename needed",
-			sourceFiles:    qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
-			candidateFiles: qbt.TorrentFiles{{Name: "movie.mkv", Size: 2000}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(2000))}},
 			expectedResult: true,
 		},
 	}
@@ -451,39 +447,39 @@ func TestFilesNeedRenaming(t *testing.T) {
 func TestHasExtraSourceFiles(t *testing.T) {
 	tests := []struct {
 		name           string
-		sourceFiles    qbt.TorrentFiles
-		candidateFiles qbt.TorrentFiles
+		sourceFiles    []qbt.TorrentFile
+		candidateFiles []qbt.TorrentFile
 		expectedResult bool
 	}{
 		{
 			name: "identical files - no extras",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedResult: false,
 		},
 		{
 			name: "source has extra NFO file",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/movie.nfo", Size: 1024},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/movie.nfo"), Size: qbt.Ptr(int64(1024))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedResult: true,
 		},
 		{
 			name: "source has extra SRT file",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/movie.srt", Size: 50000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/movie.srt"), Size: qbt.Ptr(int64(50000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedResult: true,
 		},
@@ -491,56 +487,56 @@ func TestHasExtraSourceFiles(t *testing.T) {
 			// Files with different normalized keys are extras even if sizes match.
 			// a.mkv and x.mkv have different normalized keys, so they don't match.
 			name: "different normalized keys same size - has extras",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/a.mkv", Size: 1000},
-				{Name: "Movie/b.mkv", Size: 2000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/a.mkv"), Size: qbt.Ptr(int64(1000))},
+				{Name: qbt.Ptr("Movie/b.mkv"), Size: qbt.Ptr(int64(2000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/x.mkv", Size: 1000},
-				{Name: "Movie/y.mkv", Size: 2000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/x.mkv"), Size: qbt.Ptr(int64(1000))},
+				{Name: qbt.Ptr("Movie/y.mkv"), Size: qbt.Ptr(int64(2000))},
 			},
 			expectedResult: true, // a.mkv ≠ x.mkv, b.mkv ≠ y.mkv by normalized key
 		},
 		{
 			name: "candidate has more files than source - no extras",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.mkv", Size: 1000000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1000000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show.S01/Show.S01E01.mkv", Size: 1000000000},
-				{Name: "Show.S01/Show.S01E02.mkv", Size: 1000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01/Show.S01E01.mkv"), Size: qbt.Ptr(int64(1000000000))},
+				{Name: qbt.Ptr("Show.S01/Show.S01E02.mkv"), Size: qbt.Ptr(int64(1000000000))},
 			},
 			expectedResult: false,
 		},
 		{
 			name: "multiple extra files",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/movie.nfo", Size: 1024},
-				{Name: "Movie/sample.mkv", Size: 5000000},
-				{Name: "Movie/movie.srt", Size: 50000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/movie.nfo"), Size: qbt.Ptr(int64(1024))},
+				{Name: qbt.Ptr("Movie/sample.mkv"), Size: qbt.Ptr(int64(5000000))},
+				{Name: qbt.Ptr("Movie/movie.srt"), Size: qbt.Ptr(int64(50000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedResult: true,
 		},
 		{
 			name: "same file count but different sizes - has extras",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/extra.mkv", Size: 999999999},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/extra.mkv"), Size: qbt.Ptr(int64(999999999))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/other.mkv", Size: 888888888},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/other.mkv"), Size: qbt.Ptr(int64(888888888))},
 			},
 			expectedResult: true, // source file (999MB) has no size match in candidate, so it's "extra"
 		},
 		{
 			name:           "empty source files - no extras",
-			sourceFiles:    qbt.TorrentFiles{},
-			candidateFiles: qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
+			sourceFiles:    []qbt.TorrentFile{},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
 			expectedResult: false,
 		},
 		{
@@ -548,13 +544,13 @@ func TestHasExtraSourceFiles(t *testing.T) {
 			// Source has .srt, candidate has .nfo - both are 1024 bytes.
 			// Without normalizedKey matching, size-only matching would wrongly see no extras.
 			name: "same size different extension - has extras (regression)",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/movie.srt", Size: 1024}, // subtitle file
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/movie.srt"), Size: qbt.Ptr(int64(1024))}, // subtitle file
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/movie.nfo", Size: 1024}, // NFO file with same size as srt
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/movie.nfo"), Size: qbt.Ptr(int64(1024))}, // NFO file with same size as srt
 			},
 			expectedResult: true, // .srt has no match (even though .nfo has same size), so it's extra
 		},
@@ -563,13 +559,13 @@ func TestHasExtraSourceFiles(t *testing.T) {
 			// english.srt and spanish.srt have different normalized keys, so they don't match.
 			// This prevents wrong hardlinks when different sidecar files happen to have same size.
 			name: "same size same extension different name - has extras",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/english.srt", Size: 1024},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/english.srt"), Size: qbt.Ptr(int64(1024))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/spanish.srt", Size: 1024}, // same extension, different name, same size
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/spanish.srt"), Size: qbt.Ptr(int64(1024))}, // same extension, different name, same size
 			},
 			expectedResult: true, // english.srt ≠ spanish.srt by normalized key
 		},
@@ -664,187 +660,187 @@ func TestHasContentFileSizeMismatch(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		sourceFiles      qbt.TorrentFiles
-		candidateFiles   qbt.TorrentFiles
+		sourceFiles      []qbt.TorrentFile
+		candidateFiles   []qbt.TorrentFile
 		expectedMismatch bool
 		expectedFiles    []string
 	}{
 		{
 			name: "identical single files - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E08.720p.WEB-DL.DDP5.1.H.264-GRP.mkv", Size: 1000000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E08.720p.WEB-DL.DDP5.1.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1000000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show S01E08 720p WEB-DL DDP5 1 H 264-GRP.mkv", Size: 1000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show S01E08 720p WEB-DL DDP5 1 H 264-GRP.mkv"), Size: qbt.Ptr(int64(1000000000))},
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "different file sizes - mismatch detected",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "movie.mkv", Size: 1000000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "movie.mkv", Size: 1000000001}, // 1 byte difference
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000000001))}, // 1 byte difference
 			},
 			expectedMismatch: true,
 			expectedFiles:    []string{"movie.mkv"},
 		},
 		{
 			name: "same scene release different naming - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.Title.2024.1080p.BluRay.x264-GROUP/Movie.Title.2024.1080p.BluRay.x264-GROUP.mkv", Size: 4000000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.Title.2024.1080p.BluRay.x264-GROUP/Movie.Title.2024.1080p.BluRay.x264-GROUP.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie Title 2024 1080p BluRay x264-GROUP/Movie Title 2024 1080p BluRay x264-GROUP.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie Title 2024 1080p BluRay x264-GROUP/Movie Title 2024 1080p BluRay x264-GROUP.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "extra NFO in source filtered out by hardcoded patterns - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/movie.nfo", Size: 1024},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/movie.nfo"), Size: qbt.Ptr(int64(1024))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "extra ZIP in source - no mismatch (extras allowed)",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/archive.zip", Size: 1024}, // Extra file with no matching key in candidate
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/archive.zip"), Size: qbt.Ptr(int64(1024))}, // Extra file with no matching key in candidate
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedMismatch: false, // Extra files don't cause mismatch; piece-boundary check handles safety
 			expectedFiles:    nil,
 		},
 		{
 			name: "multiple files all match",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.mkv", Size: 500000000},
-				{Name: "Show.S01E02.mkv", Size: 600000000},
-				{Name: "Show.S01E03.mkv", Size: 550000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(500000000))},
+				{Name: qbt.Ptr("Show.S01E02.mkv"), Size: qbt.Ptr(int64(600000000))},
+				{Name: qbt.Ptr("Show.S01E03.mkv"), Size: qbt.Ptr(int64(550000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show S01E01.mkv", Size: 500000000},
-				{Name: "Show S01E02.mkv", Size: 600000000},
-				{Name: "Show S01E03.mkv", Size: 550000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show S01E01.mkv"), Size: qbt.Ptr(int64(500000000))},
+				{Name: qbt.Ptr("Show S01E02.mkv"), Size: qbt.Ptr(int64(600000000))},
+				{Name: qbt.Ptr("Show S01E03.mkv"), Size: qbt.Ptr(int64(550000000))},
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "one of multiple files has size mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.mkv", Size: 500000000},
-				{Name: "Show.S01E02.mkv", Size: 600000001}, // Different size
-				{Name: "Show.S01E03.mkv", Size: 550000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(500000000))},
+				{Name: qbt.Ptr("Show.S01E02.mkv"), Size: qbt.Ptr(int64(600000001))}, // Different size
+				{Name: qbt.Ptr("Show.S01E03.mkv"), Size: qbt.Ptr(int64(550000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show S01E01.mkv", Size: 500000000},
-				{Name: "Show S01E02.mkv", Size: 600000000},
-				{Name: "Show S01E03.mkv", Size: 550000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show S01E01.mkv"), Size: qbt.Ptr(int64(500000000))},
+				{Name: qbt.Ptr("Show S01E02.mkv"), Size: qbt.Ptr(int64(600000000))},
+				{Name: qbt.Ptr("Show S01E03.mkv"), Size: qbt.Ptr(int64(550000000))},
 			},
 			expectedMismatch: true,
 			expectedFiles:    []string{"Show.S01E02.mkv"},
 		},
 		{
 			name:             "empty source files - no mismatch",
-			sourceFiles:      qbt.TorrentFiles{},
-			candidateFiles:   qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000000000}},
+			sourceFiles:      []qbt.TorrentFile{},
+			candidateFiles:   []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000000000))}},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "all source files filtered by hardcoded patterns - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "movie.nfo", Size: 1024},  // .nfo is hardcoded
-				{Name: "movie.srt", Size: 50000}, // .srt is hardcoded
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("movie.nfo"), Size: qbt.Ptr(int64(1024))},  // .nfo is hardcoded
+				{Name: qbt.Ptr("movie.srt"), Size: qbt.Ptr(int64(50000))}, // .srt is hardcoded
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "candidate has more files with matching sizes - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.mkv", Size: 500000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(500000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show S01/Show S01E01.mkv", Size: 500000000},
-				{Name: "Show S01/Show S01E02.mkv", Size: 600000000}, // Extra file
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show S01/Show S01E01.mkv"), Size: qbt.Ptr(int64(500000000))},
+				{Name: qbt.Ptr("Show S01/Show S01E02.mkv"), Size: qbt.Ptr(int64(600000000))}, // Extra file
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "source has extra sidecars filtered by hardcoded patterns - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.mkv", Size: 8000000000},
-				{Name: "Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.nfo", Size: 1024},
-				{Name: "Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.srt", Size: 50000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(8000000000))},
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.nfo"), Size: qbt.Ptr(int64(1024))},
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.srt"), Size: qbt.Ptr(int64(50000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
+			candidateFiles: []qbt.TorrentFile{
 				// Existing torrent only has the mkv
-				{Name: "Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.mkv", Size: 8000000000},
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(8000000000))},
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "folder path with hardcoded sample keyword",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/Sample/sample.mkv", Size: 50000}, // sample is hardcoded keyword
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/Sample/sample.mkv"), Size: qbt.Ptr(int64(50000))}, // sample is hardcoded keyword
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "cross-tracker size mismatch - different file sizes rejected",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E08.Episode.Title.720p.WEB-DL.DDP5.1.H.264-GRP.mkv", Size: 1234567890},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E08.Episode.Title.720p.WEB-DL.DDP5.1.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1234567890))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show S01E08 Episode Title 720p WEB-DL DDP5 1 H 264-GRP/Show S01E08 Episode Title 720p WEB-DL DDP5 1 H 264-GRP.mkv", Size: 1234567891},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show S01E08 Episode Title 720p WEB-DL DDP5 1 H 264-GRP/Show S01E08 Episode Title 720p WEB-DL DDP5 1 H 264-GRP.mkv"), Size: qbt.Ptr(int64(1234567891))},
 			},
 			expectedMismatch: true,
 			expectedFiles:    []string{"Show.S01E08.Episode.Title.720p.WEB-DL.DDP5.1.H.264-GRP.mkv"},
 		},
 		{
 			name: "sample files filtered by hardcoded keyword",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/sample.mkv", Size: 50000000}, // 'sample' keyword matches
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/sample.mkv"), Size: qbt.Ptr(int64(50000000))}, // 'sample' keyword matches
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "multiple size mismatches",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.mkv", Size: 500000001},
-				{Name: "Show.S01E02.mkv", Size: 600000001},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(500000001))},
+				{Name: qbt.Ptr("Show.S01E02.mkv"), Size: qbt.Ptr(int64(600000001))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show S01E01.mkv", Size: 500000000},
-				{Name: "Show S01E02.mkv", Size: 600000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show S01E01.mkv"), Size: qbt.Ptr(int64(500000000))},
+				{Name: qbt.Ptr("Show S01E02.mkv"), Size: qbt.Ptr(int64(600000000))},
 			},
 			expectedMismatch: true,
 			expectedFiles:    []string{"Show.S01E01.mkv", "Show.S01E02.mkv"},
@@ -854,11 +850,11 @@ func TestHasContentFileSizeMismatch(t *testing.T) {
 			// (due to relaxed audio checks), the file size mismatch is caught here.
 			// If audio truly differs, the file sizes will differ and we reject.
 			name: "audio mismatch caught by size difference - DDP vs DDPA different files",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.1080p.NF.WEB-DL.DDP5.1.H.264-Btn.mkv", Size: 1500000000}, // DDP 5.1 file
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.1080p.NF.WEB-DL.DDP5.1.H.264-Btn.mkv"), Size: qbt.Ptr(int64(1500000000))}, // DDP 5.1 file
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.1080p.NF.WEB-DL.DDPA5.1.H.264-Btn.mkv", Size: 1600000000}, // DDPA (Atmos) file - larger
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.1080p.NF.WEB-DL.DDPA5.1.H.264-Btn.mkv"), Size: qbt.Ptr(int64(1600000000))}, // DDPA (Atmos) file - larger
 			},
 			expectedMismatch: true,
 			expectedFiles: []string{
@@ -869,35 +865,35 @@ func TestHasContentFileSizeMismatch(t *testing.T) {
 			// This test proves that when indexer metadata is wrong (says DDPA but file is DDP),
 			// and the files are actually identical, we correctly allow the match.
 			name: "audio metadata mismatch but same file - allowed",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.1080p.NF.WEB-DL.DDP5.1.H.264-Btn.mkv", Size: 1500000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.1080p.NF.WEB-DL.DDP5.1.H.264-Btn.mkv"), Size: qbt.Ptr(int64(1500000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
+			candidateFiles: []qbt.TorrentFile{
 				// Indexer says DDPA but actual file is same size as source (it's DDP really)
-				{Name: "Show.S01E01.1080p.NF.WEB-DL.DDPA5.1.H.264-Btn.mkv", Size: 1500000000},
+				{Name: qbt.Ptr("Show.S01E01.1080p.NF.WEB-DL.DDPA5.1.H.264-Btn.mkv"), Size: qbt.Ptr(int64(1500000000))},
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
 		},
 		{
 			name: "season pack source vs single episode candidate - mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E01.1080p.WEB-DL.H.264-GRP.mkv", Size: 1400000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E02.1080p.WEB-DL.H.264-GRP.mkv", Size: 1350000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E03.1080p.WEB-DL.H.264-GRP.mkv", Size: 1380000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E04.1080p.WEB-DL.H.264-GRP.mkv", Size: 1420000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E05.1080p.WEB-DL.H.264-GRP.mkv", Size: 1390000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E06.1080p.WEB-DL.H.264-GRP.mkv", Size: 1360000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E07.1080p.WEB-DL.H.264-GRP.mkv", Size: 1410000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E08.1080p.WEB-DL.H.264-GRP.mkv", Size: 1370000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E09.1080p.WEB-DL.H.264-GRP.mkv", Size: 1340000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E10.1080p.WEB-DL.H.264-GRP.mkv", Size: 1430000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E11.1080p.WEB-DL.H.264-GRP.mkv", Size: 1385000000},
-				{Name: "Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E12.1080p.WEB-DL.H.264-GRP.mkv", Size: 1450000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E01.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1400000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E02.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1350000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E03.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1380000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E04.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1420000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E05.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1390000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E06.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1360000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E07.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1410000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E08.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1370000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E09.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1340000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E10.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1430000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E11.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1385000000))},
+				{Name: qbt.Ptr("Fake.Show.S01.1080p.WEB-DL.H.264-GRP/Fake.Show.S01E12.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1450000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
+			candidateFiles: []qbt.TorrentFile{
 				// Only one episode exists - matched via partial-in-pack
-				{Name: "Fake.Show.S01E09.Episode.Title.1080p.WEB-DL.H.264-GRP.mkv", Size: 1340000000},
+				{Name: qbt.Ptr("Fake.Show.S01E09.Episode.Title.1080p.WEB-DL.H.264-GRP.mkv"), Size: qbt.Ptr(int64(1340000000))},
 			},
 			expectedMismatch: true,
 			// 11 of 12 source files have no matching size in candidate
@@ -910,69 +906,69 @@ func TestHasContentFileSizeMismatch(t *testing.T) {
 		// New test cases for matched-files-only logic
 		{
 			name: "source has extra SFV, candidate has only MKV - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.mkv", Size: 8000000000},
-				{Name: "Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.sfv", Size: 512}, // .sfv not in ignore list
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(8000000000))},
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.sfv"), Size: qbt.Ptr(int64(512))}, // .sfv not in ignore list
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.mkv", Size: 8000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GRP/Movie.2024.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(8000000000))},
 			},
 			expectedMismatch: false, // MKV matches, SFV is extra - allowed
 			expectedFiles:    nil,
 		},
 		{
 			name: "matched file with different size - mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.BluRay.x264-GRP.mkv", Size: 8000000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(8000000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie 2024 1080p BluRay x264-GRP.mkv", Size: 8000000001}, // Same normalized key, different size
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie 2024 1080p BluRay x264-GRP.mkv"), Size: qbt.Ptr(int64(8000000001))}, // Same normalized key, different size
 			},
 			expectedMismatch: true,
 			expectedFiles:    []string{"Movie.2024.1080p.BluRay.x264-GRP.mkv"},
 		},
 		{
 			name: "no key matches, largest files same - no mismatch (fallback passes)",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "TrackerA.Release.Name.mkv", Size: 5000000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("TrackerA.Release.Name.mkv"), Size: qbt.Ptr(int64(5000000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Completely.Different.Name.mkv", Size: 5000000000}, // Different key but same size
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Completely.Different.Name.mkv"), Size: qbt.Ptr(int64(5000000000))}, // Different key but same size
 			},
 			expectedMismatch: false, // Fallback: largest files have same size
 			expectedFiles:    nil,
 		},
 		{
 			name: "no key matches, largest files differ - mismatch (fallback catches)",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "TrackerA.Release.Name.mkv", Size: 5000000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("TrackerA.Release.Name.mkv"), Size: qbt.Ptr(int64(5000000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Completely.Different.Name.mkv", Size: 5000000001}, // Different key AND different size
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Completely.Different.Name.mkv"), Size: qbt.Ptr(int64(5000000001))}, // Different key AND different size
 			},
 			expectedMismatch: true, // Fallback: largest files have different sizes
 			expectedFiles:    []string{"TrackerA.Release.Name.mkv"},
 		},
 		{
 			name: "source has extra video file - no mismatch (extras allowed)",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
-				{Name: "Movie/behind-the-scenes.mkv", Size: 500000000}, // Extra video file
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie/behind-the-scenes.mkv"), Size: qbt.Ptr(int64(500000000))}, // Extra video file
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie/movie.mkv", Size: 4000000000},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
 			expectedMismatch: false, // Main content matches, extra is fine
 			expectedFiles:    nil,
 		},
 		{
 			name: "candidate has extra file, source file matches - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.mkv", Size: 4000000000},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie.mkv", Size: 4000000000},
-				{Name: "Movie.nfo", Size: 1024}, // Candidate has extra
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.mkv"), Size: qbt.Ptr(int64(4000000000))},
+				{Name: qbt.Ptr("Movie.nfo"), Size: qbt.Ptr(int64(1024))}, // Candidate has extra
 			},
 			expectedMismatch: false,
 			expectedFiles:    nil,
@@ -981,13 +977,13 @@ func TestHasContentFileSizeMismatch(t *testing.T) {
 			// Regression test: tiny sidecar matching shouldn't suppress fallback check
 			// when main content files have different names and different sizes
 			name: "only sidecar matches, main content differs - mismatch via fallback",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "MovieA.mkv", Size: 8000000000}, // Main content - different name from candidate
-				{Name: "Release.sfv", Size: 512},       // Sidecar matches by key
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("MovieA.mkv"), Size: qbt.Ptr(int64(8000000000))}, // Main content - different name from candidate
+				{Name: qbt.Ptr("Release.sfv"), Size: qbt.Ptr(int64(512))},       // Sidecar matches by key
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "MovieB.mkv", Size: 8000000001}, // Different name AND different size
-				{Name: "Release.sfv", Size: 512},       // Sidecar matches
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("MovieB.mkv"), Size: qbt.Ptr(int64(8000000001))}, // Different name AND different size
+				{Name: qbt.Ptr("Release.sfv"), Size: qbt.Ptr(int64(512))},       // Sidecar matches
 			},
 			expectedMismatch: true, // Fallback catches it: .sfv is <1MB so not substantial, largest files differ
 			expectedFiles:    []string{"MovieA.mkv"},
@@ -996,13 +992,13 @@ func TestHasContentFileSizeMismatch(t *testing.T) {
 			// When sidecar matches and main content has same size (but different name),
 			// fallback should pass since largest files match
 			name: "only sidecar matches, main content same size - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "MovieA.mkv", Size: 8000000000},
-				{Name: "Release.sfv", Size: 512},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("MovieA.mkv"), Size: qbt.Ptr(int64(8000000000))},
+				{Name: qbt.Ptr("Release.sfv"), Size: qbt.Ptr(int64(512))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "MovieB.mkv", Size: 8000000000}, // Same size, different name
-				{Name: "Release.sfv", Size: 512},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("MovieB.mkv"), Size: qbt.Ptr(int64(8000000000))}, // Same size, different name
+				{Name: qbt.Ptr("Release.sfv"), Size: qbt.Ptr(int64(512))},
 			},
 			expectedMismatch: false, // Fallback passes: largest files have same size
 			expectedFiles:    nil,
@@ -1012,12 +1008,12 @@ func TestHasContentFileSizeMismatch(t *testing.T) {
 			// BehindTheScenes.mkv has no matching key in candidate, so it's a true "extra".
 			// Among files WITH matching keys (only Movie.mkv), the largest was matched.
 			name: "source has large extras bigger than matched content - no mismatch",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.mkv", Size: 4000000000},           // Has matching key, matched
-				{Name: "BehindTheScenes.mkv", Size: 6000000000}, // No matching key - true extra
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.mkv"), Size: qbt.Ptr(int64(4000000000))},           // Has matching key, matched
+				{Name: qbt.Ptr("BehindTheScenes.mkv"), Size: qbt.Ptr(int64(6000000000))}, // No matching key - true extra
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie.mkv", Size: 4000000000}, // Only has main content
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.mkv"), Size: qbt.Ptr(int64(4000000000))}, // Only has main content
 			},
 			expectedMismatch: false, // Movie.mkv (largest with key) matched, BTS is extra
 			expectedFiles:    nil,

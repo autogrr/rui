@@ -18,7 +18,7 @@ import (
 
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -245,8 +245,8 @@ func TestDetermineSavePath(t *testing.T) {
 		baseSavePath       string
 		contentLayout      string
 		matchType          string
-		sourceFiles        qbt.TorrentFiles
-		candidateFiles     qbt.TorrentFiles
+		sourceFiles        []qbt.TorrentFile
+		candidateFiles     []qbt.TorrentFile
 		wantPath           string
 		description        string
 	}{
@@ -257,8 +257,8 @@ func TestDetermineSavePath(t *testing.T) {
 			baseSavePath:       "/data/media/Show/Season 01", contentLayout: "Original",
 
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv")}},
 			wantPath:       "/data/media/Show/Season 01/Show.S01E05.1080p.WEB-DL.x264-OTHER",
 			description:    "Different roots - use SavePath + candidateRoot (existing files are there)",
 		},
@@ -269,8 +269,8 @@ func TestDetermineSavePath(t *testing.T) {
 			baseSavePath:       "/data/media/Show/Season 01", contentLayout: "Original",
 
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv")}},
 			wantPath:       "/data/media/Show/Season 01/Show.S01.1080p.BluRay.x264-GROUP",
 			description:    "Different roots - use SavePath + candidateRoot (existing files are there)",
 		},
@@ -280,8 +280,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "Show.S01E05.1080p.WEB-DL.x264-OTHER",
 			baseSavePath:       "/data/media/Show/Season 01", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show.S01E05.720p.HDTV.x264-GROUP/ep.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.720p.HDTV.x264-GROUP/ep.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv")}},
 			wantPath:       "/data/media/Show/Season 01/Show.S01E05.1080p.WEB-DL.x264-OTHER",
 			description:    "Different roots - use SavePath + candidateRoot (existing files are there)",
 		},
@@ -291,8 +291,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "Show.S01.1080p.BluRay.x264-GROUP",
 			baseSavePath:       "/data/media/Show", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv")}},
 			wantPath:       "/data/media/Show",
 			description:    "Same root folders, use SavePath (parent)",
 		},
@@ -302,8 +302,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "Movie.2020.1080p.WEB-DL.x264-OTHER",
 			baseSavePath:       "/data/media/Movies/Movie (2020)", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2020.720p.BluRay.x264-GROUP/movie.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2020.1080p.WEB-DL.x264-OTHER/movie.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.720p.BluRay.x264-GROUP/movie.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.WEB-DL.x264-OTHER/movie.mkv")}},
 			wantPath:       "/data/media/Movies/Movie (2020)/Movie.2020.1080p.WEB-DL.x264-OTHER",
 			description:    "Different roots - use SavePath + candidateRoot (existing files are there)",
 		},
@@ -313,8 +313,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "Documentary.720p.WEB-DL.x264-OTHER",
 			baseSavePath:       "/data/media/Documentaries", contentLayout: "Original",
 			matchType:      "size",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Documentary.1080p.HDTV.x264-GROUP/doc.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Documentary.720p.WEB-DL.x264-OTHER/doc.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Documentary.1080p.HDTV.x264-GROUP/doc.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Documentary.720p.WEB-DL.x264-OTHER/doc.mkv")}},
 			wantPath:       "/data/media/Documentaries/Documentary.720p.WEB-DL.x264-OTHER",
 			description:    "Different roots - use SavePath + candidateRoot (existing files are there)",
 		},
@@ -325,8 +325,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/data/media/Movies/Horror.Collection.2020",
 			baseSavePath:       "/data/media/Movies", contentLayout: "Original",
 			matchType:      "partial-in-pack",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Pulse.2001.1080p.BluRay.x264-GROUP/movie.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Horror.Collection.2020/Pulse.2001.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Pulse.2001.1080p.BluRay.x264-GROUP/movie.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Horror.Collection.2020/Pulse.2001.mkv")}},
 			wantPath:       "/data/media/Movies/Horror.Collection.2020",
 			description:    "Partial-in-pack uses ContentPath, not SavePath",
 		},
@@ -337,8 +337,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			baseSavePath:       "/data/media/Shows", contentLayout: "Original",
 			matchType:      "partial-in-pack",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-GROUP/ep.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-GROUP/ep.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv")}},
 			wantPath:       "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			description:    "Partial-in-pack episode uses season pack's ContentPath",
 		},
@@ -349,8 +349,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			baseSavePath:       "/data/media/Shows", contentLayout: "Original",
 			matchType:      "partial-in-pack",
-			sourceFiles:    qbt.TorrentFiles{{Name: "ep.mkv"}}, // Single file, no folder
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("ep.mkv")}}, // Single file, no folder
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv")}},
 			wantPath:       "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			description:    "Single-file TV episode uses season pack's ContentPath, not SavePath+Subfolder",
 		},
@@ -361,8 +361,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "",
 			baseSavePath:       "/data/media/Movies", contentLayout: "Original",
 			matchType:      "partial-in-pack",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Collection.2020/movie.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Collection.2020/movie.mkv")}},
 			wantPath:       "/data/media/Movies/Collection.2020",
 			description:    "Partial-in-pack with empty ContentPath uses SavePath + candidateRoot",
 		},
@@ -373,8 +373,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/data/media/Movies/Movie (2020) [1080p]",
 			baseSavePath:       "/data/media/Movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "SceneRelease.2020.BluRay.1080p-GRP/movie.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie (2020) [1080p]/movie.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("SceneRelease.2020.BluRay.1080p-GRP/movie.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie (2020) [1080p]/movie.mkv")}},
 			wantPath:       "/data/media/Movies/Movie (2020) [1080p]",
 			description:    "Different root folders should use ContentPath",
 		},
@@ -384,8 +384,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "Movie.2020.1080p.WEB-DL.x264-OTHER",
 			baseSavePath:       "/data/media/Movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "movie.mkv"}},
-			candidateFiles: qbt.TorrentFiles{{Name: "movie.mkv"}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv")}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv")}},
 			wantPath:       "/data/media/Movies",
 			description:    "Single file torrents with no root folder use SavePath",
 		},
@@ -404,8 +404,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/The.Movie.2020-GRP",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "partial-in-pack",
-			sourceFiles:    qbt.TorrentFiles{{Name: "The.Movie.2020-GRP.mkv", Size: 5 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "The.Movie.2020-GRP/The.Movie.2020-GRP.mkv", Size: 5 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020-GRP.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020-GRP/The.Movie.2020-GRP.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
 			wantPath:       "/movies",
 			description:    "Loose file uses SavePath, Subfolder layout creates folder",
 		},
@@ -419,8 +419,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "The.Movie.2020-GRP",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "The.Movie.2020-GRP/movie.mkv", Size: 5 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "movie.mkv", Size: 5 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020-GRP/movie.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
 			wantPath:       "/movies",
 			description:    "Folder torrent points to SavePath, NoSubfolder strips root",
 		},
@@ -434,8 +434,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "The.Movie.2020-GRP",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "The.Movie.2020-GRP/movie.mkv", Size: 5 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "The.Movie.2020-GRP/movie.mkv", Size: 5 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020-GRP/movie.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020-GRP/movie.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
 			wantPath:       "/movies",
 			description:    "Same roots use SavePath with Original layout",
 		},
@@ -450,8 +450,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Movie (2020) [1080p]",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "The.Movie.2020.1080p-GRP/movie.mkv", Size: 5 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie (2020) [1080p]/movie.mkv", Size: 5 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020.1080p-GRP/movie.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie (2020) [1080p]/movie.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
 			wantPath:       "/movies/Movie (2020) [1080p]",
 			description:    "Different roots use candidate folder path",
 		},
@@ -463,8 +463,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "The.Movie.2020-GRP.mkv",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "The.Movie.2020-GRP.mkv", Size: 5 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "The.Movie.2020-GRP.mkv", Size: 5 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020-GRP.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020-GRP.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
 			wantPath:       "/movies",
 			description:    "Both loose files use SavePath directly",
 		},
@@ -478,8 +478,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/mnt/storage/torrents/movies/Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv",
 			baseSavePath:       "/mnt/storage/torrents/movies", contentLayout: "Original",
 			matchType:      "partial-in-pack",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv", Size: 7 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv", Size: 7 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv"), Size: qbt.Ptr(int64(7 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv"), Size: qbt.Ptr(int64(7 << 30))}},
 			wantPath:       "/mnt/storage/torrents/movies",
 			description:    "Single file partial-in-pack uses SavePath, not ContentPath (which is a file path)",
 		},
@@ -493,11 +493,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/mnt/storage/torrents/movies/Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv",
 			baseSavePath:       "/mnt/storage/torrents/movies", contentLayout: "Original",
 			matchType: "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{{
-				Name: "Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT/Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv",
-				Size: 7 << 30,
+			sourceFiles: []qbt.TorrentFile{{
+				Name: qbt.Ptr("Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT/Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv"),
+				Size: qbt.Ptr(int64(7 << 30)),
 			}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv", Size: 7 << 30}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Dracula.A.Love.Tale.2025.1080p.WEB.H264-SLOT.mkv"), Size: qbt.Ptr(int64(7 << 30))}},
 			wantPath:       "/mnt/storage/torrents/movies",
 			description:    "Folder source to single file candidate uses SavePath",
 		},
@@ -511,13 +511,13 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Movie.2020.1080p.BluRay-OTHER",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType: "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{{
-				Name: "Movie.2020.1080p.WEB-GRP/Movie.2020.1080p.WEB-GRP.mkv",
-				Size: 8 << 30,
+			sourceFiles: []qbt.TorrentFile{{
+				Name: qbt.Ptr("Movie.2020.1080p.WEB-GRP/Movie.2020.1080p.WEB-GRP.mkv"),
+				Size: qbt.Ptr(int64(8 << 30)),
 			}},
-			candidateFiles: qbt.TorrentFiles{{
-				Name: "Movie.2020.1080p.BluRay-OTHER/Movie.2020.1080p.BluRay-OTHER.mkv",
-				Size: 8 << 30,
+			candidateFiles: []qbt.TorrentFile{{
+				Name: qbt.Ptr("Movie.2020.1080p.BluRay-OTHER/Movie.2020.1080p.BluRay-OTHER.mkv"),
+				Size: qbt.Ptr(int64(8 << 30)),
 			}},
 			wantPath:    "/movies/Movie.2020.1080p.BluRay-OTHER",
 			description: "Both have folders - uses ContentPath (folder path)",
@@ -532,11 +532,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Movie.2020.1080p.WEB.mkv",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType: "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.2020.1080p.BluRay-GRP/Movie.2020.1080p.BluRay-GRP.mkv", Size: 8 << 30},
-				{Name: "Movie.2020.1080p.BluRay-GRP/Extras/Behind.The.Scenes.mkv", Size: 1 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2020.1080p.BluRay-GRP/Movie.2020.1080p.BluRay-GRP.mkv"), Size: qbt.Ptr(int64(8 << 30))},
+				{Name: qbt.Ptr("Movie.2020.1080p.BluRay-GRP/Extras/Behind.The.Scenes.mkv"), Size: qbt.Ptr(int64(1 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2020.1080p.WEB.mkv", Size: 8 << 30}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.WEB.mkv"), Size: qbt.Ptr(int64(8 << 30))}},
 			wantPath:       "/movies",
 			description:    "Multi-file source with extras to single file uses SavePath",
 		},
@@ -556,12 +556,12 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/The.Show.S01E01.1080p.WEB.mkv",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType: "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01.1080p.BluRay-GRP/The.Show.S01E01.1080p.BluRay-GRP.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p.BluRay-GRP/The.Show.S01E02.1080p.BluRay-GRP.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p.BluRay-GRP/The.Show.S01E03.1080p.BluRay-GRP.mkv", Size: 2 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01.1080p.BluRay-GRP/The.Show.S01E01.1080p.BluRay-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p.BluRay-GRP/The.Show.S01E02.1080p.BluRay-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p.BluRay-GRP/The.Show.S01E03.1080p.BluRay-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{{Name: "The.Show.S01E01.1080p.WEB.mkv", Size: 2 << 30}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Show.S01E01.1080p.WEB.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
 			wantPath:       "/tv",
 			description:    "Season pack source to single episode file uses SavePath",
 		},
@@ -575,11 +575,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/The.Show.S01E05.1080p.WEB.mkv",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType: "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{{
-				Name: "The.Show.S01E05.1080p.BluRay-GRP/The.Show.S01E05.1080p.BluRay-GRP.mkv",
-				Size: 2 << 30,
+			sourceFiles: []qbt.TorrentFile{{
+				Name: qbt.Ptr("The.Show.S01E05.1080p.BluRay-GRP/The.Show.S01E05.1080p.BluRay-GRP.mkv"),
+				Size: qbt.Ptr(int64(2 << 30)),
 			}},
-			candidateFiles: qbt.TorrentFiles{{Name: "The.Show.S01E05.1080p.WEB.mkv", Size: 2 << 30}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Show.S01E05.1080p.WEB.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
 			wantPath:       "/tv",
 			description:    "Episode folder source to single episode file uses SavePath",
 		},
@@ -593,8 +593,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/The.Show.S01E05.1080p.WEB.mkv",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType:      "partial-in-pack",
-			sourceFiles:    qbt.TorrentFiles{{Name: "The.Show.S01E05.1080p.BluRay.mkv", Size: 2 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "The.Show.S01E05.1080p.WEB.mkv", Size: 2 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("The.Show.S01E05.1080p.BluRay.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Show.S01E05.1080p.WEB.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
 			wantPath:       "/tv",
 			description:    "Both single episode files - uses SavePath",
 		},
@@ -608,11 +608,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/The.Show.S01E05.1080p.WEB.mkv",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType: "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01E05.1080p.BluRay-GRP/The.Show.S01E05.1080p.BluRay-GRP.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01E05.1080p.BluRay-GRP/Subs/English.srt", Size: 100 << 10},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01E05.1080p.BluRay-GRP/The.Show.S01E05.1080p.BluRay-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01E05.1080p.BluRay-GRP/Subs/English.srt"), Size: qbt.Ptr(int64(100 << 10))},
 			},
-			candidateFiles: qbt.TorrentFiles{{Name: "The.Show.S01E05.1080p.WEB.mkv", Size: 2 << 30}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Show.S01E05.1080p.WEB.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
 			wantPath:       "/tv",
 			description:    "Episode with subs folder to single file uses SavePath",
 		},
@@ -627,11 +627,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/The.Show.S01.1080p-GRP",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType:   "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{{Name: "The.Show.S01E01.1080p-GRP.mkv", Size: 2 << 30}},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01.1080p-GRP/The.Show.S01E01.1080p-GRP.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p-GRP/The.Show.S01E02.1080p-GRP.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p-GRP/The.Show.S01E03.1080p-GRP.mkv", Size: 2 << 30},
+			sourceFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Show.S01E01.1080p-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01.1080p-GRP/The.Show.S01E01.1080p-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p-GRP/The.Show.S01E02.1080p-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p-GRP/The.Show.S01E03.1080p-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 			},
 			wantPath:    "/tv/The.Show.S01.1080p-GRP",
 			description: "TV episode into season pack uses ContentPath, NoSubfolder layout",
@@ -646,11 +646,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "The.Show.S01E01.1080p-GRP",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType: "partial-contains",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01.1080p-GRP/The.Show.S01E01.1080p-GRP.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p-GRP/The.Show.S01E02.1080p-GRP.mkv", Size: 2 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01.1080p-GRP/The.Show.S01E01.1080p-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p-GRP/The.Show.S01E02.1080p-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{{Name: "The.Show.S01E01.1080p-GRP.mkv", Size: 2 << 30}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Show.S01E01.1080p-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
 			wantPath:       "/tv",
 			description:    "Season pack uses SavePath, episode file exists there",
 		},
@@ -665,10 +665,10 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/The.Show.S01.1080p-GRP",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType:   "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{{Name: "The.Show.S01E01.1080p-OTHER/ep.mkv", Size: 2 << 30}},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01.1080p-GRP/The.Show.S01E01.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p-GRP/The.Show.S01E02.mkv", Size: 2 << 30},
+			sourceFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Show.S01E01.1080p-OTHER/ep.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01.1080p-GRP/The.Show.S01E01.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p-GRP/The.Show.S01E02.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 			},
 			wantPath:    "/tv/The.Show.S01.1080p-GRP",
 			description: "Episode with folder placed inside season pack folder",
@@ -683,13 +683,13 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedTorrentName: "The.Show.S01.1080p.BluRay-GRP",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType: "exact",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01.1080p.BluRay-GRP/ep1.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p.BluRay-GRP/ep2.mkv", Size: 2 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01.1080p.BluRay-GRP/ep1.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p.BluRay-GRP/ep2.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01.1080p.BluRay-GRP/ep1.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p.BluRay-GRP/ep2.mkv", Size: 2 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01.1080p.BluRay-GRP/ep1.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p.BluRay-GRP/ep2.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 			},
 			wantPath:    "/tv",
 			description: "Same root folders use SavePath with Original layout",
@@ -705,13 +705,13 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/The.Show.S01.1080p.BluRay-GRP",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType: "exact",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01.1080p.WEB-GRP/ep1.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p.WEB-GRP/ep2.mkv", Size: 2 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01.1080p.WEB-GRP/ep1.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p.WEB-GRP/ep2.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01.1080p.BluRay-GRP/ep1.mkv", Size: 2 << 30},
-				{Name: "The.Show.S01.1080p.BluRay-GRP/ep2.mkv", Size: 2 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01.1080p.BluRay-GRP/ep1.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+				{Name: qbt.Ptr("The.Show.S01.1080p.BluRay-GRP/ep2.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 			},
 			wantPath:    "/tv/The.Show.S01.1080p.BluRay-GRP",
 			description: "Different roots use candidate folder path",
@@ -725,8 +725,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/The Show S01E01 [1080p]",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "The.Show.S01E01.1080p-GRP/ep.mkv", Size: 2 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "The Show S01E01 [1080p]/ep.mkv", Size: 2 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("The.Show.S01E01.1080p-GRP/ep.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The Show S01E01 [1080p]/ep.mkv"), Size: qbt.Ptr(int64(2 << 30))}},
 			wantPath:       "/tv/The Show S01E01 [1080p]",
 			description:    "Different naming conventions use candidate folder",
 		},
@@ -745,11 +745,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Horror.Collection.2020",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:   "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{{Name: "Pulse.2001.1080p-GRP.mkv", Size: 4 << 30}},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Horror.Collection.2020/Pulse.2001.mkv", Size: 4 << 30},
-				{Name: "Horror.Collection.2020/Ring.2002.mkv", Size: 4 << 30},
-				{Name: "Horror.Collection.2020/Grudge.2004.mkv", Size: 4 << 30},
+			sourceFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Pulse.2001.1080p-GRP.mkv"), Size: qbt.Ptr(int64(4 << 30))}},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Horror.Collection.2020/Pulse.2001.mkv"), Size: qbt.Ptr(int64(4 << 30))},
+				{Name: qbt.Ptr("Horror.Collection.2020/Ring.2002.mkv"), Size: qbt.Ptr(int64(4 << 30))},
+				{Name: qbt.Ptr("Horror.Collection.2020/Grudge.2004.mkv"), Size: qbt.Ptr(int64(4 << 30))},
 			},
 			wantPath:    "/movies",
 			description: "Loose movie uses SavePath, Subfolder layout creates folder",
@@ -766,11 +766,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Pulse.2001.1080p-GRP",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType: "partial-contains",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Horror.Collection.2020/Pulse.2001.mkv", Size: 4 << 30},
-				{Name: "Horror.Collection.2020/Ring.2002.mkv", Size: 4 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Horror.Collection.2020/Pulse.2001.mkv"), Size: qbt.Ptr(int64(4 << 30))},
+				{Name: qbt.Ptr("Horror.Collection.2020/Ring.2002.mkv"), Size: qbt.Ptr(int64(4 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{{Name: "Pulse.2001.1080p-GRP/Pulse.mkv", Size: 4 << 30}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Pulse.2001.1080p-GRP/Pulse.mkv"), Size: qbt.Ptr(int64(4 << 30))}},
 			wantPath:       "/movies",
 			description:    "Collection points to existing movie folder, file renaming aligns",
 		},
@@ -783,10 +783,10 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Horror.Collection.2020",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:   "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{{Name: "Pulse.2001.1080p-GRP/movie.mkv", Size: 4 << 30}},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Horror.Collection.2020/Pulse.2001.mkv", Size: 4 << 30},
-				{Name: "Horror.Collection.2020/Ring.2002.mkv", Size: 4 << 30},
+			sourceFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Pulse.2001.1080p-GRP/movie.mkv"), Size: qbt.Ptr(int64(4 << 30))}},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Horror.Collection.2020/Pulse.2001.mkv"), Size: qbt.Ptr(int64(4 << 30))},
+				{Name: qbt.Ptr("Horror.Collection.2020/Ring.2002.mkv"), Size: qbt.Ptr(int64(4 << 30))},
 			},
 			wantPath:    "/movies/Horror.Collection.2020",
 			description: "Movie with folder placed inside collection",
@@ -804,11 +804,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/The.Movie.2020-OTHER",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:   "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{{Name: "The.Movie.2020-GRP/movie.mkv", Size: 5 << 30}},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "The.Movie.2020-OTHER/movie.mkv", Size: 5 << 30},
-				{Name: "The.Movie.2020-OTHER/Sample/sample.mkv", Size: 50 << 20},
-				{Name: "The.Movie.2020-OTHER/Extras/behind_scenes.mkv", Size: 500 << 20},
+			sourceFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020-GRP/movie.mkv"), Size: qbt.Ptr(int64(5 << 30))}},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Movie.2020-OTHER/movie.mkv"), Size: qbt.Ptr(int64(5 << 30))},
+				{Name: qbt.Ptr("The.Movie.2020-OTHER/Sample/sample.mkv"), Size: qbt.Ptr(int64(50 << 20))},
+				{Name: qbt.Ptr("The.Movie.2020-OTHER/Extras/behind_scenes.mkv"), Size: qbt.Ptr(int64(500 << 20))},
 			},
 			wantPath:    "/movies/The.Movie.2020-OTHER",
 			description: "Main movie file matches, extras ignored",
@@ -822,11 +822,11 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/The.Movie.2020-GRP",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType: "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.Pack.2020/The.Movie.2020/movie.mkv", Size: 5 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.Pack.2020/The.Movie.2020/movie.mkv"), Size: qbt.Ptr(int64(5 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "The.Movie.2020-GRP/movie.mkv", Size: 5 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Movie.2020-GRP/movie.mkv"), Size: qbt.Ptr(int64(5 << 30))},
 			},
 			wantPath:    "/movies/The.Movie.2020-GRP",
 			description: "Nested source structure matched to flat candidate",
@@ -840,8 +840,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Amélie (2001) [1080p]",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Amélie.2001.1080p-GRP/movie.mkv", Size: 4 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Amélie (2001) [1080p]/movie.mkv", Size: 4 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Amélie.2001.1080p-GRP/movie.mkv"), Size: qbt.Ptr(int64(4 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Amélie (2001) [1080p]/movie.mkv"), Size: qbt.Ptr(int64(4 << 30))}},
 			wantPath:       "/movies/Amélie (2001) [1080p]",
 			description:    "Unicode characters handled correctly",
 		},
@@ -854,8 +854,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Movie Long Title (2020)",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "The.Movie.With.A.Very.Long.Title.That.Goes.On.And.On.2020.1080p.BluRay.x264.DTS-HD.MA.7.1-VERYLONGGROUP/movie.mkv", Size: 20 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie Long Title (2020)/movie.mkv", Size: 20 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.With.A.Very.Long.Title.That.Goes.On.And.On.2020.1080p.BluRay.x264.DTS-HD.MA.7.1-VERYLONGGROUP/movie.mkv"), Size: qbt.Ptr(int64(20 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie Long Title (2020)/movie.mkv"), Size: qbt.Ptr(int64(20 << 30))}},
 			wantPath:       "/movies/Movie Long Title (2020)",
 			description:    "Long folder names handled correctly",
 		},
@@ -868,8 +868,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/data/media/Show/Season 01/Show.S01E01.1080p.WEB-DL.x264-OTHER",
 			baseSavePath:       "/data/media/Show/Season 01/Show.S01E01.1080p.WEB-DL.x264-OTHER", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show.S01E01.720p.HDTV.x264-GROUP/ep.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01E01.1080p.WEB-DL.x264-OTHER/ep.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E01.720p.HDTV.x264-GROUP/ep.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E01.1080p.WEB-DL.x264-OTHER/ep.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/data/media/Show/Season 01/Show.S01E01.1080p.WEB-DL.x264-OTHER",
 			description:    "Save path already ends with candidate root, don't append again",
 		},
@@ -882,8 +882,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Movie.2020.1080p.BluRay.x264-OTHER/Movie.2020.720p.WEB.x264-SOME",
 			baseSavePath:       "/movies/Movie.2020.1080p.BluRay.x264-OTHER/Movie.2020.720p.WEB.x264-SOME", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2020.480p.WEB.x264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2020.720p.WEB.x264-SOME/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.480p.WEB.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.720p.WEB.x264-SOME/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/movies/Movie.2020.1080p.BluRay.x264-OTHER/Movie.2020.720p.WEB.x264-SOME",
 			description:    "Even with deep nesting in save path, don't append candidate root again",
 		},
@@ -896,8 +896,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/Season.S01.1080p.BluRay.x264-OTHER",
 			baseSavePath:       "/tv/Season.S01.1080p.BluRay.x264-OTHER", contentLayout: "Original",
 			matchType:      "partial-in-pack",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Episode.S01E01.1080p-GROUP.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Season.S01.1080p.BluRay.x264-OTHER/ep1.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Episode.S01E01.1080p-GROUP.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Season.S01.1080p.BluRay.x264-OTHER/ep1.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/tv/Season.S01.1080p.BluRay.x264-OTHER",
 			description:    "Single file into season pack folder that's already named after root",
 		},
@@ -910,10 +910,10 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/Show.S01E01.1080p.WEB.x264-SOME",
 			baseSavePath:       "/tv/Show.S01E01.1080p.WEB.x264-SOME", contentLayout: "Original",
 			matchType:   "partial-contains",
-			sourceFiles: qbt.TorrentFiles{{Name: "Show.S01E02.720p.HDTV.x264-GROUP/ep.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv", Size: 1 << 30},
-				{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep2.mkv", Size: 1 << 30},
+			sourceFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E02.720p.HDTV.x264-GROUP/ep.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv"), Size: qbt.Ptr(int64(1 << 30))},
+				{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep2.mkv"), Size: qbt.Ptr(int64(1 << 30))},
 			},
 			wantPath:    "/tv/Show.S01E01.1080p.WEB.x264-SOME",
 			description: "Season pack in episode folder should not create new subfolder",
@@ -927,8 +927,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Collections/Horror.2020/Horror.Collection.2020",
 			baseSavePath:       "/movies/Collections/Horror.2020/Horror.Collection.2020", contentLayout: "Original",
 			matchType:      "partial-in-pack",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.A.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Horror.Collection.2020/Movie.A.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.A.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Horror.Collection.2020/Movie.A.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/movies/Collections/Horror.2020/Horror.Collection.2020",
 			description:    "Collection in nested path should not add another level",
 		},
@@ -941,8 +941,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/Shows/Season 01/Show.S01E01.[1080p].WEB.x264-OTHER",
 			baseSavePath:       "/tv/Shows/Season 01/Show.S01E01.[1080p].WEB.x264-OTHER", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show.S01E01.720p.HDTV.x264-GROUP/ep.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01E01.[1080p].WEB.x264-OTHER/ep.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E01.720p.HDTV.x264-GROUP/ep.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E01.[1080p].WEB.x264-OTHER/ep.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/tv/Shows/Season 01/Show.S01E01.[1080p].WEB.x264-OTHER",
 			description:    "Special characters in root folder name already in path",
 		},
@@ -955,8 +955,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "",
 			baseSavePath:       "",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Movie.2020.720p.WEB.x264-OTHER/movie.mkv", Size: 1 << 30}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.720p.WEB.x264-OTHER/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:           "",
 			description:        "Empty save path should be returned as-is",
 		},
@@ -969,8 +969,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv/Show (2025) - Season 1",
 			baseSavePath:       "/tv", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show.2025.S01.1080p.BluRay.x264-GROUP/ep1.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.2025.S01.720p.WEB.x264-OTHER/ep1.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show.2025.S01.1080p.BluRay.x264-GROUP/ep1.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.2025.S01.720p.WEB.x264-OTHER/ep1.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/tv/Show.2025.S01.720p.WEB.x264-OTHER",
 			description:    "Numeric season folders with different naming conventions",
 		},
@@ -983,8 +983,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/media/movies/action/2020/sci-fi/Movie.2020.720p.WEB.x264-OTHER",
 			baseSavePath:       "/media/movies/action/2020/sci-fi", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2020.720p.WEB.x264-OTHER/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.720p.WEB.x264-OTHER/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/media/movies/action/2020/sci-fi/Movie.2020.720p.WEB.x264-OTHER",
 			description:    "Deeply nested directory structures",
 		},
@@ -997,8 +997,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/movie.2020.720p.web.x264-other",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "MOVIE.2020.1080P.BLU-RAY.X264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "movie.2020.720p.web.x264-other/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("MOVIE.2020.1080P.BLU-RAY.X264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movie.2020.720p.web.x264-other/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/movies/movie.2020.720p.web.x264-other",
 			description:    "Case differences between source and candidate root folders",
 		},
@@ -1013,8 +1013,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/tv\\mixed\\Show.S01.720p.WEB.x264-OTHER",
 			baseSavePath:       "/tv\\mixed", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Show.S01.720p.WEB.x264-OTHER/ep1.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.720p.WEB.x264-OTHER/ep1.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/tv/mixed/Show.S01.720p.WEB.x264-OTHER",
 			description:    "Mixed separators normalized to forward slashes",
 		},
@@ -1027,8 +1027,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/The Movie (2020) [1080p] BluRay x264-OTHER",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "The.Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "The Movie (2020) [1080p] BluRay x264-OTHER/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("The.Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("The Movie (2020) [1080p] BluRay x264-OTHER/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/movies/The Movie (2020) [1080p] BluRay x264-OTHER",
 			description:    "Complex punctuation and spacing in folder names",
 		},
@@ -1041,8 +1041,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/B.2020.720p.WEB.x264-OTHER",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "A.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "B.2020.720p.WEB.x264-OTHER/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("A.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("B.2020.720p.WEB.x264-OTHER/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/movies/B.2020.720p.WEB.x264-OTHER",
 			description:    "Single character root folder names",
 		},
@@ -1055,8 +1055,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/2020.Movies/Movie.2020.720p.WEB.x264-OTHER",
 			baseSavePath:       "/movies/2020.Movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2020.720p.WEB.x264-OTHER/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.720p.WEB.x264-OTHER/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/movies/2020.Movies/Movie.2020.720p.WEB.x264-OTHER",
 			description:    "Dots in directory names that could confuse parsing",
 		},
@@ -1069,8 +1069,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Film.2020.720p.WEB.x264-OTHER",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Film.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Film.2020.720p.WEB.x264-OTHER/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Film.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Film.2020.720p.WEB.x264-OTHER/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/movies/Film.2020.720p.WEB.x264-OTHER",
 			description:    "Unicode characters properly handled in folder names",
 		},
@@ -1083,8 +1083,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "movie.2020.1080p.bluray.x264-group.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "movie.2020.720p.web.x264-other.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("movie.2020.1080p.bluray.x264-group.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movie.2020.720p.web.x264-other.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/movies",
 			description:    "Single file torrents with no root folder structure",
 		},
@@ -1097,13 +1097,13 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Movie.2020.720p.WEB.x264-OTHER",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType: "exact",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.2020.1080p.BluRay.x264-GROUP/extras/trailer.mkv", Size: 50 << 20},
-				{Name: "Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2020.1080p.BluRay.x264-GROUP/extras/trailer.mkv"), Size: qbt.Ptr(int64(50 << 20))},
+				{Name: qbt.Ptr("Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie.2020.720p.WEB.x264-OTHER/extras/trailer.mkv", Size: 50 << 20},
-				{Name: "Movie.2020.720p.WEB.x264-OTHER/movie.mkv", Size: 1 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2020.720p.WEB.x264-OTHER/extras/trailer.mkv"), Size: qbt.Ptr(int64(50 << 20))},
+				{Name: qbt.Ptr("Movie.2020.720p.WEB.x264-OTHER/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))},
 			},
 			wantPath:    "/movies/Movie.2020.720p.WEB.x264-OTHER",
 			description: "Source torrent with nested subfolders in root",
@@ -1117,13 +1117,13 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Movie.A.2020.1080p.BluRay.x264-GROUP",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType: "partial-in-pack",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Collection.2020/Movie.A.mkv", Size: 1 << 30},
-				{Name: "Collection.2020/Movie.B.mkv", Size: 1 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Collection.2020/Movie.A.mkv"), Size: qbt.Ptr(int64(1 << 30))},
+				{Name: qbt.Ptr("Collection.2020/Movie.B.mkv"), Size: qbt.Ptr(int64(1 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie.A.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30},
-				{Name: "Movie.A.2020.1080p.BluRay.x264-GROUP/extras/trailer.mkv", Size: 50 << 20},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.A.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))},
+				{Name: qbt.Ptr("Movie.A.2020.1080p.BluRay.x264-GROUP/extras/trailer.mkv"), Size: qbt.Ptr(int64(50 << 20))},
 			},
 			wantPath:    "/movies/Movie.A.2020.1080p.BluRay.x264-GROUP",
 			description: "Inconsistent file structures between collection and individual movie",
@@ -1137,8 +1137,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/movies/Very.Long.Folder.Name.That.Exceeds.Normal.Limits.And.Might.Cause.Issues.On.Some.File.Systems.2020.1080p.BluRay.x264-GROUP",
 			baseSavePath:       "/movies", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Short.Name.2020/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Very.Long.Folder.Name.That.Exceeds.Normal.Limits.And.Might.Cause.Issues.On.Some.File.Systems.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Short.Name.2020/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Very.Long.Folder.Name.That.Exceeds.Normal.Limits.And.Might.Cause.Issues.On.Some.File.Systems.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/movies/Very.Long.Folder.Name.That.Exceeds.Normal.Limits.And.Might.Cause.Issues.On.Some.File.Systems.2020.1080p.BluRay.x264-GROUP",
 			description:    "Very long folder names that might exceed filesystem limits",
 		},
@@ -1151,8 +1151,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "Movie.2020.720p.WEB.x264-OTHER",
 			baseSavePath:       ".", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.2020.720p.WEB.x264-OTHER/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.BluRay.x264-GROUP/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.720p.WEB.x264-OTHER/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "Movie.2020.720p.WEB.x264-OTHER",
 			description:    "Relative save paths and content paths",
 		},
@@ -1165,8 +1165,8 @@ func TestDetermineSavePath(t *testing.T) {
 			matchedContentPath: "/data/media/movies.2020.720p.web.x264-other",
 			baseSavePath:       "/data/media", contentLayout: "Original",
 			matchType:      "exact",
-			sourceFiles:    qbt.TorrentFiles{{Name: "movies.2020.collection/movie.mkv", Size: 1 << 30}},
-			candidateFiles: qbt.TorrentFiles{{Name: "movies.2020.720p.web.x264-other/movie.mkv", Size: 1 << 30}},
+			sourceFiles:    []qbt.TorrentFile{{Name: qbt.Ptr("movies.2020.collection/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("movies.2020.720p.web.x264-other/movie.mkv"), Size: qbt.Ptr(int64(1 << 30))}},
 			wantPath:       "/data/media/movies.2020.720p.web.x264-other",
 			description:    "Root folder name conflicts with save path base directory",
 		},
@@ -1175,11 +1175,11 @@ func TestDetermineSavePath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matchedTorrent := &qbt.Torrent{
-				Name:        tt.matchedTorrentName,
-				ContentPath: tt.matchedContentPath,
+				Name:        qbt.Ptr(tt.matchedTorrentName),
+				ContentPath: qbt.Ptr(tt.matchedContentPath),
 			}
 			props := &qbt.TorrentProperties{
-				SavePath: tt.baseSavePath,
+				SavePath: qbt.Ptr(tt.baseSavePath),
 			}
 
 			gotPath := s.determineSavePath(tt.newTorrentName, matchedTorrent, props, tt.matchType, tt.sourceFiles, tt.candidateFiles, tt.contentLayout)
@@ -1202,25 +1202,25 @@ func TestPartialInPackIntegration(t *testing.T) {
 
 	// Season pack we're seeding
 	seasonPackName := "The.Show.S01.1080p.BluRay.x264-GRP"
-	seasonPackFiles := qbt.TorrentFiles{
-		{Name: "The.Show.S01.1080p.BluRay.x264-GRP/The.Show.S01E01.1080p.BluRay.x264-GRP.mkv", Size: 2 << 30},
-		{Name: "The.Show.S01.1080p.BluRay.x264-GRP/The.Show.S01E02.1080p.BluRay.x264-GRP.mkv", Size: 2 << 30},
-		{Name: "The.Show.S01.1080p.BluRay.x264-GRP/The.Show.S01E03.1080p.BluRay.x264-GRP.mkv", Size: 2 << 30},
+	seasonPackFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("The.Show.S01.1080p.BluRay.x264-GRP/The.Show.S01E01.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+		{Name: qbt.Ptr("The.Show.S01.1080p.BluRay.x264-GRP/The.Show.S01E02.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
+		{Name: qbt.Ptr("The.Show.S01.1080p.BluRay.x264-GRP/The.Show.S01E03.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 	}
 	seasonPackTorrent := &qbt.Torrent{
-		Hash:        "seasonpack123",
-		Name:        seasonPackName,
-		ContentPath: "/downloads/tv/The.Show.S01.1080p.BluRay.x264-GRP",
-		Progress:    1.0,
+		Hash: qbt.Ptr("seasonpack123"),
+		Name: qbt.Ptr(seasonPackName),
+		ContentPath: qbt.Ptr("/downloads/tv/The.Show.S01.1080p.BluRay.x264-GRP"),
+		Progress: qbt.Ptr(float64(1.0)),
 	}
 	seasonPackProps := &qbt.TorrentProperties{
-		SavePath: "/downloads/tv",
+		SavePath: qbt.Ptr("/downloads/tv"),
 	}
 
 	// New episode torrent we found in search
 	episodeName := "The.Show.S01E01.1080p.WEB-DL.x264-OTHER"
-	episodeFiles := qbt.TorrentFiles{
-		{Name: "The.Show.S01E01.1080p.WEB-DL.x264-OTHER.mkv", Size: 2 << 30},
+	episodeFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("The.Show.S01E01.1080p.WEB-DL.x264-OTHER.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 	}
 
 	// Parse releases
@@ -1252,24 +1252,24 @@ func TestPartialInPackMovieCollectionIntegration(t *testing.T) {
 
 	// Movie collection we're seeding
 	collectionName := "Horror.Collection.2020.1080p.BluRay.x264-GRP"
-	collectionFiles := qbt.TorrentFiles{
-		{Name: "Horror.Collection.2020.1080p.BluRay.x264-GRP/Pulse.2001.1080p.BluRay.x264-GRP.mkv", Size: 4 << 30},
-		{Name: "Horror.Collection.2020.1080p.BluRay.x264-GRP/Ring.1998.1080p.BluRay.x264-GRP.mkv", Size: 4 << 30},
+	collectionFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Horror.Collection.2020.1080p.BluRay.x264-GRP/Pulse.2001.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(4 << 30))},
+		{Name: qbt.Ptr("Horror.Collection.2020.1080p.BluRay.x264-GRP/Ring.1998.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(4 << 30))},
 	}
 	collectionTorrent := &qbt.Torrent{
-		Hash:        "collection456",
-		Name:        collectionName,
-		ContentPath: "/downloads/movies/Horror.Collection.2020.1080p.BluRay.x264-GRP",
-		Progress:    1.0,
+		Hash: qbt.Ptr("collection456"),
+		Name: qbt.Ptr(collectionName),
+		ContentPath: qbt.Ptr("/downloads/movies/Horror.Collection.2020.1080p.BluRay.x264-GRP"),
+		Progress: qbt.Ptr(float64(1.0)),
 	}
 	collectionProps := &qbt.TorrentProperties{
-		SavePath: "/downloads/movies",
+		SavePath: qbt.Ptr("/downloads/movies"),
 	}
 
 	// New single movie torrent we found in search
 	movieName := "Pulse.2001.1080p.BluRay.x264-GRP"
-	movieFiles := qbt.TorrentFiles{
-		{Name: "Pulse.2001.1080p.BluRay.x264-GRP.mkv", Size: 4 << 30},
+	movieFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Pulse.2001.1080p.BluRay.x264-GRP.mkv"), Size: qbt.Ptr(int64(4 << 30))},
 	}
 
 	// Parse releases
@@ -1362,8 +1362,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				InheritSourceTags: true,
 			},
 			matched: qbt.Torrent{
-				Category: "movies",
-				Tags:     "tracker1,quality-1080p",
+				Category: qbt.Ptr("movies"),
+				Tags: qbt.Ptr("tracker1,quality-1080p"),
 			},
 			settings:              defaultSettings,
 			inheritSourceTags:     true,
@@ -1378,8 +1378,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{"custom", "cross-seed"},
 			},
 			matched: qbt.Torrent{
-				Category: "movies",
-				Tags:     "tracker1",
+				Category: qbt.Ptr("movies"),
+				Tags: qbt.Ptr("tracker1"),
 			},
 			settings:              defaultSettings,
 			inheritSourceTags:     false,
@@ -1395,8 +1395,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				InheritSourceTags: true,
 			},
 			matched: qbt.Torrent{
-				Category: "tv",
-				Tags:     "sonarr",
+				Category: qbt.Ptr("tv"),
+				Tags: qbt.Ptr("sonarr"),
 			},
 			settings:              defaultSettings,
 			inheritSourceTags:     true,
@@ -1412,7 +1412,7 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:        []string{"cross-seed"},
 			},
 			matched: qbt.Torrent{
-				Category: "fallback",
+				Category: qbt.Ptr("fallback"),
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				UseCategoryFromIndexer: true,
@@ -1432,8 +1432,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{},
 			},
 			matched: qbt.Torrent{
-				Category: "tv",
-				Tags:     "",
+				Category: qbt.Ptr("tv"),
+				Tags: qbt.Ptr(""),
 			},
 			settings:              defaultSettings,
 			inheritSourceTags:     false,
@@ -1448,8 +1448,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{},
 			},
 			matched: qbt.Torrent{
-				Category: "",
-				Tags:     "",
+				Category: qbt.Ptr(""),
+				Tags: qbt.Ptr(""),
 			},
 			settings:              defaultSettings,
 			inheritSourceTags:     false,
@@ -1464,8 +1464,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{},
 			},
 			matched: qbt.Torrent{
-				Category: "movies",
-				Tags:     "",
+				Category: qbt.Ptr("movies"),
+				Tags: qbt.Ptr(""),
 			},
 			settings:              defaultSettings,
 			inheritSourceTags:     false,
@@ -1480,8 +1480,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{},
 			},
 			matched: qbt.Torrent{
-				Category: "movies",
-				Tags:     "",
+				Category: qbt.Ptr("movies"),
+				Tags: qbt.Ptr(""),
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				UseCrossCategoryAffix: true,
@@ -1500,8 +1500,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{},
 			},
 			matched: qbt.Torrent{
-				Category: "movies/1080p",
-				Tags:     "",
+				Category: qbt.Ptr("movies/1080p"),
+				Tags: qbt.Ptr(""),
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				UseCrossCategoryAffix: true,
@@ -1520,8 +1520,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{},
 			},
 			matched: qbt.Torrent{
-				Category: "",
-				Tags:     "",
+				Category: qbt.Ptr(""),
+				Tags: qbt.Ptr(""),
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				UseCrossCategoryAffix: true,
@@ -1540,8 +1540,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{},
 			},
 			matched: qbt.Torrent{
-				Category: "cross/movies",
-				Tags:     "",
+				Category: qbt.Ptr("cross/movies"),
+				Tags: qbt.Ptr(""),
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				UseCrossCategoryAffix: true,
@@ -1560,8 +1560,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{},
 			},
 			matched: qbt.Torrent{
-				Category: "tv",
-				Tags:     "",
+				Category: qbt.Ptr("tv"),
+				Tags: qbt.Ptr(""),
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				UseCrossCategoryAffix: true,
@@ -1580,8 +1580,8 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 				Tags:     []string{},
 			},
 			matched: qbt.Torrent{
-				Category: "movies",
-				Tags:     "",
+				Category: qbt.Ptr("movies"),
+				Tags: qbt.Ptr(""),
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				UseCrossCategoryAffix: false,
@@ -1609,7 +1609,7 @@ func TestCrossSeed_CategoryAndTagPreservation(t *testing.T) {
 			assert.Equal(t, tt.expectedBaseCategory, baseCategory)
 			assert.Equal(t, tt.expectedCrossCategory, crossCategory)
 
-			tags := buildCrossSeedTags(tt.request.Tags, tt.matched.Tags, tt.inheritSourceTags)
+			tags := buildCrossSeedTags(tt.request.Tags, qbt.Deref(tt.matched.Tags), tt.inheritSourceTags)
 			if len(tt.expectedTags) == 0 {
 				assert.Empty(t, tags)
 			} else {
@@ -2054,7 +2054,7 @@ func TestCheckWebhook_AutobrrPayload(t *testing.T) {
 				TorrentName: "Cool.Show.S02E05.MULTi.1080p.WEB.x264-GRP",
 			},
 			existingTorrents: []qbt.Torrent{
-				{Hash: "pack", Name: "Cool.Show.S02.MULTi.1080p.WEB.x264-GRP", Progress: 1.0},
+				{Hash: qbt.Ptr("pack"), Name: qbt.Ptr("Cool.Show.S02.MULTi.1080p.WEB.x264-GRP"), Progress: qbt.Ptr(float64(1.0))},
 			},
 			wantCanCrossSeed:   false,
 			wantMatchCount:     0,
@@ -2071,7 +2071,7 @@ func TestCheckWebhook_AutobrrPayload(t *testing.T) {
 				}(),
 			},
 			existingTorrents: []qbt.Torrent{
-				{Hash: "pack", Name: "Cool.Show.S02.MULTi.1080p.WEB.x264-GRP", Progress: 1.0},
+				{Hash: qbt.Ptr("pack"), Name: qbt.Ptr("Cool.Show.S02.MULTi.1080p.WEB.x264-GRP"), Progress: qbt.Ptr(float64(1.0))},
 			},
 			wantCanCrossSeed:   true,
 			wantMatchCount:     1,
@@ -2087,10 +2087,10 @@ func TestCheckWebhook_AutobrrPayload(t *testing.T) {
 			},
 			existingTorrents: []qbt.Torrent{
 				{
-					Hash:     "abc123def456",
-					Name:     "That.Movie.2025.1080p.BluRay.x264-GROUP",
-					Size:     8589934592,
-					Progress: 1.0,
+					Hash: qbt.Ptr("abc123def456"),
+					Name:     qbt.Ptr("That.Movie.2025.1080p.BluRay.x264-GROUP"),
+					Size: qbt.Ptr(int64(8589934592)),
+					Progress: qbt.Ptr(float64(1.0)),
 				},
 			},
 			wantCanCrossSeed:   true,
@@ -2106,10 +2106,10 @@ func TestCheckWebhook_AutobrrPayload(t *testing.T) {
 			},
 			existingTorrents: []qbt.Torrent{
 				{
-					Hash:     "xyz789abc123",
-					Name:     "Another.Movie.2025.1080p.BluRay.x264-GRP",
-					Size:     9000000000,
-					Progress: 1.0,
+					Hash: qbt.Ptr("xyz789abc123"),
+					Name:     qbt.Ptr("Another.Movie.2025.1080p.BluRay.x264-GRP"),
+					Size: qbt.Ptr(int64(9000000000)),
+					Progress: qbt.Ptr(float64(1.0)),
 				},
 			},
 			wantCanCrossSeed:   true,
@@ -2126,10 +2126,10 @@ func TestCheckWebhook_AutobrrPayload(t *testing.T) {
 			},
 			existingTorrents: []qbt.Torrent{
 				{
-					Hash:     "pending",
-					Name:     "Pending.Movie.2025.1080p.BluRay.x264-GRP",
-					Size:     8589934592,
-					Progress: 0.5,
+					Hash: qbt.Ptr("pending"),
+					Name:     qbt.Ptr("Pending.Movie.2025.1080p.BluRay.x264-GRP"),
+					Size: qbt.Ptr(int64(8589934592)),
+					Progress: qbt.Ptr(float64(0.5)),
 				},
 			},
 			wantCanCrossSeed:   false,
@@ -2147,10 +2147,10 @@ func TestCheckWebhook_AutobrrPayload(t *testing.T) {
 			},
 			existingTorrents: []qbt.Torrent{
 				{
-					Hash:     "size-mismatch",
-					Name:     "Size.Test.2025.1080p.BluRay.x264-GRP",
-					Size:     6500000000,
-					Progress: 1.0,
+					Hash: qbt.Ptr("size-mismatch"),
+					Name:     qbt.Ptr("Size.Test.2025.1080p.BluRay.x264-GRP"),
+					Size: qbt.Ptr(int64(6500000000)),
+					Progress: qbt.Ptr(float64(1.0)),
 				},
 			},
 			wantCanCrossSeed:   false,
@@ -2166,10 +2166,10 @@ func TestCheckWebhook_AutobrrPayload(t *testing.T) {
 			},
 			existingTorrents: []qbt.Torrent{
 				{
-					Hash:     "old-group",
-					Name:     "Group.Change.2025.1080p.BluRay.x264-OLD",
-					Size:     1073741824,
-					Progress: 1.0,
+					Hash: qbt.Ptr("old-group"),
+					Name:     qbt.Ptr("Group.Change.2025.1080p.BluRay.x264-OLD"),
+					Size: qbt.Ptr(int64(1073741824)),
+					Progress: qbt.Ptr(float64(1.0)),
 				},
 			},
 			wantCanCrossSeed:   false,
@@ -2185,16 +2185,16 @@ func TestCheckWebhook_AutobrrPayload(t *testing.T) {
 			},
 			existingTorrents: []qbt.Torrent{
 				{
-					Hash:     "match1",
-					Name:     "Popular.Movie.2025.1080p.BluRay.x264-GROUP3",
-					Size:     8589934592,
-					Progress: 1.0,
+					Hash: qbt.Ptr("match1"),
+					Name:     qbt.Ptr("Popular.Movie.2025.1080p.BluRay.x264-GROUP3"),
+					Size: qbt.Ptr(int64(8589934592)),
+					Progress: qbt.Ptr(float64(1.0)),
 				},
 				{
-					Hash:     "match2",
-					Name:     "Popular.Movie.2025.1080p.BluRay.x264-GROUP3",
-					Size:     8589934592,
-					Progress: 1.0,
+					Hash: qbt.Ptr("match2"),
+					Name:     qbt.Ptr("Popular.Movie.2025.1080p.BluRay.x264-GROUP3"),
+					Size: qbt.Ptr(int64(8589934592)),
+					Progress: qbt.Ptr(float64(1.0)),
 				},
 			},
 			wantCanCrossSeed:   true,
@@ -2211,16 +2211,16 @@ func TestCheckWebhook_AutobrrPayload(t *testing.T) {
 			},
 			existingTorrents: []qbt.Torrent{
 				{
-					Hash:     "fangbone",
-					Name:     "Galactic Tales!",
-					Size:     234567890,
-					Progress: 1.0,
+					Hash: qbt.Ptr("fangbone"),
+					Name:     qbt.Ptr("Galactic Tales!"),
+					Size: qbt.Ptr(int64(234567890)),
+					Progress: qbt.Ptr(float64(1.0)),
 				},
 				{
-					Hash:     "kiyosaki",
-					Name:     "Author X - Imaginary Book (Narrated by Jane Doe)[2012]",
-					Size:     345678901,
-					Progress: 1.0,
+					Hash: qbt.Ptr("kiyosaki"),
+					Name:     qbt.Ptr("Author X - Imaginary Book (Narrated by Jane Doe)[2012]"),
+					Size: qbt.Ptr(int64(345678901)),
+					Progress: qbt.Ptr(float64(1.0)),
 				},
 			},
 			wantCanCrossSeed:   false,
@@ -2314,7 +2314,7 @@ func TestCheckWebhook_NotificationRequiresCompleteMatch(t *testing.T) {
 			notifier := &recordingNotifier{}
 			svc := &Service{
 				instanceStore:    store,
-				syncManager:      newFakeSyncManager(instance, []qbt.Torrent{{Hash: "abc123", Name: "Notify.Test.2025.1080p.BluRay.x264-GRP", Progress: tt.progress}}, nil),
+				syncManager:      newFakeSyncManager(instance, []qbt.Torrent{{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("Notify.Test.2025.1080p.BluRay.x264-GRP"), Progress: qbt.Ptr(tt.progress)}}, nil),
 				releaseCache:     NewReleaseCache(),
 				stringNormalizer: stringutils.NewDefaultNormalizer(),
 				notifier:         notifier,
@@ -2405,10 +2405,10 @@ func TestCheckWebhook_MultiInstanceScan(t *testing.T) {
 	sync := &fakeSyncManager{
 		cached: map[int][]internalqb.CrossInstanceTorrentView{
 			instanceA.ID: buildCrossInstanceViews(instanceA, []qbt.Torrent{
-				{Hash: "complete", Name: torrentName, Size: torrentSize, Progress: 1.0},
+				{Hash: qbt.Ptr("complete"), Name: qbt.Ptr(torrentName), Size: qbt.Ptr(torrentSize), Progress: qbt.Ptr(float64(1.0))},
 			}),
 			instanceB.ID: buildCrossInstanceViews(instanceB, []qbt.Torrent{
-				{Hash: "pending", Name: torrentName, Size: torrentSize, Progress: 0.6},
+				{Hash: qbt.Ptr("pending"), Name: qbt.Ptr(torrentName), Size: qbt.Ptr(torrentSize), Progress: qbt.Ptr(float64(0.6))},
 			}),
 		},
 	}
@@ -2504,23 +2504,23 @@ func TestFindCandidates_NonTVDoesNotMatchUnrelatedTorrents(t *testing.T) {
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:     "fangbone",
-			Name:     "Galactic Tales!",
-			Progress: 1.0,
+			Hash: qbt.Ptr("fangbone"),
+			Name:     qbt.Ptr("Galactic Tales!"),
+			Progress: qbt.Ptr(float64(1.0)),
 		},
 		{
-			Hash:     "kiyosaki",
-			Name:     "Author X - Imaginary Book (Narrated by Jane Doe)[2012]",
-			Progress: 1.0,
+			Hash: qbt.Ptr("kiyosaki"),
+			Name:     qbt.Ptr("Author X - Imaginary Book (Narrated by Jane Doe)[2012]"),
+			Progress: qbt.Ptr(float64(1.0)),
 		},
 	}
 
-	files := map[string]qbt.TorrentFiles{
+	files := map[string][]qbt.TorrentFile{
 		"fangbone": {
-			{Name: "Galactic Tales!.mkv", Size: 2 << 30},
+			{Name: qbt.Ptr("Galactic Tales!.mkv"), Size: qbt.Ptr(int64(2 << 30))},
 		},
 		"kiyosaki": {
-			{Name: "Author X - B - Imaginary Book (Narrated by Jane Doe)[2012].m4b", Size: 1 << 30},
+			{Name: qbt.Ptr("Author X - B - Imaginary Book (Narrated by Jane Doe)[2012].m4b"), Size: qbt.Ptr(int64(1 << 30))},
 		},
 	}
 
@@ -2581,7 +2581,7 @@ func (f *fakeInstanceStore) List(_ context.Context) ([]*models.Instance, error) 
 type fakeSyncManager struct {
 	cached map[int][]internalqb.CrossInstanceTorrentView
 	all    map[int][]qbt.Torrent
-	files  map[string]qbt.TorrentFiles
+	files  map[string][]qbt.TorrentFile
 }
 
 func buildCrossInstanceViews(instance *models.Instance, torrents []qbt.Torrent) []internalqb.CrossInstanceTorrentView {
@@ -2597,7 +2597,7 @@ func buildCrossInstanceViews(instance *models.Instance, torrents []qbt.Torrent) 
 	return views
 }
 
-func newFakeSyncManager(instance *models.Instance, torrents []qbt.Torrent, files map[string]qbt.TorrentFiles) *fakeSyncManager {
+func newFakeSyncManager(instance *models.Instance, torrents []qbt.Torrent, files map[string][]qbt.TorrentFile) *fakeSyncManager {
 	views := buildCrossInstanceViews(instance, torrents)
 	cached := map[int][]internalqb.CrossInstanceTorrentView{
 		instance.ID: views,
@@ -2607,10 +2607,10 @@ func newFakeSyncManager(instance *models.Instance, torrents []qbt.Torrent, files
 		all[instance.ID] = torrents
 	}
 
-	normalizedFiles := make(map[string]qbt.TorrentFiles, len(files))
+	normalizedFiles := make(map[string][]qbt.TorrentFile, len(files))
 	for hash, fl := range files {
 		norm := normalizeHash(hash)
-		cp := make(qbt.TorrentFiles, len(fl))
+		cp := make([]qbt.TorrentFile, len(fl))
 		copy(cp, fl)
 		normalizedFiles[norm] = cp
 	}
@@ -2629,11 +2629,11 @@ func (f *fakeSyncManager) GetTorrents(_ context.Context, instanceID int, filter 
 	return nil, fmt.Errorf("instance %d not found", instanceID)
 }
 
-func (f *fakeSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string]qbt.TorrentFiles, error) {
+func (f *fakeSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string][]qbt.TorrentFile, error) {
 	if len(f.files) == 0 {
 		return nil, fmt.Errorf("files not configured")
 	}
-	result := make(map[string]qbt.TorrentFiles, len(hashes))
+	result := make(map[string][]qbt.TorrentFile, len(hashes))
 	for _, h := range hashes {
 		normalized := normalizeHash(h)
 		files, ok := f.files[normalized]
@@ -2644,7 +2644,7 @@ func (f *fakeSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes 
 				}
 			}
 		}
-		copyFiles := make(qbt.TorrentFiles, len(files))
+		copyFiles := make([]qbt.TorrentFile, len(files))
 		copy(copyFiles, files)
 		result[normalized] = copyFiles
 	}
@@ -2665,7 +2665,7 @@ func (f *fakeSyncManager) HasTorrentByAnyHash(_ context.Context, instanceID int,
 		}
 		for i := range torrents {
 			t := torrents[i]
-			for _, candidate := range []string{t.Hash, t.InfohashV1, t.InfohashV2} {
+			for _, candidate := range []string{qbt.Deref(t.Hash), qbt.Deref(t.InfoHashV1), qbt.Deref(t.InfoHashV2)} {
 				if candidate == "" {
 					continue
 				}
@@ -2721,7 +2721,7 @@ func (f *fakeSyncManager) ExtractDomainFromURL(string) string {
 	return ""
 }
 
-func (f *fakeSyncManager) GetQBittorrentSyncManager(_ context.Context, _ int) (*qbt.SyncManager, error) {
+func (f *fakeSyncManager) GetQBittorrentSyncManager(_ context.Context, _ int) (*internalqb.QBTSyncManager, error) {
 	return nil, fmt.Errorf("GetQBittorrentSyncManager not implemented in fakeSyncManager")
 }
 
@@ -2850,8 +2850,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 		baseSavePath       string
 		contentLayout      string
 		matchType          string
-		sourceFiles        qbt.TorrentFiles
-		candidateFiles     qbt.TorrentFiles
+		sourceFiles        []qbt.TorrentFile
+		candidateFiles     []qbt.TorrentFile
 		wantPath           string
 		description        string
 	}{
@@ -2863,8 +2863,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Show/Season 01",
 			contentLayout:      "Original",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv")}},
 			wantPath:           "/data/media/Show/Season 01/Show.S01E05.1080p.WEB-DL.x264-OTHER",
 			description:        "Original layout: Different roots use SavePath + candidateRoot",
 		},
@@ -2875,8 +2875,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Show/Season 01",
 			contentLayout:      "Subfolder",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv")}},
 			wantPath:           "/data/media/Show/Season 01/Show.S01E05.1080p.WEB-DL.x264-OTHER",
 			description:        "Subfolder layout: Path determination should be identical",
 		},
@@ -2887,8 +2887,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Show/Season 01",
 			contentLayout:      "NoSubfolder",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-GROUP/ep1.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-OTHER/ep.mkv")}},
 			wantPath:           "/data/media/Show/Season 01/Show.S01E05.1080p.WEB-DL.x264-OTHER",
 			description:        "NoSubfolder layout: Path determination should be identical",
 		},
@@ -2902,8 +2902,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Shows",
 			contentLayout:      "Original",
 			matchType:          "partial-in-pack",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-GROUP/ep.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-GROUP/ep.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv")}},
 			wantPath:           "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			description:        "Original layout: Partial-in-pack uses ContentPath",
 		},
@@ -2915,8 +2915,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Shows",
 			contentLayout:      "Subfolder",
 			matchType:          "partial-in-pack",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-GROUP/ep.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-GROUP/ep.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv")}},
 			wantPath:           "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			description:        "Subfolder layout: Partial-in-pack uses ContentPath",
 		},
@@ -2928,8 +2928,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Shows",
 			contentLayout:      "NoSubfolder",
 			matchType:          "partial-in-pack",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Show.S01E05.1080p.WEB-DL.x264-GROUP/ep.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01E05.1080p.WEB-DL.x264-GROUP/ep.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv")}},
 			wantPath:           "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			description:        "NoSubfolder layout: Partial-in-pack uses ContentPath",
 		},
@@ -2944,8 +2944,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Shows",
 			contentLayout:      "Original",
 			matchType:          "partial-in-pack",
-			sourceFiles:        qbt.TorrentFiles{{Name: "ep.mkv"}}, // Single file, no folder
-			candidateFiles:     qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("ep.mkv")}}, // Single file, no folder
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv")}},
 			wantPath:           "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			description:        "Original layout: Single-file TV episode uses ContentPath, NoSubfolder layout required",
 		},
@@ -2957,8 +2957,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Shows",
 			contentLayout:      "Subfolder",
 			matchType:          "partial-in-pack",
-			sourceFiles:        qbt.TorrentFiles{{Name: "ep.mkv"}}, // Single file, no folder
-			candidateFiles:     qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("ep.mkv")}}, // Single file, no folder
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv")}},
 			wantPath:           "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			description:        "Subfolder layout: Single-file TV episode uses ContentPath, NoSubfolder layout required",
 		},
@@ -2970,8 +2970,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Shows",
 			contentLayout:      "NoSubfolder",
 			matchType:          "partial-in-pack",
-			sourceFiles:        qbt.TorrentFiles{{Name: "ep.mkv"}}, // Single file, no folder
-			candidateFiles:     qbt.TorrentFiles{{Name: "Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("ep.mkv")}}, // Single file, no folder
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Show.S01.1080p.BluRay.x264-OTHER/ep1.mkv")}},
 			wantPath:           "/data/media/Shows/Show.S01.1080p.BluRay.x264-OTHER",
 			description:        "NoSubfolder layout: Single-file TV episode uses ContentPath",
 		},
@@ -2985,8 +2985,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Movies",
 			contentLayout:      "Original",
 			matchType:          "partial-in-pack",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Pulse.2001.1080p.BluRay.x264-GROUP/movie.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Horror.Collection.2020/Pulse.2001.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Pulse.2001.1080p.BluRay.x264-GROUP/movie.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Horror.Collection.2020/Pulse.2001.mkv")}},
 			wantPath:           "/data/media/Movies/Horror.Collection.2020",
 			description:        "Original layout: Movie in collection uses ContentPath",
 		},
@@ -2998,8 +2998,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Movies",
 			contentLayout:      "Subfolder",
 			matchType:          "partial-in-pack",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Pulse.2001.1080p.BluRay.x264-GROUP/movie.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Horror.Collection.2020/Pulse.2001.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Pulse.2001.1080p.BluRay.x264-GROUP/movie.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Horror.Collection.2020/Pulse.2001.mkv")}},
 			wantPath:           "/data/media/Movies/Horror.Collection.2020",
 			description:        "Subfolder layout: Movie in collection uses ContentPath",
 		},
@@ -3011,8 +3011,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Movies",
 			contentLayout:      "NoSubfolder",
 			matchType:          "partial-in-pack",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Pulse.2001.1080p.BluRay.x264-GROUP/movie.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Horror.Collection.2020/Pulse.2001.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Pulse.2001.1080p.BluRay.x264-GROUP/movie.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Horror.Collection.2020/Pulse.2001.mkv")}},
 			wantPath:           "/data/media/Movies/Horror.Collection.2020",
 			description:        "NoSubfolder layout: Movie in collection uses ContentPath",
 		},
@@ -3025,8 +3025,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Movies",
 			contentLayout:      "Original",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Movie.2020.720p.BluRay.x264-GROUP/movie.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Movie.2020.1080p.WEB-DL.x264-OTHER/movie.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.720p.BluRay.x264-GROUP/movie.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.WEB-DL.x264-OTHER/movie.mkv")}},
 			wantPath:           "/data/media/Movies/Movie.2020.1080p.WEB-DL.x264-OTHER",
 			description:        "Original layout: Same type, different roots use candidate folder",
 		},
@@ -3037,8 +3037,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Movies",
 			contentLayout:      "Subfolder",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Movie.2020.720p.BluRay.x264-GROUP/movie.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Movie.2020.1080p.WEB-DL.x264-OTHER/movie.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.720p.BluRay.x264-GROUP/movie.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.WEB-DL.x264-OTHER/movie.mkv")}},
 			wantPath:           "/data/media/Movies/Movie.2020.1080p.WEB-DL.x264-OTHER",
 			description:        "Subfolder layout: Same type, different roots use candidate folder",
 		},
@@ -3049,8 +3049,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Movies",
 			contentLayout:      "NoSubfolder",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "Movie.2020.720p.BluRay.x264-GROUP/movie.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "Movie.2020.1080p.WEB-DL.x264-OTHER/movie.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.720p.BluRay.x264-GROUP/movie.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2020.1080p.WEB-DL.x264-OTHER/movie.mkv")}},
 			wantPath:           "/data/media/Movies/Movie.2020.1080p.WEB-DL.x264-OTHER",
 			description:        "NoSubfolder layout: Same type, different roots use candidate folder",
 		},
@@ -3063,8 +3063,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Movies",
 			contentLayout:      "Original",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "movie.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "movie.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv")}},
 			wantPath:           "/data/media/Movies",
 			description:        "Original layout: Single file torrents use SavePath directly",
 		},
@@ -3075,8 +3075,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Movies",
 			contentLayout:      "Subfolder",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "movie.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "movie.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv")}},
 			wantPath:           "/data/media/Movies",
 			description:        "Subfolder layout: Single file torrents use SavePath directly",
 		},
@@ -3087,8 +3087,8 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 			baseSavePath:       "/data/media/Movies",
 			contentLayout:      "NoSubfolder",
 			matchType:          "exact",
-			sourceFiles:        qbt.TorrentFiles{{Name: "movie.mkv"}},
-			candidateFiles:     qbt.TorrentFiles{{Name: "movie.mkv"}},
+			sourceFiles:        []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv")}},
+			candidateFiles:     []qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv")}},
 			wantPath:           "/data/media/Movies",
 			description:        "NoSubfolder layout: Single file torrents use SavePath directly",
 		},
@@ -3097,11 +3097,11 @@ func TestDetermineSavePathContentLayoutScenarios(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			matchedTorrent := &qbt.Torrent{
-				Name:        tt.matchedTorrentName,
-				ContentPath: tt.matchedContentPath,
+				Name:        qbt.Ptr(tt.matchedTorrentName),
+				ContentPath: qbt.Ptr(tt.matchedContentPath),
 			}
 			props := &qbt.TorrentProperties{
-				SavePath: tt.baseSavePath,
+				SavePath: qbt.Ptr(tt.baseSavePath),
 			}
 
 			gotPath := s.determineSavePath(tt.newTorrentName, matchedTorrent, props, tt.matchType, tt.sourceFiles, tt.candidateFiles, tt.contentLayout)
@@ -3130,7 +3130,7 @@ func newMockRecoverSyncManager(initialTorrents []qbt.Torrent) *mockRecoverSyncMa
 	torrents := make(map[string]*qbt.Torrent)
 	for _, t := range initialTorrents {
 		torrent := t // copy
-		torrents[t.Hash] = &torrent
+		torrents[qbt.Deref(t.Hash)] = &torrent
 	}
 	return &mockRecoverSyncManager{
 		torrents:                    torrents,
@@ -3181,14 +3181,14 @@ func (m *mockRecoverSyncManager) BulkAction(_ context.Context, instanceID int, h
 		// Pause torrents
 		for _, hash := range hashes {
 			if torrent, ok := m.torrents[hash]; ok {
-				torrent.State = qbt.TorrentStatePausedDl
+				torrent.State = qbt.Ptr(qbt.StatePausedDL)
 			}
 		}
 	} else if action == "resume" {
 		// Resume torrents
 		for _, hash := range hashes {
 			if torrent, ok := m.torrents[hash]; ok {
-				torrent.State = qbt.TorrentStateDownloading
+				torrent.State = qbt.Ptr(qbt.StateDownloading)
 			}
 		}
 	} else if action == "recheck" {
@@ -3199,17 +3199,17 @@ func (m *mockRecoverSyncManager) BulkAction(_ context.Context, instanceID int, h
 				if m.disappearAfterRecheck {
 					delete(m.torrents, hash)
 				} else if m.keepInCheckingState {
-					torrent.State = qbt.TorrentStateCheckingDl
+					torrent.State = qbt.Ptr(qbt.StateCheckingDL)
 				} else if m.recheckCompletes || (m.secondRecheckCompletes && m.recheckCount >= 2) {
-					torrent.State = qbt.TorrentStatePausedDl
-					torrent.Progress = 1.0
+					torrent.State = qbt.Ptr(qbt.StatePausedDL)
+					torrent.Progress = qbt.Ptr(float64(1.0))
 				} else if m.setProgressToThreshold {
-					torrent.State = qbt.TorrentStatePausedDl
-					torrent.Progress = 0.95 // Exactly at threshold with 5% tolerance
+					torrent.State = qbt.Ptr(qbt.StatePausedDL)
+					torrent.Progress = qbt.Ptr(float64(0.95)) // Exactly at threshold with 5% tolerance
 				} else {
 					// Leave incomplete
-					torrent.State = qbt.TorrentStatePausedDl
-					torrent.Progress = 0.5 // incomplete
+					torrent.State = qbt.Ptr(qbt.StatePausedDL)
+					torrent.Progress = qbt.Ptr(float64(0.5)) // incomplete
 				}
 			}
 		}
@@ -3224,12 +3224,12 @@ func (m *mockRecoverSyncManager) ExportTorrent(context.Context, int, string) ([]
 // Simulate state progression after recheck
 func (m *mockRecoverSyncManager) simulateRecheckComplete(hash string, finalProgress float64, finalState qbt.TorrentState) {
 	if torrent, ok := m.torrents[hash]; ok {
-		torrent.Progress = finalProgress
-		torrent.State = finalState
+		torrent.Progress = qbt.Ptr(finalProgress)
+		torrent.State = qbt.Ptr(finalState)
 	}
 }
 
-func (m *mockRecoverSyncManager) GetTorrentFilesBatch(context.Context, int, []string) (map[string]qbt.TorrentFiles, error) {
+func (m *mockRecoverSyncManager) GetTorrentFilesBatch(context.Context, int, []string) (map[string][]qbt.TorrentFile, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -3243,7 +3243,6 @@ func (m *mockRecoverSyncManager) GetTorrentProperties(context.Context, int, stri
 
 func (m *mockRecoverSyncManager) GetAppPreferences(context.Context, int) (qbt.AppPreferences, error) {
 	return qbt.AppPreferences{
-		DiskCacheTTL: 1, // 1 second for tests
 	}, nil
 }
 
@@ -3275,7 +3274,7 @@ func (m *mockRecoverSyncManager) ExtractDomainFromURL(string) string {
 	return ""
 }
 
-func (m *mockRecoverSyncManager) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (m *mockRecoverSyncManager) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -3290,10 +3289,10 @@ func (m *mockRecoverSyncManager) CreateCategory(_ context.Context, _ int, _, _ s
 func TestRecoverErroredTorrents_NoErroredTorrents(t *testing.T) {
 	// Test with no errored torrents
 	normalTorrent := qbt.Torrent{
-		Hash:     "normal123",
-		Name:     "normal.torrent",
-		State:    qbt.TorrentStateDownloading,
-		Progress: 0.5,
+		Hash: qbt.Ptr("normal123"),
+		Name:     qbt.Ptr("normal.torrent"),
+		State: qbt.Ptr(qbt.StateDownloading),
+		Progress: qbt.Ptr(float64(0.5)),
 	}
 
 	mockSync := newMockRecoverSyncManager([]qbt.Torrent{normalTorrent})
@@ -3308,10 +3307,10 @@ func TestRecoverErroredTorrents_NoErroredTorrents(t *testing.T) {
 
 func TestRecoverErroredTorrents_SingleErroredTorrent(t *testing.T) {
 	erroredTorrent := qbt.Torrent{
-		Hash:     "error123",
-		Name:     "errored.torrent",
-		State:    qbt.TorrentStateError,
-		Progress: 0.0,
+		Hash: qbt.Ptr("error123"),
+		Name:     qbt.Ptr("errored.torrent"),
+		State: qbt.Ptr(qbt.StateError),
+		Progress: qbt.Ptr(float64(0.0)),
 	}
 
 	mockSync := newMockRecoverSyncManager([]qbt.Torrent{erroredTorrent})
@@ -3328,22 +3327,22 @@ func TestRecoverErroredTorrents_SingleErroredTorrent(t *testing.T) {
 
 func TestRecoverErroredTorrents_MultipleErroredTorrents(t *testing.T) {
 	erroredTorrent1 := qbt.Torrent{
-		Hash:     "error123",
-		Name:     "errored1.torrent",
-		State:    qbt.TorrentStateError,
-		Progress: 0.0,
+		Hash: qbt.Ptr("error123"),
+		Name:     qbt.Ptr("errored1.torrent"),
+		State: qbt.Ptr(qbt.StateError),
+		Progress: qbt.Ptr(float64(0.0)),
 	}
 	erroredTorrent2 := qbt.Torrent{
-		Hash:     "error456",
-		Name:     "errored2.torrent",
-		State:    qbt.TorrentStateError,
-		Progress: 0.0,
+		Hash: qbt.Ptr("error456"),
+		Name:     qbt.Ptr("errored2.torrent"),
+		State: qbt.Ptr(qbt.StateError),
+		Progress: qbt.Ptr(float64(0.0)),
 	}
 	normalTorrent := qbt.Torrent{
-		Hash:     "normal123",
-		Name:     "normal.torrent",
-		State:    qbt.TorrentStateDownloading,
-		Progress: 0.5,
+		Hash: qbt.Ptr("normal123"),
+		Name:     qbt.Ptr("normal.torrent"),
+		State: qbt.Ptr(qbt.StateDownloading),
+		Progress: qbt.Ptr(float64(0.5)),
 	}
 
 	mockSync := newMockRecoverSyncManager([]qbt.Torrent{erroredTorrent1, erroredTorrent2, normalTorrent})
@@ -3377,10 +3376,10 @@ func TestRecoverErroredTorrents_MultipleErroredTorrents(t *testing.T) {
 
 func TestRecoverErroredTorrents_MissingFilesState(t *testing.T) {
 	missingFilesTorrent := qbt.Torrent{
-		Hash:     "missing123",
-		Name:     "missing.torrent",
-		State:    qbt.TorrentStateMissingFiles,
-		Progress: 0.0,
+		Hash: qbt.Ptr("missing123"),
+		Name:     qbt.Ptr("missing.torrent"),
+		State: qbt.Ptr(qbt.StateMissingFiles),
+		Progress: qbt.Ptr(float64(0.0)),
 	}
 
 	mockSync := newMockRecoverSyncManager([]qbt.Torrent{missingFilesTorrent})
@@ -3397,16 +3396,16 @@ func TestRecoverErroredTorrents_MissingFilesState(t *testing.T) {
 
 func TestRecoverErroredTorrents_ContextCancelled(t *testing.T) {
 	erroredTorrent1 := qbt.Torrent{
-		Hash:     "error123",
-		Name:     "errored1.torrent",
-		State:    qbt.TorrentStateError,
-		Progress: 0.0,
+		Hash: qbt.Ptr("error123"),
+		Name:     qbt.Ptr("errored1.torrent"),
+		State: qbt.Ptr(qbt.StateError),
+		Progress: qbt.Ptr(float64(0.0)),
 	}
 	erroredTorrent2 := qbt.Torrent{
-		Hash:     "error456",
-		Name:     "errored2.torrent",
-		State:    qbt.TorrentStateError,
-		Progress: 0.0,
+		Hash: qbt.Ptr("error456"),
+		Name:     qbt.Ptr("errored2.torrent"),
+		State: qbt.Ptr(qbt.StateError),
+		Progress: qbt.Ptr(float64(0.0)),
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -3423,28 +3422,28 @@ func TestRecoverErroredTorrents_ContextCancelled(t *testing.T) {
 
 func TestRecoverErroredTorrents_MixedStates(t *testing.T) {
 	erroredTorrent := qbt.Torrent{
-		Hash:     "error123",
-		Name:     "errored.torrent",
-		State:    qbt.TorrentStateError,
-		Progress: 0.0,
+		Hash: qbt.Ptr("error123"),
+		Name:     qbt.Ptr("errored.torrent"),
+		State: qbt.Ptr(qbt.StateError),
+		Progress: qbt.Ptr(float64(0.0)),
 	}
 	missingFilesTorrent := qbt.Torrent{
-		Hash:     "missing123",
-		Name:     "missing.torrent",
-		State:    qbt.TorrentStateMissingFiles,
-		Progress: 0.0,
+		Hash: qbt.Ptr("missing123"),
+		Name:     qbt.Ptr("missing.torrent"),
+		State: qbt.Ptr(qbt.StateMissingFiles),
+		Progress: qbt.Ptr(float64(0.0)),
 	}
 	downloadingTorrent := qbt.Torrent{
-		Hash:     "download123",
-		Name:     "downloading.torrent",
-		State:    qbt.TorrentStateDownloading,
-		Progress: 0.3,
+		Hash: qbt.Ptr("download123"),
+		Name:     qbt.Ptr("downloading.torrent"),
+		State: qbt.Ptr(qbt.StateDownloading),
+		Progress: qbt.Ptr(float64(0.3)),
 	}
 	completedTorrent := qbt.Torrent{
-		Hash:     "complete123",
-		Name:     "completed.torrent",
-		State:    qbt.TorrentStatePausedDl,
-		Progress: 1.0,
+		Hash: qbt.Ptr("complete123"),
+		Name:     qbt.Ptr("completed.torrent"),
+		State: qbt.Ptr(qbt.StatePausedDL),
+		Progress: qbt.Ptr(float64(1.0)),
 	}
 
 	mockSync := newMockRecoverSyncManager([]qbt.Torrent{erroredTorrent, missingFilesTorrent, downloadingTorrent, completedTorrent})
@@ -3561,7 +3560,7 @@ func TestExtractTorrentURLForCommentMatch(t *testing.T) {
 // infohashTestSyncManager extends episodeSyncManager with configurable HasTorrentByAnyHash behavior
 type infohashTestSyncManager struct {
 	torrents    map[int][]qbt.Torrent
-	files       map[int]map[string]qbt.TorrentFiles
+	files       map[int]map[string][]qbt.TorrentFile
 	props       map[int]map[string]*qbt.TorrentProperties
 	hashResults map[int]*hashCheckResult // instanceID -> result
 }
@@ -3575,7 +3574,7 @@ type hashCheckResult struct {
 func newInfohashTestSyncManager() *infohashTestSyncManager {
 	return &infohashTestSyncManager{
 		torrents:    make(map[int][]qbt.Torrent),
-		files:       make(map[int]map[string]qbt.TorrentFiles),
+		files:       make(map[int]map[string][]qbt.TorrentFile),
 		props:       make(map[int]map[string]*qbt.TorrentProperties),
 		hashResults: make(map[int]*hashCheckResult),
 	}
@@ -3591,12 +3590,12 @@ func (f *infohashTestSyncManager) GetTorrents(_ context.Context, instanceID int,
 	return copied, nil
 }
 
-func (f *infohashTestSyncManager) GetTorrentFilesBatch(_ context.Context, instanceID int, hashes []string) (map[string]qbt.TorrentFiles, error) {
-	result := make(map[string]qbt.TorrentFiles, len(hashes))
+func (f *infohashTestSyncManager) GetTorrentFilesBatch(_ context.Context, instanceID int, hashes []string) (map[string][]qbt.TorrentFile, error) {
+	result := make(map[string][]qbt.TorrentFile, len(hashes))
 	if instFiles, ok := f.files[instanceID]; ok {
 		for _, h := range hashes {
 			if files, ok := instFiles[strings.ToLower(h)]; ok {
-				cp := make(qbt.TorrentFiles, len(files))
+				cp := make([]qbt.TorrentFile, len(files))
 				copy(cp, files)
 				result[normalizeHash(h)] = cp
 			}
@@ -3623,7 +3622,7 @@ func (f *infohashTestSyncManager) GetTorrentProperties(_ context.Context, instan
 			return &cp, nil
 		}
 	}
-	return &qbt.TorrentProperties{SavePath: "/downloads"}, nil
+	return &qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")}, nil
 }
 
 func (f *infohashTestSyncManager) GetAppPreferences(context.Context, int) (qbt.AppPreferences, error) {
@@ -3662,7 +3661,7 @@ func (f *infohashTestSyncManager) ExtractDomainFromURL(string) string {
 	return ""
 }
 
-func (f *infohashTestSyncManager) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (f *infohashTestSyncManager) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, nil
 }
 
@@ -3716,27 +3715,27 @@ func TestProcessAutomationCandidate_SkipsWhenInfohashExistsOnAllInstances(t *tes
 	torrentName := "Show.S01.1080p.BluRay-GROUP"
 
 	existingTorrent := qbt.Torrent{
-		Hash:     testHash,
-		Name:     torrentName,
-		Progress: 1.0,
-		Category: "tv",
+		Hash: qbt.Ptr(testHash),
+		Name: qbt.Ptr(torrentName),
+		Progress: qbt.Ptr(float64(1.0)),
+		Category: qbt.Ptr("tv"),
 	}
 
 	sync := newInfohashTestSyncManager()
 	// Set up torrents for both instances
 	sync.torrents[instance1ID] = []qbt.Torrent{existingTorrent}
 	sync.torrents[instance2ID] = []qbt.Torrent{existingTorrent}
-	sync.files[instance1ID] = map[string]qbt.TorrentFiles{
-		strings.ToLower(testHash): {{Name: "Show.S01E01.1080p.BluRay-GROUP.mkv", Size: 1024}},
+	sync.files[instance1ID] = map[string][]qbt.TorrentFile{
+		strings.ToLower(testHash): {{Name: qbt.Ptr("Show.S01E01.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))}},
 	}
-	sync.files[instance2ID] = map[string]qbt.TorrentFiles{
-		strings.ToLower(testHash): {{Name: "Show.S01E01.1080p.BluRay-GROUP.mkv", Size: 1024}},
+	sync.files[instance2ID] = map[string][]qbt.TorrentFile{
+		strings.ToLower(testHash): {{Name: qbt.Ptr("Show.S01E01.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))}},
 	}
 	sync.props[instance1ID] = map[string]*qbt.TorrentProperties{
-		strings.ToLower(testHash): {SavePath: "/downloads"},
+		strings.ToLower(testHash): {SavePath: qbt.Ptr("/downloads")},
 	}
 	sync.props[instance2ID] = map[string]*qbt.TorrentProperties{
-		strings.ToLower(testHash): {SavePath: "/downloads"},
+		strings.ToLower(testHash): {SavePath: qbt.Ptr("/downloads")},
 	}
 
 	// Configure HasTorrentByAnyHash to return existing torrent for both instances
@@ -3807,26 +3806,26 @@ func TestProcessAutomationCandidate_ProceedsWhenInfohashExistsOnSomeInstances(t 
 	torrentName := "Show.S01.1080p.BluRay-GROUP"
 
 	existingTorrent := qbt.Torrent{
-		Hash:     testHash,
-		Name:     torrentName,
-		Progress: 1.0,
-		Category: "tv",
+		Hash: qbt.Ptr(testHash),
+		Name: qbt.Ptr(torrentName),
+		Progress: qbt.Ptr(float64(1.0)),
+		Category: qbt.Ptr("tv"),
 	}
 
 	sync := newInfohashTestSyncManager()
 	sync.torrents[instance1ID] = []qbt.Torrent{existingTorrent}
 	sync.torrents[instance2ID] = []qbt.Torrent{existingTorrent} // Both have the torrent for candidate matching
-	sync.files[instance1ID] = map[string]qbt.TorrentFiles{
-		strings.ToLower(testHash): {{Name: "Show.S01E01.1080p.BluRay-GROUP.mkv", Size: 1024}},
+	sync.files[instance1ID] = map[string][]qbt.TorrentFile{
+		strings.ToLower(testHash): {{Name: qbt.Ptr("Show.S01E01.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))}},
 	}
-	sync.files[instance2ID] = map[string]qbt.TorrentFiles{
-		strings.ToLower(testHash): {{Name: "Show.S01E01.1080p.BluRay-GROUP.mkv", Size: 1024}},
+	sync.files[instance2ID] = map[string][]qbt.TorrentFile{
+		strings.ToLower(testHash): {{Name: qbt.Ptr("Show.S01E01.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))}},
 	}
 	sync.props[instance1ID] = map[string]*qbt.TorrentProperties{
-		strings.ToLower(testHash): {SavePath: "/downloads"},
+		strings.ToLower(testHash): {SavePath: qbt.Ptr("/downloads")},
 	}
 	sync.props[instance2ID] = map[string]*qbt.TorrentProperties{
-		strings.ToLower(testHash): {SavePath: "/downloads"},
+		strings.ToLower(testHash): {SavePath: qbt.Ptr("/downloads")},
 	}
 
 	// Instance 1 has the torrent by hash, Instance 2 does not (simulating different torrent file)
@@ -3904,19 +3903,19 @@ func TestProcessAutomationCandidate_ProceedsOnHashCheckError(t *testing.T) {
 	torrentName := "Show.S01.1080p.BluRay-GROUP"
 
 	existingTorrent := qbt.Torrent{
-		Hash:     testHash,
-		Name:     torrentName,
-		Progress: 1.0,
-		Category: "tv",
+		Hash: qbt.Ptr(testHash),
+		Name: qbt.Ptr(torrentName),
+		Progress: qbt.Ptr(float64(1.0)),
+		Category: qbt.Ptr("tv"),
 	}
 
 	sync := newInfohashTestSyncManager()
 	sync.torrents[instance1ID] = []qbt.Torrent{existingTorrent}
-	sync.files[instance1ID] = map[string]qbt.TorrentFiles{
-		strings.ToLower(testHash): {{Name: "Show.S01E01.1080p.BluRay-GROUP.mkv", Size: 1024}},
+	sync.files[instance1ID] = map[string][]qbt.TorrentFile{
+		strings.ToLower(testHash): {{Name: qbt.Ptr("Show.S01E01.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))}},
 	}
 	sync.props[instance1ID] = map[string]*qbt.TorrentProperties{
-		strings.ToLower(testHash): {SavePath: "/downloads"},
+		strings.ToLower(testHash): {SavePath: qbt.Ptr("/downloads")},
 	}
 
 	// Configure HasTorrentByAnyHash to return an error
@@ -3988,19 +3987,19 @@ func TestProcessAutomationCandidate_PropagatesContextCancellation(t *testing.T) 
 	torrentName := "Show.S01.1080p.BluRay-GROUP"
 
 	existingTorrent := qbt.Torrent{
-		Hash:     testHash,
-		Name:     torrentName,
-		Progress: 1.0,
-		Category: "tv",
+		Hash: qbt.Ptr(testHash),
+		Name: qbt.Ptr(torrentName),
+		Progress: qbt.Ptr(float64(1.0)),
+		Category: qbt.Ptr("tv"),
 	}
 
 	sync := newInfohashTestSyncManager()
 	sync.torrents[instance1ID] = []qbt.Torrent{existingTorrent}
-	sync.files[instance1ID] = map[string]qbt.TorrentFiles{
-		strings.ToLower(testHash): {{Name: "Show.S01E01.1080p.BluRay-GROUP.mkv", Size: 1024}},
+	sync.files[instance1ID] = map[string][]qbt.TorrentFile{
+		strings.ToLower(testHash): {{Name: qbt.Ptr("Show.S01E01.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))}},
 	}
 	sync.props[instance1ID] = map[string]*qbt.TorrentProperties{
-		strings.ToLower(testHash): {SavePath: "/downloads"},
+		strings.ToLower(testHash): {SavePath: qbt.Ptr("/downloads")},
 	}
 
 	// Configure HasTorrentByAnyHash to return context.Canceled error
@@ -4065,19 +4064,19 @@ func TestProcessAutomationCandidate_PropagatesContextDeadlineExceeded(t *testing
 	torrentName := "Show.S01.1080p.BluRay-GROUP"
 
 	existingTorrent := qbt.Torrent{
-		Hash:     testHash,
-		Name:     torrentName,
-		Progress: 1.0,
-		Category: "tv",
+		Hash: qbt.Ptr(testHash),
+		Name: qbt.Ptr(torrentName),
+		Progress: qbt.Ptr(float64(1.0)),
+		Category: qbt.Ptr("tv"),
 	}
 
 	sync := newInfohashTestSyncManager()
 	sync.torrents[instance1ID] = []qbt.Torrent{existingTorrent}
-	sync.files[instance1ID] = map[string]qbt.TorrentFiles{
-		strings.ToLower(testHash): {{Name: "Show.S01E01.1080p.BluRay-GROUP.mkv", Size: 1024}},
+	sync.files[instance1ID] = map[string][]qbt.TorrentFile{
+		strings.ToLower(testHash): {{Name: qbt.Ptr("Show.S01E01.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))}},
 	}
 	sync.props[instance1ID] = map[string]*qbt.TorrentProperties{
-		strings.ToLower(testHash): {SavePath: "/downloads"},
+		strings.ToLower(testHash): {SavePath: qbt.Ptr("/downloads")},
 	}
 
 	// Configure HasTorrentByAnyHash to return context.DeadlineExceeded error
@@ -4144,20 +4143,19 @@ func TestProcessAutomationCandidate_SkipsWhenCommentURLMatches(t *testing.T) {
 
 	// Torrent with matching comment
 	existingTorrent := qbt.Torrent{
-		Hash:     torrentHash,
-		Name:     torrentName,
-		Progress: 1.0,
-		Category: "tv",
-		Comment:  "Uploaded from https://seedpool.org/torrents/607803",
+		Hash: qbt.Ptr(torrentHash),
+		Name: qbt.Ptr(torrentName),
+		Progress: qbt.Ptr(float64(1.0)),
+		Category: qbt.Ptr("tv"),
 	}
 
 	sync := newInfohashTestSyncManager()
 	sync.torrents[instance1ID] = []qbt.Torrent{existingTorrent}
-	sync.files[instance1ID] = map[string]qbt.TorrentFiles{
-		strings.ToLower(torrentHash): {{Name: "Show.S01E01.1080p.BluRay-GROUP.mkv", Size: 1024}},
+	sync.files[instance1ID] = map[string][]qbt.TorrentFile{
+		strings.ToLower(torrentHash): {{Name: qbt.Ptr("Show.S01E01.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))}},
 	}
 	sync.props[instance1ID] = map[string]*qbt.TorrentProperties{
-		strings.ToLower(torrentHash): {SavePath: "/downloads"},
+		strings.ToLower(torrentHash): {SavePath: qbt.Ptr("/downloads"), Comment: qbt.Ptr(commentURL)},
 	}
 
 	// No hash results configured - will return nil, false, nil
@@ -4232,8 +4230,8 @@ func TestCheckWebhook_WebhookSourceFilters(t *testing.T) {
 				TorrentName: "Filter.Test.2025.1080p.BluRay.x264-GRP",
 			},
 			existingTorrents: []qbt.Torrent{
-				{Hash: "excluded", Name: "Filter.Test.2025.1080p.BluRay.x264-GRP", Category: "cross-seed-link", Progress: 1.0},
-				{Hash: "included", Name: "Filter.Test.2025.1080p.BluRay.x264-GRP", Category: "movies", Progress: 1.0},
+				{Hash: qbt.Ptr("excluded"), Name: qbt.Ptr("Filter.Test.2025.1080p.BluRay.x264-GRP"), Category: qbt.Ptr("cross-seed-link"), Progress: qbt.Ptr(float64(1.0))},
+				{Hash: qbt.Ptr("included"), Name: qbt.Ptr("Filter.Test.2025.1080p.BluRay.x264-GRP"), Category: qbt.Ptr("movies"), Progress: qbt.Ptr(float64(1.0))},
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceExcludeCategories: []string{"cross-seed-link"},
@@ -4250,8 +4248,8 @@ func TestCheckWebhook_WebhookSourceFilters(t *testing.T) {
 				TorrentName: "Tag.Filter.2025.1080p.BluRay.x264-GRP",
 			},
 			existingTorrents: []qbt.Torrent{
-				{Hash: "excluded", Name: "Tag.Filter.2025.1080p.BluRay.x264-GRP", Tags: "no-cross-seed, other", Progress: 1.0},
-				{Hash: "included", Name: "Tag.Filter.2025.1080p.BluRay.x264-GRP", Tags: "cross-seed", Progress: 1.0},
+				{Hash: qbt.Ptr("excluded"), Name: qbt.Ptr("Tag.Filter.2025.1080p.BluRay.x264-GRP"), Tags: qbt.Ptr("no-cross-seed, other"), Progress: qbt.Ptr(float64(1.0))},
+				{Hash: qbt.Ptr("included"), Name: qbt.Ptr("Tag.Filter.2025.1080p.BluRay.x264-GRP"), Tags: qbt.Ptr("cross-seed"), Progress: qbt.Ptr(float64(1.0))},
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceExcludeTags:     []string{"no-cross-seed"},
@@ -4268,8 +4266,8 @@ func TestCheckWebhook_WebhookSourceFilters(t *testing.T) {
 				TorrentName: "All.Excluded.2025.1080p.BluRay.x264-GRP",
 			},
 			existingTorrents: []qbt.Torrent{
-				{Hash: "excluded1", Name: "All.Excluded.2025.1080p.BluRay.x264-GRP", Category: "cross-seed-link", Progress: 1.0},
-				{Hash: "excluded2", Name: "All.Excluded.2025.1080p.BluRay.x264-GRP", Category: "cross-seed-link", Progress: 1.0},
+				{Hash: qbt.Ptr("excluded1"), Name: qbt.Ptr("All.Excluded.2025.1080p.BluRay.x264-GRP"), Category: qbt.Ptr("cross-seed-link"), Progress: qbt.Ptr(float64(1.0))},
+				{Hash: qbt.Ptr("excluded2"), Name: qbt.Ptr("All.Excluded.2025.1080p.BluRay.x264-GRP"), Category: qbt.Ptr("cross-seed-link"), Progress: qbt.Ptr(float64(1.0))},
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceExcludeCategories: []string{"cross-seed-link"},
@@ -4286,8 +4284,8 @@ func TestCheckWebhook_WebhookSourceFilters(t *testing.T) {
 				TorrentName: "Include.Only.2025.1080p.BluRay.x264-GRP",
 			},
 			existingTorrents: []qbt.Torrent{
-				{Hash: "movies", Name: "Include.Only.2025.1080p.BluRay.x264-GRP", Category: "movies", Progress: 1.0},
-				{Hash: "tv", Name: "Include.Only.2025.1080p.BluRay.x264-GRP", Category: "tv", Progress: 1.0},
+				{Hash: qbt.Ptr("movies"), Name: qbt.Ptr("Include.Only.2025.1080p.BluRay.x264-GRP"), Category: qbt.Ptr("movies"), Progress: qbt.Ptr(float64(1.0))},
+				{Hash: qbt.Ptr("tv"), Name: qbt.Ptr("Include.Only.2025.1080p.BluRay.x264-GRP"), Category: qbt.Ptr("tv"), Progress: qbt.Ptr(float64(1.0))},
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceCategories:      []string{"movies"},
@@ -4304,8 +4302,8 @@ func TestCheckWebhook_WebhookSourceFilters(t *testing.T) {
 				TorrentName: "No.Filter.2025.1080p.BluRay.x264-GRP",
 			},
 			existingTorrents: []qbt.Torrent{
-				{Hash: "cat1", Name: "No.Filter.2025.1080p.BluRay.x264-GRP", Category: "movies", Progress: 1.0},
-				{Hash: "cat2", Name: "No.Filter.2025.1080p.BluRay.x264-GRP", Category: "tv", Progress: 1.0},
+				{Hash: qbt.Ptr("cat1"), Name: qbt.Ptr("No.Filter.2025.1080p.BluRay.x264-GRP"), Category: qbt.Ptr("movies"), Progress: qbt.Ptr(float64(1.0))},
+				{Hash: qbt.Ptr("cat2"), Name: qbt.Ptr("No.Filter.2025.1080p.BluRay.x264-GRP"), Category: qbt.Ptr("tv"), Progress: qbt.Ptr(float64(1.0))},
 			},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceCategories:        []string{},
@@ -4362,19 +4360,19 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:     "nil settings returns false",
-			torrent:  &qbt.Torrent{Category: "movies"},
+			torrent:  &qbt.Torrent{Category: qbt.Ptr("movies")},
 			settings: nil,
 			want:     false,
 		},
 		{
 			name:     "empty filters match all torrents",
-			torrent:  &qbt.Torrent{Category: "movies", Tags: "cross-seed"},
+			torrent:  &qbt.Torrent{Category: qbt.Ptr("movies"), Tags: qbt.Ptr("cross-seed")},
 			settings: &models.CrossSeedAutomationSettings{},
 			want:     true,
 		},
 		{
 			name:    "exclude category skips matching torrent",
-			torrent: &qbt.Torrent{Category: "cross-seed-link"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("cross-seed-link")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceExcludeCategories: []string{"cross-seed-link"},
 			},
@@ -4382,7 +4380,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude category allows non-matching torrent",
-			torrent: &qbt.Torrent{Category: "movies"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceExcludeCategories: []string{"cross-seed-link"},
 			},
@@ -4390,7 +4388,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "multiple exclude categories work",
-			torrent: &qbt.Torrent{Category: "temp"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("temp")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceExcludeCategories: []string{"cross-seed-link", "temp", "staging"},
 			},
@@ -4398,7 +4396,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag skips matching torrent",
-			torrent: &qbt.Torrent{Tags: "cross-seed, temporary"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("cross-seed, temporary")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceExcludeTags: []string{"temporary"},
 			},
@@ -4406,7 +4404,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag allows non-matching torrent",
-			torrent: &qbt.Torrent{Tags: "cross-seed, important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("cross-seed, important")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceExcludeTags: []string{"temporary"},
 			},
@@ -4414,7 +4412,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include category requires match",
-			torrent: &qbt.Torrent{Category: "tv"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("tv")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceCategories: []string{"movies"},
 			},
@@ -4422,7 +4420,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include category allows matching torrent",
-			torrent: &qbt.Torrent{Category: "movies"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceCategories: []string{"movies", "tv"},
 			},
@@ -4430,7 +4428,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag requires at least one match",
-			torrent: &qbt.Torrent{Tags: "important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("important")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceTags: []string{"important", "priority"},
 			},
@@ -4438,7 +4436,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag rejects when no match",
-			torrent: &qbt.Torrent{Tags: "random"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("random")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceTags: []string{"important", "priority"},
 			},
@@ -4446,7 +4444,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude takes precedence over include",
-			torrent: &qbt.Torrent{Category: "movies"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceCategories:        []string{"movies", "tv"},
 				WebhookSourceExcludeCategories: []string{"movies"},
@@ -4455,7 +4453,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "empty category with exclude filter passes",
-			torrent: &qbt.Torrent{Category: ""},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceExcludeCategories: []string{"cross-seed-link"},
 			},
@@ -4463,7 +4461,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "empty tags with include tag filter fails",
-			torrent: &qbt.Torrent{Tags: ""},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceTags: []string{"important"},
 			},
@@ -4471,7 +4469,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "tags are case-sensitive",
-			torrent: &qbt.Torrent{Tags: "Important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("Important")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceTags: []string{"important"},
 			},
@@ -4479,7 +4477,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag takes precedence over include tag",
-			torrent: &qbt.Torrent{Tags: "important, blocked"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("important, blocked")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceTags:        []string{"important"},
 				WebhookSourceExcludeTags: []string{"blocked"},
@@ -4488,7 +4486,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "category and tag filters both apply - passes both",
-			torrent: &qbt.Torrent{Category: "movies", Tags: "important"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies"), Tags: qbt.Ptr("important")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceCategories: []string{"movies"},
 				WebhookSourceTags:       []string{"important"},
@@ -4497,7 +4495,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "passes category filter but fails tag filter",
-			torrent: &qbt.Torrent{Category: "movies", Tags: "random"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies"), Tags: qbt.Ptr("random")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceCategories: []string{"movies"},
 				WebhookSourceTags:       []string{"important"},
@@ -4506,7 +4504,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "passes tag filter but fails category filter",
-			torrent: &qbt.Torrent{Category: "tv", Tags: "important"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("tv"), Tags: qbt.Ptr("important")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceCategories: []string{"movies"},
 				WebhookSourceTags:       []string{"important"},
@@ -4515,7 +4513,7 @@ func TestMatchesWebhookSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "empty category with include category filter fails",
-			torrent: &qbt.Torrent{Category: ""},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("")},
 			settings: &models.CrossSeedAutomationSettings{
 				WebhookSourceCategories: []string{"movies"},
 			},
@@ -4548,19 +4546,19 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:     "nil settings returns false",
-			torrent:  &qbt.Torrent{Category: "movies"},
+			torrent:  &qbt.Torrent{Category: qbt.Ptr("movies")},
 			settings: nil,
 			want:     false,
 		},
 		{
 			name:     "empty filters match all torrents",
-			torrent:  &qbt.Torrent{Category: "movies", Tags: "cross-seed"},
+			torrent:  &qbt.Torrent{Category: qbt.Ptr("movies"), Tags: qbt.Ptr("cross-seed")},
 			settings: &models.CrossSeedAutomationSettings{},
 			want:     true,
 		},
 		{
 			name:    "exclude category skips matching torrent",
-			torrent: &qbt.Torrent{Category: "AlphaRatio-Race"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("AlphaRatio-Race")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceExcludeCategories: []string{"AlphaRatio-Race"},
 			},
@@ -4568,7 +4566,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude category allows non-matching torrent",
-			torrent: &qbt.Torrent{Category: "AlphaRatio-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("AlphaRatio-LTS")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceExcludeCategories: []string{"AlphaRatio-Race"},
 			},
@@ -4576,7 +4574,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "multiple exclude categories work",
-			torrent: &qbt.Torrent{Category: "Mixed-Race"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("Mixed-Race")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceExcludeCategories: []string{"AlphaRatio-Race", "Mixed-Race", "TV-Race"},
 			},
@@ -4584,7 +4582,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag skips matching torrent",
-			torrent: &qbt.Torrent{Tags: "cross-seed, temporary"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("cross-seed, temporary")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceExcludeTags: []string{"temporary"},
 			},
@@ -4592,7 +4590,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag allows non-matching torrent",
-			torrent: &qbt.Torrent{Tags: "cross-seed, important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("cross-seed, important")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceExcludeTags: []string{"temporary"},
 			},
@@ -4600,7 +4598,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include category requires match",
-			torrent: &qbt.Torrent{Category: "TV-Race"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-Race")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceCategories: []string{"TV-LTS", "Movies-LTS"},
 			},
@@ -4608,7 +4606,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include category allows matching torrent",
-			torrent: &qbt.Torrent{Category: "TV-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceCategories: []string{"TV-LTS", "Movies-LTS"},
 			},
@@ -4616,7 +4614,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag requires at least one match",
-			torrent: &qbt.Torrent{Tags: "important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("important")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceTags: []string{"important", "priority"},
 			},
@@ -4624,7 +4622,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag rejects when no match",
-			torrent: &qbt.Torrent{Tags: "random"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("random")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceTags: []string{"important", "priority"},
 			},
@@ -4632,7 +4630,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude takes precedence over include",
-			torrent: &qbt.Torrent{Category: "TV-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceCategories:        []string{"TV-LTS", "Movies-LTS"},
 				RSSSourceExcludeCategories: []string{"TV-LTS"},
@@ -4641,7 +4639,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "empty category with exclude filter passes",
-			torrent: &qbt.Torrent{Category: ""},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceExcludeCategories: []string{"AlphaRatio-Race"},
 			},
@@ -4649,7 +4647,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "empty tags with include tag filter fails",
-			torrent: &qbt.Torrent{Tags: ""},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceTags: []string{"important"},
 			},
@@ -4657,7 +4655,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "tags are case-sensitive",
-			torrent: &qbt.Torrent{Tags: "Important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("Important")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceTags: []string{"important"},
 			},
@@ -4665,7 +4663,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag takes precedence over include tag",
-			torrent: &qbt.Torrent{Tags: "important, blocked"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("important, blocked")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceTags:        []string{"important"},
 				RSSSourceExcludeTags: []string{"blocked"},
@@ -4674,7 +4672,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "category and tag filters both apply - passes both",
-			torrent: &qbt.Torrent{Category: "TV-LTS", Tags: "important"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS"), Tags: qbt.Ptr("important")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceCategories: []string{"TV-LTS"},
 				RSSSourceTags:       []string{"important"},
@@ -4683,7 +4681,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "passes category filter but fails tag filter",
-			torrent: &qbt.Torrent{Category: "TV-LTS", Tags: "random"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS"), Tags: qbt.Ptr("random")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceCategories: []string{"TV-LTS"},
 				RSSSourceTags:       []string{"important"},
@@ -4692,7 +4690,7 @@ func TestMatchesRSSSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "empty category with include category filter fails",
-			torrent: &qbt.Torrent{Category: ""},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("")},
 			settings: &models.CrossSeedAutomationSettings{
 				RSSSourceCategories: []string{"TV-LTS"},
 			},
@@ -4738,19 +4736,19 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:     "nil settings returns false",
-			torrent:  &qbt.Torrent{Category: "movies"},
+			torrent:  &qbt.Torrent{Category: qbt.Ptr("movies")},
 			settings: nil,
 			want:     false,
 		},
 		{
 			name:     "empty filters match all torrents",
-			torrent:  &qbt.Torrent{Category: "movies", Tags: "cross-seed"},
+			torrent:  &qbt.Torrent{Category: qbt.Ptr("movies"), Tags: qbt.Ptr("cross-seed")},
 			settings: &mockCompletionFilterProvider{},
 			want:     true,
 		},
 		{
 			name:    "exclude category skips matching torrent",
-			torrent: &qbt.Torrent{Category: "AlphaRatio-Race"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("AlphaRatio-Race")},
 			settings: &mockCompletionFilterProvider{
 				excludeCategories: []string{"AlphaRatio-Race"},
 			},
@@ -4758,7 +4756,7 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude category allows non-matching torrent",
-			torrent: &qbt.Torrent{Category: "AlphaRatio-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("AlphaRatio-LTS")},
 			settings: &mockCompletionFilterProvider{
 				excludeCategories: []string{"AlphaRatio-Race"},
 			},
@@ -4766,7 +4764,7 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:    "include category requires match",
-			torrent: &qbt.Torrent{Category: "TV-Race"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-Race")},
 			settings: &mockCompletionFilterProvider{
 				categories: []string{"TV-LTS", "Movies-LTS"},
 			},
@@ -4774,7 +4772,7 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:    "include category allows matching torrent",
-			torrent: &qbt.Torrent{Category: "TV-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS")},
 			settings: &mockCompletionFilterProvider{
 				categories: []string{"TV-LTS", "Movies-LTS"},
 			},
@@ -4782,7 +4780,7 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag skips matching torrent",
-			torrent: &qbt.Torrent{Tags: "cross-seed, temporary"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("cross-seed, temporary")},
 			settings: &mockCompletionFilterProvider{
 				excludeTags: []string{"temporary"},
 			},
@@ -4790,7 +4788,7 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag requires at least one match",
-			torrent: &qbt.Torrent{Tags: "important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("important")},
 			settings: &mockCompletionFilterProvider{
 				tags: []string{"important", "priority"},
 			},
@@ -4798,7 +4796,7 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag rejects when no match",
-			torrent: &qbt.Torrent{Tags: "random"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("random")},
 			settings: &mockCompletionFilterProvider{
 				tags: []string{"important", "priority"},
 			},
@@ -4806,7 +4804,7 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude takes precedence over include",
-			torrent: &qbt.Torrent{Category: "TV-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS")},
 			settings: &mockCompletionFilterProvider{
 				categories:        []string{"TV-LTS", "Movies-LTS"},
 				excludeCategories: []string{"TV-LTS"},
@@ -4815,7 +4813,7 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:    "category and tag filters both apply - passes both",
-			torrent: &qbt.Torrent{Category: "TV-LTS", Tags: "important"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS"), Tags: qbt.Ptr("important")},
 			settings: &mockCompletionFilterProvider{
 				categories: []string{"TV-LTS"},
 				tags:       []string{"important"},
@@ -4824,7 +4822,7 @@ func TestMatchesCompletionFilters(t *testing.T) {
 		},
 		{
 			name:    "passes category filter but fails tag filter",
-			torrent: &qbt.Torrent{Category: "TV-LTS", Tags: "random"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS"), Tags: qbt.Ptr("random")},
 			settings: &mockCompletionFilterProvider{
 				categories: []string{"TV-LTS"},
 				tags:       []string{"important"},
@@ -4858,19 +4856,19 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "nil request returns true (no filtering)",
-			torrent: &qbt.Torrent{Category: "movies"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies")},
 			req:     nil,
 			want:    true,
 		},
 		{
 			name:    "empty filters match all torrents",
-			torrent: &qbt.Torrent{Category: "movies", Tags: "cross-seed"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies"), Tags: qbt.Ptr("cross-seed")},
 			req:     &FindCandidatesRequest{},
 			want:    true,
 		},
 		{
 			name:    "exclude category skips matching torrent",
-			torrent: &qbt.Torrent{Category: "AlphaRatio-Race"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("AlphaRatio-Race")},
 			req: &FindCandidatesRequest{
 				SourceFilterExcludeCategories: []string{"AlphaRatio-Race"},
 			},
@@ -4878,7 +4876,7 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude category allows non-matching torrent",
-			torrent: &qbt.Torrent{Category: "AlphaRatio-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("AlphaRatio-LTS")},
 			req: &FindCandidatesRequest{
 				SourceFilterExcludeCategories: []string{"AlphaRatio-Race"},
 			},
@@ -4886,7 +4884,7 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include category requires match",
-			torrent: &qbt.Torrent{Category: "TV-Race"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-Race")},
 			req: &FindCandidatesRequest{
 				SourceFilterCategories: []string{"TV-LTS", "Movies-LTS"},
 			},
@@ -4894,7 +4892,7 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include category allows matching torrent",
-			torrent: &qbt.Torrent{Category: "TV-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS")},
 			req: &FindCandidatesRequest{
 				SourceFilterCategories: []string{"TV-LTS", "Movies-LTS"},
 			},
@@ -4902,7 +4900,7 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag skips matching torrent",
-			torrent: &qbt.Torrent{Tags: "cross-seed, temporary"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("cross-seed, temporary")},
 			req: &FindCandidatesRequest{
 				SourceFilterExcludeTags: []string{"temporary"},
 			},
@@ -4910,7 +4908,7 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag requires at least one match",
-			torrent: &qbt.Torrent{Tags: "important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("important")},
 			req: &FindCandidatesRequest{
 				SourceFilterTags: []string{"important", "priority"},
 			},
@@ -4918,7 +4916,7 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag rejects when no match",
-			torrent: &qbt.Torrent{Tags: "random"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("random")},
 			req: &FindCandidatesRequest{
 				SourceFilterTags: []string{"important", "priority"},
 			},
@@ -4926,7 +4924,7 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude takes precedence over include",
-			torrent: &qbt.Torrent{Category: "TV-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS")},
 			req: &FindCandidatesRequest{
 				SourceFilterCategories:        []string{"TV-LTS", "Movies-LTS"},
 				SourceFilterExcludeCategories: []string{"TV-LTS"},
@@ -4935,7 +4933,7 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "category and tag filters both apply - passes both",
-			torrent: &qbt.Torrent{Category: "TV-LTS", Tags: "important"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS"), Tags: qbt.Ptr("important")},
 			req: &FindCandidatesRequest{
 				SourceFilterCategories: []string{"TV-LTS"},
 				SourceFilterTags:       []string{"important"},
@@ -4944,7 +4942,7 @@ func TestMatchesSourceFilters(t *testing.T) {
 		},
 		{
 			name:    "passes category filter but fails tag filter",
-			torrent: &qbt.Torrent{Category: "TV-LTS", Tags: "random"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("TV-LTS"), Tags: qbt.Ptr("random")},
 			req: &FindCandidatesRequest{
 				SourceFilterCategories: []string{"TV-LTS"},
 				SourceFilterTags:       []string{"important"},
@@ -5047,21 +5045,21 @@ func TestProcessAutomationCandidate_RespectsRSSSourceFilters(t *testing.T) {
 				torrents: map[int][]qbt.Torrent{
 					instanceID: {
 						{
-							Hash:     "testhash",
-							Name:     "Test.Movie.2025.1080p.BluRay-GROUP",
-							Progress: 1.0,
-							Category: "movies-LTS",
+							Hash: qbt.Ptr("testhash"),
+							Name:     qbt.Ptr("Test.Movie.2025.1080p.BluRay-GROUP"),
+							Progress: qbt.Ptr(float64(1.0)),
+							Category: qbt.Ptr("movies-LTS"),
 						},
 					},
 				},
-				files: map[int]map[string]qbt.TorrentFiles{
+				files: map[int]map[string][]qbt.TorrentFile{
 					instanceID: {
-						"testhash": {{Name: "Test.Movie.2025.1080p.BluRay-GROUP.mkv", Size: 1024}},
+						"testhash": {{Name: qbt.Ptr("Test.Movie.2025.1080p.BluRay-GROUP.mkv"), Size: qbt.Ptr(int64(1024))}},
 					},
 				},
 				props: map[int]map[string]*qbt.TorrentProperties{
 					instanceID: {
-						"testhash": {SavePath: "/downloads"},
+						"testhash": {SavePath: qbt.Ptr("/downloads")},
 					},
 				},
 			}
@@ -5117,7 +5115,7 @@ func TestProcessAutomationCandidate_RespectsRSSSourceFilters(t *testing.T) {
 // rssFilterTestSyncManager implements qbittorrentSync for RSS filter tests
 type rssFilterTestSyncManager struct {
 	torrents map[int][]qbt.Torrent
-	files    map[int]map[string]qbt.TorrentFiles
+	files    map[int]map[string][]qbt.TorrentFile
 	props    map[int]map[string]*qbt.TorrentProperties
 }
 
@@ -5131,12 +5129,12 @@ func (m *rssFilterTestSyncManager) GetTorrents(_ context.Context, instanceID int
 	return copied, nil
 }
 
-func (m *rssFilterTestSyncManager) GetTorrentFilesBatch(_ context.Context, instanceID int, hashes []string) (map[string]qbt.TorrentFiles, error) {
-	result := make(map[string]qbt.TorrentFiles, len(hashes))
+func (m *rssFilterTestSyncManager) GetTorrentFilesBatch(_ context.Context, instanceID int, hashes []string) (map[string][]qbt.TorrentFile, error) {
+	result := make(map[string][]qbt.TorrentFile, len(hashes))
 	if instFiles, ok := m.files[instanceID]; ok {
 		for _, h := range hashes {
 			if files, ok := instFiles[strings.ToLower(h)]; ok {
-				cp := make(qbt.TorrentFiles, len(files))
+				cp := make([]qbt.TorrentFile, len(files))
 				copy(cp, files)
 				result[normalizeHash(h)] = cp
 			}
@@ -5160,7 +5158,7 @@ func (m *rssFilterTestSyncManager) GetTorrentProperties(_ context.Context, insta
 			return &cp, nil
 		}
 	}
-	return &qbt.TorrentProperties{SavePath: "/downloads"}, nil
+	return &qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")}, nil
 }
 
 func (m *rssFilterTestSyncManager) GetAppPreferences(context.Context, int) (qbt.AppPreferences, error) {
@@ -5198,7 +5196,7 @@ func (m *rssFilterTestSyncManager) ExtractDomainFromURL(string) string {
 	return ""
 }
 
-func (m *rssFilterTestSyncManager) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (m *rssFilterTestSyncManager) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, nil
 }
 
@@ -5343,10 +5341,10 @@ func TestExecuteCrossSeedSearchAttempt_RespectsCompletionFilters(t *testing.T) {
 
 			state := &searchRunState{opts: tt.opts}
 			torrent := &qbt.Torrent{
-				Hash:     "testhash",
-				Name:     "Test.Movie.2025.1080p.BluRay-GROUP",
-				Progress: 1.0,
-				Category: "movies-LTS",
+				Hash: qbt.Ptr("testhash"),
+				Name:     qbt.Ptr("Test.Movie.2025.1080p.BluRay-GROUP"),
+				Progress: qbt.Ptr(float64(1.0)),
+				Category: qbt.Ptr("movies-LTS"),
 			}
 			match := TorrentSearchResult{
 				Indexer:     "TestIndexer",
@@ -5387,13 +5385,13 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "empty filters match all torrents",
-			torrent: &qbt.Torrent{Category: "movies", Tags: "cross-seed"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies"), Tags: qbt.Ptr("cross-seed")},
 			opts:    SearchRunOptions{},
 			want:    true,
 		},
 		{
 			name:    "exclude category skips matching torrent",
-			torrent: &qbt.Torrent{Category: "movies-Race"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies-Race")},
 			opts: SearchRunOptions{
 				ExcludeCategories: []string{"movies-Race"},
 			},
@@ -5401,7 +5399,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude category allows non-matching torrent",
-			torrent: &qbt.Torrent{Category: "movies-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies-LTS")},
 			opts: SearchRunOptions{
 				ExcludeCategories: []string{"movies-Race"},
 			},
@@ -5409,7 +5407,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "include category requires match",
-			torrent: &qbt.Torrent{Category: "tv-Race"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("tv-Race")},
 			opts: SearchRunOptions{
 				Categories: []string{"movies-LTS", "tv-LTS"},
 			},
@@ -5417,7 +5415,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "include category allows matching torrent",
-			torrent: &qbt.Torrent{Category: "movies-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies-LTS")},
 			opts: SearchRunOptions{
 				Categories: []string{"movies-LTS", "tv-LTS"},
 			},
@@ -5425,7 +5423,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag skips matching torrent",
-			torrent: &qbt.Torrent{Tags: "cross-seed, temporary"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("cross-seed, temporary")},
 			opts: SearchRunOptions{
 				ExcludeTags: []string{"temporary"},
 			},
@@ -5433,7 +5431,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude tag allows non-matching torrent",
-			torrent: &qbt.Torrent{Tags: "cross-seed, important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("cross-seed, important")},
 			opts: SearchRunOptions{
 				ExcludeTags: []string{"temporary"},
 			},
@@ -5441,7 +5439,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag requires at least one match",
-			torrent: &qbt.Torrent{Tags: "important"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("important")},
 			opts: SearchRunOptions{
 				Tags: []string{"important", "priority"},
 			},
@@ -5449,7 +5447,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "include tag rejects when no match",
-			torrent: &qbt.Torrent{Tags: "random"},
+			torrent: &qbt.Torrent{Tags: qbt.Ptr("random")},
 			opts: SearchRunOptions{
 				Tags: []string{"important", "priority"},
 			},
@@ -5457,7 +5455,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "exclude takes precedence over include",
-			torrent: &qbt.Torrent{Category: "movies-LTS"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies-LTS")},
 			opts: SearchRunOptions{
 				Categories:        []string{"movies-LTS", "tv-LTS"},
 				ExcludeCategories: []string{"movies-LTS"},
@@ -5466,7 +5464,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "category and tag filters both apply - passes both",
-			torrent: &qbt.Torrent{Category: "movies-LTS", Tags: "important"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies-LTS"), Tags: qbt.Ptr("important")},
 			opts: SearchRunOptions{
 				Categories: []string{"movies-LTS"},
 				Tags:       []string{"important"},
@@ -5475,7 +5473,7 @@ func TestMatchesSearchFilters(t *testing.T) {
 		},
 		{
 			name:    "passes category filter but fails tag filter",
-			torrent: &qbt.Torrent{Category: "movies-LTS", Tags: "random"},
+			torrent: &qbt.Torrent{Category: qbt.Ptr("movies-LTS"), Tags: qbt.Ptr("random")},
 			opts: SearchRunOptions{
 				Categories: []string{"movies-LTS"},
 				Tags:       []string{"important"},

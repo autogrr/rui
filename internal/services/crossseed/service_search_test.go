@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent/bencode"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/pkg/stringutils"
@@ -390,9 +390,9 @@ func TestRefreshSearchQueueCountsCooldownEligibleTorrents(t *testing.T) {
 		automationStore: store,
 		syncManager: &queueTestSyncManager{
 			torrents: []qbt.Torrent{
-				{Hash: "recent-hash", Name: "Recent.Movie.1080p", Progress: 1.0},
-				{Hash: "stale-hash", Name: "Stale.Movie.1080p", Progress: 1.0},
-				{Hash: "new-hash", Name: "BrandNew.Movie.1080p", Progress: 1.0},
+				{Hash: qbt.Ptr("recent-hash"), Name: qbt.Ptr("Recent.Movie.1080p"), Progress: qbt.Ptr(float64(1.0))},
+				{Hash: qbt.Ptr("stale-hash"), Name: qbt.Ptr("Stale.Movie.1080p"), Progress: qbt.Ptr(float64(1.0))},
+				{Hash: qbt.Ptr("new-hash"), Name: qbt.Ptr("BrandNew.Movie.1080p"), Progress: qbt.Ptr(float64(1.0))},
 			},
 		},
 		releaseCache:     NewReleaseCache(),
@@ -456,9 +456,9 @@ func TestRefreshSearchQueue_TorznabDisabledCountsAllSources(t *testing.T) {
 		automationStore: store,
 		syncManager: &queueTestSyncManager{
 			torrents: []qbt.Torrent{
-				{Hash: "red-hash", Name: "Some.Release", Progress: 1.0, Tracker: "https://flacsfor.me/announce"},
-				{Hash: "ops-hash", Name: "Other.Release", Progress: 1.0, Tracker: "https://home.opsfet.ch/announce"},
-				{Hash: "other-hash", Name: "Non.Gazelle.Release", Progress: 1.0, Tracker: "https://tracker.example/announce"},
+				{Hash: qbt.Ptr("red-hash"), Name: qbt.Ptr("Some.Release"), Progress: qbt.Ptr(float64(1.0)), Tracker: qbt.Ptr("https://flacsfor.me/announce")},
+				{Hash: qbt.Ptr("ops-hash"), Name: qbt.Ptr("Other.Release"), Progress: qbt.Ptr(float64(1.0)), Tracker: qbt.Ptr("https://home.opsfet.ch/announce")},
+				{Hash: qbt.Ptr("other-hash"), Name: qbt.Ptr("Non.Gazelle.Release"), Progress: qbt.Ptr(float64(1.0)), Tracker: qbt.Ptr("https://tracker.example/announce")},
 			},
 		},
 		releaseCache:     NewReleaseCache(),
@@ -540,16 +540,16 @@ func TestRefreshSearchQueue_TorznabDisabledSkipsAlreadyCrossSeeded(t *testing.T)
 		syncManager: &gazelleSkipHashSyncManager{
 			torrents: []qbt.Torrent{
 				{
-					Hash:     sourceHash,
-					Name:     "Durante - LMK (2024 WF)",
-					Progress: 1.0,
-					Size:     123,
-					Tracker:  "https://flacsfor.me/abc/announce",
+					Hash:     qbt.Ptr(sourceHash),
+					Name:     qbt.Ptr("Durante - LMK (2024 WF)"),
+					Progress: qbt.Ptr(float64(1.0)),
+					Size:     qbt.Ptr(int64(123)),
+					Tracker:  qbt.Ptr("https://flacsfor.me/abc/announce"),
 				},
 			},
-			filesByHash: map[string]qbt.TorrentFiles{
+			filesByHash: map[string][]qbt.TorrentFile{
 				sourceHashNorm: {
-					{Name: "Durante - LMK (2024 WF)/01 - Durante - Track.flac", Size: 123},
+					{Name: qbt.Ptr("Durante - LMK (2024 WF)/01 - Durante - Track.flac"), Size: qbt.Ptr(int64(123))},
 				},
 			},
 			exportedTorrent:    torrentBytes,
@@ -665,7 +665,7 @@ func TestStartSearchRun_AllowsGazelleOnlyWhenTorznabUnavailable(t *testing.T) {
 	svc := &Service{
 		instanceStore:    instanceStore,
 		automationStore:  store,
-		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string]qbt.TorrentFiles{}),
+		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string][]qbt.TorrentFile{}),
 		releaseCache:     NewReleaseCache(),
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
@@ -714,7 +714,7 @@ func TestStartSearchRun_DisableTorznabRequiresGazelle(t *testing.T) {
 	svc := &Service{
 		instanceStore:    instanceStore,
 		automationStore:  store,
-		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string]qbt.TorrentFiles{}),
+		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string][]qbt.TorrentFile{}),
 		releaseCache:     NewReleaseCache(),
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
@@ -759,7 +759,7 @@ func TestStartSearchRun_DisableTorznabRequiresDecryptableGazelleKey(t *testing.T
 	svc := &Service{
 		instanceStore:    instanceStore,
 		automationStore:  badStore,
-		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string]qbt.TorrentFiles{}),
+		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string][]qbt.TorrentFile{}),
 		releaseCache:     NewReleaseCache(),
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
@@ -802,7 +802,7 @@ func TestStartSearchRun_DisableTorznabSkipsJackettProbe(t *testing.T) {
 		instanceStore:    instanceStore,
 		automationStore:  store,
 		jackettService:   newFailingJackettService(errors.New("jackett probe should be skipped")),
-		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string]qbt.TorrentFiles{}),
+		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string][]qbt.TorrentFile{}),
 		releaseCache:     NewReleaseCache(),
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
@@ -859,7 +859,7 @@ func TestStartSearchRun_FallsBackToGazelleWhenJackettProbeFails(t *testing.T) {
 		instanceStore:    instanceStore,
 		automationStore:  store,
 		jackettService:   newFailingJackettService(errors.New("jackett probe failed")),
-		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string]qbt.TorrentFiles{}),
+		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string][]qbt.TorrentFile{}),
 		releaseCache:     NewReleaseCache(),
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
@@ -909,7 +909,7 @@ func TestStartSearchRun_JackettProbeFailureRequiresGazelle(t *testing.T) {
 		instanceStore:    instanceStore,
 		automationStore:  store,
 		jackettService:   newFailingJackettService(errors.New("jackett probe failed")),
-		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string]qbt.TorrentFiles{}),
+		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string][]qbt.TorrentFile{}),
 		releaseCache:     NewReleaseCache(),
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
@@ -951,7 +951,7 @@ func TestStartSearchRun_DisableTorznabUsesGazelleIntervalFloor(t *testing.T) {
 	svc := &Service{
 		instanceStore:    instanceStore,
 		automationStore:  store,
-		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string]qbt.TorrentFiles{}),
+		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string][]qbt.TorrentFile{}),
 		releaseCache:     NewReleaseCache(),
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
@@ -1006,7 +1006,7 @@ func TestStartSearchRun_TorznabKeepsConservativeIntervalFloor(t *testing.T) {
 		jackettService: newJackettServiceWithIndexers([]*models.TorznabIndexer{
 			{ID: 1, Name: "Indexer One", Enabled: true},
 		}),
-		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string]qbt.TorrentFiles{}),
+		syncManager:      newFakeSyncManager(instance, []qbt.Torrent{}, map[string][]qbt.TorrentFile{}),
 		releaseCache:     NewReleaseCache(),
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
@@ -1043,8 +1043,8 @@ func (f *queueTestSyncManager) GetTorrents(_ context.Context, _ int, _ qbt.Torre
 	return copied, nil
 }
 
-func (f *queueTestSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, _ []string) (map[string]qbt.TorrentFiles, error) {
-	return map[string]qbt.TorrentFiles{}, nil
+func (f *queueTestSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, _ []string) (map[string][]qbt.TorrentFile, error) {
+	return map[string][]qbt.TorrentFile{}, nil
 }
 
 func (*queueTestSyncManager) ExportTorrent(context.Context, int, string) ([]byte, string, string, error) {
@@ -1088,7 +1088,7 @@ func (*queueTestSyncManager) ExtractDomainFromURL(raw string) string {
 	return strings.ToLower(host)
 }
 
-func (*queueTestSyncManager) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (*queueTestSyncManager) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, nil
 }
 
@@ -1114,7 +1114,7 @@ func (*queueTestSyncManager) CreateCategory(_ context.Context, _ int, _, _ strin
 
 type gazelleSkipHashSyncManager struct {
 	torrents           []qbt.Torrent
-	filesByHash        map[string]qbt.TorrentFiles
+	filesByHash        map[string][]qbt.TorrentFile
 	exportedTorrent    []byte
 	expectedTargetHash string
 }
@@ -1125,8 +1125,8 @@ func (g *gazelleSkipHashSyncManager) GetTorrents(_ context.Context, _ int, _ qbt
 	return copied, nil
 }
 
-func (g *gazelleSkipHashSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string]qbt.TorrentFiles, error) {
-	out := make(map[string]qbt.TorrentFiles, len(hashes))
+func (g *gazelleSkipHashSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string][]qbt.TorrentFile, error) {
+	out := make(map[string][]qbt.TorrentFile, len(hashes))
 	for _, h := range hashes {
 		key := strings.ToLower(strings.TrimSpace(h))
 		if files, ok := g.filesByHash[key]; ok {
@@ -1143,7 +1143,7 @@ func (g *gazelleSkipHashSyncManager) ExportTorrent(context.Context, int, string)
 func (g *gazelleSkipHashSyncManager) HasTorrentByAnyHash(_ context.Context, _ int, hashes []string) (*qbt.Torrent, bool, error) {
 	for _, h := range hashes {
 		if strings.EqualFold(strings.TrimSpace(h), strings.TrimSpace(g.expectedTargetHash)) {
-			return &qbt.Torrent{Hash: g.expectedTargetHash, Name: "already-there"}, true, nil
+			return &qbt.Torrent{Hash: qbt.Ptr(g.expectedTargetHash), Name: qbt.Ptr("already-there")}, true, nil
 		}
 	}
 	return nil, false, nil
@@ -1182,7 +1182,7 @@ func (*gazelleSkipHashSyncManager) ExtractDomainFromURL(raw string) string {
 	return strings.ToLower(host)
 }
 
-func (*gazelleSkipHashSyncManager) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (*gazelleSkipHashSyncManager) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, nil
 }
 
@@ -1230,16 +1230,16 @@ func TestSearchTorrentMatches_GazelleSourceWithoutBackendsReturnsError(t *testin
 		syncManager: &gazelleSkipHashSyncManager{
 			torrents: []qbt.Torrent{
 				{
-					Hash:     sourceHash,
-					Name:     "Durante - LMK (2024 WF)",
-					Progress: 1.0,
-					Size:     123,
-					Tracker:  "https://flacsfor.me/abc/announce",
+					Hash:     qbt.Ptr(sourceHash),
+					Name:     qbt.Ptr("Durante - LMK (2024 WF)"),
+					Progress: qbt.Ptr(float64(1.0)),
+					Size:     qbt.Ptr(int64(123)),
+					Tracker:  qbt.Ptr("https://flacsfor.me/abc/announce"),
 				},
 			},
-			filesByHash: map[string]qbt.TorrentFiles{
+			filesByHash: map[string][]qbt.TorrentFile{
 				sourceHashNorm: {
-					{Name: "Durante - LMK (2024 WF)/01 - Durante - Track.flac", Size: 123},
+					{Name: qbt.Ptr("Durante - LMK (2024 WF)/01 - Durante - Track.flac"), Size: qbt.Ptr(int64(123))},
 				},
 			},
 		},
@@ -1274,16 +1274,16 @@ func TestSearchTorrentMatches_DisableTorznabWithoutGazelleReturnsError(t *testin
 		syncManager: &gazelleSkipHashSyncManager{
 			torrents: []qbt.Torrent{
 				{
-					Hash:     sourceHash,
-					Name:     "Durante - LMK (2024 WF)",
-					Progress: 1.0,
-					Size:     123,
-					Tracker:  "https://flacsfor.me/abc/announce",
+					Hash:     qbt.Ptr(sourceHash),
+					Name:     qbt.Ptr("Durante - LMK (2024 WF)"),
+					Progress: qbt.Ptr(float64(1.0)),
+					Size:     qbt.Ptr(int64(123)),
+					Tracker:  qbt.Ptr("https://flacsfor.me/abc/announce"),
 				},
 			},
-			filesByHash: map[string]qbt.TorrentFiles{
+			filesByHash: map[string][]qbt.TorrentFile{
 				sourceHashNorm: {
-					{Name: "Durante - LMK (2024 WF)/01 - Durante - Track.flac", Size: 123},
+					{Name: qbt.Ptr("Durante - LMK (2024 WF)/01 - Durante - Track.flac"), Size: qbt.Ptr(int64(123))},
 				},
 			},
 		},
@@ -1334,16 +1334,16 @@ func TestSearchTorrentMatches_DisableTorznab_AllowsPartialGazelleConfig(t *testi
 		syncManager: &gazelleSkipHashSyncManager{
 			torrents: []qbt.Torrent{
 				{
-					Hash:     sourceHash,
-					Name:     "Durante - LMK (2024 WF)",
-					Progress: 1.0,
-					Size:     123,
-					Tracker:  "https://flacsfor.me/abc/announce",
+					Hash:     qbt.Ptr(sourceHash),
+					Name:     qbt.Ptr("Durante - LMK (2024 WF)"),
+					Progress: qbt.Ptr(float64(1.0)),
+					Size:     qbt.Ptr(int64(123)),
+					Tracker:  qbt.Ptr("https://flacsfor.me/abc/announce"),
 				},
 			},
-			filesByHash: map[string]qbt.TorrentFiles{
+			filesByHash: map[string][]qbt.TorrentFile{
 				sourceHashNorm: {
-					{Name: "Durante - LMK (2024 WF)/01 - Durante - Track.flac", Size: 123},
+					{Name: qbt.Ptr("Durante - LMK (2024 WF)/01 - Durante - Track.flac"), Size: qbt.Ptr(int64(123))},
 				},
 			},
 		},
@@ -1410,16 +1410,16 @@ func TestSearchTorrentMatches_GazelleSkipsWhenTargetHashExistsLocally(t *testing
 		syncManager: &gazelleSkipHashSyncManager{
 			torrents: []qbt.Torrent{
 				{
-					Hash:     sourceHash,
-					Name:     "Durante - LMK (2024 WF)",
-					Progress: 1.0,
-					Size:     123,
-					Tracker:  "https://flacsfor.me/abc/announce",
+					Hash:     qbt.Ptr(sourceHash),
+					Name:     qbt.Ptr("Durante - LMK (2024 WF)"),
+					Progress: qbt.Ptr(float64(1.0)),
+					Size:     qbt.Ptr(int64(123)),
+					Tracker:  qbt.Ptr("https://flacsfor.me/abc/announce"),
 				},
 			},
-			filesByHash: map[string]qbt.TorrentFiles{
+			filesByHash: map[string][]qbt.TorrentFile{
 				sourceHashNorm: {
-					{Name: "Durante - LMK (2024 WF)/01 - Durante - Track.flac", Size: 123},
+					{Name: qbt.Ptr("Durante - LMK (2024 WF)/01 - Durante - Track.flac"), Size: qbt.Ptr(int64(123))},
 				},
 			},
 			exportedTorrent:    torrentBytes,

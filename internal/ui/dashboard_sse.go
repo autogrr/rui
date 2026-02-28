@@ -15,9 +15,8 @@ import (
 	"net/http"
 	"time"
 
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
-
-	"github.com/autogrr/rui/internal/qbittorrent"
 )
 
 // StreamDashboardSSE pushes "dashboard-update" events via Server-Sent Events.
@@ -74,27 +73,25 @@ func (h *Handler) StreamDashboardSSE(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			var connected int64
-			var dlSpeed, upSpeed int64
-			if client, cerr := h.syncManager.GetClient(ctx, inst.ID); cerr == nil {
+			var connected, dlSpeed, upSpeed int64
+			var total, downloading, seeding int
+
+			// All reads are atomic pointer loads — no torrent list copy.
+			if client, cerr := h.syncManager.GetClientOffline(ctx, inst.ID); cerr == nil && client != nil {
 				if ss := client.GetCachedServerState(); ss != nil {
 					connected = 1
-					if ss.DlInfoSpeed > 0 {
-						dlSpeed = ss.DlInfoSpeed / speedBucket
+					if qbt.Deref(ss.DlInfoSpeed) > 0 {
+						dlSpeed = qbt.Deref(ss.DlInfoSpeed) / speedBucket
 					}
-					if ss.UpInfoSpeed > 0 {
-						upSpeed = ss.UpInfoSpeed / speedBucket
+					if qbt.Deref(ss.UpInfoSpeed) > 0 {
+						upSpeed = qbt.Deref(ss.UpInfoSpeed) / speedBucket
 					}
 				}
-			}
-
-			var total, downloading, seeding int
-			if resp, rerr := h.syncManager.GetTorrentsWithFilters(
-				ctx, inst.ID, 0, 0, "", "", "", qbittorrent.FilterOptions{},
-			); rerr == nil && resp != nil && resp.Stats != nil {
-				total = resp.Stats.Total
-				downloading = resp.Stats.Downloading
-				seeding = resp.Stats.Seeding
+				if counts := client.GetCachedTorrentCounts(); counts != nil {
+					total = counts.Total
+					downloading = counts.Downloading
+					seeding = counts.Seeding
+				}
 			}
 
 			fmt.Fprintf(h64, "%d|%d|%d|%d|%d|%d|", //nolint:errcheck

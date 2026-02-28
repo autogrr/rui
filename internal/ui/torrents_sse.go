@@ -11,11 +11,10 @@ package ui
 
 import (
 	"fmt"
-	"hash/fnv"
 	"net/http"
+	"strconv"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 )
 
@@ -72,30 +71,18 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 
 	var lastFP string
 
-	// fingerprint computes a cheap change-detection key from the in-memory cache.
-	// It hashes torrent count + per-torrent (hash, state, bucketed speeds) so
-	// that additions, removals, state changes, and meaningful speed changes all
-	// register as a change. Speeds are bucketed to 100 KiB/s steps so minor
-	// noise (±few KB/s) does not trigger spurious table reloads.
-	const speedBucket = 100 * 1024 // 100 KiB/s
+	// fingerprint reads the atomically-cached torrent fingerprint. This is a
+	// nanosecond-scale operation — no locking, no torrent copying, no HTTP calls.
 	fingerprint := func() string {
-		torrents, err := h.syncManager.GetTorrents(ctx, instanceID, qbt.TorrentFilterOptions{})
-		if err != nil {
-			return lastFP // no change on error
+		client, err := h.syncManager.GetClientOffline(ctx, instanceID)
+		if err != nil || client == nil {
+			return lastFP // no change on error — don't spam events
 		}
-
-		h64 := fnv.New64a()
-		fmt.Fprintf(h64, "%d", len(torrents)) //nolint:errcheck // hash writes never fail
-		limit := min(20, len(torrents))
-		for i := range limit {
-			t := &torrents[i]
-			fmt.Fprintf(h64, "%s%s%d%d", //nolint:errcheck
-				t.Hash, t.State,
-				t.DlSpeed/speedBucket,
-				t.UpSpeed/speedBucket,
-			)
+		fp := client.GetCachedTorrentFP()
+		if fp == 0 {
+			return lastFP // no sync completed yet
 		}
-		return fmt.Sprintf("%x", h64.Sum64())
+		return strconv.FormatUint(fp, 16)
 	}
 
 	sendUpdate := func() bool {

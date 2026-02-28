@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 )
 
 // TorrentDetailProps holds all data loaded for the torrent detail panel.
@@ -24,7 +24,7 @@ type TorrentDetailProps struct {
 	Properties *qbt.TorrentProperties
 
 	// Files tab
-	Files *qbt.TorrentFiles
+	Files []qbt.TorrentFile
 
 	// Trackers tab
 	Trackers []qbt.TorrentTracker
@@ -105,27 +105,27 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 			<!-- General tab -->
 			<div x-show="tab === 'general'" class="p-3 space-y-2">
 				if p.Properties != nil {
-					@detailRow("Save path", p.Properties.SavePath)
+					@detailRow("Save path", qbt.Deref(p.Properties.SavePath))
 					@detailRow("Hash", p.Hash)
-					@detailRow("Total size", formatBytes(uint64(p.Properties.TotalSize)))
-					@detailRow("Downloaded", formatBytes(uint64(p.Properties.TotalDownloaded)))
-					@detailRow("Uploaded", formatBytes(uint64(p.Properties.TotalUploaded)))
-					@detailRow("Share ratio", strconv.FormatFloat(p.Properties.ShareRatio, 'f', 3, 64))
-					@detailRow("Download speed", formatBytesPerSec(uint64(max(int64(p.Properties.DlSpeed), 0))))
-					@detailRow("Upload speed", formatBytesPerSec(uint64(max(int64(p.Properties.UpSpeed), 0))))
-					@detailRow("Seeds", strconv.Itoa(p.Properties.Seeds)+" / "+strconv.Itoa(p.Properties.SeedsTotal))
-					@detailRow("Peers", strconv.Itoa(p.Properties.Peers)+" / "+strconv.Itoa(p.Properties.PeersTotal))
-					@detailRow("ETA", formatETA(int64(p.Properties.Eta)))
-					if p.Properties.Comment != "" {
-						@detailRow("Comment", p.Properties.Comment)
+					@detailRow("Total size", formatBytes(uint64(qbt.Deref(p.Properties.TotalSize))))
+					@detailRow("Downloaded", formatBytes(uint64(qbt.Deref(p.Properties.TotalDownloaded))))
+					@detailRow("Uploaded", formatBytes(uint64(qbt.Deref(p.Properties.TotalUploaded))))
+					@detailRow("Share ratio", strconv.FormatFloat(qbt.Deref(p.Properties.ShareRatio), 'f', 3, 64))
+					@detailRow("Download speed", formatBytesPerSec(uint64(max(qbt.Deref(p.Properties.DlSpeed), 0))))
+					@detailRow("Upload speed", formatBytesPerSec(uint64(max(qbt.Deref(p.Properties.UpSpeed), 0))))
+					@detailRow("Seeds", strconv.Itoa(qbt.Deref(p.Properties.Seeds))+" / "+strconv.Itoa(qbt.Deref(p.Properties.SeedsTotal)))
+					@detailRow("Peers", strconv.Itoa(qbt.Deref(p.Properties.Peers))+" / "+strconv.Itoa(qbt.Deref(p.Properties.PeersTotal)))
+					@detailRow("ETA", formatETA(qbt.Deref(p.Properties.ETA)))
+					if qbt.Deref(p.Properties.Comment) != "" {
+						@detailRow("Comment", qbt.Deref(p.Properties.Comment))
 					}
-					if p.Properties.CreatedBy != "" {
-						@detailRow("Created by", p.Properties.CreatedBy)
+					if qbt.Deref(p.Properties.CreatedBy) != "" {
+						@detailRow("Created by", qbt.Deref(p.Properties.CreatedBy))
 					}
-					@detailRow("Private", boolStr(p.Properties.IsPrivate))
-					@detailRow("Connections", strconv.Itoa(p.Properties.NbConnections)+" / "+strconv.Itoa(p.Properties.NbConnectionsLimit))
-					@detailRow("Piece size", formatBytes(uint64(p.Properties.PieceSize)))
-					@detailRow("Pieces have", strconv.Itoa(p.Properties.PiecesHave)+" / "+strconv.Itoa(p.Properties.PiecesNum))
+					@detailRow("Private", boolStr(qbt.Deref(p.Properties.IsPrivate)))
+					@detailRow("Connections", strconv.Itoa(qbt.Deref(p.Properties.NbConnections))+" / "+strconv.Itoa(qbt.Deref(p.Properties.NbConnectionsLimit)))
+					@detailRow("Piece size", formatBytes(uint64(qbt.Deref(p.Properties.PieceSize))))
+					@detailRow("Pieces have", strconv.Itoa(qbt.Deref(p.Properties.PiecesHave))+" / "+strconv.Itoa(qbt.Deref(p.Properties.PiecesNum)))
 				} else {
 					<p class="text-muted-foreground">No properties available.</p>
 				}
@@ -133,7 +133,7 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 
 			<!-- Files tab -->
 			<div x-show="tab === 'files'">
-				if p.Files == nil || len(*p.Files) == 0 {
+				if len(p.Files) == 0 {
 					<p class="p-3 text-muted-foreground">No file information available.</p>
 				} else {
 					<table class="w-full">
@@ -145,16 +145,16 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-border">
-							for _, f := range *p.Files {
+							for _, f := range p.Files {
 								<tr class="hover:bg-muted/40">
 									<td class="px-3 py-1 max-w-xs">
-										<span class="block truncate" title={ f.Name }>{ f.Name }</span>
+										<span class="block truncate" title={ qbt.Deref(f.Name) }>{ qbt.Deref(f.Name) }</span>
 									</td>
 									<td class="px-3 py-1 text-right text-muted-foreground whitespace-nowrap tabular-nums">
-										{ formatBytes(uint64(f.Size)) }
+										{ formatBytes(uint64(qbt.Deref(f.Size))) }
 									</td>
 									<td class="px-3 py-1 text-right whitespace-nowrap tabular-nums">
-										{ fmt.Sprintf("%.0f%%", float64(f.Progress)*100) }
+										{ fmt.Sprintf("%.0f%%", qbt.Deref(f.Progress)*100) }
 									</td>
 								</tr>
 							}
@@ -181,28 +181,28 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 							for _, tr := range p.Trackers {
 								<tr class="hover:bg-muted/40">
 									<td class="px-3 py-1 max-w-xs">
-										<span class="block truncate text-xs" title={ tr.Url }>{ tr.Url }</span>
-										if tr.Message != "" {
-											<span class="block text-muted-foreground truncate" title={ tr.Message }>{ tr.Message }</span>
+										<span class="block truncate text-xs" title={ qbt.Deref(tr.URL) }>{ qbt.Deref(tr.URL) }</span>
+										if qbt.Deref(tr.Message) != "" {
+											<span class="block text-muted-foreground truncate" title={ qbt.Deref(tr.Message) }>{ qbt.Deref(tr.Message) }</span>
 										}
 									</td>
 									<td class="px-3 py-1 text-right tabular-nums">
-										if tr.NumSeeds >= 0 {
-											{ strconv.Itoa(tr.NumSeeds) }
+										if qbt.Deref(tr.NumSeeds) >= 0 {
+											{ strconv.Itoa(qbt.Deref(tr.NumSeeds)) }
 										} else {
 											<span class="text-muted-foreground">—</span>
 										}
 									</td>
 									<td class="px-3 py-1 text-right tabular-nums">
-										if tr.NumPeers >= 0 {
-											{ strconv.Itoa(tr.NumPeers) }
+										if qbt.Deref(tr.NumPeers) >= 0 {
+											{ strconv.Itoa(qbt.Deref(tr.NumPeers)) }
 										} else {
 											<span class="text-muted-foreground">—</span>
 										}
 									</td>
 									<td class="px-3 py-1">
-										<span class={ "inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium", trackerStatusClass(int(tr.Status)) }>
-											{ trackerStatusLabel(int(tr.Status)) }
+										<span class={ "inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium", trackerStatusClass(int(qbt.Deref(tr.Status))) }>
+											{ trackerStatusLabel(int(qbt.Deref(tr.Status))) }
 										</span>
 									</td>
 								</tr>
@@ -231,27 +231,27 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 							for _, peer := range p.Peers {
 								<tr class="hover:bg-muted/40">
 									<td class="px-3 py-1 tabular-nums whitespace-nowrap">
-										{ peer.IP }:{ strconv.Itoa(peer.Port) }
+										{ qbt.Deref(peer.IP) }:{ strconv.Itoa(qbt.Deref(peer.Port)) }
 									</td>
 									<td class="px-3 py-1 max-w-[5rem]">
-										<span class="block truncate text-muted-foreground" title={ peer.Client }>{ peer.Client }</span>
+										<span class="block truncate text-muted-foreground" title={ qbt.Deref(peer.Client) }>{ qbt.Deref(peer.Client) }</span>
 									</td>
 									<td class="px-3 py-1 text-right tabular-nums text-blue-600 dark:text-blue-400 whitespace-nowrap">
-										if peer.DownSpeed > 0 {
-											{ formatBytesPerSec(uint64(peer.DownSpeed)) }
+										if qbt.Deref(peer.DlSpeed) > 0 {
+											{ formatBytesPerSec(uint64(qbt.Deref(peer.DlSpeed))) }
 										} else {
 											<span class="text-muted-foreground">—</span>
 										}
 									</td>
 									<td class="px-3 py-1 text-right tabular-nums text-green-600 dark:text-green-400 whitespace-nowrap">
-										if peer.UpSpeed > 0 {
-											{ formatBytesPerSec(uint64(peer.UpSpeed)) }
+										if qbt.Deref(peer.UpSpeed) > 0 {
+											{ formatBytesPerSec(uint64(qbt.Deref(peer.UpSpeed))) }
 										} else {
 											<span class="text-muted-foreground">—</span>
 										}
 									</td>
 									<td class="px-3 py-1 text-right tabular-nums">
-										{ fmt.Sprintf("%.0f%%", peer.Progress*100) }
+										{ fmt.Sprintf("%.0f%%", qbt.Deref(peer.Progress)*100) }
 									</td>
 								</tr>
 							}

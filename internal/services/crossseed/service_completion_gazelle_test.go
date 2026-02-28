@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	_ "modernc.org/sqlite"
 
 	"github.com/autogrr/rui/internal/database"
@@ -85,17 +85,17 @@ func (m *completionGazelleSyncMock) GetTorrents(_ context.Context, _ int, filter
 		return []qbt.Torrent{m.torrent}, nil
 	}
 	for _, h := range filter.Hashes {
-		if normalizeHash(h) == normalizeHash(m.torrent.Hash) {
+		if normalizeHash(h) == normalizeHash(qbt.Deref(m.torrent.Hash)) {
 			return []qbt.Torrent{m.torrent}, nil
 		}
 	}
 	return []qbt.Torrent{}, nil
 }
 
-func (m *completionGazelleSyncMock) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string]qbt.TorrentFiles, error) {
-	out := make(map[string]qbt.TorrentFiles, len(hashes))
+func (m *completionGazelleSyncMock) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string][]qbt.TorrentFile, error) {
+	out := make(map[string][]qbt.TorrentFile, len(hashes))
 	for _, h := range hashes {
-		out[normalizeHash(h)] = qbt.TorrentFiles{{Name: "01 - track.flac", Size: 123}}
+		out[normalizeHash(h)] = []qbt.TorrentFile{{Name: qbt.Ptr("01 - track.flac"), Size: qbt.Ptr(int64(123))}}
 	}
 	return out, nil
 }
@@ -143,7 +143,7 @@ func (m *completionGazelleSyncMock) ExtractDomainFromURL(urlStr string) string {
 	return strings.TrimSpace(urlStr)
 }
 
-func (m *completionGazelleSyncMock) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (m *completionGazelleSyncMock) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, nil
 }
 
@@ -211,10 +211,10 @@ func TestHandleTorrentCompletion_AllowsGazelleWhenJackettMissing(t *testing.T) {
 	completionStore := models.NewInstanceCrossSeedCompletionStore(q)
 
 	src := qbt.Torrent{
-		Hash:     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		Name:     "test (2026) [FLAC]",
-		Tracker:  "https://flacsfor.me/announce",
-		Progress: 1.0,
+		Hash:     qbt.Ptr("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+		Name:     qbt.Ptr("test (2026) [FLAC]"),
+		Tracker:  qbt.Ptr("https://flacsfor.me/announce"),
+		Progress: qbt.Ptr(float64(1.0)),
 	}
 
 	syncMock := &completionGazelleSyncMock{torrent: src}
@@ -268,10 +268,10 @@ func TestExecuteCompletionSearch_GazelleSourceSkipsTorznab(t *testing.T) {
 	}
 
 	src := qbt.Torrent{
-		Hash:     "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-		Name:     "test (2026) [FLAC]",
-		Tracker:  "https://flacsfor.me/announce",
-		Progress: 1.0,
+		Hash:     qbt.Ptr("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"),
+		Name:     qbt.Ptr("test (2026) [FLAC]"),
+		Tracker:  qbt.Ptr("https://flacsfor.me/announce"),
+		Progress: qbt.Ptr(float64(1.0)),
 	}
 	syncMock := &completionGazelleSyncMock{torrent: src}
 
@@ -301,10 +301,10 @@ func TestExecuteCompletionSearch_GazelleSourceFallsBackToTorznabWhenTargetKeyMis
 	t.Parallel()
 
 	src := qbt.Torrent{
-		Hash:     "cccccccccccccccccccccccccccccccccccccccc",
-		Name:     "test (2026) [FLAC]",
-		Tracker:  "https://flacsfor.me/announce",
-		Progress: 1.0,
+		Hash:     qbt.Ptr("cccccccccccccccccccccccccccccccccccccccc"),
+		Name:     qbt.Ptr("test (2026) [FLAC]"),
+		Tracker:  qbt.Ptr("https://flacsfor.me/announce"),
+		Progress: qbt.Ptr(float64(1.0)),
 	}
 	syncMock := &completionGazelleSyncMock{torrent: src}
 
@@ -373,10 +373,10 @@ func TestExecuteCompletionSearch_GazelleSourceFallsBackToTorznabWhenTargetKeyUnd
 	}
 
 	src := qbt.Torrent{
-		Hash:     "dddddddddddddddddddddddddddddddddddddddd",
-		Name:     "test (2026) [FLAC]",
-		Tracker:  "https://flacsfor.me/announce",
-		Progress: 1.0,
+		Hash:     qbt.Ptr("dddddddddddddddddddddddddddddddddddddddd"),
+		Name:     qbt.Ptr("test (2026) [FLAC]"),
+		Tracker:  qbt.Ptr("https://flacsfor.me/announce"),
+		Progress: qbt.Ptr(float64(1.0)),
 	}
 	syncMock := &completionGazelleSyncMock{torrent: src}
 

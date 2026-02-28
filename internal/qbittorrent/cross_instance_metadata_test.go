@@ -7,7 +7,7 @@ package qbittorrent
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 )
 

@@ -112,11 +112,11 @@ templ Dashboard(p DashboardProps) {
 						</div>
 					</div>
 				</div>
-				<!-- Tracker breakdown — lazy loaded once, not re-polled -->
+				<!-- Tracker breakdown — lazy loaded and re-polled every 60 s as a safety net -->
 				<div
 					id="tracker-breakdown"
 					hx-get={ p.BaseURL + "/ui/partials/dashboard/tracker-breakdown" }
-					hx-trigger="load"
+					hx-trigger="load, every 60s"
 					hx-swap="outerHTML"
 				>
 					@DashboardTrackerBreakdownSkeleton()

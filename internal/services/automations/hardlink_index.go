@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/singleflight"
 
@@ -118,19 +118,19 @@ func computeTorrentSetDigest(torrents []qbt.Torrent) string {
 	}
 	sort.Slice(indices, func(i, j int) bool {
 		ti, tj := &torrents[indices[i]], &torrents[indices[j]]
-		if ti.Hash != tj.Hash {
-			return ti.Hash < tj.Hash
+		if qbt.Deref(ti.Hash) != qbt.Deref(tj.Hash) {
+			return qbt.Deref(ti.Hash) < qbt.Deref(tj.Hash)
 		}
-		return ti.SavePath < tj.SavePath
+		return qbt.Deref(ti.SavePath) < qbt.Deref(tj.SavePath)
 	})
 
 	// Hash sorted torrents directly (avoids intermediate string concatenation)
 	h := sha256.New()
 	for _, idx := range indices {
 		t := &torrents[idx]
-		io.WriteString(h, t.Hash) //nolint:errcheck // hash.Hash.Write never returns error
+		io.WriteString(h, qbt.Deref(t.Hash)) //nolint:errcheck // hash.Hash.Write never returns error
 		h.Write([]byte{0})
-		io.WriteString(h, t.SavePath) //nolint:errcheck // hash.Hash.Write never returns error
+		io.WriteString(h, qbt.Deref(t.SavePath)) //nolint:errcheck // hash.Hash.Write never returns error
 		h.Write([]byte{0})
 	}
 	return hex.EncodeToString(h.Sum(nil))[:16] // Use first 16 chars for compactness
@@ -168,8 +168,8 @@ func (s *Service) buildHardlinkIndex(ctx context.Context, instanceID int, torren
 	hashes := make([]string, 0, len(torrents))
 	torrentByHash := make(map[string]qbt.Torrent, len(torrents))
 	for i := range torrents {
-		hashes = append(hashes, torrents[i].Hash)
-		torrentByHash[torrents[i].Hash] = torrents[i]
+		hashes = append(hashes, qbt.Deref(torrents[i].Hash))
+		torrentByHash[qbt.Deref(torrents[i].Hash)] = torrents[i]
 	}
 
 	filesByHash, err := s.syncManager.GetTorrentFilesBatch(ctx, instanceID, hashes)
@@ -216,11 +216,11 @@ func (s *Service) buildHardlinkIndex(ctx context.Context, instanceID int, torren
 		torrentInfoByHash[hash] = info
 
 		for _, f := range files {
-			fullPath := buildFullPath(torrent.SavePath, f.Name)
+			fullPath := buildFullPath(qbt.Deref(torrent.SavePath), qbt.Deref(f.Name))
 
 			// Reject paths that escape the torrent's save path to prevent malicious
 			// torrent metadata from causing Lstat on arbitrary filesystem locations.
-			if !isPathInsideBase(torrent.SavePath, fullPath) {
+			if !isPathInsideBase(qbt.Deref(torrent.SavePath), fullPath) {
 				info.allAccessible = false
 				info.hasInvalidPath = true
 				continue
@@ -454,5 +454,5 @@ func ClearHardlinkIndexCache() {
 
 // Ensure syncManager implements the required interface
 var _ interface {
-	GetTorrentFilesBatch(ctx context.Context, instanceID int, hashes []string) (map[string]qbt.TorrentFiles, error)
+	GetTorrentFilesBatch(ctx context.Context, instanceID int, hashes []string) (map[string][]qbt.TorrentFile, error)
 } = (*qbittorrent.SyncManager)(nil)

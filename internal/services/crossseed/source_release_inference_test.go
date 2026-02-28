@@ -7,7 +7,7 @@ package crossseed
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/pkg/stringutils"
@@ -25,10 +25,10 @@ func TestDeriveSourceReleaseForSearch_InferSeasonPackFromFiles(t *testing.T) {
 	require.Equal(t, 0, source.Series)
 	require.Equal(t, 0, source.Episode)
 
-	files := qbt.TorrentFiles{
-		{Name: "Frieren Beyond Journey's End - S01E01 (BD Remux 1080p AVC FLAC AAC) [Dual Audio] [PMR].mkv", Size: 1},
-		{Name: "Frieren Beyond Journey's End - S01E02 (BD Remux 1080p AVC FLAC AAC) [Dual Audio] [PMR].mkv", Size: 1},
-		{Name: "Frieren Beyond Journey's End - S01E01.nfo", Size: 1},
+	files := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Frieren Beyond Journey's End - S01E01 (BD Remux 1080p AVC FLAC AAC) [Dual Audio] [PMR].mkv"), Size: qbt.Ptr(int64(1))},
+		{Name: qbt.Ptr("Frieren Beyond Journey's End - S01E02 (BD Remux 1080p AVC FLAC AAC) [Dual Audio] [PMR].mkv"), Size: qbt.Ptr(int64(1))},
+		{Name: qbt.Ptr("Frieren Beyond Journey's End - S01E01.nfo"), Size: qbt.Ptr(int64(1))},
 	}
 
 	derived := svc.deriveSourceReleaseForSearch(source, files)
@@ -47,8 +47,8 @@ func TestDeriveSourceReleaseForSearch_InferSingleEpisodeFromFiles(t *testing.T) 
 	require.Equal(t, 0, source.Series)
 	require.Equal(t, 0, source.Episode)
 
-	files := qbt.TorrentFiles{
-		{Name: "Some Anime Title - S01E03 (WEB 1080p) [Group].mkv", Size: 1},
+	files := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Some Anime Title - S01E03 (WEB 1080p) [Group].mkv"), Size: qbt.Ptr(int64(1))},
 	}
 
 	derived := svc.deriveSourceReleaseForSearch(source, files)
@@ -67,9 +67,9 @@ func TestDeriveSourceReleaseForSearch_FileStructureOverridesEpisodeForPacks(t *t
 	require.Equal(t, 1, source.Series)
 	require.Equal(t, 1, source.Episode)
 
-	files := qbt.TorrentFiles{
-		{Name: "Some Show - S01E01 (1080p WEB-DL x264) [GROUP].mkv", Size: 1},
-		{Name: "Some Show - S01E02 (1080p WEB-DL x264) [GROUP].mkv", Size: 1},
+	files := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Some Show - S01E01 (1080p WEB-DL x264) [GROUP].mkv"), Size: qbt.Ptr(int64(1))},
+		{Name: qbt.Ptr("Some Show - S01E02 (1080p WEB-DL x264) [GROUP].mkv"), Size: qbt.Ptr(int64(1))},
 	}
 
 	derived := svc.deriveSourceReleaseForSearch(source, files)

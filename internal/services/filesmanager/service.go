@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/dbinterface"
@@ -63,7 +63,7 @@ func NewService(db dbinterface.Querier) *Service {
 //
 // If absolute consistency is required, the caller should invalidate the cache
 // before calling this method, or use the qBittorrent API directly.
-func (s *Service) GetCachedFiles(ctx context.Context, instanceID int, hash string) (qbt.TorrentFiles, error) {
+func (s *Service) GetCachedFiles(ctx context.Context, instanceID int, hash string) ([]qbt.TorrentFile, error) {
 	results, missing, err := s.GetCachedFilesBatch(ctx, instanceID, []string{hash})
 	if err != nil {
 		return nil, err
@@ -81,10 +81,10 @@ func (s *Service) GetCachedFiles(ctx context.Context, instanceID int, hash strin
 
 // GetCachedFilesBatch retrieves cached file information for multiple torrents.
 // Missing or stale entries are returned in the second slice so callers can decide what to refresh.
-func (s *Service) GetCachedFilesBatch(ctx context.Context, instanceID int, hashes []string) (map[string]qbt.TorrentFiles, []string, error) {
+func (s *Service) GetCachedFilesBatch(ctx context.Context, instanceID int, hashes []string) (map[string][]qbt.TorrentFile, []string, error) {
 	unique := dedupeHashes(hashes)
 	if len(unique) == 0 {
-		return map[string]qbt.TorrentFiles{}, nil, nil
+		return map[string][]qbt.TorrentFile{}, nil, nil
 	}
 
 	syncInfoMap, err := s.repo.GetSyncInfoBatch(ctx, instanceID, unique)
@@ -110,7 +110,7 @@ func (s *Service) GetCachedFilesBatch(ctx context.Context, instanceID int, hashe
 		freshHashes = append(freshHashes, hash)
 	}
 
-	results := make(map[string]qbt.TorrentFiles, len(freshHashes))
+	results := make(map[string][]qbt.TorrentFile, len(freshHashes))
 	if len(freshHashes) > 0 {
 		cachedFiles, err := s.repo.GetFilesBatch(ctx, instanceID, freshHashes)
 		if err != nil {
@@ -137,7 +137,7 @@ func (s *Service) GetCachedFilesBatch(ctx context.Context, instanceID int, hashe
 }
 
 // CacheFilesBatch stores file information for multiple torrents in the database
-func (s *Service) CacheFilesBatch(ctx context.Context, instanceID int, files map[string]qbt.TorrentFiles) error {
+func (s *Service) CacheFilesBatch(ctx context.Context, instanceID int, files map[string][]qbt.TorrentFile) error {
 	var allCachedFiles []CachedFile
 	var allSyncInfos []SyncInfo
 
@@ -159,15 +159,15 @@ func (s *Service) CacheFilesBatch(ctx context.Context, instanceID int, files map
 			cachedFiles[i] = CachedFile{
 				InstanceID:      instanceID,
 				TorrentHash:     hash,
-				FileIndex:       f.Index,
-				Name:            f.Name,
-				Size:            f.Size,
-				Progress:        float64(f.Progress),
-				Priority:        f.Priority,
-				IsSeed:          &isSeed,
+				FileIndex:       qbt.Deref(f.Index),
+				Name:            qbt.Deref(f.Name),
+				Size:            qbt.Deref(f.Size),
+				Progress:        qbt.Deref(f.Progress),
+				Priority:        int(qbt.Deref(f.Priority)),
+				IsSeed:          isSeed,
 				PieceRangeStart: pieceStart,
 				PieceRangeEnd:   pieceEnd,
-				Availability:    float64(f.Availability),
+				Availability:    qbt.Deref(f.Availability),
 			}
 		}
 
@@ -228,8 +228,8 @@ func (s *Service) CacheFilesBatch(ctx context.Context, instanceID int, files map
 }
 
 // CacheFiles stores file information in the database
-func (s *Service) CacheFiles(ctx context.Context, instanceID int, hash string, files qbt.TorrentFiles) error {
-	return s.CacheFilesBatch(ctx, instanceID, map[string]qbt.TorrentFiles{hash: files})
+func (s *Service) CacheFiles(ctx context.Context, instanceID int, hash string, files []qbt.TorrentFile) error {
+	return s.CacheFilesBatch(ctx, instanceID, map[string][]qbt.TorrentFile{hash: files})
 }
 
 // InvalidateCache removes cached file information for a torrent
@@ -342,36 +342,27 @@ func cacheIsFresh(info *SyncInfo) bool {
 	return true
 }
 
-func convertCachedFiles(cached []CachedFile) qbt.TorrentFiles {
+func convertCachedFiles(cached []CachedFile) []qbt.TorrentFile {
 	if len(cached) == 0 {
 		return nil
 	}
 
-	files := make(qbt.TorrentFiles, len(cached))
+	files := make([]qbt.TorrentFile, len(cached))
 	for i, cf := range cached {
 		isSeed := false
 		if cf.IsSeed != nil {
 			isSeed = *cf.IsSeed
 		}
 
-		files[i] = struct {
-			Availability float32 `json:"availability"`
-			Index        int     `json:"index"`
-			IsSeed       bool    `json:"is_seed,omitempty"`
-			Name         string  `json:"name"`
-			PieceRange   []int   `json:"piece_range"`
-			Priority     int     `json:"priority"`
-			Progress     float32 `json:"progress"`
-			Size         int64   `json:"size"`
-		}{
-			Availability: float32(cf.Availability),
-			Index:        cf.FileIndex,
-			IsSeed:       isSeed,
-			Name:         cf.Name,
+		files[i] = qbt.TorrentFile{
+			Availability: qbt.Ptr(float64(cf.Availability)),
+			Index:        qbt.Ptr(cf.FileIndex),
+			IsSeed:       qbt.Ptr(isSeed),
+			Name:         qbt.Ptr(cf.Name),
 			PieceRange:   []int{int(cf.PieceRangeStart), int(cf.PieceRangeEnd)},
-			Priority:     cf.Priority,
-			Progress:     float32(cf.Progress),
-			Size:         cf.Size,
+			Priority:     qbt.Ptr(qbt.FilePriority(cf.Priority)),
+			Progress:     qbt.Ptr(float64(cf.Progress)),
+			Size:         qbt.Ptr(int64(cf.Size)),
 		}
 	}
 	return files

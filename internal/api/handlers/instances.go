@@ -162,7 +162,7 @@ func (h *InstancesHandler) GetTransferInfo(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	info, err := client.GetTransferInfoCtx(ctx)
+	info, err := client.GetTransferInfo(ctx)
 	if err != nil {
 		log.Error().Err(err).Int("instanceID", instanceID).Msg("Failed to get transfer info")
 		RespondError(w, http.StatusInternalServerError, "Failed to get transfer info")

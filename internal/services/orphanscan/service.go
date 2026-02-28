@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/models"
@@ -57,7 +57,7 @@ type Service struct {
 
 	// Providers for testing (nil = use real sync manager)
 	getAllTorrentsProvider       func(ctx context.Context, instanceID int) ([]qbt.Torrent, error)
-	getTorrentFilesBatchProvider func(ctx context.Context, instanceID int, hashes []string) (map[string]qbt.TorrentFiles, error)
+	getTorrentFilesBatchProvider func(ctx context.Context, instanceID int, hashes []string) (map[string][]qbt.TorrentFile, error)
 	getClientProvider            func(ctx context.Context, instanceID int) (healthChecker, error)
 	listInstancesProvider        func(ctx context.Context) ([]*models.Instance, error)
 	getLastCompletedRunProvider  func(ctx context.Context, instanceID int) (*models.OrphanScanRun, error)
@@ -134,7 +134,7 @@ func (s *Service) getAllTorrents(ctx context.Context, instanceID int) ([]qbt.Tor
 }
 
 // getTorrentFilesBatch returns files for multiple torrents, using the provider if set.
-func (s *Service) getTorrentFilesBatch(ctx context.Context, instanceID int, hashes []string) (map[string]qbt.TorrentFiles, error) {
+func (s *Service) getTorrentFilesBatch(ctx context.Context, instanceID int, hashes []string) (map[string][]qbt.TorrentFile, error) {
 	if s.getTorrentFilesBatchProvider != nil {
 		return s.getTorrentFilesBatchProvider(ctx, instanceID, hashes)
 	}
@@ -181,7 +181,7 @@ func (s *Service) getLastCompletedRun(ctx context.Context, instanceID int) (*mod
 func scanRootsFromTorrents(torrents []qbt.Torrent) []string {
 	scanRoots := make(map[string]struct{})
 	for i := range torrents {
-		savePath := filepath.Clean(torrents[i].SavePath)
+		savePath := filepath.Clean(qbt.Deref(torrents[i].SavePath))
 		if savePath == "" || !filepath.IsAbs(savePath) {
 			continue
 		}
@@ -1198,13 +1198,13 @@ func analyzeCountSeries(stats []SampleStats) (seriesStr string, minMax countMinM
 // countTorrentStates counts torrents in checking/loading and metaDL states.
 func countTorrentStates(torrents []qbt.Torrent) (checkingCount, metaDlCount int) {
 	for i := range torrents {
-		switch torrents[i].State {
-		case qbt.TorrentStateCheckingResumeData,
-			qbt.TorrentStateCheckingDl,
-			qbt.TorrentStateCheckingUp,
-			qbt.TorrentStateAllocating:
+		switch qbt.Deref(torrents[i].State) {
+		case qbt.StateCheckingResumeData,
+			qbt.StateCheckingDL,
+			qbt.StateCheckingUP,
+			qbt.StateAllocating:
 			checkingCount++
-		case qbt.TorrentStateMetaDl:
+		case qbt.StateMetaDL:
 			metaDlCount++
 		default:
 			// Other states don't affect settling check
@@ -1510,22 +1510,22 @@ func buildTorrentHashLookup(torrents []qbt.Torrent) (hashToTorrent map[string]qb
 	hashToTorrent = make(map[string]qbt.Torrent, len(torrents)*2)
 	hashes = make([]string, 0, len(torrents))
 	for i := range torrents {
-		hashes = append(hashes, torrents[i].Hash)
-		hashToTorrent[torrents[i].Hash] = torrents[i]
-		hashToTorrent[canonicalizeHash(torrents[i].Hash)] = torrents[i]
+		hashes = append(hashes, qbt.Deref(torrents[i].Hash))
+		hashToTorrent[qbt.Deref(torrents[i].Hash)] = torrents[i]
+		hashToTorrent[canonicalizeHash(qbt.Deref(torrents[i].Hash))] = torrents[i]
 	}
 	return hashToTorrent, hashes
 }
 
 // validateFileCompleteness checks that all eligible torrents have file data.
-func validateFileCompleteness(torrents []qbt.Torrent, filesByHash map[string]qbt.TorrentFiles) error {
+func validateFileCompleteness(torrents []qbt.Torrent, filesByHash map[string][]qbt.TorrentFile) error {
 	var missingFilesCount, eligibleCount int
 	for i := range torrents {
-		if torrents[i].State == qbt.TorrentStateMetaDl {
+		if qbt.Deref(torrents[i].State) == qbt.StateMetaDL {
 			continue // Not eligible - legitimately has no files
 		}
 		eligibleCount++
-		canonHash := canonicalizeHash(torrents[i].Hash)
+		canonHash := canonicalizeHash(qbt.Deref(torrents[i].Hash))
 		if files, ok := filesByHash[canonHash]; !ok || len(files) == 0 {
 			missingFilesCount++
 		}
@@ -1546,7 +1546,7 @@ func validateFileCompleteness(torrents []qbt.Torrent, filesByHash map[string]qbt
 }
 
 // buildFileMapFromTorrents constructs the file map and scan roots from torrent data.
-func buildFileMapFromTorrents(hashToTorrent map[string]qbt.Torrent, filesByHash map[string]qbt.TorrentFiles, torrentCount int) *buildFileMapResult {
+func buildFileMapFromTorrents(hashToTorrent map[string]qbt.Torrent, filesByHash map[string][]qbt.TorrentFile, torrentCount int) *buildFileMapResult {
 	tfm := NewTorrentFileMap()
 	scanRoots := make(map[string]struct{})
 
@@ -1555,14 +1555,14 @@ func buildFileMapFromTorrents(hashToTorrent map[string]qbt.Torrent, filesByHash 
 		if !ok {
 			continue
 		}
-		savePath := filepath.Clean(t.SavePath)
+		savePath := filepath.Clean(qbt.Deref(t.SavePath))
 		if !filepath.IsAbs(savePath) {
 			continue
 		}
 		scanRoots[savePath] = struct{}{}
 
 		for _, f := range files {
-			tfm.Add(normalizePath(filepath.Join(savePath, f.Name)))
+			tfm.Add(normalizePath(filepath.Join(savePath, qbt.Deref(f.Name))))
 		}
 	}
 

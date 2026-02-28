@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 
 	"github.com/autogrr/rui/internal/models"
 )
@@ -406,20 +406,20 @@ func (s *Service) loadLiveState(ctx context.Context, instanceID int) (*LiveState
 
 	liveTorrents := make(map[string]LiveTorrent, len(torrents))
 	for _, torrent := range torrents {
-		hash := normalizeLowerTrim(torrent.Hash)
+		hash := normalizeLowerTrim(qbt.Deref(torrent.Hash))
 		if hash == "" {
 			continue
 		}
 
 		liveTorrents[hash] = LiveTorrent{
 			Hash:        hash,
-			Name:        torrent.Name,
-			Category:    strings.TrimSpace(torrent.Category),
-			Tags:        splitTags(torrent.Tags),
-			TrackerURLs: uniqueTrackerURLs(torrent.Trackers),
-			InfoHashV1:  strings.TrimSpace(torrent.InfohashV1),
-			InfoHashV2:  strings.TrimSpace(torrent.InfohashV2),
-			SizeBytes:   torrent.TotalSize,
+			Name:        qbt.Deref(torrent.Name),
+			Category:    strings.TrimSpace(qbt.Deref(torrent.Category)),
+			Tags:        splitTags(qbt.Deref(torrent.Tags)),
+			TrackerURLs: primaryTrackerURL(torrent.Tracker),
+			InfoHashV1:  strings.TrimSpace(qbt.Deref(torrent.InfoHashV1)),
+			InfoHashV2:  strings.TrimSpace(qbt.Deref(torrent.InfoHashV2)),
+			SizeBytes:   qbt.Deref(torrent.TotalSize),
 		}
 	}
 
@@ -439,7 +439,7 @@ func uniqueTrackerURLs(trackers []qbt.TorrentTracker) []string {
 	seen := make(map[string]struct{}, len(trackers))
 	result := make([]string, 0, len(trackers))
 	for _, tracker := range trackers {
-		url := strings.TrimSpace(tracker.Url)
+		url := strings.TrimSpace(qbt.Deref(tracker.URL))
 		if url == "" {
 			continue
 		}
@@ -456,6 +456,20 @@ func uniqueTrackerURLs(trackers []qbt.TorrentTracker) []string {
 
 	return result
 }
+
+// primaryTrackerURL returns a single-element slice with the primary tracker URL,
+// or nil if the tracker pointer is nil or empty.
+func primaryTrackerURL(tracker *string) []string {
+	if tracker == nil {
+		return nil
+	}
+	url := strings.TrimSpace(*tracker)
+	if url == "" {
+		return nil
+	}
+	return []string{url}
+}
+
 
 func buildCategoryPlan(snapshot map[string]models.CategorySnapshot, live map[string]LiveCategory, mode RestoreMode) CategoryPlan {
 	allowUpdates := mode == RestoreModeOverwrite || mode == RestoreModeComplete

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/autogrr/rui/internal/qbittorrent"
 	"github.com/autogrr/rui/pkg/stringutils"
 	"github.com/stretchr/testify/require"
@@ -22,17 +22,17 @@ func TestDetermineLocalMatchType_DoesNotTreatRootlessStorageDirAsCrossSeed(t *te
 	}
 
 	source := &qbt.Torrent{
-		Name:        "Love.Island.Australia.S07E22.1080p.WEB.h264-EDITH",
-		SavePath:    "/downloads",
-		ContentPath: "/downloads",
+		Name:        qbt.Ptr("Love.Island.Australia.S07E22.1080p.WEB.h264-EDITH"),
+		SavePath:    qbt.Ptr("/downloads"),
+		ContentPath: qbt.Ptr("/downloads"),
 	}
 
 	candidate := &qbittorrent.CrossInstanceTorrentView{
 		TorrentView: &qbittorrent.TorrentView{
 			Torrent: &qbt.Torrent{
-				Name:        "WWE.NXT.2025.12.02.1080p.WEB.h264-KYR",
-				SavePath:    "/downloads",
-				ContentPath: "/downloads",
+				Name:        qbt.Ptr("WWE.NXT.2025.12.02.1080p.WEB.h264-KYR"),
+				SavePath:    qbt.Ptr("/downloads"),
+				ContentPath: qbt.Ptr("/downloads"),
 			},
 		},
 	}
@@ -41,9 +41,9 @@ func TestDetermineLocalMatchType_DoesNotTreatRootlessStorageDirAsCrossSeed(t *te
 	// with no file overlap data, it should NOT match.
 	matchType := svc.determineLocalMatchType(
 		source,
-		svc.releaseCache.Parse(source.Name),
+		svc.releaseCache.Parse(qbt.Deref(source.Name)),
 		candidate,
-		strings.ToLower(normalizePath(source.ContentPath)),
+		strings.ToLower(normalizePath(qbt.Deref(source.ContentPath))),
 		nil,
 	)
 
@@ -56,17 +56,17 @@ func TestDetermineLocalMatchType_ContentPathMatchWhenSpecific(t *testing.T) {
 	}
 
 	source := &qbt.Torrent{
-		Name:        "Some.Source.Release.1080p.WEB.h264-GROUP",
-		SavePath:    "/downloads",
-		ContentPath: "/downloads/Some.Source.Release.1080p.WEB.h264-GROUP.mkv",
+		Name:        qbt.Ptr("Some.Source.Release.1080p.WEB.h264-GROUP"),
+		SavePath:    qbt.Ptr("/downloads"),
+		ContentPath: qbt.Ptr("/downloads/Some.Source.Release.1080p.WEB.h264-GROUP.mkv"),
 	}
 
 	candidate := &qbittorrent.CrossInstanceTorrentView{
 		TorrentView: &qbittorrent.TorrentView{
 			Torrent: &qbt.Torrent{
-				Name:        "Different.Name.Same.Data.1080p.WEB.h264-OTHER",
-				SavePath:    "/downloads",
-				ContentPath: "/downloads/Some.Source.Release.1080p.WEB.h264-GROUP.mkv",
+				Name:        qbt.Ptr("Different.Name.Same.Data.1080p.WEB.h264-OTHER"),
+				SavePath:    qbt.Ptr("/downloads"),
+				ContentPath: qbt.Ptr("/downloads/Some.Source.Release.1080p.WEB.h264-GROUP.mkv"),
 			},
 		},
 	}
@@ -74,9 +74,9 @@ func TestDetermineLocalMatchType_ContentPathMatchWhenSpecific(t *testing.T) {
 	// nil matchCtx is fine here since content_path != save_path (non-ambiguous case)
 	matchType := svc.determineLocalMatchType(
 		source,
-		svc.releaseCache.Parse(source.Name),
+		svc.releaseCache.Parse(qbt.Deref(source.Name)),
 		candidate,
-		strings.ToLower(normalizePath(source.ContentPath)),
+		strings.ToLower(normalizePath(qbt.Deref(source.ContentPath))),
 		nil,
 	)
 
@@ -85,7 +85,7 @@ func TestDetermineLocalMatchType_ContentPathMatchWhenSpecific(t *testing.T) {
 
 // localMatchSyncManager is a minimal fake for testing file overlap logic.
 type localMatchSyncManager struct {
-	files        map[string]qbt.TorrentFiles
+	files        map[string][]qbt.TorrentFile
 	errorOnFetch error // If set, GetTorrentFilesBatch returns this error
 }
 
@@ -94,11 +94,11 @@ func (m *localMatchSyncManager) GetTorrents(_ context.Context, _ int, _ qbt.Torr
 	return nil, nil
 }
 
-func (m *localMatchSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string]qbt.TorrentFiles, error) {
+func (m *localMatchSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string][]qbt.TorrentFile, error) {
 	if m.errorOnFetch != nil {
 		return nil, m.errorOnFetch
 	}
-	result := make(map[string]qbt.TorrentFiles, len(hashes))
+	result := make(map[string][]qbt.TorrentFile, len(hashes))
 	for _, h := range hashes {
 		normalized := normalizeHash(h)
 		if files, ok := m.files[normalized]; ok {
@@ -142,7 +142,7 @@ func (m *localMatchSyncManager) ExtractDomainFromURL(_ string) string {
 	return ""
 }
 
-func (m *localMatchSyncManager) GetQBittorrentSyncManager(_ context.Context, _ int) (*qbt.SyncManager, error) {
+func (m *localMatchSyncManager) GetQBittorrentSyncManager(_ context.Context, _ int) (*qbittorrent.QBTSyncManager, error) {
 	return nil, nil
 }
 
@@ -177,12 +177,12 @@ func TestDetermineLocalMatchType_AmbiguousDir_DifferentFiles_NoMatch(t *testing.
 	candidateHash := "bbbb2222bbbb2222bbbb2222bbbb2222bbbb2222"
 
 	mockSync := &localMatchSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			normalizeHash(sourceHash): {
-				{Name: "Movie.A.2023.1080p.WEB.mkv", Size: 1000000000},
+				{Name: qbt.Ptr("Movie.A.2023.1080p.WEB.mkv"), Size: qbt.Ptr(int64(1000000000))},
 			},
 			normalizeHash(candidateHash): {
-				{Name: "Movie.B.2024.720p.WEB.mkv", Size: 800000000},
+				{Name: qbt.Ptr("Movie.B.2024.720p.WEB.mkv"), Size: qbt.Ptr(int64(800000000))},
 			},
 		},
 	}
@@ -193,19 +193,19 @@ func TestDetermineLocalMatchType_AmbiguousDir_DifferentFiles_NoMatch(t *testing.
 	}
 
 	source := &qbt.Torrent{
-		Hash:        sourceHash,
-		Name:        "Movie.A.2023.1080p.WEB-GROUP",
-		SavePath:    "/downloads",
-		ContentPath: "/downloads", // Ambiguous: content_path == save_path
+		Hash:        qbt.Ptr(sourceHash),
+		Name:        qbt.Ptr("Movie.A.2023.1080p.WEB-GROUP"),
+		SavePath:    qbt.Ptr("/downloads"),
+		ContentPath: qbt.Ptr("/downloads"), // Ambiguous: content_path == save_path
 	}
 
 	candidate := &qbittorrent.CrossInstanceTorrentView{
 		TorrentView: &qbittorrent.TorrentView{
 			Torrent: &qbt.Torrent{
-				Hash:        candidateHash,
-				Name:        "Movie.B.2024.720p.WEB-OTHER",
-				SavePath:    "/downloads",
-				ContentPath: "/downloads", // Also ambiguous
+				Hash:        qbt.Ptr(candidateHash),
+				Name:        qbt.Ptr("Movie.B.2024.720p.WEB-OTHER"),
+				SavePath:    qbt.Ptr("/downloads"),
+				ContentPath: qbt.Ptr("/downloads"), // Also ambiguous
 			},
 		},
 		InstanceID: 1,
@@ -221,9 +221,9 @@ func TestDetermineLocalMatchType_AmbiguousDir_DifferentFiles_NoMatch(t *testing.
 
 	matchType := svc.determineLocalMatchType(
 		source,
-		svc.releaseCache.Parse(source.Name),
+		svc.releaseCache.Parse(qbt.Deref(source.Name)),
 		candidate,
-		strings.ToLower(normalizePath(source.ContentPath)),
+		strings.ToLower(normalizePath(qbt.Deref(source.ContentPath))),
 		matchCtx,
 	)
 
@@ -237,13 +237,13 @@ func TestDetermineLocalMatchType_AmbiguousDir_OverlappingFiles_Match(t *testing.
 	candidateHash := "dddd4444dddd4444dddd4444dddd4444dddd4444"
 
 	// Both torrents have the same files (100% overlap)
-	sharedFiles := qbt.TorrentFiles{
-		{Name: "TV.Show.S01E01.1080p.WEB.mkv", Size: 500000000},
-		{Name: "TV.Show.S01E02.1080p.WEB.mkv", Size: 500000000},
+	sharedFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("TV.Show.S01E01.1080p.WEB.mkv"), Size: qbt.Ptr(int64(500000000))},
+		{Name: qbt.Ptr("TV.Show.S01E02.1080p.WEB.mkv"), Size: qbt.Ptr(int64(500000000))},
 	}
 
 	mockSync := &localMatchSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			normalizeHash(sourceHash):    sharedFiles,
 			normalizeHash(candidateHash): sharedFiles,
 		},
@@ -255,19 +255,19 @@ func TestDetermineLocalMatchType_AmbiguousDir_OverlappingFiles_Match(t *testing.
 	}
 
 	source := &qbt.Torrent{
-		Hash:        sourceHash,
-		Name:        "TV.Show.S01.1080p.WEB-PACK",
-		SavePath:    "/downloads",
-		ContentPath: "/downloads", // Ambiguous: content_path == save_path
+		Hash:        qbt.Ptr(sourceHash),
+		Name:        qbt.Ptr("TV.Show.S01.1080p.WEB-PACK"),
+		SavePath:    qbt.Ptr("/downloads"),
+		ContentPath: qbt.Ptr("/downloads"), // Ambiguous: content_path == save_path
 	}
 
 	candidate := &qbittorrent.CrossInstanceTorrentView{
 		TorrentView: &qbittorrent.TorrentView{
 			Torrent: &qbt.Torrent{
-				Hash:        candidateHash,
-				Name:        "TV.Show.S01.1080p.WEB-OTHER",
-				SavePath:    "/downloads",
-				ContentPath: "/downloads", // Also ambiguous
+				Hash:        qbt.Ptr(candidateHash),
+				Name:        qbt.Ptr("TV.Show.S01.1080p.WEB-OTHER"),
+				SavePath:    qbt.Ptr("/downloads"),
+				ContentPath: qbt.Ptr("/downloads"), // Also ambiguous
 			},
 		},
 		InstanceID: 1,
@@ -283,9 +283,9 @@ func TestDetermineLocalMatchType_AmbiguousDir_OverlappingFiles_Match(t *testing.
 
 	matchType := svc.determineLocalMatchType(
 		source,
-		svc.releaseCache.Parse(source.Name),
+		svc.releaseCache.Parse(qbt.Deref(source.Name)),
 		candidate,
-		strings.ToLower(normalizePath(source.ContentPath)),
+		strings.ToLower(normalizePath(qbt.Deref(source.ContentPath))),
 		matchCtx,
 	)
 
@@ -298,14 +298,14 @@ func TestDetermineLocalMatchType_AmbiguousDir_PartialOverlap_BelowThreshold(t *t
 	candidateHash := "ffff6666ffff6666ffff6666ffff6666ffff6666"
 
 	mockSync := &localMatchSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			normalizeHash(sourceHash): {
-				{Name: "shared.mkv", Size: 100000000},
-				{Name: "source-only.mkv", Size: 900000000},
+				{Name: qbt.Ptr("shared.mkv"), Size: qbt.Ptr(int64(100000000))},
+				{Name: qbt.Ptr("source-only.mkv"), Size: qbt.Ptr(int64(900000000))},
 			},
 			normalizeHash(candidateHash): {
-				{Name: "shared.mkv", Size: 100000000},
-				{Name: "candidate-only.mkv", Size: 900000000},
+				{Name: qbt.Ptr("shared.mkv"), Size: qbt.Ptr(int64(100000000))},
+				{Name: qbt.Ptr("candidate-only.mkv"), Size: qbt.Ptr(int64(900000000))},
 			},
 		},
 	}
@@ -316,19 +316,19 @@ func TestDetermineLocalMatchType_AmbiguousDir_PartialOverlap_BelowThreshold(t *t
 	}
 
 	source := &qbt.Torrent{
-		Hash:        sourceHash,
-		Name:        "Some.Release.2023-GROUP",
-		SavePath:    "/downloads",
-		ContentPath: "/downloads",
+		Hash:        qbt.Ptr(sourceHash),
+		Name:        qbt.Ptr("Some.Release.2023-GROUP"),
+		SavePath:    qbt.Ptr("/downloads"),
+		ContentPath: qbt.Ptr("/downloads"),
 	}
 
 	candidate := &qbittorrent.CrossInstanceTorrentView{
 		TorrentView: &qbittorrent.TorrentView{
 			Torrent: &qbt.Torrent{
-				Hash:        candidateHash,
-				Name:        "Other.Release.2023-OTHER",
-				SavePath:    "/downloads",
-				ContentPath: "/downloads",
+				Hash:        qbt.Ptr(candidateHash),
+				Name:        qbt.Ptr("Other.Release.2023-OTHER"),
+				SavePath:    qbt.Ptr("/downloads"),
+				ContentPath: qbt.Ptr("/downloads"),
 			},
 		},
 		InstanceID: 1,
@@ -344,9 +344,9 @@ func TestDetermineLocalMatchType_AmbiguousDir_PartialOverlap_BelowThreshold(t *t
 
 	matchType := svc.determineLocalMatchType(
 		source,
-		svc.releaseCache.Parse(source.Name),
+		svc.releaseCache.Parse(qbt.Deref(source.Name)),
 		candidate,
-		strings.ToLower(normalizePath(source.ContentPath)),
+		strings.ToLower(normalizePath(qbt.Deref(source.ContentPath))),
 		matchCtx,
 	)
 
@@ -358,10 +358,10 @@ func TestCandidateSharesSourceFiles_ExactMatch(t *testing.T) {
 	candHash := "2222222222222222222222222222222222222222"
 
 	mockSync := &localMatchSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			normalizeHash(candHash): {
-				{Name: "file1.mkv", Size: 1000},
-				{Name: "file2.mkv", Size: 2000},
+				{Name: qbt.Ptr("file1.mkv"), Size: qbt.Ptr(int64(1000))},
+				{Name: qbt.Ptr("file2.mkv"), Size: qbt.Ptr(int64(2000))},
 			},
 		},
 	}
@@ -384,9 +384,9 @@ func TestCandidateSharesSourceFiles_NoOverlap(t *testing.T) {
 	candHash := "4444444444444444444444444444444444444444"
 
 	mockSync := &localMatchSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			normalizeHash(candHash): {
-				{Name: "fileB.mkv", Size: 1000},
+				{Name: qbt.Ptr("fileB.mkv"), Size: qbt.Ptr(int64(1000))},
 			},
 		},
 	}
@@ -409,9 +409,9 @@ func TestCandidateSharesSourceFiles_EpisodeInPack(t *testing.T) {
 	candHash := "6666666666666666666666666666666666666666"
 
 	mockSync := &localMatchSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			normalizeHash(candHash): {
-				{Name: "Show.S01E01.mkv", Size: 500000000}, // Single episode
+				{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(500000000))}, // Single episode
 			},
 		},
 	}
@@ -437,7 +437,7 @@ func TestGetSourceFiles_EmptyFileListReturnsError(t *testing.T) {
 	sourceHash := "7777777777777777777777777777777777777777"
 
 	mockSync := &localMatchSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			normalizeHash(sourceHash): {}, // Empty file list
 		},
 	}
@@ -468,10 +468,10 @@ func TestDetermineLocalMatchType_EmptyCandidateFiles_StoresError(t *testing.T) {
 	candidateHash := "9999999999999999999999999999999999999999"
 
 	mockSync := &localMatchSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			// Source has files, but candidate returns empty
 			normalizeHash(sourceHash): {
-				{Name: "Movie.2023.1080p.mkv", Size: 1000000000},
+				{Name: qbt.Ptr("Movie.2023.1080p.mkv"), Size: qbt.Ptr(int64(1000000000))},
 			},
 			normalizeHash(candidateHash): {}, // Empty file list
 		},
@@ -484,19 +484,19 @@ func TestDetermineLocalMatchType_EmptyCandidateFiles_StoresError(t *testing.T) {
 	}
 
 	source := &qbt.Torrent{
-		Hash:        sourceHash,
-		Name:        "Movie.2023.1080p.WEB-GROUP",
-		SavePath:    "/downloads",
-		ContentPath: "/downloads", // Ambiguous
+		Hash:        qbt.Ptr(sourceHash),
+		Name:        qbt.Ptr("Movie.2023.1080p.WEB-GROUP"),
+		SavePath:    qbt.Ptr("/downloads"),
+		ContentPath: qbt.Ptr("/downloads"), // Ambiguous
 	}
 
 	candidate := &qbittorrent.CrossInstanceTorrentView{
 		TorrentView: &qbittorrent.TorrentView{
 			Torrent: &qbt.Torrent{
-				Hash:        candidateHash,
-				Name:        "Movie.2023.1080p.WEB-OTHER",
-				SavePath:    "/downloads",
-				ContentPath: "/downloads", // Also ambiguous
+				Hash:        qbt.Ptr(candidateHash),
+				Name:        qbt.Ptr("Movie.2023.1080p.WEB-OTHER"),
+				SavePath:    qbt.Ptr("/downloads"),
+				ContentPath: qbt.Ptr("/downloads"), // Also ambiguous
 			},
 		},
 		InstanceID: 1,
@@ -511,9 +511,9 @@ func TestDetermineLocalMatchType_EmptyCandidateFiles_StoresError(t *testing.T) {
 
 	matchType := svc.determineLocalMatchType(
 		source,
-		svc.releaseCache.Parse(source.Name),
+		svc.releaseCache.Parse(qbt.Deref(source.Name)),
 		candidate,
-		strings.ToLower(normalizePath(source.ContentPath)),
+		strings.ToLower(normalizePath(qbt.Deref(source.ContentPath))),
 		matchCtx,
 	)
 
@@ -533,9 +533,9 @@ func TestDetermineLocalMatchType_CandidateFetchError_StoresError(t *testing.T) {
 
 	// First mock returns source files successfully
 	sourceMock := &localMatchSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			normalizeHash(sourceHash): {
-				{Name: "Movie.2023.1080p.mkv", Size: 1000000000},
+				{Name: qbt.Ptr("Movie.2023.1080p.mkv"), Size: qbt.Ptr(int64(1000000000))},
 			},
 		},
 	}
@@ -547,19 +547,19 @@ func TestDetermineLocalMatchType_CandidateFetchError_StoresError(t *testing.T) {
 	}
 
 	source := &qbt.Torrent{
-		Hash:        sourceHash,
-		Name:        "Movie.2023.1080p.WEB-GROUP",
-		SavePath:    "/downloads",
-		ContentPath: "/downloads", // Ambiguous
+		Hash:        qbt.Ptr(sourceHash),
+		Name:        qbt.Ptr("Movie.2023.1080p.WEB-GROUP"),
+		SavePath:    qbt.Ptr("/downloads"),
+		ContentPath: qbt.Ptr("/downloads"), // Ambiguous
 	}
 
 	candidate := &qbittorrent.CrossInstanceTorrentView{
 		TorrentView: &qbittorrent.TorrentView{
 			Torrent: &qbt.Torrent{
-				Hash:        candidateHash,
-				Name:        "Movie.2023.1080p.WEB-OTHER",
-				SavePath:    "/downloads",
-				ContentPath: "/downloads", // Also ambiguous
+				Hash:        qbt.Ptr(candidateHash),
+				Name:        qbt.Ptr("Movie.2023.1080p.WEB-OTHER"),
+				SavePath:    qbt.Ptr("/downloads"),
+				ContentPath: qbt.Ptr("/downloads"), // Also ambiguous
 			},
 		},
 		InstanceID: 1,
@@ -577,15 +577,15 @@ func TestDetermineLocalMatchType_CandidateFetchError_StoresError(t *testing.T) {
 
 	// Now switch to a mock that returns errors for candidate fetches
 	svc.syncManager = &localMatchSyncManager{
-		files:        map[string]qbt.TorrentFiles{},
+		files:        map[string][]qbt.TorrentFile{},
 		errorOnFetch: fetchErr,
 	}
 
 	matchType := svc.determineLocalMatchType(
 		source,
-		svc.releaseCache.Parse(source.Name),
+		svc.releaseCache.Parse(qbt.Deref(source.Name)),
 		candidate,
-		strings.ToLower(normalizePath(source.ContentPath)),
+		strings.ToLower(normalizePath(qbt.Deref(source.ContentPath))),
 		matchCtx,
 	)
 

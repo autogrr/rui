@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -205,68 +205,68 @@ func TestDetectCrossSeeds(t *testing.T) {
 	}{
 		{
 			name:        "no other torrents",
-			target:      qbt.Torrent{Hash: "abc", ContentPath: "/data/movie"},
-			allTorrents: []qbt.Torrent{{Hash: "abc", ContentPath: "/data/movie"}},
+			target:      qbt.Torrent{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie")},
+			allTorrents: []qbt.Torrent{{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie")}},
 			want:        false,
 		},
 		{
 			name:   "different paths no cross-seed",
-			target: qbt.Torrent{Hash: "abc", ContentPath: "/data/movie1"},
+			target: qbt.Torrent{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie1")},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc", ContentPath: "/data/movie1"},
-				{Hash: "def", ContentPath: "/data/movie2"},
+				{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie1")},
+				{Hash: qbt.Ptr("def"), ContentPath: qbt.Ptr("/data/movie2")},
 			},
 			want: false,
 		},
 		{
 			name:   "same path is cross-seed",
-			target: qbt.Torrent{Hash: "abc", ContentPath: "/data/movie"},
+			target: qbt.Torrent{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie")},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc", ContentPath: "/data/movie"},
-				{Hash: "def", ContentPath: "/data/movie"},
+				{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie")},
+				{Hash: qbt.Ptr("def"), ContentPath: qbt.Ptr("/data/movie")},
 			},
 			want: true,
 		},
 		{
 			name:   "case insensitive match",
-			target: qbt.Torrent{Hash: "abc", ContentPath: "/Data/Movie"},
+			target: qbt.Torrent{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/Data/Movie")},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc", ContentPath: "/Data/Movie"},
-				{Hash: "def", ContentPath: "/data/movie"},
+				{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/Data/Movie")},
+				{Hash: qbt.Ptr("def"), ContentPath: qbt.Ptr("/data/movie")},
 			},
 			want: true,
 		},
 		{
 			name:   "backslash normalized",
-			target: qbt.Torrent{Hash: "abc", ContentPath: "D:\\Data\\Movie"},
+			target: qbt.Torrent{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("D:\\Data\\Movie")},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc", ContentPath: "D:\\Data\\Movie"},
-				{Hash: "def", ContentPath: "D:/Data/Movie"},
+				{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("D:\\Data\\Movie")},
+				{Hash: qbt.Ptr("def"), ContentPath: qbt.Ptr("D:/Data/Movie")},
 			},
 			want: true,
 		},
 		{
 			name:   "trailing slash normalized",
-			target: qbt.Torrent{Hash: "abc", ContentPath: "/data/movie/"},
+			target: qbt.Torrent{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie/")},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc", ContentPath: "/data/movie/"},
-				{Hash: "def", ContentPath: "/data/movie"},
+				{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie/")},
+				{Hash: qbt.Ptr("def"), ContentPath: qbt.Ptr("/data/movie")},
 			},
 			want: true,
 		},
 		{
 			name:        "empty content path",
-			target:      qbt.Torrent{Hash: "abc", ContentPath: ""},
-			allTorrents: []qbt.Torrent{{Hash: "abc", ContentPath: ""}},
+			target:      qbt.Torrent{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("")},
+			allTorrents: []qbt.Torrent{{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("")}},
 			want:        false,
 		},
 		{
 			name:   "multiple cross-seeds",
-			target: qbt.Torrent{Hash: "abc", ContentPath: "/data/movie"},
+			target: qbt.Torrent{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie")},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc", ContentPath: "/data/movie"},
-				{Hash: "def", ContentPath: "/data/movie"},
-				{Hash: "ghi", ContentPath: "/data/movie"},
+				{Hash: qbt.Ptr("abc"), ContentPath: qbt.Ptr("/data/movie")},
+				{Hash: qbt.Ptr("def"), ContentPath: qbt.Ptr("/data/movie")},
+				{Hash: qbt.Ptr("ghi"), ContentPath: qbt.Ptr("/data/movie")},
 			},
 			want: true,
 		},
@@ -282,8 +282,8 @@ func TestDetectCrossSeeds(t *testing.T) {
 
 func TestShouldBlockGroupedMoveTriggerFallback(t *testing.T) {
 	torrents := []qbt.Torrent{
-		{Hash: "a", ContentPath: "/data/shared", SavePath: "/data", Ratio: 3.0},
-		{Hash: "b", ContentPath: "/data/shared", SavePath: "/data", Ratio: 1.0},
+		{Hash: qbt.Ptr("a"), ContentPath: qbt.Ptr("/data/shared"), SavePath: qbt.Ptr("/data"), Ratio: qbt.Ptr(float64(3.0))},
+		{Hash: qbt.Ptr("b"), ContentPath: qbt.Ptr("/data/shared"), SavePath: qbt.Ptr("/data"), Ratio: qbt.Ptr(float64(1.0))},
 	}
 	torrentByHash := map[string]qbt.Torrent{
 		"a": torrents[0],
@@ -532,9 +532,9 @@ func TestCrossSeedRuleRefsByKey(t *testing.T) {
 	t.Parallel()
 
 	torrentByHash := map[string]qbt.Torrent{
-		"h1": {Hash: "h1", ContentPath: "/downloads/group-a", SavePath: "/downloads"},
-		"h2": {Hash: "h2", ContentPath: "/downloads/group-b", SavePath: "/downloads"},
-		"h3": {Hash: "h3", ContentPath: "/downloads/group-a", SavePath: "/downloads"},
+		"h1": {Hash: qbt.Ptr("h1"), ContentPath: qbt.Ptr("/downloads/group-a"), SavePath: qbt.Ptr("/downloads")},
+		"h2": {Hash: qbt.Ptr("h2"), ContentPath: qbt.Ptr("/downloads/group-b"), SavePath: qbt.Ptr("/downloads")},
+		"h3": {Hash: qbt.Ptr("h3"), ContentPath: qbt.Ptr("/downloads/group-a"), SavePath: qbt.Ptr("/downloads")},
 	}
 	ruleByHash := map[string]ruleRef{
 		"h1": {id: 10, name: "Rule A"},
@@ -576,8 +576,8 @@ func TestCategoryCrossSeedRuleAttributionUsesExpandableHashes(t *testing.T) {
 	t.Parallel()
 
 	torrentByHash := map[string]qbt.Torrent{
-		"h1": {Hash: "h1", ContentPath: "/downloads/group-a", SavePath: "/downloads"},
-		"h2": {Hash: "h2", ContentPath: "/downloads/group-a", SavePath: "/downloads"},
+		"h1": {Hash: qbt.Ptr("h1"), ContentPath: qbt.Ptr("/downloads/group-a"), SavePath: qbt.Ptr("/downloads")},
+		"h2": {Hash: qbt.Ptr("h2"), ContentPath: qbt.Ptr("/downloads/group-a"), SavePath: qbt.Ptr("/downloads")},
 	}
 	ruleByHash := map[string]ruleRef{
 		"h1": {id: 10, name: "Non expanding rule"},
@@ -804,14 +804,14 @@ func TestSelectMatchingRules(t *testing.T) {
 	}{
 		{
 			name:        "no rules returns empty",
-			torrent:     qbt.Torrent{Hash: "abc", Tracker: "http://tracker.example.com/announce"},
+			torrent:     qbt.Torrent{Hash: qbt.Ptr("abc"), Tracker: qbt.Ptr("http://tracker.example.com/announce")},
 			rules:       []*models.Automation{},
 			wantFirstID: 0,
 			wantCount:   0,
 		},
 		{
 			name:    "disabled rule skipped",
-			torrent: qbt.Torrent{Hash: "abc", Tracker: "http://tracker.example.com/announce"},
+			torrent: qbt.Torrent{Hash: qbt.Ptr("abc"), Tracker: qbt.Ptr("http://tracker.example.com/announce")},
 			rules: []*models.Automation{
 				{ID: 1, Enabled: false, TrackerPattern: "tracker.example.com"},
 			},
@@ -820,7 +820,7 @@ func TestSelectMatchingRules(t *testing.T) {
 		},
 		{
 			name:    "enabled rule matches",
-			torrent: qbt.Torrent{Hash: "abc", Tracker: "http://tracker.example.com/announce"},
+			torrent: qbt.Torrent{Hash: qbt.Ptr("abc"), Tracker: qbt.Ptr("http://tracker.example.com/announce")},
 			rules: []*models.Automation{
 				{ID: 1, Enabled: true, TrackerPattern: "tracker.example.com"},
 			},
@@ -829,7 +829,7 @@ func TestSelectMatchingRules(t *testing.T) {
 		},
 		{
 			name:    "multiple matching rules returned in order",
-			torrent: qbt.Torrent{Hash: "abc", Tracker: "http://tracker.example.com/announce"},
+			torrent: qbt.Torrent{Hash: qbt.Ptr("abc"), Tracker: qbt.Ptr("http://tracker.example.com/announce")},
 			rules: []*models.Automation{
 				{ID: 1, Enabled: true, TrackerPattern: "tracker.example.com"},
 				{ID: 2, Enabled: true, TrackerPattern: "*"},
@@ -840,7 +840,7 @@ func TestSelectMatchingRules(t *testing.T) {
 		},
 		{
 			name:    "wildcard matches all",
-			torrent: qbt.Torrent{Hash: "abc", Tracker: "http://tracker.example.com/announce"},
+			torrent: qbt.Torrent{Hash: qbt.Ptr("abc"), Tracker: qbt.Ptr("http://tracker.example.com/announce")},
 			rules: []*models.Automation{
 				{ID: 1, Enabled: true, TrackerPattern: "*"},
 			},
@@ -877,9 +877,9 @@ func TestSelectMatchingRules(t *testing.T) {
 func TestCategoryLastRuleWins(t *testing.T) {
 	// Test that when multiple rules set a category, the last rule's category wins.
 	torrent := qbt.Torrent{
-		Hash:     "abc123",
-		Name:     "Test Torrent",
-		Category: "movies", // Current category
+		Hash:     qbt.Ptr("abc123"),
+		Name:     qbt.Ptr("Test Torrent"),
+		Category: qbt.Ptr("movies"), // Current category
 	}
 
 	// Rule 1 sets category to "archive"
@@ -903,8 +903,8 @@ func TestCategoryLastRuleWins(t *testing.T) {
 	}
 
 	state := &torrentDesiredState{
-		hash:        torrent.Hash,
-		name:        torrent.Name,
+		hash:        qbt.Deref(torrent.Hash),
+		name:        qbt.Deref(torrent.Name),
 		currentTags: make(map[string]struct{}),
 		tagActions:  make(map[string]string),
 	}
@@ -922,9 +922,9 @@ func TestCategoryLastRuleWinsEvenWhenMatchesCurrent(t *testing.T) {
 	// Test that last rule wins even when the last rule's category matches the current category.
 	// The processor should still set the desired state; the service filters no-ops.
 	torrent := qbt.Torrent{
-		Hash:     "abc123",
-		Name:     "Test Torrent",
-		Category: "movies", // Current category
+		Hash:     qbt.Ptr("abc123"),
+		Name:     qbt.Ptr("Test Torrent"),
+		Category: qbt.Ptr("movies"), // Current category
 	}
 
 	// Rule 1 sets category to "archive"
@@ -948,8 +948,8 @@ func TestCategoryLastRuleWinsEvenWhenMatchesCurrent(t *testing.T) {
 	}
 
 	state := &torrentDesiredState{
-		hash:        torrent.Hash,
-		name:        torrent.Name,
+		hash:        qbt.Deref(torrent.Hash),
+		name:        qbt.Deref(torrent.Name),
 		currentTags: make(map[string]struct{}),
 		tagActions:  make(map[string]string),
 	}
@@ -967,10 +967,10 @@ func TestCategoryLastRuleWinsEvenWhenMatchesCurrent(t *testing.T) {
 func TestCategoryWithCondition(t *testing.T) {
 	// Test that category action respects conditions
 	torrent := qbt.Torrent{
-		Hash:     "abc123",
-		Name:     "Test Torrent",
-		Category: "default",
-		Ratio:    2.5, // Above condition threshold
+		Hash:     qbt.Ptr("abc123"),
+		Name:     qbt.Ptr("Test Torrent"),
+		Category: qbt.Ptr("default"),
+		Ratio:    qbt.Ptr(float64(2.5)), // Above condition threshold
 	}
 
 	// Rule with condition: only if ratio > 2.0
@@ -992,8 +992,8 @@ func TestCategoryWithCondition(t *testing.T) {
 	}
 
 	state := &torrentDesiredState{
-		hash:        torrent.Hash,
-		name:        torrent.Name,
+		hash:        qbt.Deref(torrent.Hash),
+		name:        qbt.Deref(torrent.Name),
 		currentTags: make(map[string]struct{}),
 		tagActions:  make(map[string]string),
 	}
@@ -1008,10 +1008,10 @@ func TestCategoryWithCondition(t *testing.T) {
 func TestCategoryConditionNotMet(t *testing.T) {
 	// Test that category action is not applied when condition is not met
 	torrent := qbt.Torrent{
-		Hash:     "abc123",
-		Name:     "Test Torrent",
-		Category: "default",
-		Ratio:    1.0, // Below condition threshold
+		Hash:     qbt.Ptr("abc123"),
+		Name:     qbt.Ptr("Test Torrent"),
+		Category: qbt.Ptr("default"),
+		Ratio:    qbt.Ptr(float64(1.0)), // Below condition threshold
 	}
 
 	// Rule with condition: only if ratio > 2.0
@@ -1033,8 +1033,8 @@ func TestCategoryConditionNotMet(t *testing.T) {
 	}
 
 	state := &torrentDesiredState{
-		hash:        torrent.Hash,
-		name:        torrent.Name,
+		hash:        qbt.Deref(torrent.Hash),
+		name:        qbt.Deref(torrent.Name),
 		currentTags: make(map[string]struct{}),
 		tagActions:  make(map[string]string),
 	}
@@ -1097,8 +1097,8 @@ func TestIsContentPathAmbiguous(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.scenario, func(t *testing.T) {
 			torrent := qbt.Torrent{
-				ContentPath: tc.contentPath,
-				SavePath:    tc.savePath,
+				ContentPath: qbt.Ptr(tc.contentPath),
+				SavePath:    qbt.Ptr(tc.savePath),
 			}
 			got := isContentPathAmbiguous(torrent)
 			assert.Equal(t, tc.want, got)
@@ -1123,13 +1123,13 @@ func TestFindCrossSeedGroup(t *testing.T) {
 		{
 			scenario: "unique ContentPath => group contains only target",
 			target: qbt.Torrent{
-				Hash:        "abc123",
-				Name:        "My.Movie.2024.1080p.BluRay.x264-GRP",
-				ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP",
+				Hash:        qbt.Ptr("abc123"),
+				Name:        qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"),
+				ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"),
 			},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc123", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"},
-				{Hash: "def456", Name: "Other.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP"},
+				{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP")},
+				{Hash: qbt.Ptr("def456"), Name: qbt.Ptr("Other.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP")},
 			},
 			wantCount:  1,
 			wantHashes: []string{"abc123"},
@@ -1137,15 +1137,15 @@ func TestFindCrossSeedGroup(t *testing.T) {
 		{
 			scenario: "same ContentPath (cross-seed from different tracker) => both in group",
 			target: qbt.Torrent{
-				Hash:        "abc123",
-				Name:        "My.Movie.2024.1080p.BluRay.x264-GRP",
-				ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP",
+				Hash:        qbt.Ptr("abc123"),
+				Name:        qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"),
+				ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"),
 			},
 			allTorrents: []qbt.Torrent{
 				// Same release cross-seeded to two trackers (identical files, different .torrent)
-				{Hash: "abc123", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"},
-				{Hash: "xyz789", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"},
-				{Hash: "def456", Name: "Other.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP"},
+				{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP")},
+				{Hash: qbt.Ptr("xyz789"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP")},
+				{Hash: qbt.Ptr("def456"), Name: qbt.Ptr("Other.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP")},
 			},
 			wantCount:  2,
 			wantHashes: []string{"abc123", "xyz789"},
@@ -1153,13 +1153,13 @@ func TestFindCrossSeedGroup(t *testing.T) {
 		{
 			scenario: "ContentPath match is case-insensitive",
 			target: qbt.Torrent{
-				Hash:        "abc123",
-				Name:        "My.Movie.2024.1080p.BluRay.x264-GRP",
-				ContentPath: "/Downloads/Movies/My.Movie.2024.1080p.BluRay.x264-GRP",
+				Hash:        qbt.Ptr("abc123"),
+				Name:        qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"),
+				ContentPath: qbt.Ptr("/Downloads/Movies/My.Movie.2024.1080p.BluRay.x264-GRP"),
 			},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc123", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/Downloads/Movies/My.Movie.2024.1080p.BluRay.x264-GRP"},
-				{Hash: "xyz789", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/my.movie.2024.1080p.bluray.x264-grp"},
+				{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/Downloads/Movies/My.Movie.2024.1080p.BluRay.x264-GRP")},
+				{Hash: qbt.Ptr("xyz789"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/my.movie.2024.1080p.bluray.x264-grp")},
 			},
 			wantCount:  2,
 			wantHashes: []string{"abc123", "xyz789"},
@@ -1167,16 +1167,16 @@ func TestFindCrossSeedGroup(t *testing.T) {
 		{
 			scenario: "same SavePath but different ContentPath => NOT grouped",
 			target: qbt.Torrent{
-				Hash:        "abc123",
-				Name:        "My.Movie.2024.1080p.BluRay.x264-GRP",
-				SavePath:    "/downloads/movies",
-				ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP",
+				Hash:        qbt.Ptr("abc123"),
+				Name:        qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"),
+				SavePath:    qbt.Ptr("/downloads/movies"),
+				ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"),
 			},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc123", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", SavePath: "/downloads/movies", ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"},
+				{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), SavePath: qbt.Ptr("/downloads/movies"), ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP")},
 				// Different releases in same SavePath - NOT cross-seeds (different files)
-				{Hash: "def456", Name: "Other.Movie.2024.1080p.BluRay.x264-GRP", SavePath: "/downloads/movies", ContentPath: "/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP"},
-				{Hash: "ghi789", Name: "Another.Movie.2024.1080p.BluRay.x264-GRP", SavePath: "/downloads/movies", ContentPath: "/downloads/movies/Another.Movie.2024.1080p.BluRay.x264-GRP"},
+				{Hash: qbt.Ptr("def456"), Name: qbt.Ptr("Other.Movie.2024.1080p.BluRay.x264-GRP"), SavePath: qbt.Ptr("/downloads/movies"), ContentPath: qbt.Ptr("/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP")},
+				{Hash: qbt.Ptr("ghi789"), Name: qbt.Ptr("Another.Movie.2024.1080p.BluRay.x264-GRP"), SavePath: qbt.Ptr("/downloads/movies"), ContentPath: qbt.Ptr("/downloads/movies/Another.Movie.2024.1080p.BluRay.x264-GRP")},
 			},
 			wantCount:  1,
 			wantHashes: []string{"abc123"}, // Only target; others share SavePath but NOT ContentPath
@@ -1184,13 +1184,13 @@ func TestFindCrossSeedGroup(t *testing.T) {
 		{
 			scenario: "empty ContentPath => returns nil (no grouping possible)",
 			target: qbt.Torrent{
-				Hash:        "abc123",
-				Name:        "Unknown",
-				ContentPath: "",
+				Hash:        qbt.Ptr("abc123"),
+				Name:        qbt.Ptr("Unknown"),
+				ContentPath: qbt.Ptr(""),
 			},
 			allTorrents: []qbt.Torrent{
-				{Hash: "abc123", Name: "Unknown", ContentPath: ""},
-				{Hash: "def456", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"},
+				{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("Unknown"), ContentPath: qbt.Ptr("")},
+				{Hash: qbt.Ptr("def456"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP")},
 			},
 			wantCount:  0,
 			wantHashes: nil,
@@ -1206,7 +1206,7 @@ func TestFindCrossSeedGroup(t *testing.T) {
 				assert.Equal(t, tc.wantCount, len(got))
 				gotHashes := make([]string, len(got))
 				for i, torrent := range got {
-					gotHashes[i] = torrent.Hash
+					gotHashes[i] = qbt.Deref(torrent.Hash)
 				}
 				assert.ElementsMatch(t, tc.wantHashes, gotHashes)
 			}
@@ -1327,9 +1327,9 @@ func TestHardlinkIndex_GetHardlinkCopies(t *testing.T) {
 func TestDeleteFreesSpace_IncludeCrossSeeds(t *testing.T) {
 	// Same release cross-seeded to two trackers (identical files, different .torrent hashes)
 	allTorrents := []qbt.Torrent{
-		{Hash: "abc123", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"},
-		{Hash: "xyz789", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"},
-		{Hash: "def456", Name: "Other.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP"},
+		{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP")},
+		{Hash: qbt.Ptr("xyz789"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP")},
+		{Hash: qbt.Ptr("def456"), Name: qbt.Ptr("Other.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP")},
 	}
 
 	target := allTorrents[0]
@@ -1372,8 +1372,8 @@ func TestDeleteFreesSpace_IncludeCrossSeeds(t *testing.T) {
 func TestDeleteFreesSpace_NoCrossSeeds(t *testing.T) {
 	// Different releases - each has unique ContentPath (no cross-seeds)
 	allTorrents := []qbt.Torrent{
-		{Hash: "abc123", Name: "My.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP"},
-		{Hash: "def456", Name: "Other.Movie.2024.1080p.BluRay.x264-GRP", ContentPath: "/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP"},
+		{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("My.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/My.Movie.2024.1080p.BluRay.x264-GRP")},
+		{Hash: qbt.Ptr("def456"), Name: qbt.Ptr("Other.Movie.2024.1080p.BluRay.x264-GRP"), ContentPath: qbt.Ptr("/downloads/movies/Other.Movie.2024.1080p.BluRay.x264-GRP")},
 	}
 
 	target := allTorrents[0]
@@ -1411,9 +1411,9 @@ func TestUpdateCumulativeFreeSpaceCleared_NeededView(t *testing.T) {
 	// Test that "needed" mode updates cumulative space tracking
 	// so FREE_SPACE condition stops matching after target is satisfied
 	allTorrents := []qbt.Torrent{
-		{Hash: "a", Size: 100 * 1024 * 1024 * 1024, ContentPath: "/data/movie1", SavePath: "/data"}, // 100 GB
-		{Hash: "b", Size: 50 * 1024 * 1024 * 1024, ContentPath: "/data/movie2", SavePath: "/data"},  // 50 GB
-		{Hash: "c", Size: 30 * 1024 * 1024 * 1024, ContentPath: "/data/movie3", SavePath: "/data"},  // 30 GB
+		{Hash: qbt.Ptr("a"), Size: qbt.Ptr(int64(100) * 1024 * 1024 * 1024), ContentPath: qbt.Ptr("/data/movie1"), SavePath: qbt.Ptr("/data")}, // 100 GB
+		{Hash: qbt.Ptr("b"), Size: qbt.Ptr(int64(50) * 1024 * 1024 * 1024), ContentPath: qbt.Ptr("/data/movie2"), SavePath: qbt.Ptr("/data")},  // 50 GB
+		{Hash: qbt.Ptr("c"), Size: qbt.Ptr(int64(30) * 1024 * 1024 * 1024), ContentPath: qbt.Ptr("/data/movie3"), SavePath: qbt.Ptr("/data")},  // 30 GB
 	}
 
 	evalCtx := &EvalContext{
@@ -1437,8 +1437,8 @@ func TestUpdateCumulativeFreeSpaceCleared_EligibleView(t *testing.T) {
 	// (simulated by not calling updateCumulativeFreeSpaceCleared)
 	// This is the expected behavior in eligible mode - we skip the update
 	allTorrents := []qbt.Torrent{
-		{Hash: "a", Size: 100 * 1024 * 1024 * 1024, ContentPath: "/data/movie1"}, // 100 GB
-		{Hash: "b", Size: 50 * 1024 * 1024 * 1024, ContentPath: "/data/movie2"},  // 50 GB
+		{Hash: qbt.Ptr("a"), Size: qbt.Ptr(int64(100) * 1024 * 1024 * 1024), ContentPath: qbt.Ptr("/data/movie1")}, // 100 GB
+		{Hash: qbt.Ptr("b"), Size: qbt.Ptr(int64(50) * 1024 * 1024 * 1024), ContentPath: qbt.Ptr("/data/movie2")},  // 50 GB
 	}
 
 	evalCtx := &EvalContext{
@@ -1460,9 +1460,9 @@ func TestPreviewViewBehavior_CrossSeedExpansion(t *testing.T) {
 	// Test that cross-seed expansion works the same way in both views
 	// Only deleteWithFilesIncludeCrossSeeds mode expands cross-seeds
 	allTorrents := []qbt.Torrent{
-		{Hash: "a", Size: 50 * 1024 * 1024 * 1024, ContentPath: "/data/shared"}, // 50 GB - trigger
-		{Hash: "b", Size: 50 * 1024 * 1024 * 1024, ContentPath: "/data/shared"}, // 50 GB - cross-seed
-		{Hash: "c", Size: 30 * 1024 * 1024 * 1024, ContentPath: "/data/unique"}, // 30 GB - unique
+		{Hash: qbt.Ptr("a"), Size: qbt.Ptr(int64(50) * 1024 * 1024 * 1024), ContentPath: qbt.Ptr("/data/shared")}, // 50 GB - trigger
+		{Hash: qbt.Ptr("b"), Size: qbt.Ptr(int64(50) * 1024 * 1024 * 1024), ContentPath: qbt.Ptr("/data/shared")}, // 50 GB - cross-seed
+		{Hash: qbt.Ptr("c"), Size: qbt.Ptr(int64(30) * 1024 * 1024 * 1024), ContentPath: qbt.Ptr("/data/unique")}, // 30 GB - unique
 	}
 
 	// findCrossSeedGroup should return both a and b for target a
@@ -1472,7 +1472,7 @@ func TestPreviewViewBehavior_CrossSeedExpansion(t *testing.T) {
 
 	groupHashes := make(map[string]bool)
 	for _, t := range group {
-		groupHashes[t.Hash] = true
+		groupHashes[qbt.Deref(t.Hash)] = true
 	}
 	assert.True(t, groupHashes["a"])
 	assert.True(t, groupHashes["b"])
@@ -1543,7 +1543,7 @@ func TestExecuteExternalProgramsFromAutomation_NilExternalProgramService(_ *test
 	executions := []pendingProgramExec{
 		{
 			hash:      "abc123",
-			torrent:   qbt.Torrent{Hash: "abc123", Name: "Test Torrent"},
+			torrent:   qbt.Torrent{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("Test Torrent")},
 			programID: 1,
 			ruleID:    1,
 			ruleName:  "Test Rule",
@@ -1571,14 +1571,14 @@ func TestExecuteExternalProgramsFromAutomation_NilServiceWithActivityStore(t *te
 	executions := []pendingProgramExec{
 		{
 			hash:      "abc123",
-			torrent:   qbt.Torrent{Hash: "abc123", Name: "Test Torrent 1"},
+			torrent:   qbt.Torrent{Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("Test Torrent 1")},
 			programID: 1,
 			ruleID:    1,
 			ruleName:  "Test Rule",
 		},
 		{
 			hash:      "def456",
-			torrent:   qbt.Torrent{Hash: "def456", Name: "Test Torrent 2"},
+			torrent:   qbt.Torrent{Hash: qbt.Ptr("def456"), Name: qbt.Ptr("Test Torrent 2")},
 			programID: 2,
 			ruleID:    2,
 			ruleName:  "Another Rule",
@@ -1624,9 +1624,9 @@ func TestRecordDryRunActivities_Deletes(t *testing.T) {
 	}
 
 	torrent := qbt.Torrent{
-		Hash:    "abc123",
-		Name:    "Test Torrent",
-		Tracker: "https://tracker.example.com/announce",
+		Hash:    qbt.Ptr("abc123"),
+		Name:    qbt.Ptr("Test Torrent"),
+		Tracker: qbt.Ptr("https://tracker.example.com/announce"),
 	}
 
 	_ = s.recordDryRunActivities(
@@ -1672,9 +1672,9 @@ func TestRecordDryRunActivities_Resumes(t *testing.T) {
 	}
 
 	torrent := qbt.Torrent{
-		Hash:    "abc123",
-		Name:    "Test Torrent",
-		Tracker: "https://tracker.example.com/announce",
+		Hash:    qbt.Ptr("abc123"),
+		Name:    qbt.Ptr("Test Torrent"),
+		Tracker: qbt.Ptr("https://tracker.example.com/announce"),
 	}
 
 	_ = s.recordDryRunActivities(
@@ -1763,10 +1763,10 @@ func TestRecordDryRunActivities_CategoryUnknownGroupID_DoesNotPanicAndSkips(t *t
 
 	targetCategory := "movies"
 	torrent := qbt.Torrent{
-		Hash:     "abc123",
-		Name:     "Test Torrent",
-		Category: "tv",
-		Tracker:  "https://tracker.example.com/announce",
+		Hash:     qbt.Ptr("abc123"),
+		Name:     qbt.Ptr("Test Torrent"),
+		Category: qbt.Ptr("tv"),
+		Tracker:  qbt.Ptr("https://tracker.example.com/announce"),
 	}
 
 	states := map[string]*torrentDesiredState{
@@ -1829,28 +1829,28 @@ func TestRecordDryRunActivities_MoveGroupRequiresAllMembersMatchCondition(t *tes
 
 	torrents := []qbt.Torrent{
 		{
-			Hash:        "a",
-			Name:        "Group Member A",
-			ContentPath: "/data/shared/release",
-			SavePath:    "/downloads",
-			NumSeeds:    4,
-			Tracker:     "https://tracker.example.com/announce",
+			Hash:        qbt.Ptr("a"),
+			Name:        qbt.Ptr("Group Member A"),
+			ContentPath: qbt.Ptr("/data/shared/release"),
+			SavePath:    qbt.Ptr("/downloads"),
+			NumSeeds:    qbt.Ptr(4),
+			Tracker:     qbt.Ptr("https://tracker.example.com/announce"),
 		},
 		{
-			Hash:        "b",
-			Name:        "Group Member B",
-			ContentPath: "/data/shared/release",
-			SavePath:    "/downloads",
-			NumSeeds:    2,
-			Tracker:     "https://tracker.example.com/announce",
+			Hash:        qbt.Ptr("b"),
+			Name:        qbt.Ptr("Group Member B"),
+			ContentPath: qbt.Ptr("/data/shared/release"),
+			SavePath:    qbt.Ptr("/downloads"),
+			NumSeeds:    qbt.Ptr(2),
+			Tracker:     qbt.Ptr("https://tracker.example.com/announce"),
 		},
 		{
-			Hash:        "c",
-			Name:        "Group Member C",
-			ContentPath: "/data/shared/release",
-			SavePath:    "/downloads",
-			NumSeeds:    1,
-			Tracker:     "https://tracker.example.com/announce",
+			Hash:        qbt.Ptr("c"),
+			Name:        qbt.Ptr("Group Member C"),
+			ContentPath: qbt.Ptr("/data/shared/release"),
+			SavePath:    qbt.Ptr("/downloads"),
+			NumSeeds:    qbt.Ptr(1),
+			Tracker:     qbt.Ptr("https://tracker.example.com/announce"),
 		},
 	}
 

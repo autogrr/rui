@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/pkg/releases"
@@ -133,8 +133,8 @@ func BuildCategoryIndex(torrents []qbt.Torrent) (map[string]map[string]map[strin
 
 	for _, t := range torrents {
 		// Use lowercased + trimmed category as key (empty string is valid for uncategorized)
-		catKey := normalizeLowerTrim(t.Category)
-		nameLower := normalizeLower(t.Name)
+		catKey := normalizeLowerTrim(qbt.Deref(t.Category))
+		nameLower := normalizeLower(qbt.Deref(t.Name))
 
 		// Build CategoryIndex for O(1) EXISTS_IN lookup
 		if categoryIndex[catKey] == nil {
@@ -143,13 +143,13 @@ func BuildCategoryIndex(torrents []qbt.Torrent) (map[string]map[string]map[strin
 		if categoryIndex[catKey][nameLower] == nil {
 			categoryIndex[catKey][nameLower] = make(map[string]struct{})
 		}
-		categoryIndex[catKey][nameLower][t.Hash] = struct{}{}
+		categoryIndex[catKey][nameLower][qbt.Deref(t.Hash)] = struct{}{}
 
 		// Build CategoryNames for CONTAINS_IN iteration
 		categoryNames[catKey] = append(categoryNames[catKey], categoryEntry{
-			Hash:           t.Hash,
+			Hash:           qbt.Deref(t.Hash),
 			Name:           nameLower,
-			NormalizedName: normalizeName(t.Name),
+			NormalizedName: normalizeName(qbt.Deref(t.Name)),
 		})
 	}
 
@@ -325,32 +325,32 @@ func evaluateLeaf(cond *RuleCondition, torrent qbt.Torrent, ctx *EvalContext) bo
 	case FieldName:
 		// EXISTS_IN/CONTAINS_IN are special operators for cross-category lookups
 		if cond.Operator == OperatorExistsIn {
-			return existsInCategory(torrent.Hash, torrent.Name, cond.Value, ctx)
+			return existsInCategory(qbt.Deref(torrent.Hash), qbt.Deref(torrent.Name), cond.Value, ctx)
 		}
 		if cond.Operator == OperatorContainsIn {
-			return containsInCategory(torrent.Hash, torrent.Name, cond.Value, ctx)
+			return containsInCategory(qbt.Deref(torrent.Hash), qbt.Deref(torrent.Name), cond.Value, ctx)
 		}
-		return compareString(torrent.Name, cond)
+		return compareString(qbt.Deref(torrent.Name), cond)
 	case FieldHash:
-		return compareString(torrent.Hash, cond)
+		return compareString(qbt.Deref(torrent.Hash), cond)
 	case FieldInfohashV1:
-		return compareString(torrent.InfohashV1, cond)
+		return compareString(qbt.Deref(torrent.InfoHashV1), cond)
 	case FieldInfohashV2:
-		return compareString(torrent.InfohashV2, cond)
+		return compareString(qbt.Deref(torrent.InfoHashV2), cond)
 	case FieldMagnetURI:
-		return compareString(torrent.MagnetURI, cond)
+		return compareString(qbt.Deref(torrent.MagnetURI), cond)
 	case FieldCategory:
-		return compareString(torrent.Category, cond)
+		return compareString(qbt.Deref(torrent.Category), cond)
 	case FieldTags:
-		return compareTags(torrent.Tags, cond)
+		return compareTags(qbt.Deref(torrent.Tags), cond)
 	case FieldSavePath:
-		return compareString(torrent.SavePath, cond)
+		return compareString(qbt.Deref(torrent.SavePath), cond)
 	case FieldContentPath:
-		return compareString(torrent.ContentPath, cond)
+		return compareString(qbt.Deref(torrent.ContentPath), cond)
 	case FieldDownloadPath:
-		return compareString(torrent.DownloadPath, cond)
+		return compareString(qbt.Deref(torrent.DownloadPath), cond)
 	case FieldCreatedBy:
-		return compareString(torrent.CreatedBy, cond)
+		return compareString("", cond)
 	case FieldContentType:
 		return compareString(torrentContentType(torrent, ctx), cond)
 	case FieldEffectiveName:
@@ -372,29 +372,29 @@ func evaluateLeaf(cond *RuleCondition, torrent qbt.Torrent, ctx *EvalContext) bo
 	case FieldState:
 		return compareState(torrent, cond, ctx)
 	case FieldTracker:
-		return compareTracker(torrent.Tracker, cond, ctx)
+		return compareTracker(qbt.Deref(torrent.Tracker), cond, ctx)
 	case FieldTrackers:
 		return compareTrackers(torrent, cond, ctx)
 	case FieldComment:
-		return compareString(torrent.Comment, cond)
+		return compareString("", cond)
 
 	// Bytes fields (int64)
 	case FieldSize:
-		return compareInt64(torrent.Size, cond)
+		return compareInt64(qbt.Deref(torrent.Size), cond)
 	case FieldTotalSize:
-		return compareInt64(torrent.TotalSize, cond)
+		return compareInt64(qbt.Deref(torrent.TotalSize), cond)
 	case FieldCompleted:
-		return compareInt64(torrent.Completed, cond)
+		return compareInt64(qbt.Deref(torrent.Completed), cond)
 	case FieldDownloaded:
-		return compareInt64(torrent.Downloaded, cond)
+		return compareInt64(qbt.Deref(torrent.Downloaded), cond)
 	case FieldDownloadedSession:
-		return compareInt64(torrent.DownloadedSession, cond)
+		return compareInt64(qbt.Deref(torrent.DownloadedSession), cond)
 	case FieldUploaded:
-		return compareInt64(torrent.Uploaded, cond)
+		return compareInt64(qbt.Deref(torrent.Uploaded), cond)
 	case FieldUploadedSession:
-		return compareInt64(torrent.UploadedSession, cond)
+		return compareInt64(qbt.Deref(torrent.UploadedSession), cond)
 	case FieldAmountLeft:
-		return compareInt64(torrent.AmountLeft, cond)
+		return compareInt64(qbt.Deref(torrent.AmountLeft), cond)
 	case FieldFreeSpace:
 		if ctx == nil {
 			return false
@@ -405,99 +405,99 @@ func evaluateLeaf(cond *RuleCondition, torrent qbt.Torrent, ctx *EvalContext) bo
 	// - Unix timestamps are evaluated as age durations (seconds since event).
 	// - Native seconds fields are evaluated directly.
 	case FieldAddedOn:
-		return compareAgeIfSet(torrent.AddedOn, cond, ctx)
+		return compareAgeIfSet(qbt.Deref(torrent.AddedOn), cond, ctx)
 	case FieldCompletionOn:
-		return compareAgeIfSet(torrent.CompletionOn, cond, ctx)
+		return compareAgeIfSet(qbt.Deref(torrent.CompletionOn), cond, ctx)
 	case FieldLastActivity:
-		return compareAgeIfSet(torrent.LastActivity, cond, ctx)
+		return compareAgeIfSet(qbt.Deref(torrent.LastActivity), cond, ctx)
 	case FieldSeenComplete:
-		return compareAgeIfSet(torrent.SeenComplete, cond, ctx)
+		return compareAgeIfSet(qbt.Deref(torrent.SeenComplete), cond, ctx)
 	case FieldETA:
-		return compareInt64(torrent.ETA, cond)
+		return compareInt64(qbt.Deref(torrent.ETA), cond)
 	case FieldReannounce:
-		return compareInt64(torrent.Reannounce, cond)
+		return compareInt64(qbt.Deref(torrent.Reannounce), cond)
 	case FieldSeedingTime:
-		return compareInt64(torrent.SeedingTime, cond)
+		return compareInt64(qbt.Deref(torrent.SeedingTime), cond)
 	case FieldTimeActive:
-		return compareInt64(torrent.TimeActive, cond)
+		return compareInt64(qbt.Deref(torrent.TimeActive), cond)
 	case FieldMaxSeedingTime:
-		return compareInt64(torrent.MaxSeedingTime, cond)
+		return compareInt64(qbt.Deref(torrent.MaxSeedingTime), cond)
 	case FieldMaxInactiveSeedingTime:
-		return compareInt64(torrent.MaxInactiveSeedingTime, cond)
+		return compareInt64(qbt.Deref(torrent.InactiveSeedingTimeLimit), cond)
 	case FieldSeedingTimeLimit:
-		return compareInt64(torrent.SeedingTimeLimit, cond)
+		return compareInt64(qbt.Deref(torrent.SeedingTimeLimit), cond)
 	case FieldInactiveSeedingTimeLimit:
-		return compareInt64(torrent.InactiveSeedingTimeLimit, cond)
+		return compareInt64(qbt.Deref(torrent.InactiveSeedingTimeLimit), cond)
 
 	// Age fields (time since timestamp). Kept as compatibility aliases.
 	case FieldAddedOnAge:
-		return compareAgeIfSet(torrent.AddedOn, cond, ctx)
+		return compareAgeIfSet(qbt.Deref(torrent.AddedOn), cond, ctx)
 	case FieldCompletionOnAge:
-		return compareAgeIfSet(torrent.CompletionOn, cond, ctx)
+		return compareAgeIfSet(qbt.Deref(torrent.CompletionOn), cond, ctx)
 	case FieldLastActivityAge:
-		return compareAgeIfSet(torrent.LastActivity, cond, ctx)
+		return compareAgeIfSet(qbt.Deref(torrent.LastActivity), cond, ctx)
 
 	// Float64 fields
 	case FieldRatio:
-		return compareFloat64(torrent.Ratio, cond)
+		return compareFloat64(qbt.Deref(torrent.Ratio), cond)
 	case FieldRatioLimit:
-		return compareFloat64(torrent.RatioLimit, cond)
+		return compareFloat64(qbt.Deref(torrent.RatioLimit), cond)
 	case FieldMaxRatio:
-		return compareFloat64(torrent.MaxRatio, cond)
+		return compareFloat64(qbt.Deref(torrent.MaxRatio), cond)
 	case FieldProgress:
-		return compareFloat64(torrent.Progress, normalizeProgressCondition(cond))
+		return compareFloat64(qbt.Deref(torrent.Progress), normalizeProgressCondition(cond))
 	case FieldAvailability:
-		return compareFloat64(torrent.Availability, cond)
+		return compareFloat64(qbt.Deref(torrent.Availability), cond)
 	case FieldPopularity:
-		return compareFloat64(torrent.Popularity, cond)
+		return compareFloat64(float64(0), cond)
 
 	// Speed fields (int64)
 	case FieldDlSpeed:
-		return compareInt64(torrent.DlSpeed, cond)
+		return compareInt64(qbt.Deref(torrent.DlSpeed), cond)
 	case FieldUpSpeed:
-		return compareInt64(torrent.UpSpeed, cond)
+		return compareInt64(qbt.Deref(torrent.UpSpeed), cond)
 	case FieldDlLimit:
-		return compareInt64(torrent.DlLimit, cond)
+		return compareInt64(qbt.Deref(torrent.DlLimit), cond)
 	case FieldUpLimit:
-		return compareInt64(torrent.UpLimit, cond)
+		return compareInt64(qbt.Deref(torrent.UpLimit), cond)
 
 	// Count fields (int64)
 	case FieldNumSeeds:
-		return compareInt64(torrent.NumSeeds, cond)
+		return compareInt64(int64(qbt.Deref(torrent.NumSeeds)), cond)
 	case FieldNumLeechs:
-		return compareInt64(torrent.NumLeechs, cond)
+		return compareInt64(int64(qbt.Deref(torrent.NumLeechs)), cond)
 	case FieldNumComplete:
-		return compareInt64(torrent.NumComplete, cond)
+		return compareInt64(int64(qbt.Deref(torrent.NumComplete)), cond)
 	case FieldNumIncomplete:
-		return compareInt64(torrent.NumIncomplete, cond)
+		return compareInt64(int64(qbt.Deref(torrent.NumIncomplete)), cond)
 	case FieldTrackersCount:
-		return compareInt64(torrent.TrackersCount, cond)
+		return compareInt64(int64(qbt.Deref(torrent.TrackersCount)), cond)
 	case FieldPriority:
-		return compareInt64(torrent.Priority, cond)
+		return compareInt64(int64(qbt.Deref(torrent.Priority)), cond)
 	case FieldGroupSize:
 		size := int64(0)
 		if idx := resolveConditionGroupIndex(cond, ctx); idx != nil {
-			size = int64(idx.SizeForHash(torrent.Hash))
+			size = int64(idx.SizeForHash(qbt.Deref(torrent.Hash)))
 		}
 		return compareInt64(size, cond)
 
 	// Boolean fields
 	case FieldPrivate:
-		return compareBool(torrent.Private, cond)
+		return compareBool(qbt.Deref(torrent.Private), cond)
 	case FieldAutoManaged:
-		return compareBool(torrent.AutoManaged, cond)
+		return compareBool(false, cond)
 	case FieldFirstLastPiecePrio:
-		return compareBool(torrent.FirstLastPiecePrio, cond)
+		return compareBool(qbt.Deref(torrent.FirstLastPiecePrio), cond)
 	case FieldForceStart:
-		return compareBool(torrent.ForceStart, cond)
+		return compareBool(qbt.Deref(torrent.ForceStart), cond)
 	case FieldSequentialDownload:
-		return compareBool(torrent.SequentialDownload, cond)
+		return compareBool(qbt.Deref(torrent.SequentialDownload), cond)
 	case FieldSuperSeeding:
-		return compareBool(torrent.SuperSeeding, cond)
+		return compareBool(qbt.Deref(torrent.SuperSeeding), cond)
 	case FieldIsUnregistered:
 		isUnregistered := false
 		if ctx != nil && ctx.UnregisteredSet != nil {
-			_, isUnregistered = ctx.UnregisteredSet[torrent.Hash]
+			_, isUnregistered = ctx.UnregisteredSet[qbt.Deref(torrent.Hash)]
 		}
 		return compareBool(isUnregistered, cond)
 
@@ -513,7 +513,7 @@ func evaluateLeaf(cond *RuleCondition, torrent qbt.Torrent, ctx *EvalContext) bo
 		if ctx.HardlinkScopeByHash == nil {
 			return false
 		}
-		scope, ok := ctx.HardlinkScopeByHash[torrent.Hash]
+		scope, ok := ctx.HardlinkScopeByHash[qbt.Deref(torrent.Hash)]
 		if !ok {
 			return false // Unknown scope - don't match
 		}
@@ -530,7 +530,7 @@ func evaluateLeaf(cond *RuleCondition, torrent qbt.Torrent, ctx *EvalContext) bo
 		if ctx.HasMissingFilesByHash == nil {
 			return false
 		}
-		hasMissing, ok := ctx.HasMissingFilesByHash[torrent.Hash]
+		hasMissing, ok := ctx.HasMissingFilesByHash[qbt.Deref(torrent.Hash)]
 		if !ok {
 			return false // Unknown state - don't match
 		}
@@ -539,7 +539,7 @@ func evaluateLeaf(cond *RuleCondition, torrent qbt.Torrent, ctx *EvalContext) bo
 	case FieldIsGrouped:
 		grouped := false
 		if idx := resolveConditionGroupIndex(cond, ctx); idx != nil {
-			grouped = idx.SizeForHash(torrent.Hash) > 1
+			grouped = idx.SizeForHash(qbt.Deref(torrent.Hash)) > 1
 		}
 		return compareBool(grouped, cond)
 
@@ -561,7 +561,7 @@ func compareState(torrent qbt.Torrent, cond *RuleCondition, ctx *EvalContext) bo
 		return !matches
 	default:
 		// Preserve legacy behavior for non-state operators (even though the UI only offers EQUAL/NOT_EQUAL).
-		return compareString(string(torrent.State), cond)
+		return compareString(string(qbt.Deref(torrent.State)), cond)
 	}
 }
 
@@ -576,90 +576,90 @@ func matchesStateValue(torrent qbt.Torrent, value string, ctx *EvalContext) bool
 	switch strings.ToLower(normalized) {
 	// Sidebar status buckets
 	case "completed":
-		return torrent.Progress >= 1.0
+		return qbt.Deref(torrent.Progress) >= 1.0
 	case "downloading":
 		return slices.Contains([]qbt.TorrentState{
-			qbt.TorrentStateDownloading,
-			qbt.TorrentStateStalledDl,
-			qbt.TorrentStateMetaDl,
-			qbt.TorrentStateQueuedDl,
-			qbt.TorrentStateAllocating,
-			qbt.TorrentStateCheckingDl,
-			qbt.TorrentStateForcedDl,
-		}, torrent.State)
+			qbt.StateDownloading,
+			qbt.StateStalledDL,
+			qbt.StateMetaDL,
+			qbt.StateQueuedDL,
+			qbt.StateAllocating,
+			qbt.StateCheckingDL,
+			qbt.StateForcedDL,
+		}, qbt.Deref(torrent.State))
 	case "uploading", "seeding":
 		return slices.Contains([]qbt.TorrentState{
-			qbt.TorrentStateUploading,
-			qbt.TorrentStateStalledUp,
-			qbt.TorrentStateQueuedUp,
-			qbt.TorrentStateCheckingUp,
-			qbt.TorrentStateForcedUp,
-		}, torrent.State)
+			qbt.StateUploading,
+			qbt.StateStalledUP,
+			qbt.StateQueuedUP,
+			qbt.StateCheckingUP,
+			qbt.StateForcedUP,
+		}, qbt.Deref(torrent.State))
 	case "paused", "stopped":
 		return slices.Contains([]qbt.TorrentState{
-			qbt.TorrentStatePausedDl,
-			qbt.TorrentStatePausedUp,
-			qbt.TorrentStateStoppedDl,
-			qbt.TorrentStateStoppedUp,
-		}, torrent.State)
+			qbt.StatePausedDL,
+			qbt.StatePausedUP,
+			qbt.StateStoppedDL,
+			qbt.StateStoppedUP,
+		}, qbt.Deref(torrent.State))
 	case "running", "resumed":
 		return !slices.Contains([]qbt.TorrentState{
-			qbt.TorrentStatePausedDl,
-			qbt.TorrentStatePausedUp,
-			qbt.TorrentStateStoppedDl,
-			qbt.TorrentStateStoppedUp,
-		}, torrent.State)
+			qbt.StatePausedDL,
+			qbt.StatePausedUP,
+			qbt.StateStoppedDL,
+			qbt.StateStoppedUP,
+		}, qbt.Deref(torrent.State))
 	case "active":
 		return slices.Contains([]qbt.TorrentState{
-			qbt.TorrentStateDownloading,
-			qbt.TorrentStateUploading,
-			qbt.TorrentStateForcedDl,
-			qbt.TorrentStateForcedUp,
-		}, torrent.State)
+			qbt.StateDownloading,
+			qbt.StateUploading,
+			qbt.StateForcedDL,
+			qbt.StateForcedUP,
+		}, qbt.Deref(torrent.State))
 	case "inactive":
 		return !slices.Contains([]qbt.TorrentState{
-			qbt.TorrentStateDownloading,
-			qbt.TorrentStateUploading,
-			qbt.TorrentStateForcedDl,
-			qbt.TorrentStateForcedUp,
-		}, torrent.State)
+			qbt.StateDownloading,
+			qbt.StateUploading,
+			qbt.StateForcedDL,
+			qbt.StateForcedUP,
+		}, qbt.Deref(torrent.State))
 	case "stalled":
 		return slices.Contains([]qbt.TorrentState{
-			qbt.TorrentStateStalledDl,
-			qbt.TorrentStateStalledUp,
-		}, torrent.State)
+			qbt.StateStalledDL,
+			qbt.StateStalledUP,
+		}, qbt.Deref(torrent.State))
 	case "stalled_uploading", "stalled_seeding":
-		return torrent.State == qbt.TorrentStateStalledUp
+		return qbt.Deref(torrent.State) == qbt.StateStalledUP
 	case "stalled_downloading":
-		return torrent.State == qbt.TorrentStateStalledDl
+		return qbt.Deref(torrent.State) == qbt.StateStalledDL
 	case "checking":
 		return slices.Contains([]qbt.TorrentState{
-			qbt.TorrentStateCheckingDl,
-			qbt.TorrentStateCheckingUp,
-			qbt.TorrentStateCheckingResumeData,
-		}, torrent.State)
+			qbt.StateCheckingDL,
+			qbt.StateCheckingUP,
+			qbt.StateCheckingResumeData,
+		}, qbt.Deref(torrent.State))
 	case "moving":
-		return torrent.State == qbt.TorrentStateMoving
+		return qbt.Deref(torrent.State) == qbt.StateMoving
 	case "errored", "error":
-		return torrent.State == qbt.TorrentStateError || torrent.State == qbt.TorrentStateMissingFiles
+		return qbt.Deref(torrent.State) == qbt.StateError || qbt.Deref(torrent.State) == qbt.StateMissingFiles
 	case "missingfiles":
-		return torrent.State == qbt.TorrentStateMissingFiles
+		return qbt.Deref(torrent.State) == qbt.StateMissingFiles
 	case "unregistered":
 		if ctx == nil || ctx.UnregisteredSet == nil {
 			return false
 		}
-		_, ok := ctx.UnregisteredSet[torrent.Hash]
+		_, ok := ctx.UnregisteredSet[qbt.Deref(torrent.Hash)]
 		return ok
 	case "tracker_down":
 		if ctx == nil || ctx.TrackerDownSet == nil {
 			return false
 		}
-		_, ok := ctx.TrackerDownSet[torrent.Hash]
+		_, ok := ctx.TrackerDownSet[qbt.Deref(torrent.Hash)]
 		return ok
 	}
 
 	// Fallback to raw torrent state (qBittorrent Web API value, e.g. "stalledUP").
-	return strings.EqualFold(string(torrent.State), normalized)
+	return strings.EqualFold(string(qbt.Deref(torrent.State)), normalized)
 }
 
 // compareString compares a string value against the condition.
@@ -699,12 +699,7 @@ func compareTracker(trackerURL string, cond *RuleCondition, ctx *EvalContext) bo
 }
 
 func compareTrackers(torrent qbt.Torrent, cond *RuleCondition, ctx *EvalContext) bool {
-	candidates := make([]string, 0, len(torrent.Trackers)*3+3)
-	candidates = append(candidates, trackerCandidates(torrent.Tracker, ctx)...)
-	for _, tracker := range torrent.Trackers {
-		candidates = append(candidates, trackerCandidates(tracker.Url, ctx)...)
-	}
-	return compareStringCandidates(candidates, cond)
+	return compareStringCandidates(trackerCandidates(qbt.Deref(torrent.Tracker), ctx), cond)
 }
 
 func trackerCandidates(trackerURL string, ctx *EvalContext) []string {

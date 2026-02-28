@@ -13,7 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 
 	"github.com/autogrr/rui/internal/qbittorrent"
 )
@@ -271,7 +271,8 @@ func (h *RSSHandler) AddFeed(w http.ResponseWriter, r *http.Request) {
 			}
 
 			var meta rssFeedMeta
-			if err := json.Unmarshal(rawItem, &meta); err != nil {
+			rawBytes, _ := json.Marshal(rawItem)
+			if err := json.Unmarshal(rawBytes, &meta); err != nil {
 				log.Warn().Err(err).Str("itemName", name).Msg("failed to unmarshal RSS item while finding feed to move")
 				continue
 			}

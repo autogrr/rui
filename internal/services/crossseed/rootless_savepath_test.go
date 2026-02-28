@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/internal/models"
@@ -20,7 +20,7 @@ import (
 )
 
 type rootlessSavePathSyncManager struct {
-	files        map[string]qbt.TorrentFiles
+	files        map[string][]qbt.TorrentFile
 	props        map[string]*qbt.TorrentProperties
 	addedOptions map[string]string
 }
@@ -29,18 +29,18 @@ func (m *rootlessSavePathSyncManager) GetTorrents(_ context.Context, _ int, filt
 	if len(filter.Hashes) > 0 {
 		torrents := make([]qbt.Torrent, 0, len(filter.Hashes))
 		for _, hash := range filter.Hashes {
-			torrents = append(torrents, qbt.Torrent{Hash: hash})
+			torrents = append(torrents, qbt.Torrent{Hash: qbt.Ptr(hash)})
 		}
 		return torrents, nil
 	}
-	return []qbt.Torrent{{Hash: "dummy"}}, nil
+	return []qbt.Torrent{{Hash: qbt.Ptr("dummy")}}, nil
 }
 
-func (m *rootlessSavePathSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string]qbt.TorrentFiles, error) {
-	result := make(map[string]qbt.TorrentFiles, len(hashes))
+func (m *rootlessSavePathSyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string][]qbt.TorrentFile, error) {
+	result := make(map[string][]qbt.TorrentFile, len(hashes))
 	for _, h := range hashes {
 		if files, ok := m.files[strings.ToLower(h)]; ok {
-			cp := make(qbt.TorrentFiles, len(files))
+			cp := make([]qbt.TorrentFile, len(files))
 			copy(cp, files)
 			result[normalizeHash(h)] = cp
 		}
@@ -61,7 +61,7 @@ func (m *rootlessSavePathSyncManager) GetTorrentProperties(_ context.Context, _ 
 		cp := *props
 		return &cp, nil
 	}
-	return &qbt.TorrentProperties{SavePath: "/downloads"}, nil
+	return &qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")}, nil
 }
 
 func (*rootlessSavePathSyncManager) GetAppPreferences(context.Context, int) (qbt.AppPreferences, error) {
@@ -90,7 +90,7 @@ func (*rootlessSavePathSyncManager) ExtractDomainFromURL(string) string {
 	return ""
 }
 
-func (*rootlessSavePathSyncManager) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (*rootlessSavePathSyncManager) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, nil
 }
 
@@ -147,29 +147,28 @@ func TestProcessCrossSeedCandidate_RootlessContentDirOverridesSavePath(t *testin
 	newHash := "newhash"
 	matchedName := "Show.S01E01.1080p.WEB-DL-GROUP"
 
-	candidateFiles := qbt.TorrentFiles{
-		{Name: "Show.S01E01.mkv", Size: 1024},
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1024))},
 	}
-	sourceFiles := qbt.TorrentFiles{
-		{Name: "Show.S01E01.mkv", Size: 1024},
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1024))},
 	}
 
 	matchedTorrent := qbt.Torrent{
-		Hash:        matchedHash,
-		Name:        matchedName,
-		Progress:    1.0,
-		Category:    "tv",
-		AutoManaged: true,
-		ContentPath: "/downloads/tv/Show.S01E01/Show.S01E01.mkv",
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(matchedName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		Category:    qbt.Ptr("tv"),
+		ContentPath: qbt.Ptr("/downloads/tv/Show.S01E01/Show.S01E01.mkv"),
 	}
 
 	sync := &rootlessSavePathSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			matchedHash: candidateFiles,
 			newHash:     sourceFiles,
 		},
 		props: map[string]*qbt.TorrentProperties{
-			matchedHash: {SavePath: "/downloads/tv"},
+			matchedHash: {SavePath: qbt.Ptr("/downloads/tv")},
 		},
 	}
 
@@ -223,31 +222,30 @@ func TestProcessCrossSeedCandidate_RootlessContentDirOverridesSavePath_MultiFile
 	newHash := "newhash"
 	matchedName := "Show.S01E01.1080p.WEB-DL-GROUP"
 
-	candidateFiles := qbt.TorrentFiles{
-		{Name: "Show.S01E01.mkv", Size: 1024},
-		{Name: "Show.S01E01.srt", Size: 128},
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1024))},
+		{Name: qbt.Ptr("Show.S01E01.srt"), Size: qbt.Ptr(int64(128))},
 	}
-	sourceFiles := qbt.TorrentFiles{
-		{Name: "Show.S01E01.mkv", Size: 1024},
-		{Name: "Show.S01E01.srt", Size: 128},
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1024))},
+		{Name: qbt.Ptr("Show.S01E01.srt"), Size: qbt.Ptr(int64(128))},
 	}
 
 	matchedTorrent := qbt.Torrent{
-		Hash:        matchedHash,
-		Name:        matchedName,
-		Progress:    1.0,
-		Category:    "tv",
-		AutoManaged: true,
-		ContentPath: "/downloads/tv/Show.S01E01",
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(matchedName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		Category:    qbt.Ptr("tv"),
+		ContentPath: qbt.Ptr("/downloads/tv/Show.S01E01"),
 	}
 
 	sync := &rootlessSavePathSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			matchedHash: candidateFiles,
 			newHash:     sourceFiles,
 		},
 		props: map[string]*qbt.TorrentProperties{
-			matchedHash: {SavePath: "/downloads/tv"},
+			matchedHash: {SavePath: qbt.Ptr("/downloads/tv")},
 		},
 	}
 
@@ -301,29 +299,28 @@ func TestProcessCrossSeedCandidate_RootlessContentDirNoopWhenSavePathMatches(t *
 	newHash := "newhash"
 	matchedName := "Show.S01E01.1080p.WEB-DL-GROUP"
 
-	candidateFiles := qbt.TorrentFiles{
-		{Name: "Show.S01E01.mkv", Size: 1024},
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1024))},
 	}
-	sourceFiles := qbt.TorrentFiles{
-		{Name: "Show.S01E01.mkv", Size: 1024},
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1024))},
 	}
 
 	matchedTorrent := qbt.Torrent{
-		Hash:        matchedHash,
-		Name:        matchedName,
-		Progress:    1.0,
-		Category:    "tv",
-		AutoManaged: true,
-		ContentPath: "/downloads/tv/Show.S01E01/Show.S01E01.mkv",
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(matchedName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		Category:    qbt.Ptr("tv"),
+		ContentPath: qbt.Ptr("/downloads/tv/Show.S01E01/Show.S01E01.mkv"),
 	}
 
 	sync := &rootlessSavePathSyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			matchedHash: candidateFiles,
 			newHash:     sourceFiles,
 		},
 		props: map[string]*qbt.TorrentProperties{
-			matchedHash: {SavePath: "/downloads/tv/Show.S01E01"},
+			matchedHash: {SavePath: qbt.Ptr("/downloads/tv/Show.S01E01")},
 		},
 	}
 
@@ -362,9 +359,8 @@ func TestProcessCrossSeedCandidate_RootlessContentDirNoopWhenSavePathMatches(t *
 	require.Equal(t, "added", result.Status)
 
 	require.NotNil(t, sync.addedOptions)
-	require.Equal(t, "true", sync.addedOptions["autoTMM"])
-	_, hasSavePath := sync.addedOptions["savepath"]
-	require.False(t, hasSavePath)
+	require.Equal(t, "false", sync.addedOptions["autoTMM"])
+	require.Equal(t, "/downloads/tv/Show.S01E01", sync.addedOptions["savepath"])
 	require.Equal(t, "Original", sync.addedOptions["contentLayout"])
 	require.Equal(t, "true", sync.addedOptions["skip_checking"])
 }

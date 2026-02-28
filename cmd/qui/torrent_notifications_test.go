@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/internal/services/notifications"
@@ -64,23 +64,23 @@ func TestNotifyTorrentAddedWithDelayAfterRefreshesSnapshot(t *testing.T) {
 	t.Parallel()
 
 	initial := qbt.Torrent{
-		Name:      "Example.Release",
-		Hash:      "ABC123",
-		Tracker:   "https://tracker.example/announce",
-		AddedOn:   100,
-		ETA:       86400,
-		Progress:  0,
-		DlSpeed:   0,
-		UpSpeed:   0,
-		NumSeeds:  0,
-		NumLeechs: 0,
+		Name:      qbt.Ptr("Example.Release"),
+		Hash:      qbt.Ptr("ABC123"),
+		Tracker:   qbt.Ptr("https://tracker.example/announce"),
+		AddedOn:   qbt.Ptr(int64(100)),
+		ETA:       qbt.Ptr(int64(86400)),
+		Progress:  qbt.Ptr(float64(0)),
+		DlSpeed:   qbt.Ptr(int64(0)),
+		UpSpeed:   qbt.Ptr(int64(0)),
+		NumSeeds:  qbt.Ptr(0),
+		NumLeechs: qbt.Ptr(0),
 	}
 	refreshed := initial
-	refreshed.Progress = 0.42
-	refreshed.DlSpeed = 1_234_567
-	refreshed.UpSpeed = 12_345
-	refreshed.NumSeeds = 88
-	refreshed.NumLeechs = 11
+	refreshed.Progress = qbt.Ptr(0.42)
+	refreshed.DlSpeed = qbt.Ptr(int64(1_234_567))
+	refreshed.UpSpeed = qbt.Ptr(int64(12_345))
+	refreshed.NumSeeds = qbt.Ptr(88)
+	refreshed.NumLeechs = qbt.Ptr(11)
 
 	syncStub := &stubTorrentNotificationSync{
 		torrents:      []qbt.Torrent{refreshed},
@@ -113,14 +113,14 @@ func TestNotifyTorrentAddedWithDelayAfterFallsBackToInitialSnapshot(t *testing.T
 	t.Parallel()
 
 	initial := qbt.Torrent{
-		Name:      "Fallback.Release",
-		Hash:      "DEF456",
-		Tracker:   "https://fallback.example/announce",
-		Progress:  0.11,
-		DlSpeed:   111,
-		UpSpeed:   222,
-		NumSeeds:  3,
-		NumLeechs: 4,
+		Name:      qbt.Ptr("Fallback.Release"),
+		Hash:      qbt.Ptr("DEF456"),
+		Tracker:   qbt.Ptr("https://fallback.example/announce"),
+		Progress:  qbt.Ptr(0.11),
+		DlSpeed:   qbt.Ptr(int64(111)),
+		UpSpeed:   qbt.Ptr(int64(222)),
+		NumSeeds:  qbt.Ptr(3),
+		NumLeechs: qbt.Ptr(4),
 	}
 
 	syncStub := &stubTorrentNotificationSync{

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/internal/database"
@@ -48,13 +48,13 @@ func TestCacheFilesAndGetCachedFiles(t *testing.T) {
 	db, ctx := setupFilesManagerDB(t)
 	svc := NewService(db)
 
-	files := qbt.TorrentFiles{
+	files := []qbt.TorrentFile{
 		{
-			Index:      0,
-			Name:       "example.mkv",
-			Size:       1 << 20,
-			Progress:   0.5,
-			Priority:   1,
+			Index: qbt.Ptr(0),
+			Name: qbt.Ptr("example.mkv"),
+			Size: qbt.Ptr(int64(1 << 20)),
+			Progress: qbt.Ptr(float64(0.5)),
+			Priority: qbt.Ptr(qbt.FilePriority(1)),
 			PieceRange: []int{0, 1},
 		},
 	}
@@ -65,7 +65,7 @@ func TestCacheFilesAndGetCachedFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cached, "cache should be available")
 	require.Len(t, cached, 1)
-	require.Equal(t, "example.mkv", cached[0].Name)
+	require.Equal(t, "example.mkv", qbt.Deref(cached[0].Name))
 }
 
 func TestCacheFilesBatch_MaintainsHashAlignment(t *testing.T) {
@@ -86,13 +86,13 @@ func TestCacheFilesBatch_MaintainsHashAlignment(t *testing.T) {
 		_, err := db.ExecContext(ctx, "DELETE FROM torrent_files_cache; DELETE FROM torrent_files_sync;")
 		require.NoError(t, err)
 
-		files := make(map[string]qbt.TorrentFiles, len(hashes))
+		files := make(map[string][]qbt.TorrentFile, len(hashes))
 		for _, hash := range hashes {
-			files[hash] = qbt.TorrentFiles{
+			files[hash] = []qbt.TorrentFile{
 				{
-					Index: 0,
-					Name:  names[hash],
-					Size:  int64(attempt + 1),
+					Index: qbt.Ptr(0),
+					Name: qbt.Ptr(names[hash]),
+					Size: qbt.Ptr(int64(attempt + 1)),
 				},
 			}
 		}
@@ -103,7 +103,7 @@ func TestCacheFilesBatch_MaintainsHashAlignment(t *testing.T) {
 			cached, err := svc.GetCachedFiles(ctx, 1, hash)
 			require.NoError(t, err)
 			require.Len(t, cached, 1, "attempt %d hash %s", attempt, hash)
-			require.Equalf(t, names[hash], cached[0].Name, "attempt %d hash %s", attempt, hash)
+			require.Equalf(t, names[hash], qbt.Deref(cached[0].Name), "attempt %d hash %s", attempt, hash)
 		}
 	}
 }

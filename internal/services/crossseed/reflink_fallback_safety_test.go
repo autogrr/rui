@@ -10,7 +10,7 @@ import (
 	"maps"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/internal/models"
@@ -19,7 +19,7 @@ import (
 )
 
 type reflinkFallbackSafetySyncManager struct {
-	files          map[string]qbt.TorrentFiles
+	files          map[string][]qbt.TorrentFile
 	props          map[string]*qbt.TorrentProperties
 	addTorrentOpts map[string]string
 }
@@ -27,20 +27,20 @@ type reflinkFallbackSafetySyncManager struct {
 func (*reflinkFallbackSafetySyncManager) GetTorrents(_ context.Context, _ int, filter qbt.TorrentFilterOptions) ([]qbt.Torrent, error) {
 	torrents := make([]qbt.Torrent, 0, len(filter.Hashes))
 	for _, hash := range filter.Hashes {
-		torrents = append(torrents, qbt.Torrent{Hash: hash})
+		torrents = append(torrents, qbt.Torrent{Hash: qbt.Ptr(hash)})
 	}
 	if len(torrents) == 0 {
-		torrents = append(torrents, qbt.Torrent{Hash: "dummy"})
+		torrents = append(torrents, qbt.Torrent{Hash: qbt.Ptr("dummy")})
 	}
 	return torrents, nil
 }
 
-func (m *reflinkFallbackSafetySyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string]qbt.TorrentFiles, error) {
-	result := make(map[string]qbt.TorrentFiles, len(hashes))
+func (m *reflinkFallbackSafetySyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string][]qbt.TorrentFile, error) {
+	result := make(map[string][]qbt.TorrentFile, len(hashes))
 	for _, h := range hashes {
 		key := normalizeHash(h)
 		if files, ok := m.files[key]; ok {
-			cp := make(qbt.TorrentFiles, len(files))
+			cp := make([]qbt.TorrentFile, len(files))
 			copy(cp, files)
 			result[key] = cp
 		}
@@ -61,7 +61,7 @@ func (m *reflinkFallbackSafetySyncManager) GetTorrentProperties(_ context.Contex
 		cp := *props
 		return &cp, nil
 	}
-	return &qbt.TorrentProperties{SavePath: "/downloads"}, nil
+	return &qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")}, nil
 }
 
 func (*reflinkFallbackSafetySyncManager) GetAppPreferences(context.Context, int) (qbt.AppPreferences, error) {
@@ -90,7 +90,7 @@ func (*reflinkFallbackSafetySyncManager) ExtractDomainFromURL(string) string {
 	return ""
 }
 
-func (*reflinkFallbackSafetySyncManager) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (*reflinkFallbackSafetySyncManager) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, nil
 }
 
@@ -142,23 +142,23 @@ func TestProcessCrossSeedCandidate_ReflinkFallbackReEnablesSafetyChecks(t *testi
 	newHash := "newhash"
 	torrentName := "Movie.2024.1080p.WEB-DL-GROUP"
 
-	candidateFiles := qbt.TorrentFiles{{Name: "Movie.2024.mkv", Size: 1_000_000}}
-	sourceFiles := qbt.TorrentFiles{{Name: "Movie.2024.mkv", Size: 1_000_001}}
+	candidateFiles := []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.mkv"), Size: qbt.Ptr(int64(1_000_000))}}
+	sourceFiles := []qbt.TorrentFile{{Name: qbt.Ptr("Movie.2024.mkv"), Size: qbt.Ptr(int64(1_000_001))}}
 
 	matchedTorrent := qbt.Torrent{
-		Hash:        matchedHash,
-		Name:        torrentName,
-		Progress:    1.0,
-		Category:    "movies",
-		ContentPath: "/downloads/movies/" + torrentName,
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(torrentName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		Category:    qbt.Ptr("movies"),
+		ContentPath: qbt.Ptr("/downloads/movies/" + torrentName),
 	}
 
 	sync := &reflinkFallbackSafetySyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			normalizeHash(matchedHash): candidateFiles,
 		},
 		props: map[string]*qbt.TorrentProperties{
-			normalizeHash(matchedHash): {SavePath: "/downloads/movies"},
+			normalizeHash(matchedHash): {SavePath: qbt.Ptr("/downloads/movies")},
 		},
 	}
 

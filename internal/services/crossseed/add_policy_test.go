@@ -7,131 +7,131 @@ package crossseed
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIsDiscLayoutTorrent(t *testing.T) {
 	tests := []struct {
 		name       string
-		files      qbt.TorrentFiles
+		files      []qbt.TorrentFile
 		wantDisc   bool
 		wantMarker string
 	}{
 		{
 			name: "BDMV at root level",
-			files: qbt.TorrentFiles{
-				{Name: "BDMV/index.bdmv"},
-				{Name: "BDMV/STREAM/00001.m2ts"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("BDMV/index.bdmv")},
+				{Name: qbt.Ptr("BDMV/STREAM/00001.m2ts")},
 			},
 			wantDisc:   true,
 			wantMarker: "BDMV",
 		},
 		{
 			name: "BDMV nested in folder",
-			files: qbt.TorrentFiles{
-				{Name: "Movie.2024.BluRay/BDMV/index.bdmv"},
-				{Name: "Movie.2024.BluRay/BDMV/STREAM/00001.m2ts"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.BluRay/BDMV/index.bdmv")},
+				{Name: qbt.Ptr("Movie.2024.BluRay/BDMV/STREAM/00001.m2ts")},
 			},
 			wantDisc:   true,
 			wantMarker: "BDMV",
 		},
 		{
 			name: "VIDEO_TS at root",
-			files: qbt.TorrentFiles{
-				{Name: "VIDEO_TS/VIDEO_TS.VOB"},
-				{Name: "VIDEO_TS/VTS_01_0.VOB"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("VIDEO_TS/VIDEO_TS.VOB")},
+				{Name: qbt.Ptr("VIDEO_TS/VTS_01_0.VOB")},
 			},
 			wantDisc:   true,
 			wantMarker: "VIDEO_TS",
 		},
 		{
 			name: "VIDEO_TS deeply nested",
-			files: qbt.TorrentFiles{
-				{Name: "Show/Season1/Disc1/VIDEO_TS/VIDEO_TS.VOB"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show/Season1/Disc1/VIDEO_TS/VIDEO_TS.VOB")},
 			},
 			wantDisc:   true,
 			wantMarker: "VIDEO_TS",
 		},
 		{
 			name: "case insensitive bdmv",
-			files: qbt.TorrentFiles{
-				{Name: "Movie/bdmv/index.bdmv"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/bdmv/index.bdmv")},
 			},
 			wantDisc:   true,
 			wantMarker: "BDMV",
 		},
 		{
 			name: "case insensitive video_ts mixed case",
-			files: qbt.TorrentFiles{
-				{Name: "Movie/Video_TS/video.vob"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/Video_TS/video.vob")},
 			},
 			wantDisc:   true,
 			wantMarker: "VIDEO_TS",
 		},
 		{
 			name: "Windows path separators",
-			files: qbt.TorrentFiles{
-				{Name: "Movie\\BDMV\\index.bdmv"},
-				{Name: "Movie\\BDMV\\STREAM\\00001.m2ts"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie\\BDMV\\index.bdmv")},
+				{Name: qbt.Ptr("Movie\\BDMV\\STREAM\\00001.m2ts")},
 			},
 			wantDisc:   true,
 			wantMarker: "BDMV",
 		},
 		{
 			name: "not disc - regular movie",
-			files: qbt.TorrentFiles{
-				{Name: "Movie.2024.BluRay.1080p.mkv"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.BluRay.1080p.mkv")},
 			},
 			wantDisc:   false,
 			wantMarker: "",
 		},
 		{
 			name: "not disc - BDMV as file extension only",
-			files: qbt.TorrentFiles{
-				{Name: "Movie/index.bdmv"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/index.bdmv")},
 			},
 			wantDisc:   false,
 			wantMarker: "",
 		},
 		{
 			name: "not disc - BDMV as substring in folder name",
-			files: qbt.TorrentFiles{
-				{Name: "BDMV_backup/file.txt"},
-				{Name: "myBDMV/data.bin"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("BDMV_backup/file.txt")},
+				{Name: qbt.Ptr("myBDMV/data.bin")},
 			},
 			wantDisc:   false,
 			wantMarker: "",
 		},
 		{
 			name: "not disc - VIDEO_TS as substring",
-			files: qbt.TorrentFiles{
-				{Name: "VIDEO_TS_files/video.txt"},
-				{Name: "old_VIDEO_TS/backup.dat"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("VIDEO_TS_files/video.txt")},
+				{Name: qbt.Ptr("old_VIDEO_TS/backup.dat")},
 			},
 			wantDisc:   false,
 			wantMarker: "",
 		},
 		{
 			name:       "not disc - empty files",
-			files:      qbt.TorrentFiles{},
+			files:      []qbt.TorrentFile{},
 			wantDisc:   false,
 			wantMarker: "",
 		},
 		{
 			name: "mixed content with disc structure",
-			files: qbt.TorrentFiles{
-				{Name: "Movie/README.txt"},
-				{Name: "Movie/BDMV/index.bdmv"},
-				{Name: "Movie/sample.mkv"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/README.txt")},
+				{Name: qbt.Ptr("Movie/BDMV/index.bdmv")},
+				{Name: qbt.Ptr("Movie/sample.mkv")},
 			},
 			wantDisc:   true,
 			wantMarker: "BDMV",
 		},
 		{
 			name: "single segment BDMV is filename not directory",
-			files: qbt.TorrentFiles{
-				{Name: "BDMV"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("BDMV")},
 			},
 			wantDisc:   false,
 			wantMarker: "",
@@ -149,8 +149,8 @@ func TestIsDiscLayoutTorrent(t *testing.T) {
 
 func TestPolicyForSourceFiles(t *testing.T) {
 	t.Run("disc layout forces paused", func(t *testing.T) {
-		files := qbt.TorrentFiles{
-			{Name: "Movie/BDMV/index.bdmv"},
+		files := []qbt.TorrentFile{
+			{Name: qbt.Ptr("Movie/BDMV/index.bdmv")},
 		}
 		policy := PolicyForSourceFiles(files)
 
@@ -161,8 +161,8 @@ func TestPolicyForSourceFiles(t *testing.T) {
 	})
 
 	t.Run("non-disc layout returns empty policy", func(t *testing.T) {
-		files := qbt.TorrentFiles{
-			{Name: "Movie.2024.1080p.mkv"},
+		files := []qbt.TorrentFile{
+			{Name: qbt.Ptr("Movie.2024.1080p.mkv")},
 		}
 		policy := PolicyForSourceFiles(files)
 
@@ -237,7 +237,7 @@ func TestAddPolicy_StatusSuffix(t *testing.T) {
 func TestPolicyFlow_DiscLayoutForcesPaused(t *testing.T) {
 	tests := []struct {
 		name         string
-		files        qbt.TorrentFiles
+		files        []qbt.TorrentFile
 		initialOpts  map[string]string
 		wantPaused   string
 		wantStopped  string
@@ -245,9 +245,9 @@ func TestPolicyFlow_DiscLayoutForcesPaused(t *testing.T) {
 	}{
 		{
 			name: "BDMV disc overrides paused=false",
-			files: qbt.TorrentFiles{
-				{Name: "Movie/BDMV/index.bdmv"},
-				{Name: "Movie/BDMV/STREAM/00000.m2ts"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie/BDMV/index.bdmv")},
+				{Name: qbt.Ptr("Movie/BDMV/STREAM/00000.m2ts")},
 			},
 			initialOpts:  map[string]string{"paused": "false", "stopped": "false"},
 			wantPaused:   "true",
@@ -256,8 +256,8 @@ func TestPolicyFlow_DiscLayoutForcesPaused(t *testing.T) {
 		},
 		{
 			name: "VIDEO_TS disc overrides paused=false",
-			files: qbt.TorrentFiles{
-				{Name: "DVD/VIDEO_TS/VIDEO_TS.VOB"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("DVD/VIDEO_TS/VIDEO_TS.VOB")},
 			},
 			initialOpts:  map[string]string{"paused": "false", "stopped": "false"},
 			wantPaused:   "true",
@@ -266,8 +266,8 @@ func TestPolicyFlow_DiscLayoutForcesPaused(t *testing.T) {
 		},
 		{
 			name: "non-disc preserves paused=false",
-			files: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.BluRay.x264-GROUP.mkv"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP.mkv")},
 			},
 			initialOpts:  map[string]string{"paused": "false", "stopped": "false"},
 			wantPaused:   "false",
@@ -276,8 +276,8 @@ func TestPolicyFlow_DiscLayoutForcesPaused(t *testing.T) {
 		},
 		{
 			name: "non-disc preserves paused=true",
-			files: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.BluRay.x264-GROUP.mkv"},
+			files: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP.mkv")},
 			},
 			initialOpts:  map[string]string{"paused": "true", "stopped": "true"},
 			wantPaused:   "true",

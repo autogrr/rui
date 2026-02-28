@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 
 	"github.com/autogrr/rui/internal/qbittorrent"
 )
@@ -104,15 +104,15 @@ func TestAppendTargetsFromCrossInstanceTorrents_RespectsExclusions(t *testing.T)
 
 	torrents := []qbittorrent.CrossInstanceTorrentView{
 		{
-			TorrentView: &qbittorrent.TorrentView{Torrent: &qbt.Torrent{Hash: "aaa"}},
+			TorrentView: &qbittorrent.TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("aaa")}},
 			InstanceID:  1,
 		},
 		{
-			TorrentView: &qbittorrent.TorrentView{Torrent: &qbt.Torrent{Hash: "bbb"}},
+			TorrentView: &qbittorrent.TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("bbb")}},
 			InstanceID:  1,
 		},
 		{
-			TorrentView: &qbittorrent.TorrentView{Torrent: &qbt.Torrent{Hash: "ccc"}},
+			TorrentView: &qbittorrent.TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("ccc")}},
 			InstanceID:  2,
 		},
 	}

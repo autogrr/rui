@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -25,10 +25,10 @@ func TestTorrentMeetsCriteria_MonitorAllAndAge(t *testing.T) {
 		MaxAgeSeconds: 600,
 	}
 
-	newTorrent := qbt.Torrent{TimeActive: 120, State: qbt.TorrentStateStalledUp}
+	newTorrent := qbt.Torrent{TimeActive: qbt.Ptr(int64(120)), State: qbt.Ptr(qbt.StateStalledUP)}
 	require.True(t, service.torrentMeetsCriteria(newTorrent, settings), "expected new torrent to meet criteria when MonitorAll=true and age is below MaxAge")
 
-	oldTorrent := qbt.Torrent{TimeActive: 601, State: qbt.TorrentStateStalledUp}
+	oldTorrent := qbt.Torrent{TimeActive: qbt.Ptr(int64(601)), State: qbt.Ptr(qbt.StateStalledUP)}
 	require.False(t, service.torrentMeetsCriteria(oldTorrent, settings), "expected old torrent to be filtered out when TimeActive exceeds MaxAge")
 
 	disabled := &models.InstanceReannounceSettings{Enabled: false, MonitorAll: true}
@@ -43,13 +43,13 @@ func TestTorrentMeetsCriteria_RequiresStalledState(t *testing.T) {
 	}
 
 	// Stalled states should pass
-	require.True(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.TorrentStateStalledUp}, settings))
-	require.True(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.TorrentStateStalledDl}, settings))
+	require.True(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.Ptr(qbt.StateStalledUP)}, settings))
+	require.True(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.Ptr(qbt.StateStalledDL)}, settings))
 
 	// Active states should fail
-	require.False(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.TorrentStateDownloading}, settings))
-	require.False(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.TorrentStateUploading}, settings))
-	require.False(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.TorrentStateQueuedUp}, settings))
+	require.False(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.Ptr(qbt.StateDownloading)}, settings))
+	require.False(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.Ptr(qbt.StateUploading)}, settings))
+	require.False(t, service.torrentMeetsCriteria(qbt.Torrent{State: qbt.Ptr(qbt.StateQueuedUP)}, settings))
 }
 
 func TestTorrentMeetsCriteria_ScopedByCategoryTagAndTracker(t *testing.T) {
@@ -64,25 +64,23 @@ func TestTorrentMeetsCriteria_ScopedByCategoryTagAndTracker(t *testing.T) {
 	}
 
 	// Matches by category
-	catTorrent := qbt.Torrent{TimeActive: 10, Category: "tv", State: qbt.TorrentStateStalledUp}
+	catTorrent := qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Category: qbt.Ptr("tv"), State: qbt.Ptr(qbt.StateStalledUP)}
 	require.True(t, service.torrentMeetsCriteria(catTorrent, settings), "expected matching category")
 
 	// Matches by tag
-	tagTorrent := qbt.Torrent{TimeActive: 10, Category: "movies", Tags: "tagA, tagB", State: qbt.TorrentStateStalledUp}
+	tagTorrent := qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Category: qbt.Ptr("movies"), Tags: qbt.Ptr("tagA, tagB"), State: qbt.Ptr(qbt.StateStalledUP)}
 	require.True(t, service.torrentMeetsCriteria(tagTorrent, settings), "expected matching tag")
 
 	// Matches by tracker domain using raw URL when syncManager is nil
 	trackerTorrent := qbt.Torrent{
-		TimeActive: 10,
-		State:      qbt.TorrentStateStalledUp,
-		Trackers: []qbt.TorrentTracker{{
-			Url: "tracker.example.com",
-		}},
+		TimeActive: qbt.Ptr(int64(10)),
+		State:      qbt.Ptr(qbt.StateStalledUP),
+		Tracker:    qbt.Ptr("tracker.example.com"),
 	}
 	require.True(t, service.torrentMeetsCriteria(trackerTorrent, settings), "expected matching tracker")
 
 	// Non-matching torrent should be filtered out
-	nonMatch := qbt.Torrent{TimeActive: 10, Category: "music", Tags: "other", Trackers: []qbt.TorrentTracker{{Url: "other.tracker"}}, State: qbt.TorrentStateStalledUp}
+	nonMatch := qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Category: qbt.Ptr("music"), Tags: qbt.Ptr("other"), State: qbt.Ptr(qbt.StateStalledUP)}
 	require.False(t, service.torrentMeetsCriteria(nonMatch, settings), "expected non match to be filtered")
 }
 
@@ -100,7 +98,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 			settings: models.InstanceReannounceSettings{
 				Enabled: false,
 			},
-			torrent: qbt.Torrent{TimeActive: 10, State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    false,
 		},
 		{
@@ -109,7 +107,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				Enabled:       true,
 				MaxAgeSeconds: 60,
 			},
-			torrent: qbt.Torrent{TimeActive: 61, State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(61)), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    false,
 		},
 		{
@@ -119,7 +117,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				MonitorAll:         true,
 				InitialWaitSeconds: 15,
 			},
-			torrent: qbt.Torrent{TimeActive: 10, State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    false,
 		},
 		{
@@ -129,7 +127,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				MonitorAll:         true,
 				InitialWaitSeconds: 15,
 			},
-			torrent: qbt.Torrent{TimeActive: 20, State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(20)), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    true,
 		},
 		{
@@ -138,7 +136,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				Enabled:    true,
 				MonitorAll: true,
 			},
-			torrent: qbt.Torrent{TimeActive: 10, State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    true,
 		},
 		{
@@ -149,7 +147,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				ExcludeCategories: true,
 				Categories:        []string{"TV"},
 			},
-			torrent: qbt.Torrent{TimeActive: 10, Category: "TV", State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Category: qbt.Ptr("TV"), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    false,
 		},
 		{
@@ -160,7 +158,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				ExcludeCategories: true,
 				Categories:        []string{"TV"},
 			},
-			torrent: qbt.Torrent{TimeActive: 10, Category: "Movies", State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Category: qbt.Ptr("Movies"), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    true,
 		},
 		{
@@ -171,7 +169,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				ExcludeTags: true,
 				Tags:        []string{"iso"},
 			},
-			torrent: qbt.Torrent{TimeActive: 10, Tags: "iso, linux", State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Tags: qbt.Ptr("iso, linux"), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    false,
 		},
 		{
@@ -183,9 +181,9 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				Trackers:        []string{"linux.iso"},
 			},
 			torrent: qbt.Torrent{
-				TimeActive: 10,
-				State:      qbt.TorrentStateStalledUp,
-				Trackers:   []qbt.TorrentTracker{{Url: "http://linux.iso/announce"}},
+				TimeActive: qbt.Ptr(int64(10)),
+				State:      qbt.Ptr(qbt.StateStalledUP),
+				Tracker:    qbt.Ptr("http://linux.iso/announce"),
 			},
 			want: false,
 		},
@@ -197,7 +195,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				ExcludeCategories: false,
 				Categories:        []string{"TV"},
 			},
-			torrent: qbt.Torrent{TimeActive: 10, Category: "TV", State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Category: qbt.Ptr("TV"), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    true,
 		},
 		{
@@ -208,7 +206,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				ExcludeCategories: false,
 				Categories:        []string{"TV"},
 			},
-			torrent: qbt.Torrent{TimeActive: 10, Category: "Movies", State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Category: qbt.Ptr("Movies"), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    false,
 		},
 		{
@@ -219,7 +217,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				ExcludeTags: false,
 				Tags:        []string{"hd"},
 			},
-			torrent: qbt.Torrent{TimeActive: 10, Tags: "hd", State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Tags: qbt.Ptr("hd"), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    true,
 		},
 		{
@@ -231,9 +229,9 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				Trackers:        []string{"tracker.op"},
 			},
 			torrent: qbt.Torrent{
-				TimeActive: 10,
-				State:      qbt.TorrentStateStalledUp,
-				Trackers:   []qbt.TorrentTracker{{Url: "http://tracker.op/announce"}},
+				TimeActive: qbt.Ptr(int64(10)),
+				State:      qbt.Ptr(qbt.StateStalledUP),
+				Tracker:    qbt.Ptr("http://tracker.op/announce"),
 			},
 			want: true,
 		},
@@ -247,7 +245,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				ExcludeTags:       false,
 				Tags:              []string{"bad"},
 			},
-			torrent: qbt.Torrent{TimeActive: 10, Category: "TV", Tags: "bad", State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Category: qbt.Ptr("TV"), Tags: qbt.Ptr("bad"), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    false,
 		},
 		{
@@ -260,7 +258,7 @@ func TestTorrentMeetsCriteria_IncludeExcludeLogic(t *testing.T) {
 				ExcludeTags:       false,
 				Tags:              []string{"good"},
 			},
-			torrent: qbt.Torrent{TimeActive: 10, Category: "Movies", Tags: "good", State: qbt.TorrentStateStalledUp},
+			torrent: qbt.Torrent{TimeActive: qbt.Ptr(int64(10)), Category: qbt.Ptr("Movies"), Tags: qbt.Ptr("good"), State: qbt.Ptr(qbt.StateStalledUP)},
 			want:    true,
 		},
 	}
@@ -281,38 +279,38 @@ func TestHasHealthyTracker_BasicCases(t *testing.T) {
 	require.False(t, service.hasHealthyTracker(nil))
 
 	// Working tracker only = healthy
-	okTrackers := []qbt.TorrentTracker{{Status: qbt.TrackerStatusOK, Message: ""}}
+	okTrackers := []qbt.TorrentTracker{{Status: qbt.Ptr(qbt.TrackerWorking), Message: qbt.Ptr("")}}
 	require.True(t, service.hasHealthyTracker(okTrackers))
 
 	// Not working (any message) = not healthy
-	downTrackers := []qbt.TorrentTracker{{Status: qbt.TrackerStatusNotWorking, Message: "tracker is down for maintenance"}}
+	downTrackers := []qbt.TorrentTracker{{Status: qbt.Ptr(qbt.TrackerNotWorking), Message: qbt.Ptr("tracker is down for maintenance")}}
 	require.False(t, service.hasHealthyTracker(downTrackers))
 
 	// Not working with unknown message = still not healthy (this is the key fix!)
-	unknownMsgTrackers := []qbt.TorrentTracker{{Status: qbt.TrackerStatusNotWorking, Message: "some unknown error"}}
+	unknownMsgTrackers := []qbt.TorrentTracker{{Status: qbt.Ptr(qbt.TrackerNotWorking), Message: qbt.Ptr("some unknown error")}}
 	require.False(t, service.hasHealthyTracker(unknownMsgTrackers))
 
 	// OK tracker plus problematic one – overall should be considered healthy due to working tracker
 	mixed := []qbt.TorrentTracker{
-		{Status: qbt.TrackerStatusNotWorking, Message: "tracker is down"},
-		{Status: qbt.TrackerStatusOK, Message: ""},
+		{Status: qbt.Ptr(qbt.TrackerNotWorking), Message: qbt.Ptr("tracker is down")},
+		{Status: qbt.Ptr(qbt.TrackerWorking), Message: qbt.Ptr("")},
 	}
 	require.True(t, service.hasHealthyTracker(mixed))
 
 	// OK tracker with unregistered message should NOT be treated as healthy
-	unregistered := []qbt.TorrentTracker{{Status: qbt.TrackerStatusOK, Message: "Torrent not registered"}}
+	unregistered := []qbt.TorrentTracker{{Status: qbt.Ptr(qbt.TrackerWorking), Message: qbt.Ptr("Torrent not registered")}}
 	require.False(t, service.hasHealthyTracker(unregistered))
 
 	// Disabled trackers should be ignored
-	disabledOnly := []qbt.TorrentTracker{{Status: qbt.TrackerStatusDisabled, Message: ""}}
+	disabledOnly := []qbt.TorrentTracker{{Status: qbt.Ptr(qbt.TrackerDisabled), Message: qbt.Ptr("")}}
 	require.False(t, service.hasHealthyTracker(disabledOnly))
 
 	// Updating trackers = not healthy yet
-	updatingTrackers := []qbt.TorrentTracker{{Status: qbt.TrackerStatusUpdating, Message: ""}}
+	updatingTrackers := []qbt.TorrentTracker{{Status: qbt.Ptr(qbt.TrackerUpdating), Message: qbt.Ptr("")}}
 	require.False(t, service.hasHealthyTracker(updatingTrackers))
 
 	// Not contacted (common state for newly-added torrents) = not healthy
-	notContactedTrackers := []qbt.TorrentTracker{{Status: qbt.TrackerStatusNotContacted, Message: ""}}
+	notContactedTrackers := []qbt.TorrentTracker{{Status: qbt.Ptr(qbt.TrackerNotContacted), Message: qbt.Ptr("")}}
 	require.False(t, service.hasHealthyTracker(notContactedTrackers))
 }
 
@@ -320,14 +318,14 @@ func TestTrackersUpdating(t *testing.T) {
 	service := &Service{}
 
 	updating := []qbt.TorrentTracker{
-		{Status: qbt.TrackerStatusUpdating},
-		{Status: qbt.TrackerStatusNotContacted},
+		{Status: qbt.Ptr(qbt.TrackerUpdating)},
+		{Status: qbt.Ptr(qbt.TrackerNotContacted)},
 	}
 	require.True(t, service.trackersUpdating(updating))
 
 	mixed := []qbt.TorrentTracker{
-		{Status: qbt.TrackerStatusUpdating},
-		{Status: qbt.TrackerStatusOK},
+		{Status: qbt.Ptr(qbt.TrackerUpdating)},
+		{Status: qbt.Ptr(qbt.TrackerWorking)},
 	}
 	require.False(t, service.trackersUpdating(mixed))
 }

@@ -8,7 +8,7 @@ import (
 	"context"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/internal/models"
@@ -22,17 +22,17 @@ func TestAnalyzeTorrentForSearchAsync_RejectsUnrelatedLargestFile(t *testing.T) 
 	instance := &models.Instance{ID: 1, Name: "Test"}
 
 	movieTorrent := qbt.Torrent{
-		Hash:     "deadbeef",
-		Name:     "Example.Movie.2001.1080p.BluRay.x264-GROUP",
-		Progress: 1.0,
-		Size:     10 << 30,
+		Hash:     qbt.Ptr("deadbeef"),
+		Name:     qbt.Ptr("Example.Movie.2001.1080p.BluRay.x264-GROUP"),
+		Progress: qbt.Ptr(float64(1.0)),
+		Size:     qbt.Ptr(int64(10 << 30)),
 	}
 
-	files := map[string]qbt.TorrentFiles{
-		movieTorrent.Hash: {
+	files := map[string][]qbt.TorrentFile{
+		qbt.Deref(movieTorrent.Hash): {
 			{
-				Name: "Different.Series.S03.1080p.WEB-DL.DDP5.1.H.264-GROUP/Different.Series.S03E02.1080p.WEB-DL.DDP5.1.H.264-GROUP.mkv",
-				Size: 8 << 30,
+				Name: qbt.Ptr("Different.Series.S03.1080p.WEB-DL.DDP5.1.H.264-GROUP/Different.Series.S03E02.1080p.WEB-DL.DDP5.1.H.264-GROUP.mkv"),
+				Size: qbt.Ptr(int64(8 << 30)),
 			},
 		},
 	}
@@ -44,7 +44,7 @@ func TestAnalyzeTorrentForSearchAsync_RejectsUnrelatedLargestFile(t *testing.T) 
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
 
-	result, err := service.AnalyzeTorrentForSearchAsync(ctx, instance.ID, movieTorrent.Hash, false)
+	result, err := service.AnalyzeTorrentForSearchAsync(ctx, instance.ID, qbt.Deref(movieTorrent.Hash), false)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -60,17 +60,17 @@ func TestAnalyzeTorrentForSearchAsync_UsesLargestFileWhenTitlesAlign(t *testing.
 	instance := &models.Instance{ID: 1, Name: "Test"}
 
 	tvTorrent := qbt.Torrent{
-		Hash:     "abcd1234",
-		Name:     "MadeUp.Show",
-		Progress: 1.0,
-		Size:     5 << 30,
+		Hash:     qbt.Ptr("abcd1234"),
+		Name:     qbt.Ptr("MadeUp.Show"),
+		Progress: qbt.Ptr(float64(1.0)),
+		Size:     qbt.Ptr(int64(5 << 30)),
 	}
 
-	files := map[string]qbt.TorrentFiles{
-		tvTorrent.Hash: {
+	files := map[string][]qbt.TorrentFile{
+		qbt.Deref(tvTorrent.Hash): {
 			{
-				Name: "MadeUp.Show.S01E02.1080p.WEB-DL.DDP5.1.H.264-GROUP.mkv",
-				Size: 3 << 30,
+				Name: qbt.Ptr("MadeUp.Show.S01E02.1080p.WEB-DL.DDP5.1.H.264-GROUP.mkv"),
+				Size: qbt.Ptr(int64(3 << 30)),
 			},
 		},
 	}
@@ -82,7 +82,7 @@ func TestAnalyzeTorrentForSearchAsync_UsesLargestFileWhenTitlesAlign(t *testing.
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
 
-	result, err := service.AnalyzeTorrentForSearchAsync(ctx, instance.ID, tvTorrent.Hash, false)
+	result, err := service.AnalyzeTorrentForSearchAsync(ctx, instance.ID, qbt.Deref(tvTorrent.Hash), false)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -102,21 +102,21 @@ func TestAnalyzeTorrentForSearchAsync_TrustFileEpisodeMarkers_Miniseries(t *test
 	instance := &models.Instance{ID: 1, Name: "Test"}
 
 	torrent := qbt.Torrent{
-		Hash:     "torka123",
-		Name:     "Torka.aldrig.tarar.utan.handskar.2012.720p.BluRay.x264-HANDJOB",
-		Progress: 1.0,
-		Size:     8 << 30,
+		Hash:     qbt.Ptr("torka123"),
+		Name:     qbt.Ptr("Torka.aldrig.tarar.utan.handskar.2012.720p.BluRay.x264-HANDJOB"),
+		Progress: qbt.Ptr(float64(1.0)),
+		Size:     qbt.Ptr(int64(8 << 30)),
 	}
 
-	files := map[string]qbt.TorrentFiles{
-		torrent.Hash: {
+	files := map[string][]qbt.TorrentFile{
+		qbt.Deref(torrent.Hash): {
 			{
-				Name: "Torka.aldrig.tarar.utan.handskar.2012.720p.BluRay.x264-HANDJOB/Torka.aldrig.tarar.utan.handskar.E01.2012.720p.BluRay.x264-HANDJOB.mkv",
-				Size: 4 << 30,
+				Name: qbt.Ptr("Torka.aldrig.tarar.utan.handskar.2012.720p.BluRay.x264-HANDJOB/Torka.aldrig.tarar.utan.handskar.E01.2012.720p.BluRay.x264-HANDJOB.mkv"),
+				Size: qbt.Ptr(int64(4 << 30)),
 			},
 			{
-				Name: "Torka.aldrig.tarar.utan.handskar.2012.720p.BluRay.x264-HANDJOB/Torka.aldrig.tarar.utan.handskar.E02.2012.720p.BluRay.x264-HANDJOB.mkv",
-				Size: 4 << 30,
+				Name: qbt.Ptr("Torka.aldrig.tarar.utan.handskar.2012.720p.BluRay.x264-HANDJOB/Torka.aldrig.tarar.utan.handskar.E02.2012.720p.BluRay.x264-HANDJOB.mkv"),
+				Size: qbt.Ptr(int64(4 << 30)),
 			},
 		},
 	}
@@ -128,7 +128,7 @@ func TestAnalyzeTorrentForSearchAsync_TrustFileEpisodeMarkers_Miniseries(t *test
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
 
-	result, err := service.AnalyzeTorrentForSearchAsync(ctx, instance.ID, torrent.Hash, false)
+	result, err := service.AnalyzeTorrentForSearchAsync(ctx, instance.ID, qbt.Deref(torrent.Hash), false)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -148,25 +148,25 @@ func TestAnalyzeTorrentForSearchAsync_TrustFileEpisodeMarkers_Anime(t *testing.T
 	instance := &models.Instance{ID: 1, Name: "Test"}
 
 	torrent := qbt.Torrent{
-		Hash:     "takopii123",
-		Name:     "[SubsPlease] Takopii no Genzai (1080p)",
-		Progress: 1.0,
-		Size:     9 << 30,
+		Hash:     qbt.Ptr("takopii123"),
+		Name:     qbt.Ptr("[SubsPlease] Takopii no Genzai (1080p)"),
+		Progress: qbt.Ptr(float64(1.0)),
+		Size:     qbt.Ptr(int64(9 << 30)),
 	}
 
-	files := map[string]qbt.TorrentFiles{
-		torrent.Hash: {
+	files := map[string][]qbt.TorrentFile{
+		qbt.Deref(torrent.Hash): {
 			{
-				Name: "[SubsPlease] Takopii no Genzai (1080p)/[SubsPlease] Takopii no Genzai - 01 (1080p) [2480DBD9].mkv",
-				Size: 2 << 30,
+				Name: qbt.Ptr("[SubsPlease] Takopii no Genzai (1080p)/[SubsPlease] Takopii no Genzai - 01 (1080p) [2480DBD9].mkv"),
+				Size: qbt.Ptr(int64(2 << 30)),
 			},
 			{
-				Name: "[SubsPlease] Takopii no Genzai (1080p)/[SubsPlease] Takopii no Genzai - 02 (1080p) [C84AB672].mkv",
-				Size: 1500 << 20,
+				Name: qbt.Ptr("[SubsPlease] Takopii no Genzai (1080p)/[SubsPlease] Takopii no Genzai - 02 (1080p) [C84AB672].mkv"),
+				Size: qbt.Ptr(int64(1500 << 20)),
 			},
 			{
-				Name: "[SubsPlease] Takopii no Genzai (1080p)/[SubsPlease] Takopii no Genzai - 03 (1080p) [A2386109].mkv",
-				Size: 1500 << 20,
+				Name: qbt.Ptr("[SubsPlease] Takopii no Genzai (1080p)/[SubsPlease] Takopii no Genzai - 03 (1080p) [A2386109].mkv"),
+				Size: qbt.Ptr(int64(1500 << 20)),
 			},
 		},
 	}
@@ -178,7 +178,7 @@ func TestAnalyzeTorrentForSearchAsync_TrustFileEpisodeMarkers_Anime(t *testing.T
 		stringNormalizer: stringutils.NewDefaultNormalizer(),
 	}
 
-	result, err := service.AnalyzeTorrentForSearchAsync(ctx, instance.ID, torrent.Hash, false)
+	result, err := service.AnalyzeTorrentForSearchAsync(ctx, instance.ID, qbt.Deref(torrent.Hash), false)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 

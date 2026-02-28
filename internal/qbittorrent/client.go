@@ -13,7 +13,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/autobrr/autobrr/pkg/ttlcache"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -54,12 +54,13 @@ type Client struct {
 	lastHealthCheck          time.Time
 	lastRecoveryTime         time.Time // When client transitioned from unhealthy→healthy (or was created)
 	isHealthy                bool
-	syncManager              *qbt.SyncManager
-	peerSyncManager          map[string]*qbt.PeerSyncManager // Map of torrent hash to PeerSyncManager
+	syncManager              *QBTSyncManager
+	peerSyncManager          map[string]*PeerSyncManager // Map of torrent hash to PeerSyncManager
 	// optimisticUpdates stores temporary optimistic state changes for this instance
 	optimisticUpdates *ttlcache.Cache[string, *OptimisticTorrentUpdate]
 	trackerExclusions map[string]map[string]struct{} // Domains to hide hashes from until fresh sync arrives
 	lastServerState   *qbt.ServerState
+	statsCache        clientStatsCache
 	mu                sync.RWMutex
 	serverStateMu     sync.RWMutex
 	healthMu          sync.RWMutex
@@ -82,7 +83,7 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password strin
 		Host:          instanceHost,
 		Username:      username,
 		Password:      password,
-		Timeout:       int(timeout.Seconds()),
+		Timeout:       timeout,
 		TLSSkipVerify: tlsSkipVerify,
 	}
 
@@ -93,12 +94,15 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password strin
 		}
 	}
 
-	qbtClient := qbt.NewClient(cfg)
+	qbtClient, err := qbt.NewClient(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create qBittorrent client: %w", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	if err := qbtClient.LoginCtx(ctx); err != nil {
+	if err := qbtClient.Login(ctx); err != nil {
 		return nil, fmt.Errorf("failed to connect to qBittorrent instance: %w", err)
 	}
 
@@ -111,7 +115,7 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password strin
 		optimisticUpdates: ttlcache.New(ttlcache.Options[string, *OptimisticTorrentUpdate]{}.
 			SetDefaultTTL(30 * time.Second)), // Updates expire after 30 seconds
 		trackerExclusions: make(map[string]map[string]struct{}),
-		peerSyncManager:   make(map[string]*qbt.PeerSyncManager),
+		peerSyncManager:   make(map[string]*PeerSyncManager),
 		completionState:   make(map[string]bool),
 		addedState:        make(map[string]struct{}),
 	}
@@ -128,25 +132,24 @@ func NewClientWithTimeout(instanceID int, instanceHost, username, password strin
 	}
 
 	// Initialize sync manager with default options
-	syncOpts := qbt.DefaultSyncOptions()
-	syncOpts.DynamicSync = true
+	syncOpts := qbt.SyncOptions{DynamicInterval: true}
 
-	// Set up health check callbacks
-	syncOpts.OnUpdate = func(data *qbt.MainData) {
+	legacyOnUpdate := func(data *qbt.MainData) {
 		client.updateHealthStatus(true)
 		client.updateServerState(data)
 		client.handleCompletionUpdates(data)
 		client.handleAddedUpdates(data)
+		client.updateCachedStats(data)
 		log.Trace().Int("instanceID", instanceID).Int("torrentCount", len(data.Torrents)).Msg("Sync manager update received, marking client as healthy")
 	}
 
-	syncOpts.OnError = func(err error) {
+	legacyOnError := func(err error) {
 		client.updateHealthStatus(false)
 		client.clearServerState()
 		log.Warn().Err(err).Int("instanceID", instanceID).Msg("Sync manager error received, marking client as unhealthy")
 	}
 
-	client.syncManager = qbtClient.NewSyncManager(syncOpts)
+	client.syncManager = newQBTSyncManager(qbtClient, syncOpts, NewTrackerManager(qbtClient), legacyOnUpdate, legacyOnError)
 
 	log.Debug().
 		Int("instanceID", instanceID).
@@ -228,7 +231,7 @@ func (c *Client) SupportsTorrentExport() bool {
 
 // RefreshCapabilities fetches the latest WebAPI version information and recalculates feature support flags.
 func (c *Client) RefreshCapabilities(ctx context.Context) error {
-	version, err := c.Client.GetWebAPIVersionCtx(ctx)
+	version, err := c.Client.GetWebAPIVersion(ctx)
 	if err != nil {
 		return err
 	}
@@ -326,7 +329,7 @@ func (c *Client) GetCachedConnectionStatus() string {
 		return ""
 	}
 
-	return state.ConnectionStatus
+	return ptrStr(state.ConnectionStatus)
 }
 
 // UpdateWithMainData updates the client's cached state with fresh MainData
@@ -365,7 +368,7 @@ func (c *Client) UpdateWithPeersData(hash string, data *qbt.TorrentPeersResponse
 			Int("instanceID", c.instanceID).
 			Str("hash", hash).
 			Int("peerCount", len(data.Peers)).
-			Int64("rid", data.Rid).
+			Int("rid", data.Rid).
 			Msg("Updated peer state with fresh data from intercepted request")
 	}()
 }
@@ -410,6 +413,12 @@ func (c *Client) SupportsPathAutocomplete() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.supportsPathAutocomplete
+}
+
+// GetDirectoryContent returns directory listing for path autocomplete.
+// withMetadata is reserved for future use.
+func (c *Client) GetDirectoryContent(_ context.Context, _ string, _ bool) (any, error) {
+	return nil, fmt.Errorf("directory content listing is not supported in this build")
 }
 
 // getTorrentsByHashes returns multiple torrents by their hashes (O(n) where n is number of requested hashes)
@@ -460,13 +469,13 @@ func (c *Client) GetWebAPIVersion() string {
 	return c.webAPIVersion
 }
 
-func (c *Client) GetSyncManager() *qbt.SyncManager {
+func (c *Client) GetSyncManager() *QBTSyncManager {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.syncManager
 }
 
-func (c *Client) trackerManager() *qbt.TrackerManager {
+func (c *Client) trackerManager() *TrackerManager {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.syncManager == nil {
@@ -641,8 +650,8 @@ func (c *Client) handleAddedUpdates(data *qbt.MainData) {
 
 	now := time.Now()
 	for _, torrent := range ready {
-		if torrent.AddedOn > 0 {
-			addedAt := time.Unix(torrent.AddedOn, 0)
+		if ptrInt64(torrent.AddedOn) > 0 {
+			addedAt := time.Unix(ptrInt64(torrent.AddedOn), 0)
 			if now.Sub(addedAt) > torrentAddedGraceWindow {
 				continue
 			}
@@ -657,23 +666,23 @@ func isTorrentComplete(t *qbt.Torrent) bool {
 		return false
 	}
 
-	if t.Progress < completionProgressThreshold {
+	if ptrFloat64(t.Progress) < completionProgressThreshold {
 		return false
 	}
 
-	switch t.State {
-	case qbt.TorrentStateDownloading,
-		qbt.TorrentStateMetaDl,
-		qbt.TorrentStatePausedDl,
-		qbt.TorrentStateStoppedDl,
-		qbt.TorrentStateQueuedDl,
-		qbt.TorrentStateStalledDl,
-		qbt.TorrentStateCheckingDl,
-		qbt.TorrentStateForcedDl,
-		qbt.TorrentStateCheckingResumeData,
-		qbt.TorrentStateAllocating,
-		qbt.TorrentStateMoving,
-		qbt.TorrentStateUnknown:
+	switch ptrTorrentState(t.State) {
+	case qbt.StateDownloading,
+		qbt.StateMetaDL,
+		qbt.StatePausedDL,
+		qbt.StateStoppedDL,
+		qbt.StateQueuedDL,
+		qbt.StateStalledDL,
+		qbt.StateCheckingDL,
+		qbt.StateForcedDL,
+		qbt.StateCheckingResumeData,
+		qbt.StateAllocating,
+		qbt.StateMoving,
+		qbt.StateUnknown:
 		return false
 	default:
 		return true
@@ -681,7 +690,7 @@ func isTorrentComplete(t *qbt.Torrent) bool {
 }
 
 // GetOrCreatePeerSyncManager gets or creates a PeerSyncManager for a specific torrent
-func (c *Client) GetOrCreatePeerSyncManager(hash string) *qbt.PeerSyncManager {
+func (c *Client) GetOrCreatePeerSyncManager(hash string) *PeerSyncManager {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -691,9 +700,9 @@ func (c *Client) GetOrCreatePeerSyncManager(hash string) *qbt.PeerSyncManager {
 	}
 
 	// Create a new peer sync manager for this torrent
-	peerSyncOpts := qbt.DefaultPeerSyncOptions()
+	peerSyncOpts := DefaultPeerSyncOptions()
 	peerSyncOpts.AutoSync = false // We'll sync manually when requested
-	peerSync := c.Client.NewPeerSyncManager(hash, peerSyncOpts)
+	peerSync := newPeerSyncManager(c.Client, hash, peerSyncOpts)
 	c.peerSyncManager[hash] = peerSync
 
 	return peerSync
@@ -714,8 +723,8 @@ func (c *Client) applyOptimisticCacheUpdate(hashes []string, action string, _ ma
 		c.mu.RLock()
 		if c.syncManager != nil {
 			if torrent, exists := c.syncManager.GetTorrent(hash); exists {
-				originalState = torrent.State
-				progress = torrent.Progress
+				originalState = ptrTorrentState(torrent.State)
+				progress = ptrFloat64(torrent.Progress)
 			}
 		}
 		c.mu.RUnlock()
@@ -843,24 +852,24 @@ func getTargetState(action string, progress float64) qbt.TorrentState {
 	switch action {
 	case "resume":
 		if progress == 1.0 {
-			return qbt.TorrentStateQueuedUp
+			return qbt.StateQueuedUP
 		}
-		return qbt.TorrentStateQueuedDl
+		return qbt.StateQueuedDL
 	case "force_resume":
 		if progress == 1.0 {
-			return qbt.TorrentStateForcedUp
+			return qbt.StateForcedUP
 		}
-		return qbt.TorrentStateForcedDl
+		return qbt.StateForcedDL
 	case "pause":
 		if progress == 1.0 {
-			return qbt.TorrentStatePausedUp
+			return qbt.StatePausedUP
 		}
-		return qbt.TorrentStatePausedDl
+		return qbt.StatePausedDL
 	case "recheck":
 		if progress == 1.0 {
-			return qbt.TorrentStateCheckingUp
+			return qbt.StateCheckingUP
 		}
-		return qbt.TorrentStateCheckingDl
+		return qbt.StateCheckingDL
 	default:
 		return ""
 	}

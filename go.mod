@@ -48,6 +48,13 @@ require (
 require (
 	github.com/Oudwins/tailwind-merge-go v0.2.1 // indirect
 	github.com/a-h/templ v0.3.977 // indirect
+	github.com/autogrr/go-qbittorrent v0.0.0-20260228035939-28a9cd214d8d // indirect
+	github.com/bytedance/gopkg v0.1.3 // indirect
+	github.com/bytedance/sonic v1.15.0 // indirect
+	github.com/bytedance/sonic/loader v0.5.0 // indirect
+	github.com/cloudwego/base64x v0.1.6 // indirect
+	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
+	golang.org/x/arch v0.12.0 // indirect
 )
 
 replace github.com/moistari/rls => github.com/autobrr/rls v0.8.0
@@ -73,7 +80,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

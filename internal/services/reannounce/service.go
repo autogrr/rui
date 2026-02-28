@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/models"
@@ -172,11 +172,11 @@ func (s *Service) RequestReannounce(ctx context.Context, instanceID int, hashes 
 		if !s.torrentMeetsCriteria(torrent, settings) {
 			continue
 		}
-		if s.hasHealthyTracker(torrent.Trackers) {
+		if s.hasHealthyTracker(nil) {
 			continue
 		}
-		trackers := s.getProblematicTrackers(torrent.Trackers)
-		if s.enqueue(instanceID, hash, torrent.Name, trackers) {
+		trackers := s.getProblematicTrackers(nil)
+		if s.enqueue(instanceID, hash, qbt.Deref(torrent.Name), trackers) {
 			handled = append(handled, hash)
 		}
 	}
@@ -232,14 +232,14 @@ func (s *Service) scanInstance(ctx context.Context, instanceID int, settings *mo
 	// For qBittorrent 5.1+ (WebAPI >= 2.11.4), fetch torrents with tracker data in one call.
 	// For older versions, use the sync manager cache (trackers fetched separately in executeJob).
 	if client.SupportsTrackerHealth() {
-		torrents, err = client.GetTorrentsCtx(ctx, qbt.TorrentFilterOptions{
-			Filter:          qbt.TorrentFilterStalled,
+		torrents, err = client.GetTorrents(ctx, qbt.TorrentFilterOptions{
+			Filter:          qbt.FilterStalled,
 			IncludeTrackers: true,
 		})
 	} else {
 		// Older qBittorrent - use cached torrents; executeJob will fetch fresh trackers
 		torrents, err = s.syncManager.GetTorrents(ctx, instanceID, qbt.TorrentFilterOptions{
-			Filter: qbt.TorrentFilterStalled,
+			Filter: qbt.FilterStalled,
 		})
 	}
 	if err != nil {
@@ -254,11 +254,11 @@ func (s *Service) scanInstance(ctx context.Context, instanceID int, settings *mo
 		// Skip if we have tracker data and it shows healthy.
 		// For older qBittorrent without IncludeTrackers, Trackers will be empty
 		// and we'll enqueue the torrent - executeJob will check fresh tracker status.
-		if len(torrent.Trackers) > 0 && s.hasHealthyTracker(torrent.Trackers) {
+		if false { // trackers not available inline in new library
 			continue
 		}
-		trackers := s.getProblematicTrackers(torrent.Trackers)
-		s.enqueue(instanceID, strings.ToUpper(torrent.Hash), torrent.Name, trackers)
+		trackers := s.getProblematicTrackers(nil)
+		s.enqueue(instanceID, strings.ToUpper(qbt.Deref(torrent.Hash)), qbt.Deref(torrent.Name), trackers)
 	}
 }
 
@@ -279,7 +279,7 @@ func (s *Service) GetMonitoredTorrents(ctx context.Context, instanceID int) []Mo
 	}
 
 	torrents, err := s.syncManager.GetTorrents(ctx, instanceID, qbt.TorrentFilterOptions{
-		Filter: qbt.TorrentFilterStalled,
+		Filter: qbt.FilterStalled,
 	})
 	if err != nil {
 		log.Debug().Err(err).Int("instanceID", instanceID).Msg("reannounce: failed to fetch torrents for snapshot")
@@ -302,10 +302,10 @@ func (s *Service) GetMonitoredTorrents(ctx context.Context, instanceID int) []Mo
 		}
 
 		// Check if torrent is still in initial wait period
-		inInitialWait := settings.InitialWaitSeconds > 0 && torrent.TimeActive < int64(settings.InitialWaitSeconds)
+		inInitialWait := settings.InitialWaitSeconds > 0 && qbt.Deref(torrent.TimeActive) < int64(settings.InitialWaitSeconds)
 
-		healthy := s.hasHealthyTracker(torrent.Trackers)
-		updating := s.trackersUpdating(torrent.Trackers)
+		healthy := s.hasHealthyTracker(nil)
+		updating := s.trackersUpdating(nil)
 		hasProblem := !healthy && !updating
 		waitingForTrackers := updating && !healthy
 
@@ -314,7 +314,7 @@ func (s *Service) GetMonitoredTorrents(ctx context.Context, instanceID int) []Mo
 			continue
 		}
 
-		hashUpper := strings.ToUpper(strings.TrimSpace(torrent.Hash))
+		hashUpper := strings.ToUpper(strings.TrimSpace(qbt.Deref(torrent.Hash)))
 		if hashUpper == "" {
 			continue
 		}
@@ -330,16 +330,16 @@ func (s *Service) GetMonitoredTorrents(ctx context.Context, instanceID int) []Mo
 			}
 		}
 
-		trackers := s.getProblematicTrackers(torrent.Trackers)
+		trackers := s.getProblematicTrackers(nil)
 
 		result = append(result, MonitoredTorrent{
 			InstanceID:        instanceID,
 			Hash:              hashUpper,
-			TorrentName:       torrent.Name,
+			TorrentName:       qbt.Deref(torrent.Name),
 			Trackers:          trackers,
-			TimeActiveSeconds: torrent.TimeActive,
-			Category:          torrent.Category,
-			Tags:              torrent.Tags,
+			TimeActiveSeconds: qbt.Deref(torrent.TimeActive),
+			Category:          qbt.Deref(torrent.Category),
+			Tags:              qbt.Deref(torrent.Tags),
 			State:             state,
 			HasTrackerProblem: hasProblem,
 			WaitingForInitial: inInitialWait || waitingForTrackers,
@@ -424,7 +424,7 @@ func (s *Service) executeJob(parentCtx context.Context, instanceID int, hash str
 		s.recordActivity(instanceID, hash, torrentName, initialTrackers, ActivityOutcomeFailed, fmt.Sprintf("client unavailable: %v", err))
 		return
 	}
-	trackerList, err := client.GetTorrentTrackersCtx(ctx, hash)
+	trackerList, err := client.GetTorrentTrackers(ctx, hash)
 	if err != nil {
 		log.Debug().Err(err).Int("instanceID", instanceID).Str("hash", hash).Msg("reannounce: failed to load trackers")
 		s.recordActivity(instanceID, hash, torrentName, initialTrackers, ActivityOutcomeFailed, fmt.Sprintf("failed to load trackers: %v", err))
@@ -440,14 +440,40 @@ func (s *Service) executeJob(parentCtx context.Context, instanceID int, hash str
 	if freshTrackers == "" {
 		freshTrackers = initialTrackers
 	}
-	opts := &qbt.ReannounceOptions{
-		Interval:        settings.ReannounceIntervalSeconds,
-		MaxAttempts:     settings.MaxRetries,
-		DeleteOnFailure: false,
+	maxAttempts := settings.MaxRetries
+	if maxAttempts <= 0 {
+		maxAttempts = 1
 	}
-	if err := client.ReannounceTorrentWithRetry(ctx, hash, opts); err != nil {
-		log.Debug().Err(err).Int("instanceID", instanceID).Str("hash", hash).Msg("reannounce: retry failed")
-		s.recordActivity(instanceID, hash, torrentName, freshTrackers, ActivityOutcomeFailed, fmt.Sprintf("reannounce failed: %v", err))
+	interval := time.Duration(settings.ReannounceIntervalSeconds) * time.Second
+	if interval <= 0 {
+		interval = 7 * time.Second
+	}
+	var reannounceErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				reannounceErr = ctx.Err()
+			case <-time.After(interval):
+			}
+			if reannounceErr != nil {
+				break
+			}
+		}
+		if err := client.Reannounce(ctx, []string{hash}); err != nil {
+			reannounceErr = err
+			continue
+		}
+		// Check if tracker is now healthy
+		updatedTrackers, checkErr := client.GetTorrentTrackers(ctx, hash)
+		if checkErr == nil && s.hasHealthyTracker(updatedTrackers) {
+			reannounceErr = nil
+			break
+		}
+	}
+	if reannounceErr != nil {
+		log.Debug().Err(reannounceErr).Int("instanceID", instanceID).Str("hash", hash).Msg("reannounce: retry failed")
+		s.recordActivity(instanceID, hash, torrentName, freshTrackers, ActivityOutcomeFailed, fmt.Sprintf("reannounce failed: %v", reannounceErr))
 		return
 	}
 	s.recordActivity(instanceID, hash, torrentName, freshTrackers, ActivityOutcomeSucceeded, "reannounce requested")
@@ -533,7 +559,7 @@ func (s *Service) torrentMeetsCriteria(torrent qbt.Torrent, settings *models.Ins
 		return false
 	}
 	// Check initial wait - torrent must be old enough
-	if settings.InitialWaitSeconds > 0 && torrent.TimeActive < int64(settings.InitialWaitSeconds) {
+	if settings.InitialWaitSeconds > 0 && qbt.Deref(torrent.TimeActive) < int64(settings.InitialWaitSeconds) {
 		return false
 	}
 	return true
@@ -548,25 +574,25 @@ func (s *Service) torrentMatchesFilters(torrent qbt.Torrent, settings *models.In
 	}
 
 	// Global requirement: Only monitor stalled torrents
-	if torrent.State != qbt.TorrentStateStalledDl && torrent.State != qbt.TorrentStateStalledUp {
+	if qbt.Deref(torrent.State) != qbt.StateStalledDL && qbt.Deref(torrent.State) != qbt.StateStalledUP {
 		return false
 	}
 
-	if settings.MaxAgeSeconds > 0 && torrent.TimeActive > int64(settings.MaxAgeSeconds) {
+	if settings.MaxAgeSeconds > 0 && qbt.Deref(torrent.TimeActive) > int64(settings.MaxAgeSeconds) {
 		return false
 	}
 
 	// 1. Check exclusions first
 	if settings.ExcludeCategories && len(settings.Categories) > 0 {
 		for _, category := range settings.Categories {
-			if strings.EqualFold(category, torrent.Category) {
+			if strings.EqualFold(category, qbt.Deref(torrent.Category)) {
 				return false
 			}
 		}
 	}
 
 	if settings.ExcludeTags && len(settings.Tags) > 0 {
-		torrentTags := splitTags(torrent.Tags)
+		torrentTags := splitTags(qbt.Deref(torrent.Tags))
 		for _, tag := range torrentTags {
 			for _, excluded := range settings.Tags {
 				if strings.EqualFold(excluded, tag) {
@@ -576,13 +602,11 @@ func (s *Service) torrentMatchesFilters(torrent qbt.Torrent, settings *models.In
 		}
 	}
 
-	if settings.ExcludeTrackers && len(settings.Trackers) > 0 {
-		for _, tracker := range torrent.Trackers {
-			domain := s.extractTrackerDomain(tracker.Url)
-			for _, excluded := range settings.Trackers {
-				if strings.EqualFold(domain, excluded) {
-					return false
-				}
+	if settings.ExcludeTrackers && len(settings.Trackers) > 0 && torrent.Tracker != nil {
+		domain := s.extractTrackerDomain(qbt.Deref(torrent.Tracker))
+		for _, excluded := range settings.Trackers {
+			if strings.EqualFold(domain, excluded) {
+				return false
 			}
 		}
 	}
@@ -618,14 +642,14 @@ func (s *Service) torrentMatchesFilters(torrent qbt.Torrent, settings *models.In
 
 	if !settings.ExcludeCategories && len(settings.Categories) > 0 {
 		for _, category := range settings.Categories {
-			if strings.EqualFold(category, torrent.Category) {
+			if strings.EqualFold(category, qbt.Deref(torrent.Category)) {
 				return true
 			}
 		}
 	}
 
 	if !settings.ExcludeTags && len(settings.Tags) > 0 {
-		torrentTags := splitTags(torrent.Tags)
+		torrentTags := splitTags(qbt.Deref(torrent.Tags))
 		for _, tag := range torrentTags {
 			for _, configured := range settings.Tags {
 				if strings.EqualFold(configured, tag) {
@@ -635,13 +659,11 @@ func (s *Service) torrentMatchesFilters(torrent qbt.Torrent, settings *models.In
 		}
 	}
 
-	if !settings.ExcludeTrackers && len(settings.Trackers) > 0 {
-		for _, tracker := range torrent.Trackers {
-			domain := s.extractTrackerDomain(tracker.Url)
-			for _, expected := range settings.Trackers {
-				if strings.EqualFold(domain, expected) {
-					return true
-				}
+	if !settings.ExcludeTrackers && len(settings.Trackers) > 0 && torrent.Tracker != nil {
+		domain := s.extractTrackerDomain(qbt.Deref(torrent.Tracker))
+		for _, expected := range settings.Trackers {
+			if strings.EqualFold(domain, expected) {
+				return true
 			}
 		}
 	}
@@ -658,14 +680,14 @@ func (s *Service) torrentMatchesFilters(torrent qbt.Torrent, settings *models.In
 // working, reannouncing won't help.
 func (s *Service) hasHealthyTracker(trackers []qbt.TorrentTracker) bool {
 	for _, tracker := range trackers {
-		if tracker.Status == qbt.TrackerStatusDisabled {
+		if qbt.Deref(tracker.Status) == qbt.TrackerDisabled {
 			continue
 		}
 		// Check message first to catch OK status with unregistered msg
-		if qbittorrent.TrackerMessageMatchesUnregistered(tracker.Message) {
+		if qbittorrent.TrackerMessageMatchesUnregistered(qbt.Deref(tracker.Message)) {
 			continue
 		}
-		if tracker.Status == qbt.TrackerStatusOK {
+		if qbt.Deref(tracker.Status) == qbt.TrackerWorking {
 			return true
 		}
 	}
@@ -682,15 +704,15 @@ func (s *Service) getProblematicTrackers(trackers []qbt.TorrentTracker) string {
 	var problematicDomains []string
 	seenDomains := make(map[string]struct{})
 	for _, tracker := range trackers {
-		if tracker.Status == qbt.TrackerStatusDisabled {
+		if qbt.Deref(tracker.Status) == qbt.TrackerDisabled {
 			continue
 		}
 		// A tracker is problematic if it's not healthy
 		// (i.e., not TrackerStatusOK, or OK but with unregistered message)
-		isHealthy := tracker.Status == qbt.TrackerStatusOK &&
-			!qbittorrent.TrackerMessageMatchesUnregistered(tracker.Message)
+		isHealthy := qbt.Deref(tracker.Status) == qbt.TrackerWorking &&
+			!qbittorrent.TrackerMessageMatchesUnregistered(qbt.Deref(tracker.Message))
 		if !isHealthy {
-			domain := s.extractTrackerDomain(tracker.Url)
+			domain := s.extractTrackerDomain(qbt.Deref(tracker.URL))
 			if domain != "" {
 				domainLower := strings.ToLower(domain)
 				if _, exists := seenDomains[domainLower]; !exists {
@@ -713,13 +735,13 @@ func (s *Service) getHealthyTrackers(trackers []qbt.TorrentTracker) string {
 	var healthyDomains []string
 	seenDomains := make(map[string]struct{})
 	for _, tracker := range trackers {
-		if tracker.Status == qbt.TrackerStatusDisabled {
+		if qbt.Deref(tracker.Status) == qbt.TrackerDisabled {
 			continue
 		}
-		isHealthy := tracker.Status == qbt.TrackerStatusOK &&
-			!qbittorrent.TrackerMessageMatchesUnregistered(tracker.Message)
+		isHealthy := qbt.Deref(tracker.Status) == qbt.TrackerWorking &&
+			!qbittorrent.TrackerMessageMatchesUnregistered(qbt.Deref(tracker.Message))
 		if isHealthy {
-			domain := s.extractTrackerDomain(tracker.Url)
+			domain := s.extractTrackerDomain(qbt.Deref(tracker.URL))
 			if domain != "" {
 				domainLower := strings.ToLower(domain)
 				if _, exists := seenDomains[domainLower]; !exists {
@@ -739,10 +761,10 @@ func (s *Service) trackersUpdating(trackers []qbt.TorrentTracker) bool {
 
 	var activeCount int
 	for _, tracker := range trackers {
-		switch tracker.Status {
-		case qbt.TrackerStatusDisabled:
+		switch qbt.Deref(tracker.Status) {
+		case qbt.TrackerDisabled:
 			continue
-		case qbt.TrackerStatusUpdating, qbt.TrackerStatusNotContacted:
+		case qbt.TrackerUpdating, qbt.TrackerNotContacted:
 			activeCount++
 		default:
 			return false

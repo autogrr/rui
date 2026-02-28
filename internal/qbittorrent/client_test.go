@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 )
 
 func TestClientUpdateServerStateDoesNotBlockOnClientMutex(t *testing.T) {
@@ -23,7 +23,7 @@ func TestClientUpdateServerStateDoesNotBlockOnClientMutex(t *testing.T) {
 		defer close(done)
 		client.updateServerState(&qbt.MainData{
 			ServerState: qbt.ServerState{
-				ConnectionStatus: "connected",
+				ConnectionStatus: qbt.Ptr("connected"),
 			},
 		})
 	}()

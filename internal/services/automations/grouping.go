@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/qbittorrent"
@@ -419,11 +419,11 @@ func buildGroupIndex(groupID string, def *models.GroupDefinition, torrents []qbt
 		if !ok || key == "" {
 			continue
 		}
-		idx.keyByHash[t.Hash] = key
-		idx.hashesByKey[key] = append(idx.hashesByKey[key], t.Hash)
+		idx.keyByHash[qbt.Deref(t.Hash)] = key
+		idx.hashesByKey[key] = append(idx.hashesByKey[key], qbt.Deref(t.Hash))
 
 		// Mark ambiguity for contentPath-based groups when ContentPath == SavePath.
-		if containsKey(keys, groupKeyContentPath) && normalizePath(t.ContentPath) == normalizePath(t.SavePath) {
+		if containsKey(keys, groupKeyContentPath) && normalizePath(qbt.Deref(t.ContentPath)) == normalizePath(qbt.Deref(t.SavePath)) {
 			idx.ambiguousKeys[key] = struct{}{}
 		}
 	}
@@ -449,13 +449,13 @@ func buildGroupKey(keys []string, t qbt.Torrent, sm *qbittorrent.SyncManager, ev
 	for _, k := range keys {
 		switch k {
 		case groupKeyContentPath:
-			v := normalizePath(t.ContentPath)
+			v := normalizePath(qbt.Deref(t.ContentPath))
 			if v == "" {
 				return "", false
 			}
 			parts = append(parts, v)
 		case groupKeySavePath:
-			v := normalizePath(t.SavePath)
+			v := normalizePath(qbt.Deref(t.SavePath))
 			if v == "" {
 				return "", false
 			}
@@ -527,7 +527,7 @@ func buildGroupKey(keys []string, t qbt.Torrent, sm *qbittorrent.SyncManager, ev
 			if evalCtx == nil || evalCtx.HardlinkSignatureByHash == nil {
 				return "", false
 			}
-			v := strings.TrimSpace(evalCtx.HardlinkSignatureByHash[t.Hash])
+			v := strings.TrimSpace(evalCtx.HardlinkSignatureByHash[qbt.Deref(t.Hash)])
 			if v == "" {
 				return "", false
 			}

@@ -7,12 +7,12 @@ package jackett
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
 
-	"github.com/autobrr/go-qbittorrent/errors"
 	"github.com/avast/retry-go"
 
 	"github.com/autogrr/rui/pkg/redact"
@@ -21,7 +21,7 @@ import (
 func (c *Client) getRawCtx(ctx context.Context, reqUrl string) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not build request")
+		return nil, fmt.Errorf("could not build request: %w", err)
 	}
 
 	if c.cfg.BasicUser != "" && c.cfg.BasicPass != "" {
@@ -31,7 +31,7 @@ func (c *Client) getRawCtx(ctx context.Context, reqUrl string) (*http.Response, 
 	resp, err := c.retryDo(ctx, req)
 	if err != nil {
 		err = redact.URLError(err)
-		return nil, errors.Wrap(err, "error making get request: %v", redact.URLString(reqUrl))
+		return nil, fmt.Errorf("error making get request: %v: %w", redact.URLString(reqUrl), err)
 	}
 
 	return resp, nil
@@ -116,7 +116,7 @@ func (c *Client) retryDo(ctx context.Context, req *http.Request) (*http.Response
 			if resp.StatusCode < 500 {
 				return err
 			} else if resp.StatusCode >= 500 {
-				return retry.Unrecoverable(errors.New("unrecoverable status: %v", resp.StatusCode))
+				return retry.Unrecoverable(fmt.Errorf("unrecoverable status: %v", resp.StatusCode))
 			}
 		}
 
@@ -133,7 +133,7 @@ func (c *Client) retryDo(ctx context.Context, req *http.Request) (*http.Response
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "error making request")
+		return nil, fmt.Errorf("error making request: %w", err)
 	}
 
 	return resp, nil

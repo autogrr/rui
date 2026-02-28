@@ -5,7 +5,7 @@
 package crossseed
 
 import (
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/moistari/rls"
 
 	"github.com/autogrr/rui/pkg/stringutils"
@@ -14,7 +14,7 @@ import (
 // deriveSourceReleaseForSearch enhances parsed torrent metadata with information inferred
 // from actual files, primarily to recover season/episode structure when the torrent name
 // doesn't include it (common for anime season packs).
-func (s *Service) deriveSourceReleaseForSearch(sourceRelease *rls.Release, files qbt.TorrentFiles) *rls.Release {
+func (s *Service) deriveSourceReleaseForSearch(sourceRelease *rls.Release, files []qbt.TorrentFile) *rls.Release {
 	if sourceRelease == nil || len(files) == 0 || s == nil || s.releaseCache == nil {
 		return sourceRelease
 	}
@@ -42,7 +42,7 @@ func (s *Service) deriveSourceReleaseForSearch(sourceRelease *rls.Release, files
 	return &derived
 }
 
-func (s *Service) inferTVSeriesEpisodeFromFiles(torrentRelease *rls.Release, files qbt.TorrentFiles) (series, episode int, isPack, ok bool) {
+func (s *Service) inferTVSeriesEpisodeFromFiles(torrentRelease *rls.Release, files []qbt.TorrentFile) (series, episode int, isPack, ok bool) {
 	normalizer := s.stringNormalizer
 	if normalizer == nil {
 		normalizer = stringutils.NewDefaultNormalizer()
@@ -55,11 +55,11 @@ func (s *Service) inferTVSeriesEpisodeFromFiles(torrentRelease *rls.Release, fil
 
 	bySeries := make(map[int]*seriesInfo)
 	for _, file := range files {
-		if shouldIgnoreFile(file.Name, normalizer) {
+		if shouldIgnoreFile(qbt.Deref(file.Name), normalizer) {
 			continue
 		}
 
-		fileRelease := s.releaseCache.Parse(file.Name)
+		fileRelease := s.releaseCache.Parse(qbt.Deref(file.Name))
 		fileRelease = enrichReleaseFromTorrent(fileRelease, torrentRelease)
 		if fileRelease.Series <= 0 {
 			continue

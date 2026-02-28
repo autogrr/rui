@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/internal/models"
@@ -37,31 +37,31 @@ func TestGetTorrentFilesBatch_NormalizesAndCaches(t *testing.T) {
 
 	client := &stubTorrentFilesClient{
 		torrents: []qbt.Torrent{
-			{Hash: "ABC123", Progress: 1.0},
-			{Hash: "def456", Progress: 0.5},
+			{Hash: qbt.Ptr("ABC123"), Progress: qbt.Ptr(1.0)},
+			{Hash: qbt.Ptr("def456"), Progress: qbt.Ptr(0.5)},
 		},
-		filesByHash: map[string]qbt.TorrentFiles{
+		filesByHash: map[string]TorrentFiles{
 			"ABC123": {
 				{
-					Name: "cached-a.mkv",
-					Size: 1,
+					Name: qbt.Ptr("cached-a.mkv"),
+					Size: qbt.Ptr(int64(1)),
 				},
 			},
 			"Def456": {
 				{
-					Name: "def-file.mkv",
-					Size: 2,
+					Name: qbt.Ptr("def-file.mkv"),
+					Size: qbt.Ptr(int64(2)),
 				},
 			},
 		},
 	}
 
 	fm := &stubFilesManager{
-		cached: map[string]qbt.TorrentFiles{
+		cached: map[string]TorrentFiles{
 			"abc123": {
 				{
-					Name: "cached-a.mkv",
-					Size: 1,
+					Name: qbt.Ptr("cached-a.mkv"),
+					Size: qbt.Ptr(int64(1)),
 				},
 			},
 		},
@@ -80,8 +80,8 @@ func TestGetTorrentFilesBatch_NormalizesAndCaches(t *testing.T) {
 	require.Len(t, filesByHash, 2)
 	require.Contains(t, filesByHash, "abc123")
 	require.Contains(t, filesByHash, "def456")
-	require.Equal(t, "cached-a.mkv", filesByHash["abc123"][0].Name)
-	require.Equal(t, "def-file.mkv", filesByHash["def456"][0].Name)
+	require.Equal(t, "cached-a.mkv", qbt.Deref(filesByHash["abc123"][0].Name))
+	require.Equal(t, "def-file.mkv", qbt.Deref(filesByHash["def456"][0].Name))
 
 	require.ElementsMatch(t, []string{"abc123", "def456"}, fm.lastHashes)
 	require.Len(t, fm.cacheCalls, 1)
@@ -97,8 +97,8 @@ func TestHasTorrentByAnyHash(t *testing.T) {
 
 	lookup := &stubTorrentLookup{
 		torrents: map[string]qbt.Torrent{
-			"ABC123": {Hash: "ABC123", Name: "first"},
-			"DEF456": {Hash: "zzz", InfohashV2: "def456", Name: "second"},
+			"ABC123": {Hash: qbt.Ptr("ABC123"), Name: qbt.Ptr("first")},
+			"DEF456": {Hash: qbt.Ptr("zzz"), InfoHashV2: qbt.Ptr("def456"), Name: qbt.Ptr("second")},
 		},
 	}
 
@@ -112,14 +112,14 @@ func TestHasTorrentByAnyHash(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, found)
 	require.NotNil(t, torrent)
-	require.Equal(t, "ABC123", torrent.Hash)
+	require.Equal(t, "ABC123", qbt.Deref(torrent.Hash))
 
 	torrent, found, err = sm.HasTorrentByAnyHash(ctx, 1, []string{"def456"})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.NotNil(t, torrent)
-	require.Equal(t, "zzz", torrent.Hash)
-	require.Equal(t, "second", torrent.Name)
+	require.Equal(t, "zzz", qbt.Deref(torrent.Hash))
+	require.Equal(t, "second", qbt.Deref(torrent.Name))
 }
 
 func TestResolveTorrentByVariantHash(t *testing.T) {
@@ -129,11 +129,11 @@ func TestResolveTorrentByVariantHash(t *testing.T) {
 	// but the input might be a v1 hash (or vice versa)
 	torrentMap := map[string]qbt.Torrent{
 		// Exact match case - indexed by primary hash
-		"abc123": {Hash: "abc123", Name: "exact-match", InfohashV1: "", InfohashV2: ""},
+		"abc123": {Hash: qbt.Ptr("abc123"), Name: qbt.Ptr("exact-match"), InfoHashV1: qbt.Ptr(""), InfoHashV2: qbt.Ptr("")},
 		// Hybrid torrent indexed by v2 hash, but has v1 hash available
-		"v2hash456": {Hash: "v2hash456", Name: "hybrid-v2-indexed", InfohashV1: "v1hash456", InfohashV2: "v2hash456"},
+		"v2hash456": {Hash: qbt.Ptr("v2hash456"), Name: qbt.Ptr("hybrid-v2-indexed"), InfoHashV1: qbt.Ptr("v1hash456"), InfoHashV2: qbt.Ptr("v2hash456")},
 		// Another hybrid case - indexed by v1 but has v2
-		"v1hash789": {Hash: "v1hash789", Name: "hybrid-v1-indexed", InfohashV1: "v1hash789", InfohashV2: "v2hash789"},
+		"v1hash789": {Hash: qbt.Ptr("v1hash789"), Name: qbt.Ptr("hybrid-v1-indexed"), InfoHashV1: qbt.Ptr("v1hash789"), InfoHashV2: qbt.Ptr("v2hash789")},
 	}
 
 	tests := []struct {
@@ -202,8 +202,8 @@ func TestResolveTorrentByVariantHash(t *testing.T) {
 			require.Equal(t, tc.expectFound, found, "found mismatch")
 
 			if tc.expectFound {
-				require.Equal(t, tc.expectHash, torrent.Hash, "hash mismatch")
-				require.Equal(t, tc.expectName, torrent.Name, "name mismatch")
+				require.Equal(t, tc.expectHash, qbt.Deref(torrent.Hash), "hash mismatch")
+				require.Equal(t, tc.expectName, qbt.Deref(torrent.Name), "name mismatch")
 			}
 		})
 	}
@@ -215,10 +215,10 @@ func TestGetTorrentFilesBatch_IsolatesClientSliceReuse(t *testing.T) {
 	ctx := context.Background()
 
 	client := &sliceReusingTorrentFilesClient{
-		shared: qbt.TorrentFiles{
+		shared: TorrentFiles{
 			{
-				Name: "initial.mkv",
-				Size: 1,
+				Name: qbt.Ptr("initial.mkv"),
+				Size: qbt.Ptr(int64(1)),
 			},
 		},
 		labels: map[string]string{
@@ -243,16 +243,17 @@ func TestGetTorrentFilesBatch_IsolatesClientSliceReuse(t *testing.T) {
 	require.Contains(t, filesByHash, "hash-a")
 	require.Contains(t, filesByHash, "hash-b")
 
-	require.Equal(t, "file-a.mkv", filesByHash["hash-a"][0].Name)
-	require.Equal(t, "file-b.mkv", filesByHash["hash-b"][0].Name)
+	require.Equal(t, "file-a.mkv", qbt.Deref(filesByHash["hash-a"][0].Name))
+	require.Equal(t, "file-b.mkv", qbt.Deref(filesByHash["hash-b"][0].Name))
 
 	// Mutating the client's shared slice after the fact must not affect returned slices.
 	client.mu.Lock()
-	client.shared[0].Name = "mutated.mkv"
+	mutatedStr := "mutated.mkv"
+	client.shared[0].Name = &mutatedStr
 	client.mu.Unlock()
 
-	require.Equal(t, "file-a.mkv", filesByHash["hash-a"][0].Name)
-	require.Equal(t, "file-b.mkv", filesByHash["hash-b"][0].Name)
+	require.Equal(t, "file-a.mkv", qbt.Deref(filesByHash["hash-a"][0].Name))
+	require.Equal(t, "file-b.mkv", qbt.Deref(filesByHash["hash-b"][0].Name))
 }
 
 func TestGetTorrentFilesBatch_IsolatesCacheSliceReuse(t *testing.T) {
@@ -260,15 +261,15 @@ func TestGetTorrentFilesBatch_IsolatesCacheSliceReuse(t *testing.T) {
 
 	ctx := context.Background()
 
-	shared := qbt.TorrentFiles{
+	shared := TorrentFiles{
 		{
-			Name: "cached-a.mkv",
-			Size: 1,
+			Name: qbt.Ptr("cached-a.mkv"),
+			Size: qbt.Ptr(int64(1)),
 		},
 	}
 
 	fm := &aliasingFilesManager{
-		cached: map[string]qbt.TorrentFiles{
+		cached: map[string]TorrentFiles{
 			"abc123": shared,
 		},
 	}
@@ -287,17 +288,18 @@ func TestGetTorrentFilesBatch_IsolatesCacheSliceReuse(t *testing.T) {
 	files, ok := filesByHash["abc123"]
 	require.True(t, ok)
 	require.Len(t, files, 1)
-	require.Equal(t, "cached-a.mkv", files[0].Name)
+	require.Equal(t, "cached-a.mkv", qbt.Deref(files[0].Name))
 
 	// Mutating the cached slice after the fact must not affect the returned slice.
-	fm.cached["abc123"][0].Name = "mutated.mkv"
+	mutated := "mutated.mkv"
+	fm.cached["abc123"][0].Name = &mutated
 
-	require.Equal(t, "cached-a.mkv", files[0].Name)
+	require.Equal(t, "cached-a.mkv", qbt.Deref(files[0].Name))
 }
 
 type stubTorrentFilesClient struct {
 	torrents        []qbt.Torrent
-	filesByHash     map[string]qbt.TorrentFiles
+	filesByHash     map[string]TorrentFiles
 	requestedHashes [][]string
 	fileRequests    []string
 }
@@ -308,20 +310,20 @@ func (c *stubTorrentFilesClient) getTorrentsByHashes(hashes []string) []qbt.Torr
 	return c.torrents
 }
 
-func (c *stubTorrentFilesClient) GetFilesInformationCtx(ctx context.Context, hash string) (*qbt.TorrentFiles, error) {
+func (c *stubTorrentFilesClient) GetTorrentFiles(ctx context.Context, hash string, indexes []int) ([]qbt.TorrentFile, error) {
 	c.fileRequests = append(c.fileRequests, hash)
 	files, ok := c.filesByHash[hash]
 	if !ok {
 		return nil, fmt.Errorf("no files for hash %s", hash)
 	}
-	copied := make(qbt.TorrentFiles, len(files))
+	copied := make(TorrentFiles, len(files))
 	copy(copied, files)
-	return &copied, nil
+	return copied, nil
 }
 
 type sliceReusingTorrentFilesClient struct {
 	mu              sync.Mutex
-	shared          qbt.TorrentFiles
+	shared          TorrentFiles
 	labels          map[string]string
 	requestedHashes [][]string
 	fileRequests    []string
@@ -335,7 +337,7 @@ func (c *sliceReusingTorrentFilesClient) getTorrentsByHashes(hashes []string) []
 	return nil
 }
 
-func (c *sliceReusingTorrentFilesClient) GetFilesInformationCtx(ctx context.Context, hash string) (*qbt.TorrentFiles, error) {
+func (c *sliceReusingTorrentFilesClient) GetTorrentFiles(ctx context.Context, hash string, indexes []int) ([]qbt.TorrentFile, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -347,17 +349,17 @@ func (c *sliceReusingTorrentFilesClient) GetFilesInformationCtx(ctx context.Cont
 	c.fileRequests = append(c.fileRequests, hash)
 
 	if len(c.shared) == 0 {
-		c.shared = qbt.TorrentFiles{
+		c.shared = TorrentFiles{
 			{
-				Name: label,
-				Size: 1,
+				Name: qbt.Ptr(label),
+				Size: qbt.Ptr(int64(1)),
 			},
 		}
 	} else {
-		c.shared[0].Name = label
+		c.shared[0].Name = &label
 	}
 
-	return &c.shared, nil
+	return c.shared, nil
 }
 
 type cacheCall struct {
@@ -366,24 +368,24 @@ type cacheCall struct {
 }
 
 type stubFilesManager struct {
-	cached     map[string]qbt.TorrentFiles
+	cached     map[string]TorrentFiles
 	lastHashes []string
 	cacheCalls []cacheCall
 }
 
-func (fm *stubFilesManager) GetCachedFiles(context.Context, int, string) (qbt.TorrentFiles, error) {
+func (fm *stubFilesManager) GetCachedFiles(context.Context, int, string) (TorrentFiles, error) {
 	return nil, nil
 }
 
-func (fm *stubFilesManager) GetCachedFilesBatch(_ context.Context, _ int, hashes []string) (map[string]qbt.TorrentFiles, []string, error) {
+func (fm *stubFilesManager) GetCachedFilesBatch(_ context.Context, _ int, hashes []string) (map[string]TorrentFiles, []string, error) {
 	fm.lastHashes = append([]string(nil), hashes...)
 
-	cached := make(map[string]qbt.TorrentFiles, len(hashes))
+	cached := make(map[string]TorrentFiles, len(hashes))
 	missing := make([]string, 0, len(hashes))
 
 	for _, hash := range hashes {
 		if files, ok := fm.cached[hash]; ok {
-			copied := make(qbt.TorrentFiles, len(files))
+			copied := make(TorrentFiles, len(files))
 			copy(copied, files)
 			cached[hash] = copied
 		} else {
@@ -394,13 +396,13 @@ func (fm *stubFilesManager) GetCachedFilesBatch(_ context.Context, _ int, hashes
 	return cached, missing, nil
 }
 
-func (fm *stubFilesManager) CacheFiles(_ context.Context, _ int, hash string, files qbt.TorrentFiles) error {
+func (fm *stubFilesManager) CacheFiles(_ context.Context, _ int, hash string, files TorrentFiles) error {
 	fm.cacheCalls = append(fm.cacheCalls, cacheCall{hash: hash, progress: 0.0})
 	fm.cached[hash] = files
 	return nil
 }
 
-func (fm *stubFilesManager) CacheFilesBatch(_ context.Context, _ int, files map[string]qbt.TorrentFiles) error {
+func (fm *stubFilesManager) CacheFilesBatch(_ context.Context, _ int, files map[string]TorrentFiles) error {
 	for hash, torrentFiles := range files {
 		fm.cacheCalls = append(fm.cacheCalls, cacheCall{hash: hash, progress: 0.0})
 		fm.cached[hash] = torrentFiles
@@ -413,18 +415,18 @@ func (*stubFilesManager) InvalidateCache(context.Context, int, string) error {
 }
 
 type aliasingFilesManager struct {
-	cached     map[string]qbt.TorrentFiles
+	cached     map[string]TorrentFiles
 	lastHashes []string
 }
 
-func (fm *aliasingFilesManager) GetCachedFiles(context.Context, int, string) (qbt.TorrentFiles, error) {
+func (fm *aliasingFilesManager) GetCachedFiles(context.Context, int, string) (TorrentFiles, error) {
 	return nil, nil
 }
 
-func (fm *aliasingFilesManager) GetCachedFilesBatch(_ context.Context, _ int, hashes []string) (map[string]qbt.TorrentFiles, []string, error) {
+func (fm *aliasingFilesManager) GetCachedFilesBatch(_ context.Context, _ int, hashes []string) (map[string]TorrentFiles, []string, error) {
 	fm.lastHashes = append([]string(nil), hashes...)
 
-	cached := make(map[string]qbt.TorrentFiles, len(hashes))
+	cached := make(map[string]TorrentFiles, len(hashes))
 	missing := make([]string, 0, len(hashes))
 
 	for _, hash := range hashes {
@@ -439,12 +441,12 @@ func (fm *aliasingFilesManager) GetCachedFilesBatch(_ context.Context, _ int, ha
 	return cached, missing, nil
 }
 
-func (fm *aliasingFilesManager) CacheFiles(_ context.Context, _ int, hash string, files qbt.TorrentFiles) error {
+func (fm *aliasingFilesManager) CacheFiles(_ context.Context, _ int, hash string, files TorrentFiles) error {
 	fm.cached[hash] = files
 	return nil
 }
 
-func (fm *aliasingFilesManager) CacheFilesBatch(_ context.Context, _ int, files map[string]qbt.TorrentFiles) error {
+func (fm *aliasingFilesManager) CacheFilesBatch(_ context.Context, _ int, files map[string]TorrentFiles) error {
 	for hash, torrentFiles := range files {
 		fm.cached[hash] = torrentFiles
 	}
@@ -490,11 +492,11 @@ func TestSortTorrentsByTracker_WithCustomDisplayNames(t *testing.T) {
 	})
 
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Tracker: "https://tracker1.example.com/announce", Name: "Torrent A"},
-		{Hash: "hash2", Tracker: "https://unknown.tracker.net/announce", Name: "Torrent B"},
-		{Hash: "hash3", Tracker: "https://tracker2.example.com/announce", Name: "Torrent C"},
-		{Hash: "hash4", Tracker: "https://another.tracker.org/announce", Name: "Torrent D"},
-		{Hash: "hash5", Tracker: "", Name: "Torrent E"},
+		{Hash: qbt.Ptr("hash1"), Tracker: qbt.Ptr("https://tracker1.example.com/announce"), Name: qbt.Ptr("Torrent A")},
+		{Hash: qbt.Ptr("hash2"), Tracker: qbt.Ptr("https://unknown.tracker.net/announce"), Name: qbt.Ptr("Torrent B")},
+		{Hash: qbt.Ptr("hash3"), Tracker: qbt.Ptr("https://tracker2.example.com/announce"), Name: qbt.Ptr("Torrent C")},
+		{Hash: qbt.Ptr("hash4"), Tracker: qbt.Ptr("https://another.tracker.org/announce"), Name: qbt.Ptr("Torrent D")},
+		{Hash: qbt.Ptr("hash5"), Tracker: qbt.Ptr(""), Name: qbt.Ptr("Torrent E")},
 	}
 
 	sm.sortTorrentsByTracker(torrents, false)
@@ -506,20 +508,20 @@ func TestSortTorrentsByTracker_WithCustomDisplayNames(t *testing.T) {
 	// 4. "unknown.tracker.net" (no customization, uses domain as display name)
 	// 5. Empty tracker (no tracker, sorted to end)
 
-	require.Equal(t, "hash4", torrents[0].Hash, "Another Tracker should come first (alphabetically)")
-	require.Equal(t, "hash1", torrents[1].Hash, "My Tracker (tracker1) should be second")
-	require.Equal(t, "hash3", torrents[2].Hash, "My Tracker (tracker2) should be third (same display name, different domain)")
-	require.Equal(t, "hash2", torrents[3].Hash, "Unknown tracker should be fourth")
-	require.Equal(t, "hash5", torrents[4].Hash, "Empty tracker should be last")
+	require.Equal(t, "hash4", qbt.Deref(torrents[0].Hash), "Another Tracker should come first (alphabetically)")
+	require.Equal(t, "hash1", qbt.Deref(torrents[1].Hash), "My Tracker (tracker1) should be second")
+	require.Equal(t, "hash3", qbt.Deref(torrents[2].Hash), "My Tracker (tracker2) should be third (same display name, different domain)")
+	require.Equal(t, "hash2", qbt.Deref(torrents[3].Hash), "Unknown tracker should be fourth")
+	require.Equal(t, "hash5", qbt.Deref(torrents[4].Hash), "Empty tracker should be last")
 
 	// Test descending order - note: torrents without trackers always sort to end (hasDomain check is not reversed)
 	sm.sortTorrentsByTracker(torrents, true)
 
-	require.Equal(t, "hash2", torrents[0].Hash, "Unknown tracker should be first in desc (z > u > m > a)")
-	require.Equal(t, "hash3", torrents[1].Hash, "My Tracker (tracker2) should be second in desc")
-	require.Equal(t, "hash1", torrents[2].Hash, "My Tracker (tracker1) should be third in desc")
-	require.Equal(t, "hash4", torrents[3].Hash, "Another Tracker should be fourth in desc")
-	require.Equal(t, "hash5", torrents[4].Hash, "Empty tracker still at end in desc (no tracker = sorted last)")
+	require.Equal(t, "hash2", qbt.Deref(torrents[0].Hash), "Unknown tracker should be first in desc (z > u > m > a)")
+	require.Equal(t, "hash3", qbt.Deref(torrents[1].Hash), "My Tracker (tracker2) should be second in desc")
+	require.Equal(t, "hash1", qbt.Deref(torrents[2].Hash), "My Tracker (tracker1) should be third in desc")
+	require.Equal(t, "hash4", qbt.Deref(torrents[3].Hash), "Another Tracker should be fourth in desc")
+	require.Equal(t, "hash5", qbt.Deref(torrents[4].Hash), "Empty tracker still at end in desc (no tracker = sorted last)")
 }
 
 func TestSortTorrentsByTracker_MergedDomainsStayTogether(t *testing.T) {
@@ -536,20 +538,20 @@ func TestSortTorrentsByTracker_MergedDomainsStayTogether(t *testing.T) {
 
 	// Torrents from different domains that are all merged under "Private Tracker"
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Tracker: "https://old.domain.com/announce", Name: "From Old"},
-		{Hash: "hash2", Tracker: "https://new.domain.com/announce", Name: "From New"},
-		{Hash: "hash3", Tracker: "https://backup.domain.org/announce", Name: "From Backup"},
-		{Hash: "hash4", Tracker: "https://other.site.net/announce", Name: "From Other"},
+		{Hash: qbt.Ptr("hash1"), Tracker: qbt.Ptr("https://old.domain.com/announce"), Name: qbt.Ptr("From Old")},
+		{Hash: qbt.Ptr("hash2"), Tracker: qbt.Ptr("https://new.domain.com/announce"), Name: qbt.Ptr("From New")},
+		{Hash: qbt.Ptr("hash3"), Tracker: qbt.Ptr("https://backup.domain.org/announce"), Name: qbt.Ptr("From Backup")},
+		{Hash: qbt.Ptr("hash4"), Tracker: qbt.Ptr("https://other.site.net/announce"), Name: qbt.Ptr("From Other")},
 	}
 
 	sm.sortTorrentsByTracker(torrents, false)
 
 	// "other.site.net" (o) comes before "private tracker" (p) alphabetically
 	// Within "Private Tracker" group, domains are sorted alphabetically (backup < new < old)
-	require.Equal(t, "hash4", torrents[0].Hash, "other.site.net first (o < p)")
-	require.Equal(t, "hash3", torrents[1].Hash, "backup.domain.org second (private tracker group, backup < new < old)")
-	require.Equal(t, "hash2", torrents[2].Hash, "new.domain.com third")
-	require.Equal(t, "hash1", torrents[3].Hash, "old.domain.com fourth")
+	require.Equal(t, "hash4", qbt.Deref(torrents[0].Hash), "other.site.net first (o < p)")
+	require.Equal(t, "hash3", qbt.Deref(torrents[1].Hash), "backup.domain.org second (private tracker group, backup < new < old)")
+	require.Equal(t, "hash2", qbt.Deref(torrents[2].Hash), "new.domain.com third")
+	require.Equal(t, "hash1", qbt.Deref(torrents[3].Hash), "old.domain.com fourth")
 }
 
 func TestSortTorrentsByTracker_NoCustomizations(t *testing.T) {
@@ -559,17 +561,17 @@ func TestSortTorrentsByTracker_NoCustomizations(t *testing.T) {
 	// No customization store set, should use domains as display names
 
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Tracker: "https://zebra.com/announce", Name: "Torrent A"},
-		{Hash: "hash2", Tracker: "https://apple.com/announce", Name: "Torrent B"},
-		{Hash: "hash3", Tracker: "https://mango.com/announce", Name: "Torrent C"},
+		{Hash: qbt.Ptr("hash1"), Tracker: qbt.Ptr("https://zebra.com/announce"), Name: qbt.Ptr("Torrent A")},
+		{Hash: qbt.Ptr("hash2"), Tracker: qbt.Ptr("https://apple.com/announce"), Name: qbt.Ptr("Torrent B")},
+		{Hash: qbt.Ptr("hash3"), Tracker: qbt.Ptr("https://mango.com/announce"), Name: qbt.Ptr("Torrent C")},
 	}
 
 	sm.sortTorrentsByTracker(torrents, false)
 
 	// Should sort by domain alphabetically
-	require.Equal(t, "hash2", torrents[0].Hash, "apple.com should be first")
-	require.Equal(t, "hash3", torrents[1].Hash, "mango.com should be second")
-	require.Equal(t, "hash1", torrents[2].Hash, "zebra.com should be third")
+	require.Equal(t, "hash2", qbt.Deref(torrents[0].Hash), "apple.com should be first")
+	require.Equal(t, "hash3", qbt.Deref(torrents[1].Hash), "mango.com should be second")
+	require.Equal(t, "hash1", qbt.Deref(torrents[2].Hash), "zebra.com should be third")
 }
 
 func TestSortCrossInstanceTorrentsByTracker_EmptyTrackersGoToEnd(t *testing.T) {
@@ -578,29 +580,29 @@ func TestSortCrossInstanceTorrentsByTracker_EmptyTrackersGoToEnd(t *testing.T) {
 	sm := NewSyncManager(nil, nil)
 
 	torrents := []CrossInstanceTorrentView{
-		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: "hash1", Tracker: "", Name: "No Tracker"}}, InstanceName: "Instance1"},
-		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: "hash2", Tracker: "https://zebra.com/announce", Name: "Zebra"}}, InstanceName: "Instance1"},
-		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: "hash3", Tracker: "https://apple.com/announce", Name: "Apple"}}, InstanceName: "Instance2"},
-		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: "hash4", Tracker: "", Name: "Also No Tracker"}}, InstanceName: "Instance2"},
+		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("hash1"), Tracker: qbt.Ptr(""), Name: qbt.Ptr("No Tracker")}}, InstanceName: "Instance1"},
+		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("hash2"), Tracker: qbt.Ptr("https://zebra.com/announce"), Name: qbt.Ptr("Zebra")}}, InstanceName: "Instance1"},
+		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("hash3"), Tracker: qbt.Ptr("https://apple.com/announce"), Name: qbt.Ptr("Apple")}}, InstanceName: "Instance2"},
+		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("hash4"), Tracker: qbt.Ptr(""), Name: qbt.Ptr("Also No Tracker")}}, InstanceName: "Instance2"},
 	}
 
 	// Test ascending: empty trackers should go to the end
 	sm.sortCrossInstanceTorrentsByTracker(torrents, false)
 
-	require.Equal(t, "hash3", torrents[0].Hash, "apple.com should be first")
-	require.Equal(t, "hash2", torrents[1].Hash, "zebra.com should be second")
-	require.Equal(t, "hash1", torrents[2].Hash, "empty tracker should be third (sorted by instance then name)")
-	require.Equal(t, "hash4", torrents[3].Hash, "empty tracker should be fourth")
+	require.Equal(t, "hash3", qbt.Deref(torrents[0].Hash), "apple.com should be first")
+	require.Equal(t, "hash2", qbt.Deref(torrents[1].Hash), "zebra.com should be second")
+	require.Equal(t, "hash1", qbt.Deref(torrents[2].Hash), "empty tracker should be third (sorted by instance then name)")
+	require.Equal(t, "hash4", qbt.Deref(torrents[3].Hash), "empty tracker should be fourth")
 
 	// Test descending: empty trackers should STILL go to the end (not beginning)
 	// Within the empty group, they sort by instance name then name in descending order
 	sm.sortCrossInstanceTorrentsByTracker(torrents, true)
 
-	require.Equal(t, "hash2", torrents[0].Hash, "zebra.com should be first in desc")
-	require.Equal(t, "hash3", torrents[1].Hash, "apple.com should be second in desc")
+	require.Equal(t, "hash2", qbt.Deref(torrents[0].Hash), "zebra.com should be first in desc")
+	require.Equal(t, "hash3", qbt.Deref(torrents[1].Hash), "apple.com should be second in desc")
 	// Empty trackers at end, but within empty group: Instance2 > Instance1 in desc
-	require.Equal(t, "hash4", torrents[2].Hash, "empty tracker Instance2 should be third")
-	require.Equal(t, "hash1", torrents[3].Hash, "empty tracker Instance1 should be fourth")
+	require.Equal(t, "hash4", qbt.Deref(torrents[2].Hash), "empty tracker Instance2 should be third")
+	require.Equal(t, "hash1", qbt.Deref(torrents[3].Hash), "empty tracker Instance1 should be fourth")
 }
 
 func TestSortCrossInstanceTorrentsByTracker_WithCustomNames(t *testing.T) {
@@ -614,17 +616,17 @@ func TestSortCrossInstanceTorrentsByTracker_WithCustomNames(t *testing.T) {
 	})
 
 	torrents := []CrossInstanceTorrentView{
-		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: "hash1", Tracker: "https://zebra.com/announce", Name: "Torrent A"}}, InstanceName: "Instance1"},
-		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: "hash2", Tracker: "https://apple.com/announce", Name: "Torrent B"}}, InstanceName: "Instance2"},
-		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: "hash3", Tracker: "https://mango.com/announce", Name: "Torrent C"}}, InstanceName: "Instance1"},
+		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("hash1"), Tracker: qbt.Ptr("https://zebra.com/announce"), Name: qbt.Ptr("Torrent A")}}, InstanceName: "Instance1"},
+		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("hash2"), Tracker: qbt.Ptr("https://apple.com/announce"), Name: qbt.Ptr("Torrent B")}}, InstanceName: "Instance2"},
+		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("hash3"), Tracker: qbt.Ptr("https://mango.com/announce"), Name: qbt.Ptr("Torrent C")}}, InstanceName: "Instance1"},
 	}
 
 	sm.sortCrossInstanceTorrentsByTracker(torrents, false)
 
 	// ABC Tracker (zebra.com) comes before mango.com before XYZ Tracker (apple.com)
-	require.Equal(t, "hash1", torrents[0].Hash, "ABC Tracker (zebra.com) should be first")
-	require.Equal(t, "hash3", torrents[1].Hash, "mango.com should be second")
-	require.Equal(t, "hash2", torrents[2].Hash, "XYZ Tracker (apple.com) should be third")
+	require.Equal(t, "hash1", qbt.Deref(torrents[0].Hash), "ABC Tracker (zebra.com) should be first")
+	require.Equal(t, "hash3", qbt.Deref(torrents[1].Hash), "mango.com should be second")
+	require.Equal(t, "hash2", qbt.Deref(torrents[2].Hash), "XYZ Tracker (apple.com) should be third")
 }
 
 func TestSortCrossInstanceTorrentsByTracker_UnknownTrackersGoToEnd(t *testing.T) {
@@ -633,14 +635,14 @@ func TestSortCrossInstanceTorrentsByTracker_UnknownTrackersGoToEnd(t *testing.T)
 	sm := NewSyncManager(nil, nil)
 
 	torrents := []CrossInstanceTorrentView{
-		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: "hash1", Tracker: "unknown", Name: "Unknown Tracker"}}, InstanceName: "Instance1"},
-		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: "hash2", Tracker: "https://valid.com/announce", Name: "Valid"}}, InstanceName: "Instance1"},
+		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("hash1"), Tracker: qbt.Ptr("unknown"), Name: qbt.Ptr("Unknown Tracker")}}, InstanceName: "Instance1"},
+		{TorrentView: &TorrentView{Torrent: &qbt.Torrent{Hash: qbt.Ptr("hash2"), Tracker: qbt.Ptr("https://valid.com/announce"), Name: qbt.Ptr("Valid")}}, InstanceName: "Instance1"},
 	}
 
 	sm.sortCrossInstanceTorrentsByTracker(torrents, false)
 
-	require.Equal(t, "hash2", torrents[0].Hash, "valid tracker should come first")
-	require.Equal(t, "hash1", torrents[1].Hash, "unknown tracker should go to end")
+	require.Equal(t, "hash2", qbt.Deref(torrents[0].Hash), "valid tracker should come first")
+	require.Equal(t, "hash1", qbt.Deref(torrents[1].Hash), "unknown tracker should go to end")
 }
 
 func TestSortCrossInstanceTorrents_CommonFields(t *testing.T) {
@@ -653,15 +655,15 @@ func TestSortCrossInstanceTorrents_CommonFields(t *testing.T) {
 			{
 				TorrentView: &TorrentView{
 					Torrent: &qbt.Torrent{
-						Hash:        "hash-alpha",
-						Name:        "Alpha",
-						State:       qbt.TorrentStatePausedUp,
-						AddedOn:     100,
-						DlSpeed:     50,
-						NumComplete: 10,
-						Priority:    1,
-						ETA:         60,
-						Private:     false,
+						Hash:        qbt.Ptr("hash-alpha"),
+						Name:        qbt.Ptr("Alpha"),
+						State:       qbt.Ptr(qbt.StatePausedUP),
+						AddedOn:     qbt.Ptr(int64(100)),
+						DlSpeed:     qbt.Ptr(int64(50)),
+						NumComplete: qbt.Ptr(10),
+						Priority:    qbt.Ptr(1),
+						ETA:         qbt.Ptr(int64(60)),
+						Private:     qbt.Ptr(false),
 					},
 				},
 				InstanceID:   1,
@@ -670,15 +672,15 @@ func TestSortCrossInstanceTorrents_CommonFields(t *testing.T) {
 			{
 				TorrentView: &TorrentView{
 					Torrent: &qbt.Torrent{
-						Hash:        "hash-beta",
-						Name:        "beta",
-						State:       qbt.TorrentStateDownloading,
-						AddedOn:     200,
-						DlSpeed:     10,
-						NumComplete: 5,
-						Priority:    0,
-						ETA:         8640000, // infinity ETA
-						Private:     true,
+						Hash:        qbt.Ptr("hash-beta"),
+						Name:        qbt.Ptr("beta"),
+						State:       qbt.Ptr(qbt.StateDownloading),
+						AddedOn:     qbt.Ptr(int64(200)),
+						DlSpeed:     qbt.Ptr(int64(10)),
+						NumComplete: qbt.Ptr(5),
+						Priority:    qbt.Ptr(0),
+						ETA:         qbt.Ptr(int64(8640000)), // infinity ETA
+						Private:     qbt.Ptr(true),
 					},
 				},
 				InstanceID:   2,
@@ -687,15 +689,15 @@ func TestSortCrossInstanceTorrents_CommonFields(t *testing.T) {
 			{
 				TorrentView: &TorrentView{
 					Torrent: &qbt.Torrent{
-						Hash:        "hash-gamma",
-						Name:        "Gamma",
-						State:       qbt.TorrentStateUploading,
-						AddedOn:     150,
-						DlSpeed:     100,
-						NumComplete: 20,
-						Priority:    2,
-						ETA:         120,
-						Private:     false,
+						Hash:        qbt.Ptr("hash-gamma"),
+						Name:        qbt.Ptr("Gamma"),
+						State:       qbt.Ptr(qbt.StateUploading),
+						AddedOn:     qbt.Ptr(int64(150)),
+						DlSpeed:     qbt.Ptr(int64(100)),
+						NumComplete: qbt.Ptr(20),
+						Priority:    qbt.Ptr(2),
+						ETA:         qbt.Ptr(int64(120)),
+						Private:     qbt.Ptr(false),
 					},
 				},
 				InstanceID:   3,
@@ -725,8 +727,8 @@ func TestSortCrossInstanceTorrents_CommonFields(t *testing.T) {
 			t.Parallel()
 			torrents := build()
 			sm.sortCrossInstanceTorrents(torrents, tc.sort, tc.desc)
-			require.Equal(t, tc.firstHash, torrents[0].Hash)
-			require.Equal(t, tc.lastHash, torrents[len(torrents)-1].Hash)
+			require.Equal(t, tc.firstHash, qbt.Deref(torrents[0].Hash))
+			require.Equal(t, tc.lastHash, qbt.Deref(torrents[len(torrents)-1].Hash))
 		})
 	}
 }
@@ -738,30 +740,30 @@ func TestSortTorrentsByTimestamp_Tiebreaker(t *testing.T) {
 
 	// All torrents have same timestamp, should be sorted by state priority, then name, then hash
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Name: "Zebra", LastActivity: 1000, State: qbt.TorrentStatePausedUp},
-		{Hash: "hash2", Name: "Apple", LastActivity: 1000, State: qbt.TorrentStateDownloading},
-		{Hash: "hash3", Name: "Mango", LastActivity: 1000, State: qbt.TorrentStateUploading},
-		{Hash: "hash4", Name: "Apple", LastActivity: 1000, State: qbt.TorrentStateDownloading}, // Same name as hash2, different hash
+		{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Zebra"), LastActivity: qbt.Ptr(int64(1000)), State: qbt.Ptr(qbt.StatePausedUP)},
+		{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("Apple"), LastActivity: qbt.Ptr(int64(1000)), State: qbt.Ptr(qbt.StateDownloading)},
+		{Hash: qbt.Ptr("hash3"), Name: qbt.Ptr("Mango"), LastActivity: qbt.Ptr(int64(1000)), State: qbt.Ptr(qbt.StateUploading)},
+		{Hash: qbt.Ptr("hash4"), Name: qbt.Ptr("Apple"), LastActivity: qbt.Ptr(int64(1000)), State: qbt.Ptr(qbt.StateDownloading)}, // Same name as hash2, different hash
 	}
 
 	// Ascending: state priority (downloading < uploading < paused), then name, then hash
-	sm.sortTorrentsByTimestamp(torrents, false, func(t qbt.Torrent) int64 { return t.LastActivity })
+	sm.sortTorrentsByTimestamp(torrents, false, func(t qbt.Torrent) int64 { return qbt.Deref(t.LastActivity) })
 
 	// Downloading has lower priority than uploading, which has lower than paused
 	// hash2 and hash4 both downloading with name "Apple", sorted by hash
-	require.Equal(t, "hash2", torrents[0].Hash, "first downloading 'Apple' by hash")
-	require.Equal(t, "hash4", torrents[1].Hash, "second downloading 'Apple' by hash")
-	require.Equal(t, "hash3", torrents[2].Hash, "uploading 'Mango'")
-	require.Equal(t, "hash1", torrents[3].Hash, "paused 'Zebra'")
+	require.Equal(t, "hash2", qbt.Deref(torrents[0].Hash), "first downloading 'Apple' by hash")
+	require.Equal(t, "hash4", qbt.Deref(torrents[1].Hash), "second downloading 'Apple' by hash")
+	require.Equal(t, "hash3", qbt.Deref(torrents[2].Hash), "uploading 'Mango'")
+	require.Equal(t, "hash1", qbt.Deref(torrents[3].Hash), "paused 'Zebra'")
 
 	// Descending: same fallback order (state priority, name A-Z, hash)
 	// All have same timestamp, so order is identical to ascending
-	sm.sortTorrentsByTimestamp(torrents, true, func(t qbt.Torrent) int64 { return t.LastActivity })
+	sm.sortTorrentsByTimestamp(torrents, true, func(t qbt.Torrent) int64 { return qbt.Deref(t.LastActivity) })
 
-	require.Equal(t, "hash2", torrents[0].Hash, "downloading 'Apple' first by state")
-	require.Equal(t, "hash4", torrents[1].Hash, "downloading 'Apple' second by hash")
-	require.Equal(t, "hash3", torrents[2].Hash, "uploading 'Mango'")
-	require.Equal(t, "hash1", torrents[3].Hash, "paused 'Zebra' last")
+	require.Equal(t, "hash2", qbt.Deref(torrents[0].Hash), "downloading 'Apple' first by state")
+	require.Equal(t, "hash4", qbt.Deref(torrents[1].Hash), "downloading 'Apple' second by hash")
+	require.Equal(t, "hash3", qbt.Deref(torrents[2].Hash), "uploading 'Mango'")
+	require.Equal(t, "hash1", qbt.Deref(torrents[3].Hash), "paused 'Zebra' last")
 }
 
 func TestSortTorrentsByTimestamp_ZeroSortsNaturally(t *testing.T) {
@@ -770,24 +772,24 @@ func TestSortTorrentsByTimestamp_ZeroSortsNaturally(t *testing.T) {
 	sm := NewSyncManager(nil, nil)
 
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Name: "Active", LastActivity: 1000, State: qbt.TorrentStateDownloading},
-		{Hash: "hash2", Name: "No Activity", LastActivity: 0, State: qbt.TorrentStateDownloading},
-		{Hash: "hash3", Name: "Recent", LastActivity: 2000, State: qbt.TorrentStateDownloading},
+		{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Active"), LastActivity: qbt.Ptr(int64(1000)), State: qbt.Ptr(qbt.StateDownloading)},
+		{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("No Activity"), LastActivity: qbt.Ptr(int64(0)), State: qbt.Ptr(qbt.StateDownloading)},
+		{Hash: qbt.Ptr("hash3"), Name: qbt.Ptr("Recent"), LastActivity: qbt.Ptr(int64(2000)), State: qbt.Ptr(qbt.StateDownloading)},
 	}
 
 	// Ascending (oldest first): 0 at start as it's the smallest value
-	sm.sortTorrentsByTimestamp(torrents, false, func(t qbt.Torrent) int64 { return t.LastActivity })
+	sm.sortTorrentsByTimestamp(torrents, false, func(t qbt.Torrent) int64 { return qbt.Deref(t.LastActivity) })
 
-	require.Equal(t, "hash2", torrents[0].Hash, "0 (no activity) should be at start for ascending")
-	require.Equal(t, "hash1", torrents[1].Hash, "1000 should be second")
-	require.Equal(t, "hash3", torrents[2].Hash, "2000 should be last")
+	require.Equal(t, "hash2", qbt.Deref(torrents[0].Hash), "0 (no activity) should be at start for ascending")
+	require.Equal(t, "hash1", qbt.Deref(torrents[1].Hash), "1000 should be second")
+	require.Equal(t, "hash3", qbt.Deref(torrents[2].Hash), "2000 should be last")
 
 	// Descending (newest first): 0 at end as it's the smallest value
-	sm.sortTorrentsByTimestamp(torrents, true, func(t qbt.Torrent) int64 { return t.LastActivity })
+	sm.sortTorrentsByTimestamp(torrents, true, func(t qbt.Torrent) int64 { return qbt.Deref(t.LastActivity) })
 
-	require.Equal(t, "hash3", torrents[0].Hash, "2000 should be first for descending")
-	require.Equal(t, "hash1", torrents[1].Hash, "1000 should be second")
-	require.Equal(t, "hash2", torrents[2].Hash, "0 (no activity) should be at end for descending")
+	require.Equal(t, "hash3", qbt.Deref(torrents[0].Hash), "2000 should be first for descending")
+	require.Equal(t, "hash1", qbt.Deref(torrents[1].Hash), "1000 should be second")
+	require.Equal(t, "hash2", qbt.Deref(torrents[2].Hash), "0 (no activity) should be at end for descending")
 }
 
 func TestSortTorrentsByTimestamp_NegativeOneSortsNaturally(t *testing.T) {
@@ -796,24 +798,24 @@ func TestSortTorrentsByTimestamp_NegativeOneSortsNaturally(t *testing.T) {
 	sm := NewSyncManager(nil, nil)
 
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Name: "Completed Early", CompletionOn: 1000, State: qbt.TorrentStateUploading},
-		{Hash: "hash2", Name: "Never Completed", CompletionOn: -1, State: qbt.TorrentStateDownloading},
-		{Hash: "hash3", Name: "Completed Late", CompletionOn: 2000, State: qbt.TorrentStateUploading},
+		{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Completed Early"), CompletionOn: qbt.Ptr(int64(1000)), State: qbt.Ptr(qbt.StateUploading)},
+		{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("Never Completed"), CompletionOn: qbt.Ptr(int64(-1)), State: qbt.Ptr(qbt.StateDownloading)},
+		{Hash: qbt.Ptr("hash3"), Name: qbt.Ptr("Completed Late"), CompletionOn: qbt.Ptr(int64(2000)), State: qbt.Ptr(qbt.StateUploading)},
 	}
 
 	// Ascending: -1 at start as it's the smallest value
-	sm.sortTorrentsByTimestamp(torrents, false, func(t qbt.Torrent) int64 { return t.CompletionOn })
+	sm.sortTorrentsByTimestamp(torrents, false, func(t qbt.Torrent) int64 { return qbt.Deref(t.CompletionOn) })
 
-	require.Equal(t, "hash2", torrents[0].Hash, "-1 (never completed) should be at start for ascending")
-	require.Equal(t, "hash1", torrents[1].Hash, "1000 should be second")
-	require.Equal(t, "hash3", torrents[2].Hash, "2000 should be last")
+	require.Equal(t, "hash2", qbt.Deref(torrents[0].Hash), "-1 (never completed) should be at start for ascending")
+	require.Equal(t, "hash1", qbt.Deref(torrents[1].Hash), "1000 should be second")
+	require.Equal(t, "hash3", qbt.Deref(torrents[2].Hash), "2000 should be last")
 
 	// Descending: -1 at end as it's the smallest value
-	sm.sortTorrentsByTimestamp(torrents, true, func(t qbt.Torrent) int64 { return t.CompletionOn })
+	sm.sortTorrentsByTimestamp(torrents, true, func(t qbt.Torrent) int64 { return qbt.Deref(t.CompletionOn) })
 
-	require.Equal(t, "hash3", torrents[0].Hash, "2000 should be first for descending")
-	require.Equal(t, "hash1", torrents[1].Hash, "1000 should be second")
-	require.Equal(t, "hash2", torrents[2].Hash, "-1 (never completed) should be at end for descending")
+	require.Equal(t, "hash3", qbt.Deref(torrents[0].Hash), "2000 should be first for descending")
+	require.Equal(t, "hash1", qbt.Deref(torrents[1].Hash), "1000 should be second")
+	require.Equal(t, "hash2", qbt.Deref(torrents[2].Hash), "-1 (never completed) should be at end for descending")
 }
 
 func TestSortTorrentsByTimestamp_TruncationGroupsSameInterval(t *testing.T) {
@@ -824,29 +826,29 @@ func TestSortTorrentsByTimestamp_TruncationGroupsSameInterval(t *testing.T) {
 	// Timestamps 61 and 119 are in the same 60-second bucket (both truncate to 1)
 	// Timestamp 120 is in a different bucket (truncates to 2)
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Name: "Zebra", LastActivity: 120, State: qbt.TorrentStatePausedUp},
-		{Hash: "hash2", Name: "Apple", LastActivity: 61, State: qbt.TorrentStateUploading},
-		{Hash: "hash3", Name: "Mango", LastActivity: 119, State: qbt.TorrentStateDownloading},
+		{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Zebra"), LastActivity: qbt.Ptr(int64(120)), State: qbt.Ptr(qbt.StatePausedUP)},
+		{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("Apple"), LastActivity: qbt.Ptr(int64(61)), State: qbt.Ptr(qbt.StateUploading)},
+		{Hash: qbt.Ptr("hash3"), Name: qbt.Ptr("Mango"), LastActivity: qbt.Ptr(int64(119)), State: qbt.Ptr(qbt.StateDownloading)},
 	}
 
 	// Truncating getter (same as production code for last_activity)
-	getLastActivity := func(t qbt.Torrent) int64 { return t.LastActivity / 60 }
+	getLastActivity := func(t qbt.Torrent) int64 { return qbt.Deref(t.LastActivity) / 60 }
 
 	// Ascending: bucket 1 (61, 119) before bucket 2 (120)
 	// Within bucket 1: falls back to state priority (downloading < uploading)
 	sm.sortTorrentsByTimestamp(torrents, false, getLastActivity)
 
-	require.Equal(t, "hash3", torrents[0].Hash, "bucket 1: downloading 'Mango' first by state")
-	require.Equal(t, "hash2", torrents[1].Hash, "bucket 1: uploading 'Apple' second by state")
-	require.Equal(t, "hash1", torrents[2].Hash, "bucket 2: paused 'Zebra' last")
+	require.Equal(t, "hash3", qbt.Deref(torrents[0].Hash), "bucket 1: downloading 'Mango' first by state")
+	require.Equal(t, "hash2", qbt.Deref(torrents[1].Hash), "bucket 1: uploading 'Apple' second by state")
+	require.Equal(t, "hash1", qbt.Deref(torrents[2].Hash), "bucket 2: paused 'Zebra' last")
 
 	// Descending: bucket 2 (120) before bucket 1 (61, 119)
 	// Within bucket 1: same fallback order (state priority, name A-Z)
 	sm.sortTorrentsByTimestamp(torrents, true, getLastActivity)
 
-	require.Equal(t, "hash1", torrents[0].Hash, "bucket 2: paused 'Zebra' first")
-	require.Equal(t, "hash3", torrents[1].Hash, "bucket 1: downloading 'Mango' by state")
-	require.Equal(t, "hash2", torrents[2].Hash, "bucket 1: uploading 'Apple' by state")
+	require.Equal(t, "hash1", qbt.Deref(torrents[0].Hash), "bucket 2: paused 'Zebra' first")
+	require.Equal(t, "hash3", qbt.Deref(torrents[1].Hash), "bucket 1: downloading 'Mango' by state")
+	require.Equal(t, "hash2", qbt.Deref(torrents[2].Hash), "bucket 1: uploading 'Apple' by state")
 }
 
 func TestCompareByStateThenName(t *testing.T) {
@@ -860,26 +862,26 @@ func TestCompareByStateThenName(t *testing.T) {
 	}{
 		{
 			name:     "different states - downloading before uploading",
-			a:        qbt.Torrent{Hash: "a", Name: "Test", State: qbt.TorrentStateDownloading},
-			b:        qbt.Torrent{Hash: "b", Name: "Test", State: qbt.TorrentStateUploading},
+			a:        qbt.Torrent{Hash: qbt.Ptr("a"), Name: qbt.Ptr("Test"), State: qbt.Ptr(qbt.StateDownloading)},
+			b:        qbt.Torrent{Hash: qbt.Ptr("b"), Name: qbt.Ptr("Test"), State: qbt.Ptr(qbt.StateUploading)},
 			expected: -1,
 		},
 		{
 			name:     "same state different names - alphabetical order",
-			a:        qbt.Torrent{Hash: "a", Name: "Apple", State: qbt.TorrentStateDownloading},
-			b:        qbt.Torrent{Hash: "b", Name: "Zebra", State: qbt.TorrentStateDownloading},
+			a:        qbt.Torrent{Hash: qbt.Ptr("a"), Name: qbt.Ptr("Apple"), State: qbt.Ptr(qbt.StateDownloading)},
+			b:        qbt.Torrent{Hash: qbt.Ptr("b"), Name: qbt.Ptr("Zebra"), State: qbt.Ptr(qbt.StateDownloading)},
 			expected: -1,
 		},
 		{
 			name:     "same state same name different hash",
-			a:        qbt.Torrent{Hash: "aaa", Name: "Test", State: qbt.TorrentStateDownloading},
-			b:        qbt.Torrent{Hash: "zzz", Name: "Test", State: qbt.TorrentStateDownloading},
+			a:        qbt.Torrent{Hash: qbt.Ptr("aaa"), Name: qbt.Ptr("Test"), State: qbt.Ptr(qbt.StateDownloading)},
+			b:        qbt.Torrent{Hash: qbt.Ptr("zzz"), Name: qbt.Ptr("Test"), State: qbt.Ptr(qbt.StateDownloading)},
 			expected: -1,
 		},
 		{
 			name:     "case insensitive name comparison",
-			a:        qbt.Torrent{Hash: "a", Name: "APPLE", State: qbt.TorrentStateDownloading},
-			b:        qbt.Torrent{Hash: "b", Name: "apple", State: qbt.TorrentStateDownloading},
+			a:        qbt.Torrent{Hash: qbt.Ptr("a"), Name: qbt.Ptr("APPLE"), State: qbt.Ptr(qbt.StateDownloading)},
+			b:        qbt.Torrent{Hash: qbt.Ptr("b"), Name: qbt.Ptr("apple"), State: qbt.Ptr(qbt.StateDownloading)},
 			expected: -1, // same name case-insensitive, fallback to hash
 		},
 	}

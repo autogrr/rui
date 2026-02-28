@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 
@@ -45,7 +45,7 @@ type torrentDownloader interface {
 }
 
 type torrentContentResolver interface {
-	GetTorrentFiles(ctx context.Context, instanceID int, hash string) (*qbt.TorrentFiles, error)
+	GetTorrentFiles(ctx context.Context, instanceID int, hash string) (*qbittorrent.TorrentFiles, error)
 	GetTorrentProperties(ctx context.Context, instanceID int, hash string) (*qbt.TorrentProperties, error)
 	GetTorrents(ctx context.Context, instanceID int, options qbt.TorrentFilterOptions) ([]qbt.Torrent, error)
 }
@@ -308,7 +308,7 @@ func (h *TorrentsHandler) GetTorrentField(w http.ResponseWriter, r *http.Request
 		excludeTargets := buildExcludeTargetSet(req.ExcludeTargets)
 		values := make([]string, 0, len(response.CrossInstanceTorrents))
 		for _, torrent := range response.CrossInstanceTorrents {
-			normalized := normalizeHashValue(torrent.Hash)
+			normalized := normalizeHashValue(qbt.Deref(torrent.Hash))
 			if normalized == "" {
 				continue
 			}
@@ -327,11 +327,11 @@ func (h *TorrentsHandler) GetTorrentField(w http.ResponseWriter, r *http.Request
 			var value string
 			switch req.Field {
 			case "name":
-				value = strings.TrimSpace(torrent.Name)
+				value = strings.TrimSpace(qbt.Deref(torrent.Name))
 			case "hash":
 				value = preferredCrossInstanceHashValue(torrent)
 			case "full_path":
-				value = fullPathValue(torrent.SavePath, torrent.Name)
+				value = fullPathValue(qbt.Deref(torrent.SavePath), qbt.Deref(torrent.Name))
 			}
 
 			if value != "" {
@@ -403,11 +403,11 @@ func (h *TorrentsHandler) CheckDuplicates(w http.ResponseWriter, r *http.Request
 	matches := make([]qbittorrent.DuplicateTorrentMatch, len(torrents))
 	for i, torrent := range torrents {
 		matches[i] = qbittorrent.DuplicateTorrentMatch{
-			Hash:          torrent.Hash,
-			InfohashV1:    strings.TrimSpace(torrent.InfohashV1),
-			InfohashV2:    strings.TrimSpace(torrent.InfohashV2),
-			Name:          torrent.Name,
-			MatchedHashes: []string{torrent.Hash},
+			Hash:          qbt.Deref(torrent.Hash),
+			InfohashV1:    strings.TrimSpace(qbt.Deref(torrent.InfoHashV1)),
+			InfohashV2:    strings.TrimSpace(qbt.Deref(torrent.InfoHashV2)),
+			Name:          qbt.Deref(torrent.Name),
+			MatchedHashes: []string{qbt.Deref(torrent.Hash)},
 		}
 	}
 
@@ -519,37 +519,17 @@ func (h *TorrentsHandler) AddTorrent(w http.ResponseWriter, r *http.Request) {
 	// NOTE: qBittorrent's API does not properly support the start_paused_enabled preference
 	// (it gets rejected/ignored when set via app/setPreferences). As a workaround, the frontend
 	// now stores this preference in localStorage and applies it when adding torrents.
-	// This complex logic attempts to respect qBittorrent's global preference, but since the
-	// preference cannot be set via API, this is effectively unused in the current implementation.
 	if pausedStr := r.FormValue("paused"); pausedStr != "" {
 		requestedPaused := pausedStr == "true"
 
-		// Get current preferences to check start_paused_enabled
-		prefs, err := h.getAppPreferences(ctx, instanceID)
-		if err != nil {
-			log.Warn().Err(err).Int("instanceID", instanceID).Msg("Failed to get preferences for paused check, defaulting to explicit paused setting")
-			// If we can't get preferences, apply the requested paused state explicitly
-			if requestedPaused {
-				options["paused"] = "true"
-				options["stopped"] = "true"
-			} else {
-				options["paused"] = "false"
-				options["stopped"] = "false"
-			}
+		// start_paused_enabled was removed from AppPreferences in the new library; always set
+		// the paused options explicitly based on the requested state.
+		if requestedPaused {
+			options["paused"] = "true"
+			options["stopped"] = "true"
 		} else {
-			// Only set paused options if the requested state differs from the global preference
-			globalStartPaused := prefs.StartPausedEnabled
-			if requestedPaused != globalStartPaused {
-				if requestedPaused {
-					options["paused"] = "true"
-					options["stopped"] = "true"
-				} else {
-					options["paused"] = "false"
-					options["stopped"] = "false"
-				}
-			}
-			// If requestedPaused == globalStartPaused, don't set paused options
-			// This allows qBittorrent's global preference to take effect
+			options["paused"] = "false"
+			options["stopped"] = "false"
 		}
 	}
 
@@ -960,7 +940,7 @@ func appendTargetsFromCrossInstanceTorrents(
 	excludeTargets map[string]struct{},
 ) {
 	for _, torrent := range torrents {
-		normalized := normalizeHashValue(torrent.Hash)
+		normalized := normalizeHashValue(qbt.Deref(torrent.Hash))
 		if normalized == "" {
 			continue
 		}
@@ -975,18 +955,18 @@ func appendTargetsFromCrossInstanceTorrents(
 				continue
 			}
 		}
-		addBulkTarget(targetsByInstance, seen, torrent.InstanceID, torrent.Hash)
+		addBulkTarget(targetsByInstance, seen, torrent.InstanceID, qbt.Deref(torrent.Hash))
 	}
 }
 
 func preferredHashValue(torrent *qbt.Torrent) string {
-	infoHashV1 := strings.TrimSpace(torrent.InfohashV1)
+	infoHashV1 := strings.TrimSpace(qbt.Deref(torrent.InfoHashV1))
 	if infoHashV1 != "" {
 		return strings.ToUpper(infoHashV1)
 	}
 
-	hash := strings.TrimSpace(torrent.Hash)
-	infoHashV2 := strings.TrimSpace(torrent.InfohashV2)
+	hash := strings.TrimSpace(qbt.Deref(torrent.Hash))
+	infoHashV2 := strings.TrimSpace(qbt.Deref(torrent.InfoHashV2))
 	if hash != "" && (infoHashV2 == "" || !strings.EqualFold(infoHashV2, hash)) {
 		return strings.ToUpper(hash)
 	}
@@ -1141,7 +1121,7 @@ func (h *TorrentsHandler) BulkAction(w http.ResponseWriter, r *http.Request) {
 			}
 
 			for _, torrent := range response.Torrents {
-				normalized := normalizeHashValue(torrent.Hash)
+				normalized := normalizeHashValue(qbt.Deref(torrent.Hash))
 				if normalized == "" {
 					continue
 				}
@@ -1156,7 +1136,7 @@ func (h *TorrentsHandler) BulkAction(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				}
-				addBulkTarget(targetsByInstance, seenTargets, instanceID, torrent.Hash)
+				addBulkTarget(targetsByInstance, seenTargets, instanceID, qbt.Deref(torrent.Hash))
 			}
 
 			log.Debug().
@@ -1212,14 +1192,14 @@ func (h *TorrentsHandler) BulkAction(w http.ResponseWriter, r *http.Request) {
 				}
 
 				for _, torrent := range response.CrossInstanceTorrents {
-					normalized := normalizeHashValue(torrent.Hash)
+					normalized := normalizeHashValue(qbt.Deref(torrent.Hash))
 					if requestedHashes == nil {
 						continue
 					}
 					if _, ok := requestedHashes[normalized]; !ok {
 						continue
 					}
-					addBulkTarget(targetsByInstance, seenTargets, torrent.InstanceID, torrent.Hash)
+					addBulkTarget(targetsByInstance, seenTargets, torrent.InstanceID, qbt.Deref(torrent.Hash))
 				}
 			} else if instanceID != allInstancesID {
 				for _, hash := range req.Hashes {
@@ -2037,30 +2017,30 @@ func (h *TorrentsHandler) GetTorrentPeers(w http.ResponseWriter, r *http.Request
 	// Sort peers: seeders first (progress = 1.0), then by download speed, then upload speed
 	sort.Slice(sortedPeers, func(i, j int) bool {
 		// Seeders (100% progress) always come first
-		iIsSeeder := sortedPeers[i].Progress == 1.0
-		jIsSeeder := sortedPeers[j].Progress == 1.0
+		iIsSeeder := qbt.Deref(sortedPeers[i].Progress) == 1.0
+		jIsSeeder := qbt.Deref(sortedPeers[j].Progress) == 1.0
 
 		if iIsSeeder != jIsSeeder {
 			return iIsSeeder // Seeders first
 		}
 
 		// Then sort by progress (higher progress first)
-		if sortedPeers[i].Progress != sortedPeers[j].Progress {
-			return sortedPeers[i].Progress > sortedPeers[j].Progress
+		if qbt.Deref(sortedPeers[i].Progress) != qbt.Deref(sortedPeers[j].Progress) {
+			return qbt.Deref(sortedPeers[i].Progress) > qbt.Deref(sortedPeers[j].Progress)
 		}
 
 		// Then by download speed (active downloading peers)
-		if sortedPeers[i].DownSpeed != sortedPeers[j].DownSpeed {
-			return sortedPeers[i].DownSpeed > sortedPeers[j].DownSpeed
+		if qbt.Deref(sortedPeers[i].DlSpeed) != qbt.Deref(sortedPeers[j].DlSpeed) {
+			return qbt.Deref(sortedPeers[i].DlSpeed) > qbt.Deref(sortedPeers[j].DlSpeed)
 		}
 
 		// Then by upload speed
-		if sortedPeers[i].UpSpeed != sortedPeers[j].UpSpeed {
-			return sortedPeers[i].UpSpeed > sortedPeers[j].UpSpeed
+		if qbt.Deref(sortedPeers[i].UpSpeed) != qbt.Deref(sortedPeers[j].UpSpeed) {
+			return qbt.Deref(sortedPeers[i].UpSpeed) > qbt.Deref(sortedPeers[j].UpSpeed)
 		}
 
 		// Finally by IP for stable sorting
-		return sortedPeers[i].IP < sortedPeers[j].IP
+		return qbt.Deref(sortedPeers[i].IP) < qbt.Deref(sortedPeers[j].IP)
 	})
 
 	// Create response with sorted peers
@@ -2161,9 +2141,9 @@ func (h *TorrentsHandler) SetTorrentFilePriority(w http.ResponseWriter, r *http.
 			return
 		}
 		switch {
-		case errors.Is(err, qbt.ErrInvalidPriority):
+		case errors.Is(err, qbittorrent.ErrInvalidPriority):
 			RespondError(w, http.StatusBadRequest, "Invalid priority or file indices")
-		case errors.Is(err, qbt.ErrTorrentMetdataNotDownloadedYet):
+		case errors.Is(err, qbittorrent.ErrTorrentMetadataNotDownloadedYet):
 			RespondError(w, http.StatusConflict, "Torrent metadata is not yet available. Try again once metadata has downloaded.")
 		default:
 			log.Error().Err(err).Int("instanceID", instanceID).Str("hash", hash).Msg("Failed to update torrent file priority")
@@ -2322,11 +2302,11 @@ func (h *TorrentsHandler) CreateTorrent(w http.ResponseWriter, r *http.Request) 
 		if respondIfInstanceDisabled(w, err, instanceID, "torrents:create") {
 			return
 		}
-		if errors.Is(err, qbt.ErrTorrentCreationTooManyActiveTasks) {
+		if errors.Is(err, qbittorrent.ErrTorrentCreationTooManyActiveTasks) {
 			RespondError(w, http.StatusConflict, "Too many active torrent creation tasks")
 			return
 		}
-		if errors.Is(err, qbt.ErrUnsupportedVersion) {
+		if errors.Is(err, qbittorrent.ErrUnsupportedVersion) {
 			RespondError(w, http.StatusBadRequest, "Torrent creation requires qBittorrent v5.0.0 or later. Please upgrade your qBittorrent instance.")
 			return
 		}
@@ -2346,18 +2326,23 @@ func (h *TorrentsHandler) GetTorrentCreationStatus(w http.ResponseWriter, r *htt
 		return
 	}
 
-	taskID := r.URL.Query().Get("taskID")
+	taskIDStr := r.URL.Query().Get("taskID")
+	taskID, err := strconv.Atoi(taskIDStr)
+	if err != nil {
+		RespondError(w, http.StatusBadRequest, "Invalid task ID")
+		return
+	}
 
 	tasks, err := h.syncManager.GetTorrentCreationStatus(r.Context(), instanceID, taskID)
 	if err != nil {
 		if respondIfInstanceDisabled(w, err, instanceID, "torrents:getCreationStatus") {
 			return
 		}
-		if errors.Is(err, qbt.ErrTorrentCreationTaskNotFound) {
+		if errors.Is(err, qbittorrent.ErrTorrentCreationTaskNotFound) {
 			RespondError(w, http.StatusNotFound, "Torrent creation task not found")
 			return
 		}
-		if errors.Is(err, qbt.ErrUnsupportedVersion) {
+		if errors.Is(err, qbittorrent.ErrUnsupportedVersion) {
 			RespondError(w, http.StatusBadRequest, "Torrent creation requires qBittorrent v5.0.0 or later. Please upgrade your qBittorrent instance.")
 			return
 		}
@@ -2390,46 +2375,51 @@ func (h *TorrentsHandler) DownloadTorrentCreationFile(w http.ResponseWriter, r *
 		return
 	}
 
-	taskID := chi.URLParam(r, "taskID")
-	if taskID == "" {
+	taskIDStr := chi.URLParam(r, "taskID")
+	if taskIDStr == "" {
 		RespondError(w, http.StatusBadRequest, "Task ID is required")
 		return
 	}
+	taskIDInt, err := strconv.Atoi(taskIDStr)
+	if err != nil {
+		RespondError(w, http.StatusBadRequest, "Invalid task ID")
+		return
+	}
 
-	data, err := h.syncManager.GetTorrentCreationFile(r.Context(), instanceID, taskID)
+	data, err := h.syncManager.GetTorrentCreationFile(r.Context(), instanceID, taskIDInt)
 	if err != nil {
 		if respondIfInstanceDisabled(w, err, instanceID, "torrents:downloadCreationFile") {
 			return
 		}
-		if errors.Is(err, qbt.ErrTorrentCreationTaskNotFound) {
+		if errors.Is(err, qbittorrent.ErrTorrentCreationTaskNotFound) {
 			RespondError(w, http.StatusNotFound, "Torrent creation task not found")
 			return
 		}
-		if errors.Is(err, qbt.ErrTorrentCreationUnfinished) {
+		if errors.Is(err, qbittorrent.ErrTorrentCreationUnfinished) {
 			RespondError(w, http.StatusConflict, "Torrent creation is still in progress")
 			return
 		}
-		if errors.Is(err, qbt.ErrTorrentCreationFailed) {
+		if errors.Is(err, qbittorrent.ErrTorrentCreationFailed) {
 			RespondError(w, http.StatusConflict, "Torrent creation failed")
 			return
 		}
-		if errors.Is(err, qbt.ErrUnsupportedVersion) {
+		if errors.Is(err, qbittorrent.ErrUnsupportedVersion) {
 			RespondError(w, http.StatusBadRequest, "Torrent creation requires qBittorrent v5.0.0 or later. Please upgrade your qBittorrent instance.")
 			return
 		}
-		log.Error().Err(err).Int("instanceID", instanceID).Str("taskID", taskID).Msg("Failed to download torrent file")
+		log.Error().Err(err).Int("instanceID", instanceID).Str("taskID", taskIDStr).Msg("Failed to download torrent file")
 		RespondError(w, http.StatusInternalServerError, "Failed to download torrent file")
 		return
 	}
 
-	filename := fmt.Sprintf("%s.torrent", taskID)
+	filename := fmt.Sprintf("%s.torrent", taskIDStr)
 	w.Header().Set("Content-Type", "application/x-bittorrent")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	w.WriteHeader(http.StatusOK)
 
 	if _, err := w.Write(data); err != nil {
-		log.Error().Err(err).Int("instanceID", instanceID).Str("taskID", taskID).Msg("Failed to write torrent file response")
+		log.Error().Err(err).Int("instanceID", instanceID).Str("taskID", taskIDStr).Msg("Failed to write torrent file response")
 	}
 }
 
@@ -2441,26 +2431,31 @@ func (h *TorrentsHandler) DeleteTorrentCreationTask(w http.ResponseWriter, r *ht
 		return
 	}
 
-	taskID := chi.URLParam(r, "taskID")
-	if taskID == "" {
+	taskIDStr := chi.URLParam(r, "taskID")
+	if taskIDStr == "" {
 		RespondError(w, http.StatusBadRequest, "Task ID is required")
 		return
 	}
+	taskIDInt, err := strconv.Atoi(taskIDStr)
+	if err != nil {
+		RespondError(w, http.StatusBadRequest, "Invalid task ID")
+		return
+	}
 
-	err = h.syncManager.DeleteTorrentCreationTask(r.Context(), instanceID, taskID)
+	err = h.syncManager.DeleteTorrentCreationTask(r.Context(), instanceID, taskIDInt)
 	if err != nil {
 		if respondIfInstanceDisabled(w, err, instanceID, "torrents:deleteCreationTask") {
 			return
 		}
-		if errors.Is(err, qbt.ErrTorrentCreationTaskNotFound) {
+		if errors.Is(err, qbittorrent.ErrTorrentCreationTaskNotFound) {
 			RespondError(w, http.StatusNotFound, "Torrent creation task not found")
 			return
 		}
-		if errors.Is(err, qbt.ErrUnsupportedVersion) {
+		if errors.Is(err, qbittorrent.ErrUnsupportedVersion) {
 			RespondError(w, http.StatusBadRequest, "Torrent creation requires qBittorrent v5.0.0 or later. Please upgrade your qBittorrent instance.")
 			return
 		}
-		log.Error().Err(err).Int("instanceID", instanceID).Str("taskID", taskID).Msg("Failed to delete torrent creation task")
+		log.Error().Err(err).Int("instanceID", instanceID).Str("taskID", taskIDStr).Msg("Failed to delete torrent creation task")
 		RespondError(w, http.StatusInternalServerError, "Failed to delete torrent creation task")
 		return
 	}
@@ -2739,8 +2734,8 @@ func (h *TorrentsHandler) DownloadTorrentContentFile(w http.ResponseWriter, r *h
 	var targetFileName string
 	found := false
 	for _, f := range *files {
-		if f.Index == fileIndex {
-			targetFileName = f.Name
+		if qbt.Deref(f.Index) == fileIndex {
+			targetFileName = qbt.Deref(f.Name)
 			found = true
 			break
 		}
@@ -2770,10 +2765,10 @@ func (h *TorrentsHandler) DownloadTorrentContentFile(w http.ResponseWriter, r *h
 	if torrents, err := resolver.GetTorrents(r.Context(), instanceID, qbt.TorrentFilterOptions{Hashes: []string{hash}}); err != nil {
 		log.Warn().Err(err).Int("instanceID", instanceID).Str("hash", hash).Msg("Failed to get torrent content path for fallback resolution")
 	} else if len(torrents) > 0 {
-		contentPath = torrents[0].ContentPath
+		contentPath = qbt.Deref(torrents[0].ContentPath)
 	}
 
-	candidates := filePathCandidates(props.SavePath, props.DownloadPath, contentPath, targetFileName, len(*files) == 1)
+	candidates := filePathCandidates(qbt.Deref(props.SavePath), qbt.Deref(props.DownloadPath), contentPath, targetFileName, len(*files) == 1)
 	if len(candidates) == 0 {
 		RespondError(w, http.StatusBadRequest, "Invalid file path")
 		return

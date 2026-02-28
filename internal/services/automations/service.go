@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/models"
@@ -759,39 +759,39 @@ type PreviewTorrent struct {
 // buildPreviewTorrent creates a PreviewTorrent from a qbt.Torrent with optional context flags.
 func buildPreviewTorrent(torrent *qbt.Torrent, tracker string, evalCtx *EvalContext, isCrossSeed, isHardlinkCopy bool) PreviewTorrent {
 	pt := PreviewTorrent{
-		Name:           torrent.Name,
-		Hash:           torrent.Hash,
-		Size:           torrent.Size,
-		Ratio:          torrent.Ratio,
-		SeedingTime:    torrent.SeedingTime,
+		Name:           qbt.Deref(torrent.Name),
+		Hash:           qbt.Deref(torrent.Hash),
+		Size:           qbt.Deref(torrent.Size),
+		Ratio:          qbt.Deref(torrent.Ratio),
+		SeedingTime:    qbt.Deref(torrent.SeedingTime),
 		Tracker:        tracker,
-		Category:       torrent.Category,
-		Tags:           torrent.Tags,
-		State:          string(torrent.State),
-		AddedOn:        torrent.AddedOn,
-		Uploaded:       torrent.Uploaded,
-		Downloaded:     torrent.Downloaded,
-		ContentPath:    torrent.ContentPath,
+		Category:       qbt.Deref(torrent.Category),
+		Tags:           qbt.Deref(torrent.Tags),
+		State:          string(qbt.Deref(torrent.State)),
+		AddedOn:        qbt.Deref(torrent.AddedOn),
+		Uploaded:       qbt.Deref(torrent.Uploaded),
+		Downloaded:     qbt.Deref(torrent.Downloaded),
+		ContentPath:    qbt.Deref(torrent.ContentPath),
 		IsCrossSeed:    isCrossSeed,
 		IsHardlinkCopy: isHardlinkCopy,
-		NumSeeds:       torrent.NumSeeds,
-		NumComplete:    torrent.NumComplete,
-		NumLeechs:      torrent.NumLeechs,
-		NumIncomplete:  torrent.NumIncomplete,
-		Progress:       torrent.Progress,
-		Availability:   torrent.Availability,
-		TimeActive:     torrent.TimeActive,
-		LastActivity:   torrent.LastActivity,
-		CompletionOn:   torrent.CompletionOn,
-		TotalSize:      torrent.TotalSize,
+		NumSeeds:       int64(qbt.Deref(torrent.NumSeeds)),
+		NumComplete:    int64(qbt.Deref(torrent.NumComplete)),
+		NumLeechs:      int64(qbt.Deref(torrent.NumLeechs)),
+		NumIncomplete:  int64(qbt.Deref(torrent.NumIncomplete)),
+		Progress:       qbt.Deref(torrent.Progress),
+		Availability:   qbt.Deref(torrent.Availability),
+		TimeActive:     qbt.Deref(torrent.TimeActive),
+		LastActivity:   qbt.Deref(torrent.LastActivity),
+		CompletionOn:   qbt.Deref(torrent.CompletionOn),
+		TotalSize:      qbt.Deref(torrent.TotalSize),
 	}
 
 	if evalCtx != nil {
 		if evalCtx.UnregisteredSet != nil {
-			_, pt.IsUnregistered = evalCtx.UnregisteredSet[torrent.Hash]
+			_, pt.IsUnregistered = evalCtx.UnregisteredSet[qbt.Deref(torrent.Hash)]
 		}
 		if evalCtx.HardlinkScopeByHash != nil {
-			pt.HardlinkScope = evalCtx.HardlinkScopeByHash[torrent.Hash]
+			pt.HardlinkScope = evalCtx.HardlinkScopeByHash[qbt.Deref(torrent.Hash)]
 		}
 	}
 
@@ -818,9 +818,9 @@ func (c *previewConfig) normalize() {
 func sortTorrentsStable(torrents []qbt.Torrent) {
 	sort.Slice(torrents, func(i, j int) bool {
 		if torrents[i].AddedOn != torrents[j].AddedOn {
-			return torrents[i].AddedOn < torrents[j].AddedOn
+			return qbt.Deref(torrents[i].AddedOn) < qbt.Deref(torrents[j].AddedOn)
 		}
-		return torrents[i].Hash < torrents[j].Hash
+		return qbt.Deref(torrents[i].Hash) < qbt.Deref(torrents[j].Hash)
 	})
 }
 
@@ -1027,7 +1027,7 @@ func (s *Service) previewDeleteStandard(
 
 		torrentByHash := make(map[string]qbt.Torrent, len(torrents))
 		for _, t := range torrents {
-			torrentByHash[t.Hash] = t
+			torrentByHash[qbt.Deref(t.Hash)] = t
 		}
 
 		idx := getOrBuildGroupIndexForRule(evalCtx, rule, groupID, torrents, s.syncManager)
@@ -1054,23 +1054,23 @@ func (s *Service) previewDeleteStandard(
 				continue
 			}
 
-			members := []string{torrent.Hash}
+			members := []string{qbt.Deref(torrent.Hash)}
 			groupKey := ""
 			if idx != nil {
-				groupKey = idx.KeyForHash(torrent.Hash)
+				groupKey = idx.KeyForHash(qbt.Deref(torrent.Hash))
 				if groupKey != "" {
 					if _, seen := processedGroupKeys[groupKey]; seen {
 						continue
 					}
 					processedGroupKeys[groupKey] = struct{}{}
 				}
-				if m := idx.MembersForHash(torrent.Hash); len(m) > 0 {
+				if m := idx.MembersForHash(qbt.Deref(torrent.Hash)); len(m) > 0 {
 					members = m
 				}
 			}
 
 			expandGroup := true
-			if def != nil && idx != nil && idx.IsAmbiguousForHash(torrent.Hash) && containsKey(def.Keys, groupKeyContentPath) {
+			if def != nil && idx != nil && idx.IsAmbiguousForHash(qbt.Deref(torrent.Hash)) && containsKey(def.Keys, groupKeyContentPath) {
 				policy := strings.TrimSpace(def.AmbiguousPolicy)
 				if policy == "" {
 					policy = groupAmbiguousVerifyOverlap
@@ -1083,12 +1083,12 @@ func (s *Service) previewDeleteStandard(
 					minPercent = minFileOverlapPercent
 				}
 				skipGroup := false
-				triggerTorrent, ok := torrentByHash[torrent.Hash]
+				triggerTorrent, ok := torrentByHash[qbt.Deref(torrent.Hash)]
 				if !ok {
 					skipGroup = true
 				}
 				for _, otherHash := range members {
-					if skipGroup || otherHash == torrent.Hash {
+					if skipGroup || otherHash == qbt.Deref(torrent.Hash) {
 						continue
 					}
 					otherTorrent, ok := torrentByHash[otherHash]
@@ -1117,7 +1117,7 @@ func (s *Service) previewDeleteStandard(
 			}
 
 			if expandGroup {
-				directMatchSet[torrent.Hash] = struct{}{}
+				directMatchSet[qbt.Deref(torrent.Hash)] = struct{}{}
 				for _, memberHash := range members {
 					expandedSet[memberHash] = struct{}{}
 				}
@@ -1127,7 +1127,7 @@ func (s *Service) previewDeleteStandard(
 		matchIndex := 0
 		for i := range torrents {
 			torrent := &torrents[i]
-			if _, included := expandedSet[torrent.Hash]; !included {
+			if _, included := expandedSet[qbt.Deref(torrent.Hash)]; !included {
 				continue
 			}
 			matchIndex++
@@ -1137,7 +1137,7 @@ func (s *Service) previewDeleteStandard(
 			if len(result.Examples) >= cfg.limit {
 				continue
 			}
-			_, isDirect := directMatchSet[torrent.Hash]
+			_, isDirect := directMatchSet[qbt.Deref(torrent.Hash)]
 			tracker := getTrackerForTorrent(torrent, s.syncManager)
 			result.Examples = append(result.Examples, buildPreviewTorrent(torrent, tracker, evalCtx, !isDirect, false))
 		}
@@ -1251,7 +1251,7 @@ func (s *Service) previewDeleteIncludeCrossSeeds(
 
 	for i := range torrents {
 		torrent := &torrents[i]
-		if state.isAlreadyExpanded(torrent.Hash) {
+		if state.isAlreadyExpanded(qbt.Deref(torrent.Hash)) {
 			continue
 		}
 
@@ -1259,7 +1259,7 @@ func (s *Service) previewDeleteIncludeCrossSeeds(
 			continue
 		}
 
-		contentPath := normalizePath(torrent.ContentPath)
+		contentPath := normalizePath(qbt.Deref(torrent.ContentPath))
 		if state.isContentPathProcessed(contentPath) {
 			continue
 		}
@@ -1272,7 +1272,7 @@ func (s *Service) previewDeleteIncludeCrossSeeds(
 		}
 
 		if includeHardlinks {
-			state.addHardlinkCopies(hardlinkIndex, torrent.Hash)
+			state.addHardlinkCopies(hardlinkIndex, qbt.Deref(torrent.Hash))
 		}
 
 		if !eligibleMode {
@@ -1322,7 +1322,7 @@ func (s *Service) buildCrossSeedPreviewResult(
 	matchIndex := 0
 	for i := range torrents {
 		torrent := &torrents[i]
-		if !state.isAlreadyExpanded(torrent.Hash) {
+		if !state.isAlreadyExpanded(qbt.Deref(torrent.Hash)) {
 			continue
 		}
 
@@ -1334,8 +1334,8 @@ func (s *Service) buildCrossSeedPreviewResult(
 			break
 		}
 
-		_, isCrossSeed := state.crossSeedSet[torrent.Hash]
-		_, isHardlinkCopy := state.hardlinkCopySet[torrent.Hash]
+		_, isCrossSeed := state.crossSeedSet[qbt.Deref(torrent.Hash)]
+		_, isHardlinkCopy := state.hardlinkCopySet[qbt.Deref(torrent.Hash)]
 		tracker := getTrackerForTorrent(torrent, s.syncManager)
 		result.Examples = append(result.Examples, buildPreviewTorrent(torrent, tracker, evalCtx, isCrossSeed, isHardlinkCopy))
 	}
@@ -1353,13 +1353,13 @@ func (s *Service) verifyGroupForPreview(
 	crossSeedGroup []qbt.Torrent,
 	alreadyIncluded map[string]struct{},
 ) (ok bool, hashes []string) {
-	verifiedHashes := []string{trigger.Hash}
+	verifiedHashes := []string{qbt.Deref(trigger.Hash)}
 	for i := range crossSeedGroup {
 		other := &crossSeedGroup[i]
-		if other.Hash == trigger.Hash {
+		if qbt.Deref(other.Hash) == qbt.Deref(trigger.Hash) {
 			continue
 		}
-		if _, exists := alreadyIncluded[other.Hash]; exists {
+		if _, exists := alreadyIncluded[qbt.Deref(other.Hash)]; exists {
 			continue
 		}
 		hasOverlap, err := s.verifyFileOverlap(ctx, instanceID, *trigger, *other, minFileOverlapPercent)
@@ -1367,7 +1367,7 @@ func (s *Service) verifyGroupForPreview(
 			// Any failure means skip the entire group
 			return false, nil
 		}
-		verifiedHashes = append(verifiedHashes, other.Hash)
+		verifiedHashes = append(verifiedHashes, qbt.Deref(other.Hash))
 	}
 	return true, verifiedHashes
 }
@@ -1383,7 +1383,7 @@ func (s *Service) expandGroupForPreview(
 ) bool {
 	// No cross-seeds, just add the trigger
 	if len(crossSeedGroup) <= 1 {
-		expandedSet[trigger.Hash] = struct{}{}
+		expandedSet[qbt.Deref(trigger.Hash)] = struct{}{}
 		return true
 	}
 
@@ -1411,7 +1411,7 @@ func (s *Service) expandAmbiguousGroup(
 	}
 	for _, h := range verifiedHashes {
 		expandedSet[h] = struct{}{}
-		if h != trigger.Hash {
+		if h != qbt.Deref(trigger.Hash) {
 			crossSeedSet[h] = struct{}{}
 		}
 	}
@@ -1420,17 +1420,17 @@ func (s *Service) expandAmbiguousGroup(
 
 // expandUnambiguousCrossSeeds adds all cross-seeds from an unambiguous group.
 func expandUnambiguousCrossSeeds(trigger *qbt.Torrent, crossSeedGroup []qbt.Torrent, expandedSet, crossSeedSet map[string]struct{}) {
-	expandedSet[trigger.Hash] = struct{}{}
+	expandedSet[qbt.Deref(trigger.Hash)] = struct{}{}
 	for i := range crossSeedGroup {
 		other := &crossSeedGroup[i]
-		if other.Hash == trigger.Hash {
+		if qbt.Deref(other.Hash) == qbt.Deref(trigger.Hash) {
 			continue
 		}
-		if _, exists := expandedSet[other.Hash]; exists {
+		if _, exists := expandedSet[qbt.Deref(other.Hash)]; exists {
 			continue
 		}
-		expandedSet[other.Hash] = struct{}{}
-		crossSeedSet[other.Hash] = struct{}{}
+		expandedSet[qbt.Deref(other.Hash)] = struct{}{}
+		crossSeedSet[qbt.Deref(other.Hash)] = struct{}{}
 	}
 }
 
@@ -1574,7 +1574,7 @@ func (s *Service) findDirectCategoryMatches(
 			continue
 		}
 
-		if torrent.Category == state.targetCategory {
+		if qbt.Deref(torrent.Category) == state.targetCategory {
 			continue
 		}
 
@@ -1582,7 +1582,7 @@ func (s *Service) findDirectCategoryMatches(
 			continue
 		}
 
-		state.directMatchSet[torrent.Hash] = struct{}{}
+		state.directMatchSet[qbt.Deref(torrent.Hash)] = struct{}{}
 		if catAction.includeCrossSeeds {
 			if key, ok := makeCrossSeedKey(*torrent); ok {
 				state.matchedKeys[key] = struct{}{}
@@ -1599,15 +1599,15 @@ func (s *Service) findCategoryCrossSeeds(torrents []qbt.Torrent, catAction categ
 
 	for i := range torrents {
 		torrent := &torrents[i]
-		if _, isDirectMatch := state.directMatchSet[torrent.Hash]; isDirectMatch {
+		if _, isDirectMatch := state.directMatchSet[qbt.Deref(torrent.Hash)]; isDirectMatch {
 			continue
 		}
-		if torrent.Category == state.targetCategory {
+		if qbt.Deref(torrent.Category) == state.targetCategory {
 			continue
 		}
 		if key, ok := makeCrossSeedKey(*torrent); ok {
 			if _, matched := state.matchedKeys[key]; matched {
-				state.crossSeedSet[torrent.Hash] = struct{}{}
+				state.crossSeedSet[qbt.Deref(torrent.Hash)] = struct{}{}
 			}
 		}
 	}
@@ -1636,7 +1636,7 @@ func (s *Service) findCategoryGroupMembers(
 
 	torrentByHash := make(map[string]qbt.Torrent, len(torrents))
 	for _, t := range torrents {
-		torrentByHash[t.Hash] = t
+		torrentByHash[qbt.Deref(t.Hash)] = t
 	}
 	crossSeedIndex := buildCrossSeedIndex(torrents)
 
@@ -1678,15 +1678,15 @@ func (s *Service) findCategoryGroupMembers(
 
 	for i := range torrents {
 		torrent := &torrents[i]
-		if _, isDirectMatch := state.directMatchSet[torrent.Hash]; isDirectMatch {
+		if _, isDirectMatch := state.directMatchSet[qbt.Deref(torrent.Hash)]; isDirectMatch {
 			continue
 		}
-		if torrent.Category == state.targetCategory {
+		if qbt.Deref(torrent.Category) == state.targetCategory {
 			continue
 		}
-		if gk := idx.KeyForHash(torrent.Hash); gk != "" {
+		if gk := idx.KeyForHash(qbt.Deref(torrent.Hash)); gk != "" {
 			if _, ok := keySet[gk]; ok {
-				state.crossSeedSet[torrent.Hash] = struct{}{}
+				state.crossSeedSet[qbt.Deref(torrent.Hash)] = struct{}{}
 			}
 		}
 	}
@@ -1716,7 +1716,7 @@ func (s *Service) buildCategoryPreviewResult(
 	matchIndex := 0
 	for i := range torrents {
 		torrent := &torrents[i]
-		if _, included := allMatches[torrent.Hash]; !included {
+		if _, included := allMatches[qbt.Deref(torrent.Hash)]; !included {
 			continue
 		}
 
@@ -1728,7 +1728,7 @@ func (s *Service) buildCategoryPreviewResult(
 			break
 		}
 
-		_, isCrossSeed := state.crossSeedSet[torrent.Hash]
+		_, isCrossSeed := state.crossSeedSet[qbt.Deref(torrent.Hash)]
 		tracker := getTrackerForTorrent(torrent, s.syncManager)
 		result.Examples = append(result.Examples, buildPreviewTorrent(torrent, tracker, evalCtx, isCrossSeed, false))
 	}
@@ -1981,7 +1981,7 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 	// for rules that will actually process at least one torrent.
 	rulesUsed := make(map[int]struct{})
 	for _, torrent := range torrents {
-		if skipCheck(torrent.Hash) {
+		if skipCheck(qbt.Deref(torrent.Hash)) {
 			continue
 		}
 		for _, rule := range selectMatchingRules(torrent, eligibleRules, s.syncManager) {
@@ -2043,7 +2043,7 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 	// Build torrent lookup for cross-seed detection
 	torrentByHash := make(map[string]qbt.Torrent, len(torrents))
 	for _, t := range torrents {
-		torrentByHash[t.Hash] = t
+		torrentByHash[qbt.Deref(t.Hash)] = t
 	}
 
 	ruleByID := make(map[int]*models.Automation, len(eligibleRules))
@@ -2113,18 +2113,18 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 					verifiedHashes := []string{hash}
 					skipGroup := false
 					for _, other := range crossSeedGroup {
-						if other.Hash == hash {
+						if qbt.Deref(other.Hash) == hash {
 							continue
 						}
 						// Skip if already processed in a previous iteration
-						if _, processed := includedCrossSeedHashes[other.Hash]; processed {
+						if _, processed := includedCrossSeedHashes[qbt.Deref(other.Hash)]; processed {
 							continue
 						}
 						hasOverlap, err := s.verifyFileOverlap(ctx, instanceID, torrent, other, minFileOverlapPercent)
 						if err != nil {
 							log.Warn().Err(err).
 								Int("instanceID", instanceID).Int("ruleID", state.deleteRuleID).Str("ruleName", state.deleteRuleName).
-								Str("hash", hash).Str("otherHash", other.Hash).
+								Str("hash", hash).Str("otherHash", qbt.Deref(other.Hash)).
 								Msg("automations: skipping entire group due to verification error")
 							skipGroup = true
 							break
@@ -2132,12 +2132,12 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 						if !hasOverlap {
 							log.Warn().
 								Int("instanceID", instanceID).Int("ruleID", state.deleteRuleID).Str("ruleName", state.deleteRuleName).
-								Str("hash", hash).Str("otherHash", other.Hash).
+								Str("hash", hash).Str("otherHash", qbt.Deref(other.Hash)).
 								Msg("automations: skipping entire group due to low file overlap")
 							skipGroup = true
 							break
 						}
-						verifiedHashes = append(verifiedHashes, other.Hash)
+						verifiedHashes = append(verifiedHashes, qbt.Deref(other.Hash))
 					}
 					if skipGroup {
 						// Skip this torrent entirely - don't delete trigger or cross-seeds
@@ -2158,12 +2158,12 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 					hashesToDelete = make([]string, 0, len(crossSeedGroup))
 					for _, t := range crossSeedGroup {
 						// Skip if already processed in a previous iteration
-						if _, processed := includedCrossSeedHashes[t.Hash]; processed {
+						if _, processed := includedCrossSeedHashes[qbt.Deref(t.Hash)]; processed {
 							continue
 						}
-						hashesToDelete = append(hashesToDelete, t.Hash)
-						if t.Hash != hash {
-							includedCrossSeedHashes[t.Hash] = struct{}{}
+						hashesToDelete = append(hashesToDelete, qbt.Deref(t.Hash))
+						if qbt.Deref(t.Hash) != hash {
+							includedCrossSeedHashes[qbt.Deref(t.Hash)] = struct{}{}
 						}
 					}
 					actualMode = DeleteModeWithFiles
@@ -2311,7 +2311,7 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 				if h != hash {
 					// Expanded cross-seed - use its own name/tracker info
 					if t, exists := torrentByHash[h]; exists {
-						torrentName = t.Name
+						torrentName = qbt.Deref(t.Name)
 						if domains := collectTrackerDomains(t, s.syncManager); len(domains) > 0 {
 							trackerDomain = domains[0]
 						}
@@ -2357,14 +2357,14 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 		// Speed limits - only add to batch if current doesn't match desired
 		if state.uploadLimitKiB != nil {
 			desired := *state.uploadLimitKiB * 1024
-			if torrent.UpLimit != desired {
+			if qbt.Deref(torrent.UpLimit) != desired {
 				uploadBatches[*state.uploadLimitKiB] = append(uploadBatches[*state.uploadLimitKiB], hash)
 				uploadRuleByHash[hash] = state.uploadRule
 			}
 		}
 		if state.downloadLimitKiB != nil {
 			desired := *state.downloadLimitKiB * 1024
-			if torrent.DlLimit != desired {
+			if qbt.Deref(torrent.DlLimit) != desired {
 				downloadBatches[*state.downloadLimitKiB] = append(downloadBatches[*state.downloadLimitKiB], hash)
 				downloadRuleByHash[hash] = state.downloadRule
 			}
@@ -2373,9 +2373,9 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 		// Share limits
 		if state.ratioLimit != nil || state.seedingMinutes != nil {
 			// Start with torrent's current values
-			ratio := torrent.RatioLimit
-			seedMinutes := torrent.SeedingTimeLimit
-			inactiveMinutes := torrent.InactiveSeedingTimeLimit // Preserve inactive limit
+			ratio := qbt.Deref(torrent.RatioLimit)
+			seedMinutes := qbt.Deref(torrent.SeedingTimeLimit)
+			inactiveMinutes := qbt.Deref(torrent.InactiveSeedingTimeLimit) // Preserve inactive limit
 
 			// Apply desired values if set
 			if state.ratioLimit != nil {
@@ -2394,11 +2394,11 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 				return r // Keep sentinel values (-1, -2) unchanged
 			}
 			ratio = normalizeRatio(ratio)
-			currentRatio := normalizeRatio(torrent.RatioLimit)
+			currentRatio := normalizeRatio(qbt.Deref(torrent.RatioLimit))
 
 			// Check if update is needed (comparing normalized values)
 			ratioNeedsUpdate := state.ratioLimit != nil && currentRatio != ratio
-			seedingNeedsUpdate := state.seedingMinutes != nil && torrent.SeedingTimeLimit != seedMinutes
+			seedingNeedsUpdate := state.seedingMinutes != nil && qbt.Deref(torrent.SeedingTimeLimit) != seedMinutes
 			needsUpdate := ratioNeedsUpdate || seedingNeedsUpdate
 			if needsUpdate {
 				key := shareKey{ratio: ratio, seed: seedMinutes, inactive: inactiveMinutes}
@@ -2464,7 +2464,7 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 
 		// Category - filter no-ops by comparing desired vs current
 		if state.category != nil {
-			if torrent.Category != *state.category {
+			if qbt.Deref(torrent.Category) != *state.category {
 				categoryBatches[*state.category] = append(categoryBatches[*state.category], hash)
 				categoryRuleByHash[hash] = state.categoryRule
 			}
@@ -3093,15 +3093,15 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 			}
 
 			for _, t := range torrents {
-				if t.Category == category {
+				if qbt.Deref(t.Category) == category {
 					continue // Already in target category
 				}
-				if _, exists := expandedSet[t.Hash]; exists {
+				if _, exists := expandedSet[qbt.Deref(t.Hash)]; exists {
 					continue // Already in batch
 				}
 				// CRITICAL: Don't override torrent's own computed desired category
 				// If this torrent has its own category set by rules, respect "last rule wins"
-				if state, hasState := states[t.Hash]; hasState && state.category != nil {
+				if state, hasState := states[qbt.Deref(t.Hash)]; hasState && state.category != nil {
 					if *state.category != category {
 						continue // Torrent's winning rule chose a different category
 					}
@@ -3113,7 +3113,7 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 					if idx == nil {
 						continue
 					}
-					gk := idx.KeyForHash(t.Hash)
+					gk := idx.KeyForHash(qbt.Deref(t.Hash))
 					if gk == "" {
 						continue
 					}
@@ -3124,11 +3124,11 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 					}
 				}
 				if shouldExpand {
-					expandedHashes = append(expandedHashes, t.Hash)
-					expandedSet[t.Hash] = struct{}{}
-					if _, exists := categoryRuleByHash[t.Hash]; !exists {
+					expandedHashes = append(expandedHashes, qbt.Deref(t.Hash))
+					expandedSet[qbt.Deref(t.Hash)] = struct{}{}
+					if _, exists := categoryRuleByHash[qbt.Deref(t.Hash)]; !exists {
 						if ref, ok := ruleByGroupKey[matchedKey]; ok {
-							categoryRuleByHash[t.Hash] = ref
+							categoryRuleByHash[qbt.Deref(t.Hash)] = ref
 						}
 					}
 				}
@@ -3148,7 +3148,7 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 						category: category,
 					}
 					if t, exists := torrentByHash[hash]; exists {
-						move.name = t.Name
+						move.name = qbt.Deref(t.Name)
 						if domains := collectTrackerDomains(t, s.syncManager); len(domains) > 0 {
 							move.trackerDomain = domains[0]
 						}
@@ -3325,7 +3325,7 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 						if !ok {
 							continue
 						}
-						if normalizePath(memberTorrent.SavePath) == normalizedDest {
+						if normalizePath(qbt.Deref(memberTorrent.SavePath)) == normalizedDest {
 							continue // Already in target path
 						}
 						expandedHashes = append(expandedHashes, memberHash)
@@ -3347,17 +3347,17 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 
 		if len(legacyKeysToExpand) > 0 {
 			for _, t := range torrents {
-				if normalizePath(t.SavePath) == normalizedDest {
+				if normalizePath(qbt.Deref(t.SavePath)) == normalizedDest {
 					continue // Already in target path
 				}
-				if _, exists := movedHashes[t.Hash]; exists {
+				if _, exists := movedHashes[qbt.Deref(t.Hash)]; exists {
 					continue // Already moved
 				}
 				if key, ok := makeCrossSeedKey(t); ok {
 					if _, matched := legacyKeysToExpand[key]; matched {
-						expandedHashes = append(expandedHashes, t.Hash)
-						movedHashes[t.Hash] = struct{}{}
-						inheritRuleRefForCrossSeed(t.Hash, key, moveRuleByHash, ruleByCrossSeedKey)
+						expandedHashes = append(expandedHashes, qbt.Deref(t.Hash))
+						movedHashes[qbt.Deref(t.Hash)] = struct{}{}
+						inheritRuleRefForCrossSeed(qbt.Deref(t.Hash), key, moveRuleByHash, ruleByCrossSeedKey)
 					}
 				}
 			}
@@ -3811,7 +3811,7 @@ func collectTorrentNamesForHashes(hashes []string, torrentByHash map[string]qbt.
 		if !ok {
 			continue
 		}
-		name := strings.TrimSpace(torrent.Name)
+		name := strings.TrimSpace(qbt.Deref(torrent.Name))
 		if name == "" {
 			continue
 		}
@@ -3869,23 +3869,14 @@ func matchesTracker(pattern string, domains []string) bool {
 func collectTrackerDomains(t qbt.Torrent, sm *qbittorrent.SyncManager) []string {
 	domainSet := make(map[string]struct{})
 
-	if t.Tracker != "" {
-		if domain := sm.ExtractDomainFromURL(t.Tracker); domain != "" && domain != "Unknown" {
+	if qbt.Deref(t.Tracker) != "" {
+		if domain := sm.ExtractDomainFromURL(qbt.Deref(t.Tracker)); domain != "" && domain != "Unknown" {
 			domainSet[domain] = struct{}{}
 		}
 	}
 
-	for _, tr := range t.Trackers {
-		if tr.Url == "" {
-			continue
-		}
-		if domain := sm.ExtractDomainFromURL(tr.Url); domain != "" && domain != "Unknown" {
-			domainSet[domain] = struct{}{}
-		}
-	}
-
-	if len(domainSet) == 0 && t.Tracker != "" {
-		if domain := sanitizeTrackerHost(t.Tracker); domain != "" {
+	if len(domainSet) == 0 && qbt.Deref(t.Tracker) != "" {
+		if domain := sanitizeTrackerHost(qbt.Deref(t.Tracker)); domain != "" {
 			domainSet[domain] = struct{}{}
 		}
 	}
@@ -3940,8 +3931,8 @@ type crossSeedKey struct {
 
 // makeCrossSeedKey returns the key for a torrent, and ok=false if paths are empty.
 func makeCrossSeedKey(t qbt.Torrent) (crossSeedKey, bool) {
-	contentPath := normalizePath(t.ContentPath)
-	savePath := normalizePath(t.SavePath)
+	contentPath := normalizePath(qbt.Deref(t.ContentPath))
+	savePath := normalizePath(qbt.Deref(t.SavePath))
 	if contentPath == "" || savePath == "" {
 		return crossSeedKey{}, false
 	}
@@ -4010,15 +4001,15 @@ func inheritRuleRefForCrossSeed(expandedHash string, key crossSeedKey, ruleByHas
 // detectCrossSeeds checks if any other torrent shares the same ContentPath,
 // indicating they are cross-seeds sharing the same data files.
 func detectCrossSeeds(target qbt.Torrent, allTorrents []qbt.Torrent) bool {
-	targetPath := normalizePath(target.ContentPath)
+	targetPath := normalizePath(qbt.Deref(target.ContentPath))
 	if targetPath == "" {
 		return false
 	}
 	for _, other := range allTorrents {
-		if other.Hash == target.Hash {
+		if qbt.Deref(other.Hash) == qbt.Deref(target.Hash) {
 			continue // skip self
 		}
-		if normalizePath(other.ContentPath) == targetPath {
+		if normalizePath(qbt.Deref(other.ContentPath)) == targetPath {
 			return true // cross-seed found
 		}
 	}
@@ -4047,21 +4038,21 @@ func shouldBlockGroupedMoveTriggerFallback(hash string, state *torrentDesiredSta
 // files unique to this torrent. This happens when ContentPath == SavePath, meaning
 // the torrent uses the SavePath directly (common for shared download directories).
 func isContentPathAmbiguous(t qbt.Torrent) bool {
-	contentPath := normalizePath(t.ContentPath)
-	savePath := normalizePath(t.SavePath)
+	contentPath := normalizePath(qbt.Deref(t.ContentPath))
+	savePath := normalizePath(qbt.Deref(t.SavePath))
 	return contentPath == savePath
 }
 
 // findCrossSeedGroup returns all torrents (including the target) that share
 // the same normalized ContentPath. Returns nil if ContentPath is empty.
 func findCrossSeedGroup(target qbt.Torrent, allTorrents []qbt.Torrent) []qbt.Torrent {
-	targetPath := normalizePath(target.ContentPath)
+	targetPath := normalizePath(qbt.Deref(target.ContentPath))
 	if targetPath == "" {
 		return nil
 	}
 	var group []qbt.Torrent
 	for _, t := range allTorrents {
-		if normalizePath(t.ContentPath) == targetPath {
+		if normalizePath(qbt.Deref(t.ContentPath)) == targetPath {
 			group = append(group, t)
 		}
 	}
@@ -4090,7 +4081,7 @@ func (s *Service) verifyFileOverlap(ctx context.Context, instanceID int, torrent
 	}
 
 	// Get files for both torrents
-	filesByHash, err := s.syncManager.GetTorrentFilesBatch(ctx, instanceID, []string{torrent1.Hash, torrent2.Hash})
+	filesByHash, err := s.syncManager.GetTorrentFilesBatch(ctx, instanceID, []string{qbt.Deref(torrent1.Hash), qbt.Deref(torrent2.Hash)})
 	if err != nil {
 		return false, fmt.Errorf("failed to fetch files: %w", err)
 	}
@@ -4099,8 +4090,8 @@ func (s *Service) verifyFileOverlap(ctx context.Context, instanceID int, torrent
 		return false, err
 	}
 
-	files1, ok1 := filesByHash[torrent1.Hash]
-	files2, ok2 := filesByHash[torrent2.Hash]
+	files1, ok1 := filesByHash[qbt.Deref(torrent1.Hash)]
+	files2, ok2 := filesByHash[qbt.Deref(torrent2.Hash)]
 	if !ok1 || !ok2 || len(files1) == 0 || len(files2) == 0 {
 		return false, fmt.Errorf("missing file lists for torrents")
 	}
@@ -4110,23 +4101,23 @@ func (s *Service) verifyFileOverlap(ctx context.Context, instanceID int, torrent
 	var totalBytes1 int64
 	for _, f := range files1 {
 		key := fileOverlapKey{
-			name: normalizePath(f.Name),
-			size: f.Size,
+			name: normalizePath(qbt.Deref(f.Name)),
+			size: qbt.Deref(f.Size),
 		}
 		fileSet1[key] = struct{}{}
-		totalBytes1 += f.Size
+		totalBytes1 += qbt.Deref(f.Size)
 	}
 
 	// Compute total bytes for second torrent and sum matched bytes
 	var totalBytes2, matchedBytes int64
 	for _, f := range files2 {
-		totalBytes2 += f.Size
+		totalBytes2 += qbt.Deref(f.Size)
 		key := fileOverlapKey{
-			name: normalizePath(f.Name),
-			size: f.Size,
+			name: normalizePath(qbt.Deref(f.Name)),
+			size: qbt.Deref(f.Size),
 		}
 		if _, exists := fileSet1[key]; exists {
-			matchedBytes += f.Size
+			matchedBytes += qbt.Deref(f.Size)
 		}
 	}
 
@@ -4781,13 +4772,13 @@ func (s *Service) recordDryRunActivities(
 				}
 
 				for _, t := range torrents {
-					if t.Category == category {
+					if qbt.Deref(t.Category) == category {
 						continue
 					}
-					if _, exists := expandedSet[t.Hash]; exists {
+					if _, exists := expandedSet[qbt.Deref(t.Hash)]; exists {
 						continue
 					}
-					if state, hasState := states[t.Hash]; hasState && state.category != nil {
+					if state, hasState := states[qbt.Deref(t.Hash)]; hasState && state.category != nil {
 						if *state.category != category {
 							continue
 						}
@@ -4799,7 +4790,7 @@ func (s *Service) recordDryRunActivities(
 						if idx == nil {
 							continue
 						}
-						gk := idx.KeyForHash(t.Hash)
+						gk := idx.KeyForHash(qbt.Deref(t.Hash))
 						if gk == "" {
 							continue
 						}
@@ -4809,8 +4800,8 @@ func (s *Service) recordDryRunActivities(
 						}
 					}
 					if shouldExpand {
-						expandedHashes = append(expandedHashes, t.Hash)
-						expandedSet[t.Hash] = struct{}{}
+						expandedHashes = append(expandedHashes, qbt.Deref(t.Hash))
+						expandedSet[qbt.Deref(t.Hash)] = struct{}{}
 					}
 				}
 			}
@@ -4818,7 +4809,7 @@ func (s *Service) recordDryRunActivities(
 			for _, hash := range expandedHashes {
 				move := categoryMove{hash: hash, category: category}
 				if t, exists := torrentByHash[hash]; exists {
-					move.name = t.Name
+					move.name = qbt.Deref(t.Name)
 					if domains := collectTrackerDomains(t, s.syncManager); len(domains) > 0 {
 						move.trackerDomain = domains[0]
 					}
@@ -4960,7 +4951,7 @@ func (s *Service) recordDryRunActivities(
 							if !ok {
 								continue
 							}
-							if normalizePath(memberTorrent.SavePath) == normalizedDest {
+							if normalizePath(qbt.Deref(memberTorrent.SavePath)) == normalizedDest {
 								continue
 							}
 							expandedHashes = append(expandedHashes, memberHash)
@@ -4981,16 +4972,16 @@ func (s *Service) recordDryRunActivities(
 
 			if len(legacyKeysToExpand) > 0 {
 				for _, t := range torrents {
-					if normalizePath(t.SavePath) == normalizedDest {
+					if normalizePath(qbt.Deref(t.SavePath)) == normalizedDest {
 						continue
 					}
-					if _, exists := movedHashes[t.Hash]; exists {
+					if _, exists := movedHashes[qbt.Deref(t.Hash)]; exists {
 						continue
 					}
 					if key, ok := makeCrossSeedKey(t); ok {
 						if _, matched := legacyKeysToExpand[key]; matched {
-							expandedHashes = append(expandedHashes, t.Hash)
-							movedHashes[t.Hash] = struct{}{}
+							expandedHashes = append(expandedHashes, qbt.Deref(t.Hash))
+							movedHashes[qbt.Deref(t.Hash)] = struct{}{}
 						}
 					}
 				}
@@ -5048,13 +5039,10 @@ func (s *Service) recordDryRunActivities(
 func buildRunItemFromHash(hash string, torrentByHash map[string]qbt.Torrent, sm *qbittorrent.SyncManager) ActivityRunTorrent {
 	item := ActivityRunTorrent{Hash: hash}
 	if t, ok := torrentByHash[hash]; ok {
-		item.Name = t.Name
-		size := t.Size
-		ratio := t.Ratio
-		addedOn := t.AddedOn
-		item.Size = &size
-		item.Ratio = &ratio
-		item.AddedOn = &addedOn
+		item.Name = qbt.Deref(t.Name)
+		item.Size = t.Size
+		item.Ratio = t.Ratio
+		item.AddedOn = t.AddedOn
 		if sm != nil {
 			if domains := collectTrackerDomains(t, sm); len(domains) > 0 {
 				item.TrackerDomain = domains[0]
@@ -5322,7 +5310,7 @@ func (s *Service) executeExternalProgramsFromAutomation(_ context.Context, insta
 				if err := s.activityStore.Create(context.Background(), &models.AutomationActivity{
 					InstanceID:  instanceID,
 					Hash:        exec.hash,
-					TorrentName: exec.torrent.Name,
+					TorrentName: qbt.Deref(exec.torrent.Name),
 					Action:      externalprograms.ActivityActionExternalProgram,
 					RuleID:      &ruleID,
 					RuleName:    exec.ruleName,
@@ -5370,7 +5358,7 @@ func (s *Service) executeExternalProgramsFromAutomation(_ context.Context, insta
 					Err(result.Error).
 					Int("programID", programID).
 					Str("ruleName", ruleName).
-					Str("torrentHash", torrent.Hash).
+					Str("torrentHash", qbt.Deref(torrent.Hash)).
 					Msg("automation: external program execution failed")
 			}
 		}()

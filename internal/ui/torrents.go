@@ -16,7 +16,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/ui/pages"
@@ -59,10 +59,10 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 		Hashes: []string{hash},
 	}); err == nil {
 		for _, t := range torrents {
-			name = t.Name
-			state = string(t.State)
-			category = t.Category
-			tags = t.Tags
+			name = qbt.Deref(t.Name)
+			state = string(qbt.Deref(t.State))
+			category = qbt.Deref(t.Category)
+			tags = qbt.Deref(t.Tags)
 			break
 		}
 	}
@@ -112,7 +112,7 @@ func (h *Handler) GetTorrentDetailPartial(w http.ResponseWriter, r *http.Request
 		Category:         category,
 		Tags:             tags,
 		Properties:       props,
-		Files:            files,
+		Files:            func() []qbt.TorrentFile { if files != nil { return *files }; return nil }(),
 		Trackers:         trackers,
 		Peers:            peers,
 		WebSeeds:         webSeeds,

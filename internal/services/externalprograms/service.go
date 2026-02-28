@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	shellquote "github.com/Hellseher/go-shellquote"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/domain"
@@ -185,7 +185,7 @@ func (s *Service) executeProgram(ctx context.Context, program *models.ExternalPr
 		Str("program", program.Name).
 		Str("path", program.Path).
 		Strs("args", args).
-		Str("hash", req.Torrent.Hash).
+		Str("hash", qbt.Deref(req.Torrent.Hash)).
 		Str("full_command", fmt.Sprintf("%v", cmd.Args)).
 		Msg("executing external program")
 
@@ -219,7 +219,7 @@ func (s *Service) executeAsync(
 			log.Error().
 				Err(execErr).
 				Str("program", program.Name).
-				Str("hash", req.Torrent.Hash).
+				Str("hash", qbt.Deref(req.Torrent.Hash)).
 				Str("command", fmt.Sprintf("%v", cmd.Args)).
 				Msg("external program failed to start")
 			s.logActivity(ctx, req.InstanceID, req.Torrent, program, req.RuleID, req.RuleName, false, fmt.Sprintf("program failed to start: %v", execErr))
@@ -234,7 +234,7 @@ func (s *Service) executeAsync(
 			log.Error().
 				Err(execErr).
 				Str("program", program.Name).
-				Str("hash", req.Torrent.Hash).
+				Str("hash", qbt.Deref(req.Torrent.Hash)).
 				Str("command", fmt.Sprintf("%v", cmd.Args)).
 				Msg("external program failed to start")
 			// Log failure activity
@@ -251,7 +251,7 @@ func (s *Service) executeAsync(
 			log.Warn().
 				Err(waitErr).
 				Str("program", program.Name).
-				Str("hash", req.Torrent.Hash).
+				Str("hash", qbt.Deref(req.Torrent.Hash)).
 				Str("command", fmt.Sprintf("%v", cmd.Args)).
 				Msg("process exited with error (may be normal for terminal emulators)")
 		}
@@ -259,7 +259,7 @@ func (s *Service) executeAsync(
 
 	log.Info().
 		Str("program", program.Name).
-		Str("hash", req.Torrent.Hash).
+		Str("hash", qbt.Deref(req.Torrent.Hash)).
 		Bool("useTerminal", program.UseTerminal).
 		Msg("external program execution completed")
 }
@@ -542,20 +542,20 @@ func (s *Service) IsPathAllowed(programPath string) bool {
 
 // buildTorrentData creates a map of torrent data for variable substitution.
 func buildTorrentData(torrent *qbt.Torrent, pathMappings []models.PathMapping) map[string]string {
-	savePath := extargs.ApplyPathMappings(torrent.SavePath, pathMappings)
-	contentPath := extargs.ApplyPathMappings(torrent.ContentPath, pathMappings)
+	savePath := extargs.ApplyPathMappings(qbt.Deref(torrent.SavePath), pathMappings)
+	contentPath := extargs.ApplyPathMappings(qbt.Deref(torrent.ContentPath), pathMappings)
 
 	return map[string]string{
-		"hash":         torrent.Hash,
-		"name":         torrent.Name,
+		"hash":         qbt.Deref(torrent.Hash),
+		"name":         qbt.Deref(torrent.Name),
 		"save_path":    savePath,
-		"category":     torrent.Category,
-		"tags":         torrent.Tags,
-		"state":        string(torrent.State),
-		"size":         strconv.FormatInt(torrent.Size, 10),
-		"progress":     fmt.Sprintf("%.2f", torrent.Progress),
+		"category":     qbt.Deref(torrent.Category),
+		"tags":         qbt.Deref(torrent.Tags),
+		"state":        string(qbt.Deref(torrent.State)),
+		"size":         strconv.FormatInt(qbt.Deref(torrent.Size), 10),
+		"progress":     fmt.Sprintf("%.2f", qbt.Deref(torrent.Progress)),
 		"content_path": contentPath,
-		"comment":      torrent.Comment,
+		"comment":      "",
 	}
 }
 
@@ -585,8 +585,8 @@ func (s *Service) logActivity(
 
 	activity := &models.AutomationActivity{
 		InstanceID:  instanceID,
-		Hash:        torrent.Hash,
-		TorrentName: torrent.Name,
+		Hash:        qbt.Deref(torrent.Hash),
+		TorrentName: qbt.Deref(torrent.Name),
 		Action:      ActivityActionExternalProgram,
 		RuleID:      ruleID,
 		RuleName:    ruleName,

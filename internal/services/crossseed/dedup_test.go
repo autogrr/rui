@@ -8,7 +8,7 @@ import (
 	"context"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/pkg/stringutils"
@@ -21,14 +21,14 @@ func TestService_deduplicateSourceTorrents_PreservesEpisodesAlongsideSeasonPacks
 	}
 
 	seasonPack := qbt.Torrent{
-		Hash:    "hash-pack",
-		Name:    "Generic.Show.2025.S01.1080p.WEB-DL.DDP5.1.H.264-GEN",
-		AddedOn: 2,
+		Hash:    qbt.Ptr("hash-pack"),
+		Name:    qbt.Ptr("Generic.Show.2025.S01.1080p.WEB-DL.DDP5.1.H.264-GEN"),
+		AddedOn: qbt.Ptr(int64(2)),
 	}
 	episode := qbt.Torrent{
-		Hash:    "hash-episode",
-		Name:    "Generic.Show.2025.S01E01.1080p.WEB-DL.DDP5.1.H.264-GEN",
-		AddedOn: 1,
+		Hash:    qbt.Ptr("hash-episode"),
+		Name:    qbt.Ptr("Generic.Show.2025.S01E01.1080p.WEB-DL.DDP5.1.H.264-GEN"),
+		AddedOn: qbt.Ptr(int64(1)),
 	}
 
 	deduped, duplicates := svc.deduplicateSourceTorrents(context.Background(), 1, []qbt.Torrent{seasonPack, episode})
@@ -37,39 +37,39 @@ func TestService_deduplicateSourceTorrents_PreservesEpisodesAlongsideSeasonPacks
 
 	kept := make(map[string]struct{})
 	for _, torrent := range deduped {
-		kept[torrent.Hash] = struct{}{}
+		kept[qbt.Deref(torrent.Hash)] = struct{}{}
 	}
 
-	require.Contains(t, kept, seasonPack.Hash)
-	require.Contains(t, kept, episode.Hash)
+	require.Contains(t, kept, qbt.Deref(seasonPack.Hash))
+	require.Contains(t, kept, qbt.Deref(episode.Hash))
 
 	duplicateEpisodes := []qbt.Torrent{
 		{
-			Hash:    "hash-newer-episode",
-			Name:    episode.Name,
-			AddedOn: 10,
+			Hash:    qbt.Ptr("hash-newer-episode"),
+			Name: episode.Name,
+			AddedOn: qbt.Ptr(int64(10)),
 		},
 		{
-			Hash:    "hash-older-episode",
-			Name:    episode.Name,
-			AddedOn: 5,
+			Hash:    qbt.Ptr("hash-older-episode"),
+			Name: episode.Name,
+			AddedOn: qbt.Ptr(int64(5)),
 		},
 	}
 
 	dedupedEpisodes, duplicateMap := svc.deduplicateSourceTorrents(context.Background(), 1, duplicateEpisodes)
 	require.Len(t, dedupedEpisodes, 1, "exact episode duplicates should still collapse to the oldest torrent")
-	require.Equal(t, "hash-older-episode", dedupedEpisodes[0].Hash)
+	require.Equal(t, "hash-older-episode", qbt.Deref(dedupedEpisodes[0].Hash))
 	require.Contains(t, duplicateMap, "hash-older-episode")
 	require.ElementsMatch(t, []string{"hash-newer-episode"}, duplicateMap["hash-older-episode"])
 }
 
 func TestService_deduplicateSourceTorrents_PrefersRootFolders(t *testing.T) {
-	files := map[string]qbt.TorrentFiles{
+	files := map[string][]qbt.TorrentFile{
 		"hash-root": {
-			{Name: "Show.S01/Show.S01E01.mkv", Size: 1 << 20},
+			{Name: qbt.Ptr("Show.S01/Show.S01E01.mkv"), Size: qbt.Ptr(int64(1 << 20))},
 		},
 		"hash-flat": {
-			{Name: "Show.S01E01.mkv", Size: 1 << 20},
+			{Name: qbt.Ptr("Show.S01E01.mkv"), Size: qbt.Ptr(int64(1 << 20))},
 		},
 	}
 
@@ -80,11 +80,11 @@ func TestService_deduplicateSourceTorrents_PrefersRootFolders(t *testing.T) {
 	}
 
 	torrents := []qbt.Torrent{
-		{Hash: "hash-flat", Name: "Generic.Show.2025.S01E01.1080p.WEB-DL", AddedOn: 1},
-		{Hash: "hash-root", Name: "Generic.Show.2025.S01E01.1080p.WEB-DL", AddedOn: 2},
+		{Hash: qbt.Ptr("hash-flat"), Name: qbt.Ptr("Generic.Show.2025.S01E01.1080p.WEB-DL"), AddedOn: qbt.Ptr(int64(1))},
+		{Hash: qbt.Ptr("hash-root"), Name: qbt.Ptr("Generic.Show.2025.S01E01.1080p.WEB-DL"), AddedOn: qbt.Ptr(int64(2))},
 	}
 
 	deduped, _ := svc.deduplicateSourceTorrents(context.Background(), 1, torrents)
 	require.Len(t, deduped, 1)
-	require.Equal(t, "hash-root", deduped[0].Hash, "prefer torrent with root folder")
+	require.Equal(t, "hash-root", qbt.Deref(deduped[0].Hash), "prefer torrent with root folder")
 }

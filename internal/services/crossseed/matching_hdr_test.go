@@ -7,7 +7,7 @@ package crossseed
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/pkg/releases"
@@ -29,8 +29,8 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 		name           string
 		sourceName     string
 		candidateName  string
-		sourceFiles    qbt.TorrentFiles
-		candidateFiles qbt.TorrentFiles
+		sourceFiles    []qbt.TorrentFile
+		candidateFiles []qbt.TorrentFile
 		wantMatch      bool
 		description    string
 	}{
@@ -39,11 +39,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "DV.HDR movie should NOT match SDR movie",
 			sourceName:    "Some.Movie.2024.2160p.UHD.BluRay.x265.DV.HDR10-GROUP",
 			candidateName: "Some.Movie.2024.2160p.UHD.BluRay.x265-GROUP",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Some.Movie.2024.2160p.UHD.BluRay.x265.DV.HDR10-GROUP.mkv", Size: 40 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Some.Movie.2024.2160p.UHD.BluRay.x265.DV.HDR10-GROUP.mkv"), Size: qbt.Ptr(int64(40 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Some.Movie.2024.2160p.UHD.BluRay.x265-GROUP.mkv", Size: 35 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Some.Movie.2024.2160p.UHD.BluRay.x265-GROUP.mkv"), Size: qbt.Ptr(int64(35 << 30))},
 			},
 			wantMatch:   false,
 			description: "DV.HDR release must not cross-seed with SDR release",
@@ -52,11 +52,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "SDR movie should NOT match DV.HDR movie",
 			sourceName:    "Some.Movie.2024.2160p.UHD.BluRay.x265-GROUP",
 			candidateName: "Some.Movie.2024.2160p.UHD.BluRay.x265.DV.HDR10-GROUP",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Some.Movie.2024.2160p.UHD.BluRay.x265-GROUP.mkv", Size: 35 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Some.Movie.2024.2160p.UHD.BluRay.x265-GROUP.mkv"), Size: qbt.Ptr(int64(35 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Some.Movie.2024.2160p.UHD.BluRay.x265.DV.HDR10-GROUP.mkv", Size: 40 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Some.Movie.2024.2160p.UHD.BluRay.x265.DV.HDR10-GROUP.mkv"), Size: qbt.Ptr(int64(40 << 30))},
 			},
 			wantMatch:   false,
 			description: "SDR release must not cross-seed with DV.HDR release",
@@ -65,11 +65,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "DV.HDR TV show should NOT match SDR TV show",
 			sourceName:    "The.Show.S01E01.2160p.NF.WEB-DL.DV.HDR.DDP5.1.H.265-NTb",
 			candidateName: "The.Show.S01E01.2160p.NF.WEB-DL.DDP5.1.H.265-NTb",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01E01.2160p.NF.WEB-DL.DV.HDR.DDP5.1.H.265-NTb.mkv", Size: 5 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01E01.2160p.NF.WEB-DL.DV.HDR.DDP5.1.H.265-NTb.mkv"), Size: qbt.Ptr(int64(5 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01E01.2160p.NF.WEB-DL.DDP5.1.H.265-NTb.mkv", Size: 4 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01E01.2160p.NF.WEB-DL.DDP5.1.H.265-NTb.mkv"), Size: qbt.Ptr(int64(4 << 30))},
 			},
 			wantMatch:   false,
 			description: "DV.HDR TV episode must not cross-seed with SDR episode",
@@ -78,11 +78,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "identical DV.HDR releases should match",
 			sourceName:    "Movie.2024.2160p.BluRay.x265.DV.HDR10-GROUP",
 			candidateName: "Movie.2024.2160p.BluRay.x265.DV.HDR10-GROUP",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.2160p.BluRay.x265.DV.HDR10-GROUP.mkv", Size: 40 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.2160p.BluRay.x265.DV.HDR10-GROUP.mkv"), Size: qbt.Ptr(int64(40 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.2160p.BluRay.x265.DV.HDR10-GROUP.mkv", Size: 40 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.2160p.BluRay.x265.DV.HDR10-GROUP.mkv"), Size: qbt.Ptr(int64(40 << 30))},
 			},
 			wantMatch:   true,
 			description: "identical DV.HDR releases should cross-seed",
@@ -91,11 +91,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "identical SDR releases should match",
 			sourceName:    "Movie.2024.1080p.BluRay.x264-GROUP",
 			candidateName: "Movie.2024.1080p.BluRay.x264-GROUP",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.BluRay.x264-GROUP.mkv", Size: 10 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP.mkv"), Size: qbt.Ptr(int64(10 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.BluRay.x264-GROUP.mkv", Size: 10 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP.mkv"), Size: qbt.Ptr(int64(10 << 30))},
 			},
 			wantMatch:   true,
 			description: "identical SDR releases should cross-seed",
@@ -105,11 +105,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "MA.WEB-DL should NOT match plain WEB-DL",
 			sourceName:    "Some.Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-FLUX",
 			candidateName: "Some.Movie.2024.1080p.WEB-DL.DD5.1.H.264-FLUX",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Some.Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-FLUX.mkv", Size: 8 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Some.Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-FLUX.mkv"), Size: qbt.Ptr(int64(8 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Some.Movie.2024.1080p.WEB-DL.DD5.1.H.264-FLUX.mkv", Size: 7 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Some.Movie.2024.1080p.WEB-DL.DD5.1.H.264-FLUX.mkv"), Size: qbt.Ptr(int64(7 << 30))},
 			},
 			wantMatch:   false,
 			description: "MA.WEB-DL must not cross-seed with plain WEB-DL even from same group",
@@ -118,11 +118,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "plain WEB-DL should NOT match MA.WEB-DL",
 			sourceName:    "Some.Movie.2024.1080p.WEB-DL.DD5.1.H.264-FLUX",
 			candidateName: "Some.Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-FLUX",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Some.Movie.2024.1080p.WEB-DL.DD5.1.H.264-FLUX.mkv", Size: 7 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Some.Movie.2024.1080p.WEB-DL.DD5.1.H.264-FLUX.mkv"), Size: qbt.Ptr(int64(7 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Some.Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-FLUX.mkv", Size: 8 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Some.Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-FLUX.mkv"), Size: qbt.Ptr(int64(8 << 30))},
 			},
 			wantMatch:   false,
 			description: "plain WEB-DL must not cross-seed with MA.WEB-DL",
@@ -131,11 +131,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "AMZN.WEB-DL should NOT match NF.WEB-DL",
 			sourceName:    "The.Show.S01E01.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb",
 			candidateName: "The.Show.S01E01.1080p.NF.WEB-DL.DDP5.1.H.264-NTb",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01E01.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb.mkv", Size: 3 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01E01.1080p.AMZN.WEB-DL.DDP5.1.H.264-NTb.mkv"), Size: qbt.Ptr(int64(3 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "The.Show.S01E01.1080p.NF.WEB-DL.DDP5.1.H.264-NTb.mkv", Size: 3 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("The.Show.S01E01.1080p.NF.WEB-DL.DDP5.1.H.264-NTb.mkv"), Size: qbt.Ptr(int64(3 << 30))},
 			},
 			wantMatch:   false,
 			description: "different streaming services must not cross-seed",
@@ -144,11 +144,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "identical MA.WEB-DL releases should match",
 			sourceName:    "Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-GROUP",
 			candidateName: "Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-GROUP",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-GROUP.mkv", Size: 8 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-GROUP.mkv"), Size: qbt.Ptr(int64(8 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-GROUP.mkv", Size: 8 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Movie.2024.1080p.MA.WEB-DL.DD5.1.H.264-GROUP.mkv"), Size: qbt.Ptr(int64(8 << 30))},
 			},
 			wantMatch:   true,
 			description: "identical MA.WEB-DL releases should cross-seed",
@@ -158,11 +158,11 @@ func TestHDRCollectionMatchingIntegration(t *testing.T) {
 			name:          "NF DV.HDR should NOT match NF SDR",
 			sourceName:    "Show.S01E01.2160p.NF.WEB-DL.DV.HDR.DDP5.1.H.265-GROUP",
 			candidateName: "Show.S01E01.2160p.NF.WEB-DL.DDP5.1.H.265-GROUP",
-			sourceFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.2160p.NF.WEB-DL.DV.HDR.DDP5.1.H.265-GROUP.mkv", Size: 6 << 30},
+			sourceFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.2160p.NF.WEB-DL.DV.HDR.DDP5.1.H.265-GROUP.mkv"), Size: qbt.Ptr(int64(6 << 30))},
 			},
-			candidateFiles: qbt.TorrentFiles{
-				{Name: "Show.S01E01.2160p.NF.WEB-DL.DDP5.1.H.265-GROUP.mkv", Size: 5 << 30},
+			candidateFiles: []qbt.TorrentFile{
+				{Name: qbt.Ptr("Show.S01E01.2160p.NF.WEB-DL.DDP5.1.H.265-GROUP.mkv"), Size: qbt.Ptr(int64(5 << 30))},
 			},
 			wantMatch:   false,
 			description: "same streaming service but different HDR must not cross-seed",

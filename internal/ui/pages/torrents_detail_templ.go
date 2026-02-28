@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"strconv"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 )
 
 // TorrentDetailProps holds all data loaded for the torrent detail panel.
@@ -33,7 +33,7 @@ type TorrentDetailProps struct {
 	Properties *qbt.TorrentProperties
 
 	// Files tab
-	Files *qbt.TorrentFiles
+	Files []qbt.TorrentFile
 
 	// Trackers tab
 	Trackers []qbt.TorrentTracker
@@ -230,7 +230,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if p.Properties != nil {
-			templ_7745c5c3_Err = detailRow("Save path", p.Properties.SavePath).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Save path", qbt.Deref(p.Properties.SavePath)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -246,7 +246,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Total size", formatBytes(uint64(p.Properties.TotalSize))).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Total size", formatBytes(uint64(qbt.Deref(p.Properties.TotalSize)))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -254,7 +254,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Downloaded", formatBytes(uint64(p.Properties.TotalDownloaded))).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Downloaded", formatBytes(uint64(qbt.Deref(p.Properties.TotalDownloaded)))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -262,7 +262,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Uploaded", formatBytes(uint64(p.Properties.TotalUploaded))).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Uploaded", formatBytes(uint64(qbt.Deref(p.Properties.TotalUploaded)))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -270,7 +270,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Share ratio", strconv.FormatFloat(p.Properties.ShareRatio, 'f', 3, 64)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Share ratio", strconv.FormatFloat(qbt.Deref(p.Properties.ShareRatio), 'f', 3, 64)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -278,7 +278,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Download speed", formatBytesPerSec(uint64(max(int64(p.Properties.DlSpeed), 0)))).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Download speed", formatBytesPerSec(uint64(max(qbt.Deref(p.Properties.DlSpeed), 0)))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -286,7 +286,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Upload speed", formatBytesPerSec(uint64(max(int64(p.Properties.UpSpeed), 0)))).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Upload speed", formatBytesPerSec(uint64(max(qbt.Deref(p.Properties.UpSpeed), 0)))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -294,7 +294,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Seeds", strconv.Itoa(p.Properties.Seeds)+" / "+strconv.Itoa(p.Properties.SeedsTotal)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Seeds", strconv.Itoa(qbt.Deref(p.Properties.Seeds))+" / "+strconv.Itoa(qbt.Deref(p.Properties.SeedsTotal))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -302,7 +302,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Peers", strconv.Itoa(p.Properties.Peers)+" / "+strconv.Itoa(p.Properties.PeersTotal)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Peers", strconv.Itoa(qbt.Deref(p.Properties.Peers))+" / "+strconv.Itoa(qbt.Deref(p.Properties.PeersTotal))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -310,7 +310,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("ETA", formatETA(int64(p.Properties.Eta))).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("ETA", formatETA(qbt.Deref(p.Properties.ETA))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -318,8 +318,8 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if p.Properties.Comment != "" {
-				templ_7745c5c3_Err = detailRow("Comment", p.Properties.Comment).Render(ctx, templ_7745c5c3_Buffer)
+			if qbt.Deref(p.Properties.Comment) != "" {
+				templ_7745c5c3_Err = detailRow("Comment", qbt.Deref(p.Properties.Comment)).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -328,8 +328,8 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if p.Properties.CreatedBy != "" {
-				templ_7745c5c3_Err = detailRow("Created by", p.Properties.CreatedBy).Render(ctx, templ_7745c5c3_Buffer)
+			if qbt.Deref(p.Properties.CreatedBy) != "" {
+				templ_7745c5c3_Err = detailRow("Created by", qbt.Deref(p.Properties.CreatedBy)).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -338,7 +338,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Private", boolStr(p.Properties.IsPrivate)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Private", boolStr(qbt.Deref(p.Properties.IsPrivate))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -346,7 +346,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Connections", strconv.Itoa(p.Properties.NbConnections)+" / "+strconv.Itoa(p.Properties.NbConnectionsLimit)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Connections", strconv.Itoa(qbt.Deref(p.Properties.NbConnections))+" / "+strconv.Itoa(qbt.Deref(p.Properties.NbConnectionsLimit))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -354,7 +354,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Piece size", formatBytes(uint64(p.Properties.PieceSize))).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Piece size", formatBytes(uint64(qbt.Deref(p.Properties.PieceSize)))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -362,7 +362,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = detailRow("Pieces have", strconv.Itoa(p.Properties.PiecesHave)+" / "+strconv.Itoa(p.Properties.PiecesNum)).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = detailRow("Pieces have", strconv.Itoa(qbt.Deref(p.Properties.PiecesHave))+" / "+strconv.Itoa(qbt.Deref(p.Properties.PiecesNum))).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -376,7 +376,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if p.Files == nil || len(*p.Files) == 0 {
+		if len(p.Files) == 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<p class=\"p-3 text-muted-foreground\">No file information available.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -386,15 +386,15 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for _, f := range *p.Files {
+			for _, f := range p.Files {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<tr class=\"hover:bg-muted/40\"><td class=\"px-3 py-1 max-w-xs\"><span class=\"block truncate\" title=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var11 string
-				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
+				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(qbt.Deref(f.Name))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 151, Col: 53}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 151, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -405,9 +405,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var12 string
-				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(f.Name)
+				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(qbt.Deref(f.Name))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 151, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 151, Col: 86}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
@@ -418,9 +418,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var13 string
-				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytes(uint64(f.Size)))
+				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytes(uint64(qbt.Deref(f.Size))))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 154, Col: 39}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 154, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
@@ -431,9 +431,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var14 string
-				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", float64(f.Progress)*100))
+				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", qbt.Deref(f.Progress)*100))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 157, Col: 58}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 157, Col: 60}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -469,9 +469,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var15 string
-				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(tr.Url)
+				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(qbt.Deref(tr.URL))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 184, Col: 61}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 184, Col: 72}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -482,9 +482,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(tr.Url)
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(qbt.Deref(tr.URL))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 184, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 184, Col: 94}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 				if templ_7745c5c3_Err != nil {
@@ -494,15 +494,15 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if tr.Message != "" {
+				if qbt.Deref(tr.Message) != "" {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "<span class=\"block text-muted-foreground truncate\" title=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var17 string
-					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(tr.Message)
+					templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(qbt.Deref(tr.Message))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 186, Col: 80}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 186, Col: 91}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 					if templ_7745c5c3_Err != nil {
@@ -513,9 +513,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var18 string
-					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(tr.Message)
+					templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(qbt.Deref(tr.Message))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 186, Col: 95}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 186, Col: 117}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 					if templ_7745c5c3_Err != nil {
@@ -530,11 +530,11 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if tr.NumSeeds >= 0 {
+				if qbt.Deref(tr.NumSeeds) >= 0 {
 					var templ_7745c5c3_Var19 string
-					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(tr.NumSeeds))
+					templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(qbt.Deref(tr.NumSeeds)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 191, Col: 38}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 191, Col: 49}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 					if templ_7745c5c3_Err != nil {
@@ -550,11 +550,11 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if tr.NumPeers >= 0 {
+				if qbt.Deref(tr.NumPeers) >= 0 {
 					var templ_7745c5c3_Var20 string
-					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(tr.NumPeers))
+					templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(qbt.Deref(tr.NumPeers)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 198, Col: 38}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 198, Col: 49}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 					if templ_7745c5c3_Err != nil {
@@ -570,7 +570,7 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var21 = []any{"inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium", trackerStatusClass(int(tr.Status))}
+				var templ_7745c5c3_Var21 = []any{"inline-flex rounded-full px-1.5 py-0.5 text-xs font-medium", trackerStatusClass(int(qbt.Deref(tr.Status)))}
 				templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var21...)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -593,9 +593,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var23 string
-				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(trackerStatusLabel(int(tr.Status)))
+				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(trackerStatusLabel(int(qbt.Deref(tr.Status))))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 205, Col: 47}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 205, Col: 58}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -631,9 +631,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var24 string
-				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(peer.IP)
+				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(qbt.Deref(peer.IP))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 234, Col: 19}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 234, Col: 30}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -644,9 +644,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var25 string
-				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(peer.Port))
+				templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(qbt.Deref(peer.Port)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 234, Col: 47}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 234, Col: 69}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 				if templ_7745c5c3_Err != nil {
@@ -657,9 +657,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var26 string
-				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(peer.Client)
+				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(qbt.Deref(peer.Client))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 237, Col: 80}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 237, Col: 91}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -670,9 +670,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var27 string
-				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(peer.Client)
+				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(qbt.Deref(peer.Client))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 237, Col: 96}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 237, Col: 118}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 				if templ_7745c5c3_Err != nil {
@@ -682,11 +682,11 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if peer.DownSpeed > 0 {
+				if qbt.Deref(peer.DlSpeed) > 0 {
 					var templ_7745c5c3_Var28 string
-					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytesPerSec(uint64(peer.DownSpeed)))
+					templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytesPerSec(uint64(qbt.Deref(peer.DlSpeed))))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 241, Col: 54}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 241, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 					if templ_7745c5c3_Err != nil {
@@ -702,11 +702,11 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if peer.UpSpeed > 0 {
+				if qbt.Deref(peer.UpSpeed) > 0 {
 					var templ_7745c5c3_Var29 string
-					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytesPerSec(uint64(peer.UpSpeed)))
+					templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(formatBytesPerSec(uint64(qbt.Deref(peer.UpSpeed))))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 248, Col: 52}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 248, Col: 63}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 					if templ_7745c5c3_Err != nil {
@@ -723,9 +723,9 @@ func TorrentDetailPanel(p TorrentDetailProps) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var30 string
-				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", peer.Progress*100))
+				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%.0f%%", qbt.Deref(peer.Progress)*100))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 254, Col: 52}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/torrents_detail.templ`, Line: 254, Col: 63}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {

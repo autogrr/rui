@@ -13,7 +13,7 @@ import (
 
 	"github.com/anacrolix/torrent/metainfo"
 	infohash_v2 "github.com/anacrolix/torrent/types/infohash-v2"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/moistari/rls"
 )
 
@@ -490,7 +490,7 @@ type TorrentMetadata struct {
 	Name   string
 	HashV1 string
 	HashV2 string
-	Files  qbt.TorrentFiles
+	Files  []qbt.TorrentFile
 	Info   *metainfo.Info
 }
 
@@ -501,7 +501,7 @@ func ParseTorrentName(torrentBytes []byte) (name string, hash string, err error)
 }
 
 // ParseTorrentMetadata extracts comprehensive metadata from torrent bytes
-func ParseTorrentMetadata(torrentBytes []byte) (name string, hash string, files qbt.TorrentFiles, err error) {
+func ParseTorrentMetadata(torrentBytes []byte) (name string, hash string, files []qbt.TorrentFile, err error) {
 	meta, err := ParseTorrentMetadataWithInfo(torrentBytes)
 	if err != nil {
 		return "", "", nil, err
@@ -547,8 +547,8 @@ func ParseTorrentMetadataWithInfo(torrentBytes []byte) (TorrentMetadata, error) 
 }
 
 // BuildTorrentFilesFromInfo creates qBittorrent-compatible file list from torrent info
-func BuildTorrentFilesFromInfo(rootName string, info metainfo.Info) qbt.TorrentFiles {
-	var files qbt.TorrentFiles
+func BuildTorrentFilesFromInfo(rootName string, info metainfo.Info) []qbt.TorrentFile {
+	var files []qbt.TorrentFile
 	pieceLength := info.PieceLength
 	if pieceLength <= 0 {
 		pieceLength = 1
@@ -561,30 +561,27 @@ func BuildTorrentFilesFromInfo(rootName string, info metainfo.Info) qbt.TorrentF
 		if info.Length > 0 {
 			pieceEnd = int((info.Length - 1) / pieceLength)
 		}
-		files = make(qbt.TorrentFiles, 1)
-		files[0] = struct {
-			Availability float32 `json:"availability"`
-			Index        int     `json:"index"`
-			IsSeed       bool    `json:"is_seed,omitempty"`
-			Name         string  `json:"name"`
-			PieceRange   []int   `json:"piece_range"`
-			Priority     int     `json:"priority"`
-			Progress     float32 `json:"progress"`
-			Size         int64   `json:"size"`
-		}{
-			Availability: 1,
-			Index:        0,
-			IsSeed:       true,
-			Name:         rootName,
+		files = make([]qbt.TorrentFile, 1)
+		availOne := float64(1)
+		progOne := float64(1)
+		idxZero := 0
+		isSeedTrue := true
+		prioNormal := qbt.FilePriority(0)
+		rootNameCopy := rootName
+		files[0] = qbt.TorrentFile{
+			Availability: &availOne,
+			Index:        &idxZero,
+			IsSeed:       &isSeedTrue,
+			Name:         &rootNameCopy,
 			PieceRange:   []int{pieceStart, pieceEnd},
-			Priority:     0,
-			Progress:     1,
-			Size:         info.Length,
+			Priority:     &prioNormal,
+			Progress:     &progOne,
+			Size:         &info.Length,
 		}
 		return files
 	}
 
-	files = make(qbt.TorrentFiles, len(info.Files))
+	files = make([]qbt.TorrentFile, len(info.Files))
 	var offset int64
 	for i, f := range info.Files {
 		displayPath := f.DisplayPath(&info)
@@ -605,24 +602,21 @@ func BuildTorrentFilesFromInfo(rootName string, info metainfo.Info) qbt.TorrentF
 			pieceEnd = pieceStart
 		}
 
-		files[i] = struct {
-			Availability float32 `json:"availability"`
-			Index        int     `json:"index"`
-			IsSeed       bool    `json:"is_seed,omitempty"`
-			Name         string  `json:"name"`
-			PieceRange   []int   `json:"piece_range"`
-			Priority     int     `json:"priority"`
-			Progress     float32 `json:"progress"`
-			Size         int64   `json:"size"`
-		}{
-			Availability: 1,
-			Index:        i,
-			IsSeed:       true,
-			Name:         name,
+		availOneF := float64(1)
+		progOneF := float64(1)
+		fileIdx := i
+		isSeedF := true
+		prioF := qbt.FilePriority(0)
+		nameCopy := name
+		files[i] = qbt.TorrentFile{
+			Availability: &availOneF,
+			Index:        &fileIdx,
+			IsSeed:       &isSeedF,
+			Name:         &nameCopy,
 			PieceRange:   []int{pieceStart, pieceEnd},
-			Priority:     0,
-			Progress:     1,
-			Size:         f.Length,
+			Priority:     &prioF,
+			Progress:     &progOneF,
+			Size:         &f.Length,
 		}
 
 		offset += f.Length
@@ -685,23 +679,14 @@ func extractDomainFromAnnounce(announceURL string) string {
 
 // FindLargestFile returns the file with the largest size from a list of torrent files.
 // This is useful for content type detection as the largest file usually represents the main content.
-func FindLargestFile(files qbt.TorrentFiles) *struct {
-	Availability float32 `json:"availability"`
-	Index        int     `json:"index"`
-	IsSeed       bool    `json:"is_seed,omitempty"`
-	Name         string  `json:"name"`
-	PieceRange   []int   `json:"piece_range"`
-	Priority     int     `json:"priority"`
-	Progress     float32 `json:"progress"`
-	Size         int64   `json:"size"`
-} {
+func FindLargestFile(files []qbt.TorrentFile) *qbt.TorrentFile {
 	if len(files) == 0 {
 		return nil
 	}
 
 	largest := &files[0]
 	for i := range files {
-		if files[i].Size > largest.Size {
+		if qbt.Deref(files[i].Size) > qbt.Deref(largest.Size) {
 			largest = &files[i]
 		}
 	}

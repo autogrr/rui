@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/autogrr/rui/internal/models"
 	qbsync "github.com/autogrr/rui/internal/qbittorrent"
 	"github.com/autogrr/rui/internal/services/crossseed"
@@ -607,12 +607,14 @@ func (i *Injector) applyAddPolicy(options map[string]string, req *InjectRequest)
 		return
 	}
 
-	files := make(qbt.TorrentFiles, 0, len(req.ParsedTorrent.Files))
+	files := make([]qbt.TorrentFile, 0, len(req.ParsedTorrent.Files))
 	for _, f := range req.ParsedTorrent.Files {
-		files = append(files, qbt.TorrentFiles{{
-			Name: f.Path,
-			Size: f.Size,
-		}}...)
+		name := f.Path
+		fsz := f.Size
+		files = append(files, qbt.TorrentFile{
+			Name: &name,
+			Size: &fsz,
+		})
 	}
 
 	policy := crossseed.PolicyForSourceFiles(files)

@@ -7,7 +7,7 @@ package crossseed
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 )
 
@@ -98,93 +98,93 @@ func TestResolveRootlessContentDir(t *testing.T) {
 	tests := []struct {
 		name           string
 		torrent        *qbt.Torrent
-		candidateFiles qbt.TorrentFiles
+		candidateFiles []qbt.TorrentFile
 		expected       string
 	}{
 		{
 			name:           "nil torrent",
 			torrent:        nil,
-			candidateFiles: qbt.TorrentFiles{{Name: "f.mkv"}},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("f.mkv")}},
 			expected:       "",
 		},
 		{
 			name:           "empty content path",
-			torrent:        &qbt.Torrent{ContentPath: ""},
-			candidateFiles: qbt.TorrentFiles{{Name: "f.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("f.mkv")}},
 			expected:       "",
 		},
 		{
 			name:           "no candidate files",
-			torrent:        &qbt.Torrent{ContentPath: "/downloads/show/f.mkv"},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("/downloads/show/f.mkv")},
 			candidateFiles: nil,
 			expected:       "",
 		},
 		{
 			name:           "dot content path",
-			torrent:        &qbt.Torrent{ContentPath: "."},
-			candidateFiles: qbt.TorrentFiles{{Name: "f.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr(".")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("f.mkv")}},
 			expected:       "",
 		},
 		{
 			name:           "single file extracts dir",
-			torrent:        &qbt.Torrent{ContentPath: "/downloads/show/f.mkv"},
-			candidateFiles: qbt.TorrentFiles{{Name: "f.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("/downloads/show/f.mkv")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("f.mkv")}},
 			expected:       "/downloads/show",
 		},
 		{
 			name:           "single file relative path returns empty",
-			torrent:        &qbt.Torrent{ContentPath: "file.mkv"},
-			candidateFiles: qbt.TorrentFiles{{Name: "file.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("file.mkv")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("file.mkv")}},
 			expected:       "",
 		},
 		{
 			name:           "single file normalizes backslashes",
-			torrent:        &qbt.Torrent{ContentPath: "/downloads\\tv\\Show\\file.mkv"},
-			candidateFiles: qbt.TorrentFiles{{Name: "file.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("/downloads\\tv\\Show\\file.mkv")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("file.mkv")}},
 			expected:       "/downloads/tv/Show",
 		},
 		{
 			name:           "multi-file uses content path",
-			torrent:        &qbt.Torrent{ContentPath: "/downloads/show"},
-			candidateFiles: qbt.TorrentFiles{{Name: "f1.mkv"}, {Name: "f2.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("/downloads/show")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("f1.mkv")}, {Name: qbt.Ptr("f2.mkv")}},
 			expected:       "/downloads/show",
 		},
 		{
 			name:           "multi-file cleans trailing slash",
-			torrent:        &qbt.Torrent{ContentPath: "/downloads/show/"},
-			candidateFiles: qbt.TorrentFiles{{Name: "f1.mkv"}, {Name: "f2.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("/downloads/show/")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("f1.mkv")}, {Name: qbt.Ptr("f2.mkv")}},
 			expected:       "/downloads/show",
 		},
 		// Windows path tests
 		{
 			name:           "windows single file extracts dir",
-			torrent:        &qbt.Torrent{ContentPath: "C:/Downloads/Movie.mkv"},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("C:/Downloads/Movie.mkv")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.mkv")}},
 			expected:       "C:/Downloads",
 		},
 		{
 			name:           "windows drive root single file",
-			torrent:        &qbt.Torrent{ContentPath: "C:/Movie.mkv"},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("C:/Movie.mkv")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.mkv")}},
 			expected:       "C:/",
 		},
 		{
 			name:           "windows multi-file",
-			torrent:        &qbt.Torrent{ContentPath: "D:/Shows/MyShow"},
-			candidateFiles: qbt.TorrentFiles{{Name: "e01.mkv"}, {Name: "e02.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("D:/Shows/MyShow")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("e01.mkv")}, {Name: qbt.Ptr("e02.mkv")}},
 			expected:       "D:/Shows/MyShow",
 		},
 		{
 			name:           "windows backslash path",
-			torrent:        &qbt.Torrent{ContentPath: "C:\\Downloads\\Movie.mkv"},
-			candidateFiles: qbt.TorrentFiles{{Name: "Movie.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("C:\\Downloads\\Movie.mkv")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("Movie.mkv")}},
 			expected:       "C:/Downloads",
 		},
 		// URL rejection (should not be treated as Windows absolute)
 		{
 			name:           "http url rejected",
-			torrent:        &qbt.Torrent{ContentPath: "http://example.com/file.mkv"},
-			candidateFiles: qbt.TorrentFiles{{Name: "file.mkv"}},
+			torrent:        &qbt.Torrent{ContentPath: qbt.Ptr("http://example.com/file.mkv")},
+			candidateFiles: []qbt.TorrentFile{{Name: qbt.Ptr("file.mkv")}},
 			expected:       "",
 		},
 	}

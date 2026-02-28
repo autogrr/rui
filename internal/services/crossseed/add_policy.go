@@ -7,7 +7,7 @@ package crossseed
 import (
 	"strings"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 )
 
 // discLayoutMarkers are directory names that indicate disc-based media (Blu-ray, DVD).
@@ -38,7 +38,7 @@ type AddPolicy struct {
 
 // PolicyForSourceFiles analyzes source files and returns an AddPolicy.
 // Currently detects disc layouts (BDMV, VIDEO_TS directories).
-func PolicyForSourceFiles(sourceFiles qbt.TorrentFiles) AddPolicy {
+func PolicyForSourceFiles(sourceFiles []qbt.TorrentFile) AddPolicy {
 	isDisc, marker := isDiscLayoutTorrent(sourceFiles)
 	if isDisc {
 		return AddPolicy{
@@ -64,10 +64,10 @@ func PolicyForSourceFiles(sourceFiles qbt.TorrentFiles) AddPolicy {
 //   - "BDMV_backup/file.txt" -> false (substring, not folder name)
 //   - "movie.bdmv" -> false (file extension, not folder)
 //   - "BDMV" -> false (single segment = filename only, no directory)
-func isDiscLayoutTorrent(files qbt.TorrentFiles) (isDisc bool, marker string) {
+func isDiscLayoutTorrent(files []qbt.TorrentFile) (isDisc bool, marker string) {
 	for _, f := range files {
 		// Normalize Windows path separators
-		path := strings.ReplaceAll(f.Name, "\\", "/")
+		path := strings.ReplaceAll(qbt.Deref(f.Name), "\\", "/")
 
 		// Split into segments; exclude the last segment (filename)
 		segments := strings.Split(path, "/")

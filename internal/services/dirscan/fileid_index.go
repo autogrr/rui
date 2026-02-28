@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog"
 
 	"github.com/autogrr/rui/internal/qbittorrent"
@@ -68,19 +68,19 @@ func collectCompletedTorrentSavePaths(torrents []qbittorrent.CrossInstanceTorren
 
 	for i := range torrents {
 		t := torrents[i].Torrent
-		if t.Hash == "" || t.Progress < 1.0 || t.SavePath == "" {
+		if qbt.Deref(t.Hash) == "" || qbt.Deref(t.Progress) < 1.0 || qbt.Deref(t.SavePath) == "" {
 			continue
 		}
-		hashes = append(hashes, t.Hash)
-		savePaths[t.Hash] = t.SavePath
+		hashes = append(hashes, qbt.Deref(t.Hash))
+		savePaths[qbt.Deref(t.Hash)] = qbt.Deref(t.SavePath)
 	}
 
 	return hashes, savePaths
 }
 
-func addTorrentFilesToFileIDIndex(index map[string]string, hash, savePath string, files qbt.TorrentFiles) (statErrors int) {
+func addTorrentFilesToFileIDIndex(index map[string]string, hash, savePath string, files []qbt.TorrentFile) (statErrors int) {
 	for _, file := range files {
-		absPath := filepath.Join(savePath, filepath.FromSlash(file.Name))
+		absPath := filepath.Join(savePath, filepath.FromSlash(qbt.Deref(file.Name)))
 		fi, err := os.Stat(absPath)
 		if err != nil {
 			statErrors++

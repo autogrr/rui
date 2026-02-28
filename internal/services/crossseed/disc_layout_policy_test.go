@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,7 +23,7 @@ import (
 // discPolicySyncManager is a mock sync manager for disc layout policy tests.
 // It records AddTorrent options and BulkAction calls to verify policy enforcement.
 type discPolicySyncManager struct {
-	files          map[string]qbt.TorrentFiles
+	files          map[string][]qbt.TorrentFile
 	props          map[string]*qbt.TorrentProperties
 	addedOptions   map[string]string
 	bulkActions    []string // records "action:hash" for each BulkAction call
@@ -34,10 +34,10 @@ func (m *discPolicySyncManager) GetTorrents(_ context.Context, _ int, filter qbt
 	if len(filter.Hashes) > 0 {
 		torrents := make([]qbt.Torrent, 0, len(filter.Hashes))
 		for _, hash := range filter.Hashes {
-			if m.matchedTorrent != nil && strings.EqualFold(m.matchedTorrent.Hash, hash) {
+			if m.matchedTorrent != nil && strings.EqualFold(qbt.Deref(m.matchedTorrent.Hash), hash) {
 				torrents = append(torrents, *m.matchedTorrent)
 			} else {
-				torrents = append(torrents, qbt.Torrent{Hash: hash})
+				torrents = append(torrents, qbt.Torrent{Hash: qbt.Ptr(hash)})
 			}
 		}
 		return torrents, nil
@@ -45,14 +45,14 @@ func (m *discPolicySyncManager) GetTorrents(_ context.Context, _ int, filter qbt
 	if m.matchedTorrent != nil {
 		return []qbt.Torrent{*m.matchedTorrent}, nil
 	}
-	return []qbt.Torrent{{Hash: "dummy"}}, nil
+	return []qbt.Torrent{{Hash: qbt.Ptr("dummy")}}, nil
 }
 
-func (m *discPolicySyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string]qbt.TorrentFiles, error) {
-	result := make(map[string]qbt.TorrentFiles, len(hashes))
+func (m *discPolicySyncManager) GetTorrentFilesBatch(_ context.Context, _ int, hashes []string) (map[string][]qbt.TorrentFile, error) {
+	result := make(map[string][]qbt.TorrentFile, len(hashes))
 	for _, h := range hashes {
 		if files, ok := m.files[strings.ToLower(h)]; ok {
-			cp := make(qbt.TorrentFiles, len(files))
+			cp := make([]qbt.TorrentFile, len(files))
 			copy(cp, files)
 			result[normalizeHash(h)] = cp
 		}
@@ -73,7 +73,7 @@ func (m *discPolicySyncManager) GetTorrentProperties(_ context.Context, _ int, h
 		cp := *props
 		return &cp, nil
 	}
-	return &qbt.TorrentProperties{SavePath: "/downloads"}, nil
+	return &qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")}, nil
 }
 
 func (*discPolicySyncManager) GetAppPreferences(context.Context, int) (qbt.AppPreferences, error) {
@@ -105,7 +105,7 @@ func (*discPolicySyncManager) ExtractDomainFromURL(string) string {
 	return ""
 }
 
-func (*discPolicySyncManager) GetQBittorrentSyncManager(context.Context, int) (*qbt.SyncManager, error) {
+func (*discPolicySyncManager) GetQBittorrentSyncManager(context.Context, int) (*internalqb.QBTSyncManager, error) {
 	return nil, nil
 }
 
@@ -164,31 +164,31 @@ func TestDiscLayoutPolicy_ForcePausedEvenWhenStartPausedFalse(t *testing.T) {
 	matchedName := "Movie.2024.BluRay.1080p"
 
 	// Candidate files (existing on disk) - a Blu-ray disc structure
-	candidateFiles := qbt.TorrentFiles{
-		{Name: "Movie.2024.BluRay.1080p/BDMV/index.bdmv", Size: 100},
-		{Name: "Movie.2024.BluRay.1080p/BDMV/STREAM/00000.m2ts", Size: 30_000_000_000},
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.BluRay.1080p/BDMV/index.bdmv"), Size: qbt.Ptr(int64(100))},
+		{Name: qbt.Ptr("Movie.2024.BluRay.1080p/BDMV/STREAM/00000.m2ts"), Size: qbt.Ptr(int64(30_000_000_000))},
 	}
 	// Source files (incoming torrent) - same structure
-	sourceFiles := qbt.TorrentFiles{
-		{Name: "Movie.2024.BluRay.1080p/BDMV/index.bdmv", Size: 100},
-		{Name: "Movie.2024.BluRay.1080p/BDMV/STREAM/00000.m2ts", Size: 30_000_000_000},
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.BluRay.1080p/BDMV/index.bdmv"), Size: qbt.Ptr(int64(100))},
+		{Name: qbt.Ptr("Movie.2024.BluRay.1080p/BDMV/STREAM/00000.m2ts"), Size: qbt.Ptr(int64(30_000_000_000))},
 	}
 
 	matchedTorrent := qbt.Torrent{
-		Hash:        matchedHash,
-		Name:        matchedName,
-		ContentPath: "/downloads/movies/" + matchedName,
-		Progress:    1.0,
-		Size:        30_000_000_100,
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(matchedName),
+		ContentPath: qbt.Ptr("/downloads/movies/" + matchedName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		Size:        qbt.Ptr(int64(30_000_000_100)),
 	}
 
 	mockSync := &discPolicySyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			matchedHash: candidateFiles,
 		},
 		props: map[string]*qbt.TorrentProperties{
 			matchedHash: {
-				SavePath: "/downloads/movies",
+				SavePath: qbt.Ptr("/downloads/movies"),
 			},
 		},
 		matchedTorrent: &matchedTorrent,
@@ -262,30 +262,30 @@ func TestDiscLayoutPolicy_ResumeOnlyAfterFullRecheck(t *testing.T) {
 	matchedName := "Movie.2024.DVD-GROUP"
 
 	// DVD disc structure
-	candidateFiles := qbt.TorrentFiles{
-		{Name: "Movie.2024.DVD-GROUP/VIDEO_TS/VIDEO_TS.VOB", Size: 5_000_000_000},
-		{Name: "Movie.2024.DVD-GROUP/VIDEO_TS/VTS_01_0.VOB", Size: 1_000_000_000},
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.DVD-GROUP/VIDEO_TS/VIDEO_TS.VOB"), Size: qbt.Ptr(int64(5_000_000_000))},
+		{Name: qbt.Ptr("Movie.2024.DVD-GROUP/VIDEO_TS/VTS_01_0.VOB"), Size: qbt.Ptr(int64(1_000_000_000))},
 	}
-	sourceFiles := qbt.TorrentFiles{
-		{Name: "Movie.2024.DVD-GROUP/VIDEO_TS/VIDEO_TS.VOB", Size: 5_000_000_000},
-		{Name: "Movie.2024.DVD-GROUP/VIDEO_TS/VTS_01_0.VOB", Size: 1_000_000_000},
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.DVD-GROUP/VIDEO_TS/VIDEO_TS.VOB"), Size: qbt.Ptr(int64(5_000_000_000))},
+		{Name: qbt.Ptr("Movie.2024.DVD-GROUP/VIDEO_TS/VTS_01_0.VOB"), Size: qbt.Ptr(int64(1_000_000_000))},
 	}
 
 	matchedTorrent := qbt.Torrent{
-		Hash:        matchedHash,
-		Name:        matchedName,
-		ContentPath: "/downloads/movies/" + matchedName,
-		Progress:    1.0,
-		Size:        6_000_000_000,
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(matchedName),
+		ContentPath: qbt.Ptr("/downloads/movies/" + matchedName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		Size:        qbt.Ptr(int64(6_000_000_000)),
 	}
 
 	mockSync := &discPolicySyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			matchedHash: candidateFiles,
 		},
 		props: map[string]*qbt.TorrentProperties{
 			matchedHash: {
-				SavePath: "/downloads/movies",
+				SavePath: qbt.Ptr("/downloads/movies"),
 			},
 		},
 		matchedTorrent: &matchedTorrent,
@@ -360,28 +360,28 @@ func TestDiscLayoutPolicy_NonDiscTorrentAllowsAutoResume(t *testing.T) {
 	matchedName := "Movie.2024.1080p.BluRay.x264-GROUP"
 
 	// Regular movie file (not disc structure)
-	candidateFiles := qbt.TorrentFiles{
-		{Name: "Movie.2024.1080p.BluRay.x264-GROUP.mkv", Size: 8_000_000_000},
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP.mkv"), Size: qbt.Ptr(int64(8_000_000_000))},
 	}
-	sourceFiles := qbt.TorrentFiles{
-		{Name: "Movie.2024.1080p.BluRay.x264-GROUP.mkv", Size: 8_000_000_000},
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.1080p.BluRay.x264-GROUP.mkv"), Size: qbt.Ptr(int64(8_000_000_000))},
 	}
 
 	matchedTorrent := qbt.Torrent{
-		Hash:        matchedHash,
-		Name:        matchedName,
-		ContentPath: "/downloads/movies/" + matchedName + ".mkv",
-		Progress:    1.0,
-		Size:        8_000_000_000,
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(matchedName),
+		ContentPath: qbt.Ptr("/downloads/movies/" + matchedName + ".mkv"),
+		Progress:    qbt.Ptr(float64(1.0)),
+		Size:        qbt.Ptr(int64(8_000_000_000)),
 	}
 
 	mockSync := &discPolicySyncManager{
-		files: map[string]qbt.TorrentFiles{
+		files: map[string][]qbt.TorrentFile{
 			matchedHash: candidateFiles,
 		},
 		props: map[string]*qbt.TorrentProperties{
 			matchedHash: {
-				SavePath: "/downloads/movies",
+				SavePath: qbt.Ptr("/downloads/movies"),
 			},
 		},
 		matchedTorrent: &matchedTorrent,

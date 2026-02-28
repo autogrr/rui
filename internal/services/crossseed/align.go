@@ -13,7 +13,7 @@ import (
 	"time"
 	"unicode"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/moistari/rls"
 	"github.com/rs/zerolog/log"
 
@@ -37,8 +37,8 @@ func (s *Service) alignCrossSeedContentPaths(
 	torrentHashV2 string,
 	sourceTorrentName string,
 	matchedTorrent *qbt.Torrent,
-	expectedSourceFiles qbt.TorrentFiles,
-	candidateFiles qbt.TorrentFiles,
+	expectedSourceFiles []qbt.TorrentFile,
+	candidateFiles []qbt.TorrentFile,
 ) (bool, string) {
 	hashes := dedupeHashes(torrentHash, torrentHashV2)
 	hashLabel := ""
@@ -55,7 +55,7 @@ func (s *Service) alignCrossSeedContentPaths(
 	}
 
 	sourceRelease := s.releaseCache.Parse(sourceTorrentName)
-	matchedRelease := s.releaseCache.Parse(matchedTorrent.Name)
+	matchedRelease := s.releaseCache.Parse(qbt.Deref(matchedTorrent.Name))
 
 	// Safety check: reject forbidden pairing (season pack from episode) at alignment stage.
 	// This should have been caught earlier, but serves as a defense-in-depth guard.
@@ -65,7 +65,7 @@ func (s *Service) alignCrossSeedContentPaths(
 			Int("instanceID", instanceID).
 			Str("torrentHash", torrentHash).
 			Str("sourceName", sourceTorrentName).
-			Str("matchedName", matchedTorrent.Name).
+			Str("matchedName", qbt.Deref(matchedTorrent.Name)).
 			Msg("Skipping alignment: season pack cannot use single-episode files")
 		return false, ""
 	}
@@ -107,7 +107,7 @@ func (s *Service) alignCrossSeedContentPaths(
 	canonicalHash := normalizeHash(activeHash)
 
 	trimmedSourceName := strings.TrimSpace(sourceTorrentName)
-	trimmedMatchedName := strings.TrimSpace(matchedTorrent.Name)
+	trimmedMatchedName := strings.TrimSpace(qbt.Deref(matchedTorrent.Name))
 
 	// Detect single-file → folder case (using expected files, before any qBittorrent updates)
 	isSingleFileToFolder := expectedSourceRoot == "" && expectedCandidateRoot != ""
@@ -144,14 +144,14 @@ func (s *Service) alignCrossSeedContentPaths(
 			Int("instanceID", instanceID).
 			Str("torrentHash", torrentHash).
 			Str("sourceName", sourceTorrentName).
-			Str("matchedName", matchedTorrent.Name).
+			Str("matchedName", qbt.Deref(matchedTorrent.Name)).
 			Msg("Skipping file alignment for episode matched to season pack")
 		return true, activeHash // Episode-in-pack uses season pack path directly, no alignment needed
 	}
 
 	// Try to get current files from qBittorrent with a few retries for slow clients.
 	// On slow clients, the torrent may be visible but files not yet populated.
-	var sourceFiles qbt.TorrentFiles
+	var sourceFiles []qbt.TorrentFile
 	refreshCtx := qbittorrent.WithForceFilesRefresh(ctx)
 	for attempt := range 3 {
 		if ctx.Err() != nil {
@@ -339,7 +339,7 @@ func (s *Service) waitForTorrentAvailability(ctx context.Context, instanceID int
 		torrents, err := s.syncManager.GetTorrents(ctx, instanceID, qbt.TorrentFilterOptions{Hashes: hashes})
 		if err == nil && len(torrents) > 0 {
 			for _, torrent := range torrents {
-				active := strings.TrimSpace(torrent.Hash)
+				active := strings.TrimSpace(qbt.Deref(torrent.Hash))
 				if active != "" {
 					return active
 				}
@@ -358,7 +358,7 @@ func (s *Service) waitForTorrentAvailability(ctx context.Context, instanceID int
 	return ""
 }
 
-func buildFileRenamePlan(sourceFiles, candidateFiles qbt.TorrentFiles) ([]fileRenameInstruction, []string) {
+func buildFileRenamePlan(sourceFiles, candidateFiles []qbt.TorrentFile) ([]fileRenameInstruction, []string) {
 	type candidateEntry struct {
 		path       string
 		size       int64
@@ -370,26 +370,26 @@ func buildFileRenamePlan(sourceFiles, candidateFiles qbt.TorrentFiles) ([]fileRe
 	candidateBuckets := make(map[int64][]*candidateEntry)
 	for _, cf := range candidateFiles {
 		entry := &candidateEntry{
-			path:       cf.Name,
-			size:       cf.Size,
-			base:       strings.ToLower(fileBaseName(cf.Name)),
-			normalized: normalizeFileKey(cf.Name),
+			path:       qbt.Deref(cf.Name),
+			size:       qbt.Deref(cf.Size),
+			base:       strings.ToLower(fileBaseName(qbt.Deref(cf.Name))),
+			normalized: normalizeFileKey(qbt.Deref(cf.Name)),
 		}
-		candidateBuckets[cf.Size] = append(candidateBuckets[cf.Size], entry)
+		candidateBuckets[qbt.Deref(cf.Size)] = append(candidateBuckets[qbt.Deref(cf.Size)], entry)
 	}
 
 	plan := make([]fileRenameInstruction, 0)
 	unmatched := make([]string, 0)
 
 	for _, sf := range sourceFiles {
-		bucket := candidateBuckets[sf.Size]
+		bucket := candidateBuckets[qbt.Deref(sf.Size)]
 		if len(bucket) == 0 {
-			unmatched = append(unmatched, sf.Name)
+			unmatched = append(unmatched, qbt.Deref(sf.Name))
 			continue
 		}
 
-		sourceBase := strings.ToLower(fileBaseName(sf.Name))
-		sourceNorm := normalizeFileKey(sf.Name)
+		sourceBase := strings.ToLower(fileBaseName(qbt.Deref(sf.Name)))
+		sourceNorm := normalizeFileKey(qbt.Deref(sf.Name))
 
 		var available []*candidateEntry
 		for _, entry := range bucket {
@@ -399,7 +399,7 @@ func buildFileRenamePlan(sourceFiles, candidateFiles qbt.TorrentFiles) ([]fileRe
 		}
 
 		if len(available) == 0 {
-			unmatched = append(unmatched, sf.Name)
+			unmatched = append(unmatched, qbt.Deref(sf.Name))
 			continue
 		}
 
@@ -407,7 +407,7 @@ func buildFileRenamePlan(sourceFiles, candidateFiles qbt.TorrentFiles) ([]fileRe
 
 		// Exact path match.
 		for _, cand := range available {
-			if cand.path == sf.Name {
+			if cand.path == qbt.Deref(sf.Name) {
 				match = cand
 				break
 			}
@@ -445,17 +445,17 @@ func buildFileRenamePlan(sourceFiles, candidateFiles qbt.TorrentFiles) ([]fileRe
 		}
 
 		if match == nil {
-			unmatched = append(unmatched, sf.Name)
+			unmatched = append(unmatched, qbt.Deref(sf.Name))
 			continue
 		}
 
 		match.used = true
-		if sf.Name == match.path {
+		if qbt.Deref(sf.Name) == match.path {
 			continue
 		}
 
 		plan = append(plan, fileRenameInstruction{
-			oldPath: sf.Name,
+			oldPath: qbt.Deref(sf.Name),
 			newPath: match.path,
 		})
 	}
@@ -525,10 +525,10 @@ func fileBaseName(path string) string {
 	return path
 }
 
-func detectCommonRoot(files qbt.TorrentFiles) string {
+func detectCommonRoot(files []qbt.TorrentFile) string {
 	root := ""
 	for _, f := range files {
-		parts := strings.SplitN(f.Name, "/", 2)
+		parts := strings.SplitN(qbt.Deref(f.Name), "/", 2)
 		if len(parts) < 2 {
 			return ""
 		}
@@ -623,18 +623,18 @@ func namesMatchIgnoringExtension(name1, name2 string) bool {
 // matched at all), we compare the largest files in each set to catch obvious mismatches.
 //
 // The function also returns a list of mismatched files for logging purposes.
-func hasContentFileSizeMismatch(sourceFiles, candidateFiles qbt.TorrentFiles, normalizer *stringutils.Normalizer[string, string]) (bool, []string) {
+func hasContentFileSizeMismatch(sourceFiles, candidateFiles []qbt.TorrentFile, normalizer *stringutils.Normalizer[string, string]) (bool, []string) {
 	// Filter files by ignore patterns
-	var filteredSource, filteredCandidate qbt.TorrentFiles
+	var filteredSource, filteredCandidate []qbt.TorrentFile
 
 	for _, sf := range sourceFiles {
-		if !shouldIgnoreFile(sf.Name, normalizer) {
+		if !shouldIgnoreFile(qbt.Deref(sf.Name), normalizer) {
 			filteredSource = append(filteredSource, sf)
 		}
 	}
 
 	for _, cf := range candidateFiles {
-		if !shouldIgnoreFile(cf.Name, normalizer) {
+		if !shouldIgnoreFile(qbt.Deref(cf.Name), normalizer) {
 			filteredCandidate = append(filteredCandidate, cf)
 		}
 	}
@@ -651,14 +651,14 @@ func hasContentFileSizeMismatch(sourceFiles, candidateFiles qbt.TorrentFiles, no
 	}
 	candidateByKey := make(map[string]*candidateInfo)
 	for _, cf := range filteredCandidate {
-		key := normalizeFileKey(cf.Name)
+		key := normalizeFileKey(qbt.Deref(cf.Name))
 		if key == "" {
 			continue
 		}
 		if info := candidateByKey[key]; info != nil {
-			info.sizes = append(info.sizes, cf.Size)
+			info.sizes = append(info.sizes, qbt.Deref(cf.Size))
 		} else {
-			candidateByKey[key] = &candidateInfo{sizes: []int64{cf.Size}}
+			candidateByKey[key] = &candidateInfo{sizes: []int64{qbt.Deref(cf.Size)}}
 		}
 	}
 
@@ -670,7 +670,7 @@ func hasContentFileSizeMismatch(sourceFiles, candidateFiles qbt.TorrentFiles, no
 	var largestSourceWithKey int64
 
 	for _, sf := range filteredSource {
-		sourceKey := normalizeFileKey(sf.Name)
+		sourceKey := normalizeFileKey(qbt.Deref(sf.Name))
 		if sourceKey == "" {
 			continue
 		}
@@ -683,19 +683,19 @@ func hasContentFileSizeMismatch(sourceFiles, candidateFiles qbt.TorrentFiles, no
 		}
 
 		// Track the largest source file that has a corresponding key in candidate
-		if sf.Size > largestSourceWithKey {
-			largestSourceWithKey = sf.Size
+		if qbt.Deref(sf.Size) > largestSourceWithKey {
+			largestSourceWithKey = qbt.Deref(sf.Size)
 		}
 
 		// Check if any size matches
 		sizeMatched := false
 		for i, candSize := range info.sizes {
-			if candSize == sf.Size {
+			if candSize == qbt.Deref(sf.Size) {
 				// Remove this size from available (for multiset correctness)
 				info.sizes = slices.Delete(info.sizes, i, i+1)
 				sizeMatched = true
-				if sf.Size > largestMatched {
-					largestMatched = sf.Size
+				if qbt.Deref(sf.Size) > largestMatched {
+					largestMatched = qbt.Deref(sf.Size)
 				}
 				break
 			}
@@ -703,7 +703,7 @@ func hasContentFileSizeMismatch(sourceFiles, candidateFiles qbt.TorrentFiles, no
 
 		if !sizeMatched {
 			// Same file key but different size - true mismatch
-			mismatchedFiles = append(mismatchedFiles, sf.Name)
+			mismatchedFiles = append(mismatchedFiles, qbt.Deref(sf.Name))
 		}
 	}
 
@@ -732,15 +732,15 @@ func hasContentFileSizeMismatch(sourceFiles, candidateFiles qbt.TorrentFiles, no
 	var largestSource int64
 	var largestSourceName string
 	for _, sf := range filteredSource {
-		if sf.Size > largestSource {
-			largestSource = sf.Size
-			largestSourceName = sf.Name
+		if qbt.Deref(sf.Size) > largestSource {
+			largestSource = qbt.Deref(sf.Size)
+			largestSourceName = qbt.Deref(sf.Name)
 		}
 	}
 	var largestCandidate int64
 	for _, cf := range filteredCandidate {
-		if cf.Size > largestCandidate {
-			largestCandidate = cf.Size
+		if qbt.Deref(cf.Size) > largestCandidate {
+			largestCandidate = qbt.Deref(cf.Size)
 		}
 	}
 
@@ -765,18 +765,18 @@ type fileKeySize struct {
 // Returns true if source has files with (normalizedKey, size) not present in candidate.
 // This includes cases where source and candidate have the same file count but different files
 // (e.g., source has mkv+srt, candidate has mkv+nfo - the srt won't exist on disk).
-func hasExtraSourceFiles(sourceFiles, candidateFiles qbt.TorrentFiles) bool {
+func hasExtraSourceFiles(sourceFiles, candidateFiles []qbt.TorrentFile) bool {
 	// Build (normalizedKey, size) multiset for candidate files
 	candidateKeys := make(map[fileKeySize]int)
 	for _, cf := range candidateFiles {
-		key := fileKeySize{key: normalizeFileKey(cf.Name), size: cf.Size}
+		key := fileKeySize{key: normalizeFileKey(qbt.Deref(cf.Name)), size: qbt.Deref(cf.Size)}
 		candidateKeys[key]++
 	}
 
 	// Count how many source files can be matched by (normalizedKey, size)
 	matched := 0
 	for _, sf := range sourceFiles {
-		key := fileKeySize{key: normalizeFileKey(sf.Name), size: sf.Size}
+		key := fileKeySize{key: normalizeFileKey(qbt.Deref(sf.Name)), size: qbt.Deref(sf.Size)}
 		if count := candidateKeys[key]; count > 0 {
 			candidateKeys[key]--
 			matched++
@@ -790,7 +790,7 @@ func hasExtraSourceFiles(sourceFiles, candidateFiles qbt.TorrentFiles) bool {
 // needsRenameAlignment checks if rename alignment will be required for a cross-seed add.
 // Returns true if torrent name, root folder, or file names differ between source and candidate.
 // For layout-change cases (folder→bare or bare→folder), also checks if file names inside differ.
-func needsRenameAlignment(torrentName string, matchedTorrentName string, sourceFiles, candidateFiles qbt.TorrentFiles) bool {
+func needsRenameAlignment(torrentName string, matchedTorrentName string, sourceFiles, candidateFiles []qbt.TorrentFile) bool {
 	sourceRoot := detectCommonRoot(sourceFiles)
 	candidateRoot := detectCommonRoot(candidateFiles)
 
@@ -802,7 +802,7 @@ func needsRenameAlignment(torrentName string, matchedTorrentName string, sourceF
 		// qBittorrent auto-generates folder by stripping extension from the single file's name.
 		// Only applies to single-file rootless torrents (multi-file rootless is rare/invalid).
 		if len(sourceFiles) == 1 {
-			sourceFileName := fileBaseName(sourceFiles[0].Name)
+			sourceFileName := fileBaseName(qbt.Deref(sourceFiles[0].Name))
 			autoGeneratedFolder := strings.TrimSuffix(sourceFileName, filepath.Ext(sourceFileName))
 			if autoGeneratedFolder != candidateRoot {
 				return true // Folder will need renaming after add
@@ -835,7 +835,7 @@ func needsRenameAlignment(torrentName string, matchedTorrentName string, sourceF
 // filesNeedRenaming checks if any files would need renaming after a layout change.
 // Compares file names (ignoring folder structure) using normalized keys to detect
 // punctuation differences like spaces vs periods.
-func filesNeedRenaming(sourceFiles, candidateFiles qbt.TorrentFiles) bool {
+func filesNeedRenaming(sourceFiles, candidateFiles []qbt.TorrentFile) bool {
 	if len(sourceFiles) == 0 || len(candidateFiles) == 0 {
 		return false
 	}
@@ -847,12 +847,12 @@ func filesNeedRenaming(sourceFiles, candidateFiles qbt.TorrentFiles) bool {
 	}
 	candidateKeys := make(map[fileKey]bool)
 	for _, cf := range candidateFiles {
-		candidateKeys[fileKey{normalized: normalizeFileKey(cf.Name), size: cf.Size}] = true
+		candidateKeys[fileKey{normalized: normalizeFileKey(qbt.Deref(cf.Name)), size: qbt.Deref(cf.Size)}] = true
 	}
 
 	// Check if any source file doesn't have a matching candidate
 	for _, sf := range sourceFiles {
-		key := fileKey{normalized: normalizeFileKey(sf.Name), size: sf.Size}
+		key := fileKey{normalized: normalizeFileKey(qbt.Deref(sf.Name)), size: qbt.Deref(sf.Size)}
 		if !candidateKeys[key] {
 			// No match by normalized key+size, need rename alignment
 			return true
@@ -863,13 +863,13 @@ func filesNeedRenaming(sourceFiles, candidateFiles qbt.TorrentFiles) bool {
 	// Build size buckets for detailed comparison
 	candidateBuckets := make(map[int64][]string)
 	for _, cf := range candidateFiles {
-		base := fileBaseName(cf.Name)
-		candidateBuckets[cf.Size] = append(candidateBuckets[cf.Size], base)
+		base := fileBaseName(qbt.Deref(cf.Name))
+		candidateBuckets[qbt.Deref(cf.Size)] = append(candidateBuckets[qbt.Deref(cf.Size)], base)
 	}
 
 	for _, sf := range sourceFiles {
-		sourceBase := fileBaseName(sf.Name)
-		bucket := candidateBuckets[sf.Size]
+		sourceBase := fileBaseName(qbt.Deref(sf.Name))
+		bucket := candidateBuckets[qbt.Deref(sf.Size)]
 
 		// Check if exact base name exists in bucket
 		found := slices.Contains(bucket, sourceBase)
@@ -885,7 +885,7 @@ func filesNeedRenaming(sourceFiles, candidateFiles qbt.TorrentFiles) bool {
 // planRequiresRenames checks if the rename plan contains any actual path changes.
 // Uses buildFileRenamePlan which compares full paths (including subfolder structure),
 // not just base filenames.
-func planRequiresRenames(sourceFiles, candidateFiles qbt.TorrentFiles) bool {
+func planRequiresRenames(sourceFiles, candidateFiles []qbt.TorrentFile) bool {
 	plan, _ := buildFileRenamePlan(sourceFiles, candidateFiles)
 	for _, instr := range plan {
 		if instr.oldPath != "" && instr.newPath != "" && instr.oldPath != instr.newPath {
@@ -992,10 +992,10 @@ func (s *Service) renameFileWithVerification(ctx context.Context, instanceID int
 		oldPathExists := false
 		newPathExists := false
 		for _, f := range currentFiles {
-			if f.Name == oldPath {
+			if qbt.Deref(f.Name) == oldPath {
 				oldPathExists = true
 			}
-			if f.Name == newPath {
+			if qbt.Deref(f.Name) == newPath {
 				newPathExists = true
 			}
 		}

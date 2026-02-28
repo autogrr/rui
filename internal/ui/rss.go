@@ -9,12 +9,34 @@ import (
 	"net/http"
 	"strings"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
+
+	qbittorrent "github.com/autogrr/rui/internal/qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/ui/layouts"
 	"github.com/autogrr/rui/internal/ui/pages"
 )
+
+// rssFeed is a local struct for parsing RSS feed nodes from GetRSSItems responses.
+type rssFeed struct {
+	URL       string       `json:"url"`
+	Title     string       `json:"title"`
+	HasError  bool         `json:"hasError"`
+	IsLoading bool         `json:"this_field_does_not_exist"` // always false in new API
+	Articles  []rssArticle `json:"articles"`
+}
+
+type rssArticle struct {
+	ID          string `json:"id"`
+	Date        string `json:"date"`
+	Title       string `json:"title"`
+	Author      string `json:"author"`
+	Description string `json:"description"`
+	TorrentURL  string `json:"torrentUrl"`
+	Link        string `json:"link"`
+	IsRead      bool   `json:"isRead"`
+}
 
 // ------------------------------------------------------------------
 // GET /ui/rss  — Full RSS page
@@ -86,7 +108,7 @@ func (h *Handler) buildRSSProps(r *http.Request) pages.RSSProps {
 
 // flattenRSSItems traverses the hierarchical RSSItems and produces a flat list
 // with path-qualified names, e.g. "Folder/FeedName".
-func flattenRSSItems(items qbt.RSSItems, prefix string) []pages.RSSFeedItem {
+func flattenRSSItems(items qbittorrent.RSSItems, prefix string) []pages.RSSFeedItem {
 	var out []pages.RSSFeedItem
 	for name, raw := range items {
 		path := name
@@ -95,24 +117,30 @@ func flattenRSSItems(items qbt.RSSItems, prefix string) []pages.RSSFeedItem {
 		}
 
 		// Try to decode as feed (has "url" field).
-		var feed qbt.RSSFeed
-		if err := json.Unmarshal(raw, &feed); err == nil && feed.URL != "" {
-			out = append(out, pages.RSSFeedItem{
-				Path:         path,
-				Name:         name,
-				URL:          feed.URL,
-				Title:        feed.Title,
-				HasError:     feed.HasError,
-				IsLoading:    feed.IsLoading,
-				ArticleCount: len(feed.Articles),
-			})
-			continue
+		var feed rssFeed
+		rawJSON, merr := json.Marshal(raw)
+		if merr == nil {
+			if err := json.Unmarshal(rawJSON, &feed); err == nil && feed.URL != "" {
+				out = append(out, pages.RSSFeedItem{
+					Path:         path,
+					Name:         name,
+					URL:          feed.URL,
+					Title:        feed.Title,
+					HasError:     feed.HasError,
+					IsLoading:    feed.IsLoading,
+					ArticleCount: len(feed.Articles),
+				})
+				continue
+			}
 		}
 
 		// Try to decode as nested folder.
-		var nested qbt.RSSItems
-		if err := json.Unmarshal(raw, &nested); err == nil {
-			out = append(out, flattenRSSItems(nested, path)...)
+		var nested qbittorrent.RSSItems
+		rawJSON2, merr2 := json.Marshal(raw)
+		if merr2 == nil {
+			if err := json.Unmarshal(rawJSON2, &nested); err == nil {
+				out = append(out, flattenRSSItems(nested, path)...)
+			}
 		}
 	}
 	return out
@@ -120,21 +148,25 @@ func flattenRSSItems(items qbt.RSSItems, prefix string) []pages.RSSFeedItem {
 
 // articlesFromPath retrieves articles for a specific feed path by traversing
 // the hierarchical items structure.
-func articlesFromPath(items qbt.RSSItems, feedPath string) []pages.RSSArticleItem {
+func articlesFromPath(items qbittorrent.RSSItems, feedPath string) []pages.RSSArticleItem {
 	parts := strings.SplitN(feedPath, "/", 2)
 	if len(parts) == 0 {
 		return nil
 	}
 
-	raw, ok := items[parts[0]]
+	rawVal, ok := items[parts[0]]
 	if !ok {
 		return nil
 	}
 
 	if len(parts) == 1 {
 		// This is the feed node.
-		var feed qbt.RSSFeed
-		if err := json.Unmarshal(raw, &feed); err != nil || feed.URL == "" {
+		var feed rssFeed
+		rawJSON, merr := json.Marshal(rawVal)
+		if merr != nil {
+			return nil
+		}
+		if err := json.Unmarshal(rawJSON, &feed); err != nil || feed.URL == "" {
 			return nil
 		}
 		articles := make([]pages.RSSArticleItem, 0, len(feed.Articles))
@@ -155,21 +187,24 @@ func articlesFromPath(items qbt.RSSItems, feedPath string) []pages.RSSArticleIte
 	}
 
 	// Recurse into folder.
-	var nested qbt.RSSItems
-	if err := json.Unmarshal(raw, &nested); err != nil {
+	var nested qbittorrent.RSSItems
+	rawJSON2, merr2 := json.Marshal(rawVal)
+	if merr2 != nil {
+		return nil
+	}
+	if err := json.Unmarshal(rawJSON2, &nested); err != nil {
 		return nil
 	}
 	return articlesFromPath(nested, parts[1])
 }
 
 // rssRulesFromQbt converts qbt.RSSRules to page-level RSSRuleItems.
-func rssRulesFromQbt(rules qbt.RSSRules) []pages.RSSRuleItem {
+func rssRulesFromQbt(rules qbittorrent.RSSRules) []pages.RSSRuleItem {
 	out := make([]pages.RSSRuleItem, 0, len(rules))
 	for name, rule := range rules {
 		item := pages.RSSRuleItem{
 			Name:           name,
 			Enabled:        rule.Enabled,
-			Priority:       rule.Priority,
 			MustContain:    rule.MustContain,
 			MustNotContain: rule.MustNotContain,
 			UseRegex:       rule.UseRegex,
@@ -540,7 +575,6 @@ func (h *Handler) GetRSSRuleForm(w http.ResponseWriter, r *http.Request) {
 				ri := pages.RSSRuleItem{
 					Name:           ruleName,
 					Enabled:        rule.Enabled,
-					Priority:       rule.Priority,
 					MustContain:    rule.MustContain,
 					MustNotContain: rule.MustNotContain,
 					UseRegex:       rule.UseRegex,

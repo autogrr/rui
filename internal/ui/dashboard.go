@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/qbittorrent"
@@ -55,8 +55,10 @@ func (h *Handler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
-// buildDashboardInstances queries all configured instances and populates live
-// statistics into a []pages.DashboardInstance slice.
+// buildDashboardInstances returns live dashboard stats from the in-memory
+// sync cache. All values come from atomically-swapped pointers updated by
+// the qbt.SyncManager OnUpdate callback — no torrent list copy, no lock
+// contention, no outbound network calls.
 func (h *Handler) buildDashboardInstances(r *http.Request) []pages.DashboardInstance {
 	ctx := r.Context()
 
@@ -75,26 +77,26 @@ func (h *Handler) buildDashboardInstances(r *http.Request) []pages.DashboardInst
 		}
 
 		if h.syncManager != nil && inst.IsActive {
-			// Populate live stats from the cached qBittorrent client state.
-			if client, err := h.syncManager.GetClient(ctx, inst.ID); err == nil {
+			// GetClientOffline: RLock map lookup, no HealthCheck.
+			if client, err := h.syncManager.GetClientOffline(ctx, inst.ID); err == nil && client != nil {
 				if ss := client.GetCachedServerState(); ss != nil {
 					di.IsConnected = true
-					di.DlSpeed = uint64(max64(ss.DlInfoSpeed, 0))
-					di.UpSpeed = uint64(max64(ss.UpInfoSpeed, 0))
-					di.FreeSpaceBytes = ss.FreeSpaceOnDisk
-					di.UseAltSpeedLimits = ss.UseAltSpeedLimits
-					di.AlltimeDl = ss.AlltimeDl
-					di.AlltimeUl = ss.AlltimeUl
+					di.DlSpeed = uint64(max64(qbt.Deref(ss.DlInfoSpeed), 0))
+					di.UpSpeed = uint64(max64(qbt.Deref(ss.UpInfoSpeed), 0))
+					di.FreeSpaceBytes = qbt.Deref(ss.FreeSpaceOnDisk)
+					di.UseAltSpeedLimits = qbt.Deref(ss.UseAltSpeedLimits)
+					di.AlltimeDl = qbt.Deref(ss.AllTimeDownload)
+					di.AlltimeUl = qbt.Deref(ss.AllTimeUpload)
 				}
-			}
-			// Populate torrent counts from the sync cache.
-			if resp, err := h.syncManager.GetTorrentsWithFilters(
-				ctx, inst.ID, 0, 0, "", "", "", qbittorrent.FilterOptions{},
-			); err == nil && resp != nil && resp.Stats != nil {
-				di.Downloading = resp.Stats.Downloading
-				di.Seeding = resp.Stats.Seeding
-				di.Total = resp.Stats.Total
-				di.IsConnected = true
+				// Torrent counts: atomic pointer load, zero allocation.
+				if counts := client.GetCachedTorrentCounts(); counts != nil {
+					di.Total = counts.Total
+					di.Downloading = counts.Downloading
+					di.Seeding = counts.Seeding
+					if counts.Total > 0 {
+						di.IsConnected = true
+					}
+				}
 			}
 			// Tracker-down count from health cache (non-blocking).
 			if hc := h.syncManager.GetTrackerHealthCounts(inst.ID); hc != nil {
@@ -150,6 +152,8 @@ func max64(a, b int64) int64 {
 
 // GetDashboardTrackerBreakdown returns per-tracker aggregated stats across all
 // active instances, lazy-loaded by the dashboard on first paint.
+// Stats are pre-computed by the OnUpdate callback; this handler just reads
+// atomic pointers — no torrent list copy, no lock contention.
 // Route: GET /ui/partials/dashboard/tracker-breakdown
 func (h *Handler) GetDashboardTrackerBreakdown(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -162,65 +166,31 @@ func (h *Handler) GetDashboardTrackerBreakdown(w http.ResponseWriter, r *http.Re
 	// Load tracker customizations for display-name resolution.
 	customizations, _ := h.trackerCustomizationStore.List(ctx)
 
-	type aggRow struct {
-		seeding     int
-		downloading int
-		count       int
-		upSpeed     uint64
-		dlSpeed     uint64
-		totalSize   int64
-	}
-
-	agg := make(map[string]*aggRow)
-
-	seedingStates := map[qbt.TorrentState]struct{}{
-		qbt.TorrentStateUploading:  {},
-		qbt.TorrentStateStalledUp:  {},
-		qbt.TorrentStateQueuedUp:   {},
-		qbt.TorrentStateCheckingUp: {},
-		qbt.TorrentStateForcedUp:   {},
-	}
-
-	downloadingStates := map[qbt.TorrentState]struct{}{
-		qbt.TorrentStateDownloading: {},
-		qbt.TorrentStateStalledDl:   {},
-		qbt.TorrentStateMetaDl:      {},
-		qbt.TorrentStateQueuedDl:    {},
-		qbt.TorrentStateAllocating:  {},
-		qbt.TorrentStateCheckingDl:  {},
-		qbt.TorrentStateForcedDl:    {},
-	}
+	agg := make(map[string]*qbittorrent.CachedTrackerRow)
 
 	if h.syncManager != nil {
 		for _, inst := range insts {
 			if !inst.IsActive {
 				continue
 			}
-			torrents, err := h.syncManager.GetTorrents(ctx, inst.ID, qbt.TorrentFilterOptions{})
-			if err != nil {
+			client, err := h.syncManager.GetClientOffline(ctx, inst.ID)
+			if err != nil || client == nil {
 				continue
 			}
-			for i := range torrents {
-				t := &torrents[i]
-				domain := h.syncManager.ExtractDomainFromURL(t.Tracker)
-				if domain == "" || domain == "Unknown" {
-					domain = "Unknown"
-				}
-				row, ok := agg[domain]
+			for _, row := range client.GetCachedTrackerRows() {
+				cached := row // copy off the slice
+				existing, ok := agg[cached.Domain]
 				if !ok {
-					row = &aggRow{}
-					agg[domain] = row
+					agg[cached.Domain] = &cached
+					continue
 				}
-				row.count++
-				row.totalSize += t.Size
-				row.upSpeed += uint64(max64(t.UpSpeed, 0))
-				row.dlSpeed += uint64(max64(t.DlSpeed, 0))
-				if _, isSeed := seedingStates[t.State]; isSeed {
-					row.seeding++
-				}
-				if _, isDl := downloadingStates[t.State]; isDl {
-					row.downloading++
-				}
+				// Merge across multiple instances.
+				existing.Count += cached.Count
+				existing.Seeding += cached.Seeding
+				existing.Downloading += cached.Downloading
+				existing.UpSpeed += cached.UpSpeed
+				existing.DlSpeed += cached.DlSpeed
+				existing.TotalSize += cached.TotalSize
 			}
 		}
 	}
@@ -231,12 +201,12 @@ func (h *Handler) GetDashboardTrackerBreakdown(w http.ResponseWriter, r *http.Re
 		rows = append(rows, pages.TrackerBreakdownRow{
 			DisplayName:  displayName,
 			Domain:       domain,
-			TorrentCount: ag.count,
-			Seeding:      ag.seeding,
-			Downloading:  ag.downloading,
-			UpSpeed:      ag.upSpeed,
-			DlSpeed:      ag.dlSpeed,
-			TotalSize:    ag.totalSize,
+			TorrentCount: ag.Count,
+			Seeding:      ag.Seeding,
+			Downloading:  ag.Downloading,
+			UpSpeed:      ag.UpSpeed,
+			DlSpeed:      ag.DlSpeed,
+			TotalSize:    ag.TotalSize,
 		})
 	}
 

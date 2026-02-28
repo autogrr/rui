@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -454,7 +454,7 @@ func TestProcessHardlinkMode_NotUsedWhenDisabled(t *testing.T) {
 		"exact",
 		nil,
 		nil,
-		&qbt.TorrentProperties{SavePath: "/downloads"},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 		"category",
 		"category.cross",
 	)
@@ -491,7 +491,7 @@ func TestProcessHardlinkMode_FailsWhenBaseDirEmpty(t *testing.T) {
 		"exact",
 		nil,
 		nil,
-		&qbt.TorrentProperties{SavePath: "/downloads"},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 		"category",
 		"category.cross",
 	)
@@ -548,11 +548,11 @@ func TestProcessHardlinkMode_FailsWhenNoLocalAccess(t *testing.T) {
 		"",
 		"TorrentName",
 		&CrossSeedRequest{},
-		&qbt.Torrent{ContentPath: "/downloads/movie"},
+		&qbt.Torrent{ContentPath: qbt.Ptr("/downloads/movie")},
 		"exact",
 		nil,
-		qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
-		&qbt.TorrentProperties{SavePath: "/downloads"},
+		[]qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 		"category",
 		"category.cross",
 	)
@@ -593,11 +593,11 @@ func TestProcessHardlinkMode_FailsOnInfrastructureError(t *testing.T) {
 		"",
 		"TorrentName",
 		&CrossSeedRequest{},
-		&qbt.Torrent{ContentPath: "/also/nonexistent/path"},
+		&qbt.Torrent{ContentPath: qbt.Ptr("/also/nonexistent/path")},
 		"exact",
 		nil,
-		qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
-		&qbt.TorrentProperties{SavePath: "/also/nonexistent"},
+		[]qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/also/nonexistent")},
 		"category",
 		"category.cross",
 	)
@@ -633,14 +633,14 @@ func TestProcessHardlinkMode_SkipsWhenExtrasAndSkipRecheckEnabled(t *testing.T) 
 	}
 
 	// Source files have an extra file (sample.mkv) not in candidate
-	sourceFiles := qbt.TorrentFiles{
-		{Name: "Movie/movie.mkv", Size: 1000},
-		{Name: "Movie/sample.mkv", Size: 100}, // Extra file
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(1000))},
+		{Name: qbt.Ptr("Movie/sample.mkv"), Size: qbt.Ptr(int64(100))}, // Extra file
 	}
 
 	// Candidate files only have the main movie
-	candidateFiles := qbt.TorrentFiles{
-		{Name: "Movie/movie.mkv", Size: 1000},
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(1000))},
 	}
 
 	result := s.processHardlinkMode(
@@ -651,11 +651,11 @@ func TestProcessHardlinkMode_SkipsWhenExtrasAndSkipRecheckEnabled(t *testing.T) 
 		"",
 		"TorrentName",
 		&CrossSeedRequest{SkipRecheck: true}, // SkipRecheck enabled
-		&qbt.Torrent{ContentPath: "/downloads/Movie"},
+		&qbt.Torrent{ContentPath: qbt.Ptr("/downloads/Movie")},
 		"exact",
 		sourceFiles,
 		candidateFiles,
-		&qbt.TorrentProperties{SavePath: "/downloads"},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 		"category",
 		"category.cross",
 	)
@@ -689,14 +689,14 @@ func TestProcessReflinkMode_SkipsWhenExtrasAndSkipRecheckEnabled(t *testing.T) {
 	}
 
 	// Source files have an extra file (sample.mkv) not in candidate
-	sourceFiles := qbt.TorrentFiles{
-		{Name: "Movie/movie.mkv", Size: 1000},
-		{Name: "Movie/sample.mkv", Size: 100}, // Extra file
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(1000))},
+		{Name: qbt.Ptr("Movie/sample.mkv"), Size: qbt.Ptr(int64(100))}, // Extra file
 	}
 
 	// Candidate files only have the main movie
-	candidateFiles := qbt.TorrentFiles{
-		{Name: "Movie/movie.mkv", Size: 1000},
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie/movie.mkv"), Size: qbt.Ptr(int64(1000))},
 	}
 
 	result := s.processReflinkMode(
@@ -707,11 +707,11 @@ func TestProcessReflinkMode_SkipsWhenExtrasAndSkipRecheckEnabled(t *testing.T) {
 		"",
 		"TorrentName",
 		&CrossSeedRequest{SkipRecheck: true}, // SkipRecheck enabled
-		&qbt.Torrent{ContentPath: "/downloads/Movie"},
+		&qbt.Torrent{ContentPath: qbt.Ptr("/downloads/Movie")},
 		"exact",
 		sourceFiles,
 		candidateFiles,
-		&qbt.TorrentProperties{SavePath: "/downloads"},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 		"category",
 		"category.cross",
 	)
@@ -752,11 +752,11 @@ func TestProcessHardlinkMode_FallbackEnabled(t *testing.T) {
 		"",
 		"TorrentName",
 		&CrossSeedRequest{},
-		&qbt.Torrent{ContentPath: "/downloads/movie"},
+		&qbt.Torrent{ContentPath: qbt.Ptr("/downloads/movie")},
 		"exact",
 		nil,
-		qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
-		&qbt.TorrentProperties{SavePath: "/downloads"},
+		[]qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 		"category",
 		"category.cross",
 	)
@@ -793,11 +793,11 @@ func TestProcessHardlinkMode_FallbackDisabled(t *testing.T) {
 		"",
 		"TorrentName",
 		&CrossSeedRequest{},
-		&qbt.Torrent{ContentPath: "/downloads/movie"},
+		&qbt.Torrent{ContentPath: qbt.Ptr("/downloads/movie")},
 		"exact",
 		nil,
-		qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
-		&qbt.TorrentProperties{SavePath: "/downloads"},
+		[]qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 		"category",
 		"category.cross",
 	)
@@ -837,11 +837,11 @@ func TestProcessReflinkMode_FallbackEnabled(t *testing.T) {
 		"",
 		"TorrentName",
 		&CrossSeedRequest{},
-		&qbt.Torrent{ContentPath: "/downloads/movie"},
+		&qbt.Torrent{ContentPath: qbt.Ptr("/downloads/movie")},
 		"exact",
 		nil,
-		qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
-		&qbt.TorrentProperties{SavePath: "/downloads"},
+		[]qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 		"category",
 		"category.cross",
 	)
@@ -878,11 +878,11 @@ func TestProcessReflinkMode_FallbackDisabled(t *testing.T) {
 		"",
 		"TorrentName",
 		&CrossSeedRequest{},
-		&qbt.Torrent{ContentPath: "/downloads/movie"},
+		&qbt.Torrent{ContentPath: qbt.Ptr("/downloads/movie")},
 		"exact",
 		nil,
-		qbt.TorrentFiles{{Name: "movie.mkv", Size: 1000}},
-		&qbt.TorrentProperties{SavePath: "/downloads"},
+		[]qbt.TorrentFile{{Name: qbt.Ptr("movie.mkv"), Size: qbt.Ptr(int64(1000))}},
+		&qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 		"category",
 		"category.cross",
 	)

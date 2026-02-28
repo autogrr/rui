@@ -8,7 +8,7 @@ import (
 	"context"
 	"os"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 )
 
@@ -21,9 +21,9 @@ func (s *Service) detectMissingFiles(ctx context.Context, instanceID int, torren
 	var completedHashes []string
 	torrentByHash := make(map[string]qbt.Torrent)
 	for _, t := range torrents {
-		if t.Progress >= 1.0 {
-			completedHashes = append(completedHashes, t.Hash)
-			torrentByHash[t.Hash] = t
+		if qbt.Deref(t.Progress) >= 1.0 {
+			completedHashes = append(completedHashes, qbt.Deref(t.Hash))
+			torrentByHash[qbt.Deref(t.Hash)] = t
 		}
 	}
 
@@ -44,17 +44,17 @@ func (s *Service) detectMissingFiles(ctx context.Context, instanceID int, torren
 		filesChecked := 0
 
 		for _, f := range files {
-			if f.Name == "" {
+			if qbt.Deref(f.Name) == "" {
 				continue
 			}
-			fullPath := buildFullPath(torrent.SavePath, f.Name)
+			fullPath := buildFullPath(qbt.Deref(torrent.SavePath), qbt.Deref(f.Name))
 			if _, err := os.Stat(fullPath); err != nil {
 				if os.IsNotExist(err) {
 					hasMissing = true
 					break
 				}
 				// Log warning for other errors, continue checking
-				log.Trace().Err(err).Str("path", fullPath).Str("torrent", torrent.Name).
+				log.Trace().Err(err).Str("path", fullPath).Str("torrent", qbt.Deref(torrent.Name)).
 					Msg("automations: error checking file existence")
 				continue
 			}

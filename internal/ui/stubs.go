@@ -17,6 +17,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	qbt "github.com/autogrr/go-qbittorrent"
+
 	"github.com/autogrr/rui/internal/domain"
 	"github.com/autogrr/rui/internal/qbittorrent"
 	"github.com/autogrr/rui/internal/ui/layouts"
@@ -109,13 +111,13 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 			trackerSet := make(map[string]struct{}, 64)
 			savepathSet := make(map[string]struct{}, 64)
 			for _, t := range all {
-				if t.Tracker != "" {
-					if domain := h.syncManager.ExtractDomainFromURL(t.Tracker); domain != "" && domain != "Unknown" {
+				if qbt.Deref(t.Tracker) != "" {
+					if domain := h.syncManager.ExtractDomainFromURL(qbt.Deref(t.Tracker)); domain != "" && domain != "Unknown" {
 						trackerSet[domain] = struct{}{}
 					}
 				}
-				if t.SavePath != "" {
-					sp := strings.ReplaceAll(t.SavePath, "\\\\", "/")
+				if qbt.Deref(t.SavePath) != "" {
+					sp := strings.ReplaceAll(qbt.Deref(t.SavePath), "\\\\", "/")
 					savepathSet[sp] = struct{}{}
 				}
 			}
@@ -131,25 +133,25 @@ func (h *Handler) GetTorrents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	render(w, r, http.StatusOK, pages.Torrents(pages.TorrentsProps{
-		BaseURL:       h.baseURL(),
-		Username:      username,
-		Version:       h.version,
-		Instances:     navInsts,
-		InstanceID:    targetID,
-		Search:        search,
-		Status:        status,
-		Category:      category,
-		Tag:           tag,
-		Sort:          sortCol,
-		Order:         sortOrder,
-		Expr:          expr,
-		Rows:          rows,
-		Total:         total,
-		Categories:    cats,
-		Tags:          tagList,
-		Trackers:      trackers,
-		SavePaths:     savepaths,
-		FilterTracker: tracker,
+		BaseURL:        h.baseURL(),
+		Username:       username,
+		Version:        h.version,
+		Instances:      navInsts,
+		InstanceID:     targetID,
+		Search:         search,
+		Status:         status,
+		Category:       category,
+		Tag:            tag,
+		Sort:           sortCol,
+		Order:          sortOrder,
+		Expr:           expr,
+		Rows:           rows,
+		Total:          total,
+		Categories:     cats,
+		Tags:           tagList,
+		Trackers:       trackers,
+		SavePaths:      savepaths,
+		FilterTracker:  tracker,
 		FilterSavePath: savepath,
 	}))
 }
@@ -261,36 +263,36 @@ func (h *Handler) fetchTorrentRows(ctx context.Context, instanceID int, search, 
 			continue
 		}
 		rows = append(rows, pages.TorrentRow{
-			Hash:          tv.Hash,
-			Name:          tv.Name,
-			State:         string(tv.State),
-			SizeB:         tv.Size,
-			TotalSizeB:    tv.TotalSize,
-			Progress:      tv.Progress,
-			DlSpeed:       tv.DlSpeed,
-			UpSpeed:       tv.UpSpeed,
-			Ratio:         tv.Ratio,
-			Category:      tv.Category,
-			Tags:          tv.Tags,
-			ETA:           tv.ETA,
-			AddedOn:       tv.AddedOn,
-			CompletionOn:  tv.CompletionOn,
-			SavePath:      tv.SavePath,
-			Tracker:       tv.Tracker,
-			Uploaded:      tv.Uploaded,
-			Downloaded:    tv.Downloaded,
-			NumSeeds:      tv.NumSeeds,
-			NumLeechs:     tv.NumLeechs,
-			NumComplete:   tv.NumComplete,
-			NumIncomplete: tv.NumIncomplete,
-			SeedingTime:   tv.SeedingTime,
-			TimeActive:    tv.TimeActive,
-			AmountLeft:    tv.AmountLeft,
-			LastActivity:  tv.LastActivity,
-			Availability:  float64(tv.Availability),
-			InfohashV1:    tv.InfohashV1,
-			InfohashV2:    tv.InfohashV2,
-			Priority:      tv.Priority,
+			Hash:          qbt.Deref(tv.Hash),
+			Name:          qbt.Deref(tv.Name),
+			State:         string(qbt.Deref(tv.State)),
+			SizeB:         qbt.Deref(tv.Size),
+			TotalSizeB:    qbt.Deref(tv.TotalSize),
+			Progress:      qbt.Deref(tv.Progress),
+			DlSpeed:       qbt.Deref(tv.DlSpeed),
+			UpSpeed:       qbt.Deref(tv.UpSpeed),
+			Ratio:         qbt.Deref(tv.Ratio),
+			Category:      qbt.Deref(tv.Category),
+			Tags:          qbt.Deref(tv.Tags),
+			ETA:           qbt.Deref(tv.ETA),
+			AddedOn:       qbt.Deref(tv.AddedOn),
+			CompletionOn:  qbt.Deref(tv.CompletionOn),
+			SavePath:      qbt.Deref(tv.SavePath),
+			Tracker:       qbt.Deref(tv.Tracker),
+			Uploaded:      qbt.Deref(tv.Uploaded),
+			Downloaded:    qbt.Deref(tv.Downloaded),
+			NumSeeds:      int64(qbt.Deref(tv.NumSeeds)),
+			NumLeechs:     int64(qbt.Deref(tv.NumLeechs)),
+			NumComplete:   int64(qbt.Deref(tv.NumComplete)),
+			NumIncomplete: int64(qbt.Deref(tv.NumIncomplete)),
+			SeedingTime:   qbt.Deref(tv.SeedingTime),
+			TimeActive:    qbt.Deref(tv.TimeActive),
+			AmountLeft:    qbt.Deref(tv.AmountLeft),
+			LastActivity:  qbt.Deref(tv.LastActivity),
+			Availability:  qbt.Deref(tv.Availability),
+			InfohashV1:    qbt.Deref(tv.InfoHashV1),
+			InfohashV2:    qbt.Deref(tv.InfoHashV2),
+			Priority:      int64(qbt.Deref(tv.Priority)),
 		})
 	}
 

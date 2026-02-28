@@ -7,7 +7,7 @@ package automations
 import (
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 )
 
 func TestEvaluateCondition_StringFields(t *testing.T) {
@@ -24,7 +24,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "Test.Torrent.2024",
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -34,7 +34,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "test.torrent.2024",
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -44,7 +44,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorNotEqual,
 				Value:    "Other.Torrent",
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -54,7 +54,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorContains,
 				Value:    "Torrent",
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -64,7 +64,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorNotContains,
 				Value:    "Movie",
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -74,7 +74,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorStartsWith,
 				Value:    "Test",
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -84,7 +84,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEndsWith,
 				Value:    "2024",
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -94,7 +94,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "movies",
 			},
-			torrent:  qbt.Torrent{Category: "movies"},
+			torrent:  qbt.Torrent{Category: qbt.Ptr("movies")},
 			expected: true,
 		},
 		{
@@ -104,7 +104,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "",
 			},
-			torrent:  qbt.Torrent{Category: ""},
+			torrent:  qbt.Torrent{Category: qbt.Ptr("")},
 			expected: true,
 		},
 		{
@@ -114,7 +114,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "",
 			},
-			torrent:  qbt.Torrent{Category: "movies"},
+			torrent:  qbt.Torrent{Category: qbt.Ptr("movies")},
 			expected: false,
 		},
 		{
@@ -124,7 +124,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorNotEqual,
 				Value:    "",
 			},
-			torrent:  qbt.Torrent{Category: "movies"},
+			torrent:  qbt.Torrent{Category: qbt.Ptr("movies")},
 			expected: true,
 		},
 		{
@@ -134,7 +134,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorNotEqual,
 				Value:    "",
 			},
-			torrent:  qbt.Torrent{Category: ""},
+			torrent:  qbt.Torrent{Category: qbt.Ptr("")},
 			expected: false,
 		},
 		{
@@ -144,7 +144,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "uploading",
 			},
-			torrent:  qbt.Torrent{State: qbt.TorrentStateUploading},
+			torrent:  qbt.Torrent{State: qbt.Ptr(qbt.StateUploading)},
 			expected: true,
 		},
 		{
@@ -154,7 +154,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "uploading",
 			},
-			torrent:  qbt.Torrent{State: qbt.TorrentStateQueuedUp},
+			torrent:  qbt.Torrent{State: qbt.Ptr(qbt.StateQueuedUP)},
 			expected: true,
 		},
 		{
@@ -164,7 +164,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "stalledUP",
 			},
-			torrent:  qbt.Torrent{State: qbt.TorrentStateStalledUp},
+			torrent:  qbt.Torrent{State: qbt.Ptr(qbt.StateStalledUP)},
 			expected: true,
 		},
 		{
@@ -174,7 +174,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "errored",
 			},
-			torrent:  qbt.Torrent{State: qbt.TorrentStateError},
+			torrent:  qbt.Torrent{State: qbt.Ptr(qbt.StateError)},
 			expected: true,
 		},
 		{
@@ -184,7 +184,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "errored",
 			},
-			torrent:  qbt.Torrent{State: qbt.TorrentStateMissingFiles},
+			torrent:  qbt.Torrent{State: qbt.Ptr(qbt.StateMissingFiles)},
 			expected: true,
 		},
 		{
@@ -194,7 +194,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "stopped",
 			},
-			torrent:  qbt.Torrent{State: qbt.TorrentStatePausedUp},
+			torrent:  qbt.Torrent{State: qbt.Ptr(qbt.StatePausedUP)},
 			expected: true,
 		},
 		{
@@ -204,7 +204,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Operator: OperatorMatches,
 				Value:    "^Test.*2024$",
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -215,7 +215,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Value:    ".*torrent.*",
 				Regex:    true,
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -226,7 +226,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Value:    "^Test.*2024$",
 				Regex:    true,
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: false,
 		},
 		{
@@ -237,7 +237,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Value:    "^Movie.*2024$",
 				Regex:    true,
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -248,7 +248,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Value:    ".*Torrent.*",
 				Regex:    true,
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: false,
 		},
 		{
@@ -259,7 +259,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Value:    "^Movie",
 				Regex:    true,
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -270,7 +270,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Value:    "Torrent",
 				Regex:    true,
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: true,
 		},
 		{
@@ -281,7 +281,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 				Value:    "^Movie",
 				Regex:    true,
 			},
-			torrent:  qbt.Torrent{Name: "Test.Torrent.2024"},
+			torrent:  qbt.Torrent{Name: qbt.Ptr("Test.Torrent.2024")},
 			expected: false,
 		},
 	}
@@ -297,7 +297,7 @@ func TestEvaluateCondition_StringFields(t *testing.T) {
 }
 
 func TestEvaluateCondition_TrackerField_DisplayNameAndNegation(t *testing.T) {
-	torrent := qbt.Torrent{Tracker: "https://beyond-hd.me/announce"}
+	torrent := qbt.Torrent{Tracker: qbt.Ptr("https://beyond-hd.me/announce")}
 	ctx := &EvalContext{
 		TrackerDisplayNameByDomain: map[string]string{
 			"beyond-hd.me": "BHD",
@@ -412,7 +412,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "1.0",
 			},
-			torrent:  qbt.Torrent{Ratio: 2.5},
+			torrent:  qbt.Torrent{Ratio: qbt.Ptr(float64(2.5))},
 			expected: true,
 		},
 		{
@@ -422,7 +422,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				Operator: OperatorGreaterThanOrEqual,
 				Value:    "2.0",
 			},
-			torrent:  qbt.Torrent{Ratio: 2.0},
+			torrent:  qbt.Torrent{Ratio: qbt.Ptr(float64(2.0))},
 			expected: true,
 		},
 		{
@@ -432,7 +432,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				Operator: OperatorLessThan,
 				Value:    "1.0",
 			},
-			torrent:  qbt.Torrent{Ratio: 0.5},
+			torrent:  qbt.Torrent{Ratio: qbt.Ptr(float64(0.5))},
 			expected: true,
 		},
 		{
@@ -442,7 +442,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "1",
 			},
-			torrent:  qbt.Torrent{Progress: 1.0},
+			torrent:  qbt.Torrent{Progress: qbt.Ptr(float64(1.0))},
 			expected: true,
 		},
 		{
@@ -452,7 +452,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				Operator: OperatorLessThan,
 				Value:    "100",
 			},
-			torrent:  qbt.Torrent{Progress: 1.0},
+			torrent:  qbt.Torrent{Progress: qbt.Ptr(float64(1.0))},
 			expected: false,
 		},
 		{
@@ -463,7 +463,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				MinValue: float64Ptr(50),
 				MaxValue: float64Ptr(100),
 			},
-			torrent:  qbt.Torrent{Progress: 0.6},
+			torrent:  qbt.Torrent{Progress: qbt.Ptr(float64(0.6))},
 			expected: true,
 		},
 		{
@@ -474,7 +474,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				MinValue: float64Ptr(50),
 				MaxValue: float64Ptr(100),
 			},
-			torrent:  qbt.Torrent{Progress: 0.2},
+			torrent:  qbt.Torrent{Progress: qbt.Ptr(float64(0.2))},
 			expected: false,
 		},
 		{
@@ -484,7 +484,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "3600",
 			},
-			torrent:  qbt.Torrent{SeedingTime: 7200},
+			torrent:  qbt.Torrent{SeedingTime: qbt.Ptr(int64(7200))},
 			expected: true,
 		},
 		{
@@ -494,7 +494,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "1073741824",
 			},
-			torrent:  qbt.Torrent{Size: 2147483648},
+			torrent:  qbt.Torrent{Size: qbt.Ptr(int64(2147483648))},
 			expected: true,
 		},
 		{
@@ -527,7 +527,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				MinValue: float64Ptr(1.0),
 				MaxValue: float64Ptr(3.0),
 			},
-			torrent:  qbt.Torrent{Ratio: 2.0},
+			torrent:  qbt.Torrent{Ratio: qbt.Ptr(float64(2.0))},
 			expected: true,
 		},
 		{
@@ -538,7 +538,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				MinValue: float64Ptr(1.0),
 				MaxValue: float64Ptr(2.0),
 			},
-			torrent:  qbt.Torrent{Ratio: 3.0},
+			torrent:  qbt.Torrent{Ratio: qbt.Ptr(float64(3.0))},
 			expected: false,
 		},
 		{
@@ -548,7 +548,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "5",
 			},
-			torrent:  qbt.Torrent{NumSeeds: 10},
+			torrent:  qbt.Torrent{NumSeeds: qbt.Ptr(10)},
 			expected: true,
 		},
 	}
@@ -564,7 +564,7 @@ func TestEvaluateCondition_NumericFields(t *testing.T) {
 }
 
 func TestEvaluateCondition_GroupFields_UseConditionGroupID(t *testing.T) {
-	torrent := qbt.Torrent{Hash: "a"}
+	torrent := qbt.Torrent{Hash: qbt.Ptr("a")}
 
 	defaultIdx := &groupIndex{
 		sizeByHash: map[string]int{
@@ -630,7 +630,7 @@ func TestEvaluateCondition_GroupFields_UseConditionGroupID(t *testing.T) {
 }
 
 func TestEvaluateCondition_GroupFields_WorkWithZeroRuleID(t *testing.T) {
-	torrent := qbt.Torrent{Hash: "a"}
+	torrent := qbt.Torrent{Hash: qbt.Ptr("a")}
 	ctx := &EvalContext{
 		ActiveRuleID:     0,
 		groupIndexCache:  map[int]map[string]*groupIndex{0: {"release_item": {sizeByHash: map[string]int{"a": 2}}}},
@@ -663,7 +663,7 @@ func TestEvaluateCondition_BooleanFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "true",
 			},
-			torrent:  qbt.Torrent{Private: true},
+			torrent:  qbt.Torrent{Private: qbt.Ptr(true)},
 			expected: true,
 		},
 		{
@@ -673,7 +673,7 @@ func TestEvaluateCondition_BooleanFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "false",
 			},
-			torrent:  qbt.Torrent{Private: false},
+			torrent:  qbt.Torrent{Private: qbt.Ptr(false)},
 			expected: true,
 		},
 		{
@@ -683,7 +683,7 @@ func TestEvaluateCondition_BooleanFields(t *testing.T) {
 				Operator: OperatorNotEqual,
 				Value:    "true",
 			},
-			torrent:  qbt.Torrent{Private: false},
+			torrent:  qbt.Torrent{Private: qbt.Ptr(false)},
 			expected: true,
 		},
 	}
@@ -713,7 +713,7 @@ func TestEvaluateCondition_Negate(t *testing.T) {
 				Value:    "movies",
 				Negate:   true,
 			},
-			torrent:  qbt.Torrent{Category: "tv"},
+			torrent:  qbt.Torrent{Category: qbt.Ptr("tv")},
 			expected: true,
 		},
 		{
@@ -724,7 +724,7 @@ func TestEvaluateCondition_Negate(t *testing.T) {
 				Value:    "2.0",
 				Negate:   true,
 			},
-			torrent:  qbt.Torrent{Ratio: 1.5},
+			torrent:  qbt.Torrent{Ratio: qbt.Ptr(float64(1.5))},
 			expected: true,
 		},
 	}
@@ -741,11 +741,11 @@ func TestEvaluateCondition_Negate(t *testing.T) {
 
 func TestEvaluateCondition_ANDGroup(t *testing.T) {
 	torrent := qbt.Torrent{
-		Name:        "Test.Movie.2024.1080p.BluRay",
-		Category:    "movies",
-		Ratio:       2.5,
-		SeedingTime: 86400, // 1 day
-		State:       qbt.TorrentStateStalledUp,
+		Name:        qbt.Ptr("Test.Movie.2024.1080p.BluRay"),
+		Category:    qbt.Ptr("movies"),
+		Ratio:       qbt.Ptr(float64(2.5)),
+		SeedingTime: qbt.Ptr(int64(86400)), // 1 day
+		State:       qbt.Ptr(qbt.StateStalledUP),
 	}
 
 	tests := []struct {
@@ -801,10 +801,10 @@ func TestEvaluateCondition_ANDGroup(t *testing.T) {
 
 func TestEvaluateCondition_ORGroup(t *testing.T) {
 	torrent := qbt.Torrent{
-		Name:        "Test.Movie.2024.1080p.BluRay",
-		Category:    "movies",
-		Ratio:       1.5,
-		SeedingTime: 3600, // 1 hour
+		Name:        qbt.Ptr("Test.Movie.2024.1080p.BluRay"),
+		Category:    qbt.Ptr("movies"),
+		Ratio:       qbt.Ptr(float64(1.5)),
+		SeedingTime: qbt.Ptr(int64(3600)), // 1 hour
 	}
 
 	tests := []struct {
@@ -859,11 +859,11 @@ func TestEvaluateCondition_ORGroup(t *testing.T) {
 
 func TestEvaluateCondition_NestedGroups(t *testing.T) {
 	torrent := qbt.Torrent{
-		Name:        "Test.Movie.2024.1080p.BluRay",
-		Category:    "movies",
-		Ratio:       2.5,
-		SeedingTime: 172800, // 2 days
-		State:       qbt.TorrentStateStalledUp,
+		Name:        qbt.Ptr("Test.Movie.2024.1080p.BluRay"),
+		Category:    qbt.Ptr("movies"),
+		Ratio:       qbt.Ptr(float64(2.5)),
+		SeedingTime: qbt.Ptr(int64(172800)), // 2 days
+		State:       qbt.Ptr(qbt.StateStalledUP),
 	}
 
 	tests := []struct {
@@ -962,7 +962,7 @@ func TestEvaluateCondition_MaxDepth(t *testing.T) {
 		current = nested
 	}
 
-	torrent := qbt.Torrent{Category: "movies", Ratio: 2.0}
+	torrent := qbt.Torrent{Category: qbt.Ptr("movies"), Ratio: qbt.Ptr(float64(2.0))}
 
 	// Should return false because we hit max depth
 	result := EvaluateCondition(cond, torrent, 0)
@@ -972,7 +972,7 @@ func TestEvaluateCondition_MaxDepth(t *testing.T) {
 }
 
 func TestEvaluateCondition_NilCondition(t *testing.T) {
-	torrent := qbt.Torrent{Name: "Test"}
+	torrent := qbt.Torrent{Name: qbt.Ptr("Test")}
 	result := EvaluateCondition(nil, torrent, 0)
 	if result {
 		t.Error("expected false for nil condition")
@@ -980,7 +980,7 @@ func TestEvaluateCondition_NilCondition(t *testing.T) {
 }
 
 func TestEvaluateCondition_EmptyGroup(t *testing.T) {
-	torrent := qbt.Torrent{Name: "Test"}
+	torrent := qbt.Torrent{Name: qbt.Ptr("Test")}
 
 	// AND group with no conditions should return true (vacuous truth)
 	andCond := &RuleCondition{
@@ -1002,8 +1002,8 @@ func TestEvaluateCondition_StateTrackerDown_WithContext(t *testing.T) {
 	}
 
 	torrent := qbt.Torrent{
-		Hash:  "hash1",
-		State: qbt.TorrentStateUploading,
+		Hash:  qbt.Ptr("hash1"),
+		State: qbt.Ptr(qbt.StateUploading),
 	}
 
 	t.Run("matches when in TrackerDownSet", func(t *testing.T) {
@@ -1031,11 +1031,11 @@ func float64Ptr(v float64) *float64 {
 func TestEvaluateCondition_ExistsIn(t *testing.T) {
 	// Build test torrents for the category index
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Name: "Test.Show.S01E01.1080p", Category: "tv"},
-		{Hash: "hash2", Name: "Test.Show.S01E01.1080p", Category: "imported-tv"},
-		{Hash: "hash3", Name: "Other.Show.S01E01.720p", Category: "imported-tv"},
-		{Hash: "hash4", Name: "Movie.2024.BluRay", Category: "movies"},
-		{Hash: "hash5", Name: "Uncategorized.File", Category: ""},
+		{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("tv")},
+		{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("imported-tv")},
+		{Hash: qbt.Ptr("hash3"), Name: qbt.Ptr("Other.Show.S01E01.720p"), Category: qbt.Ptr("imported-tv")},
+		{Hash: qbt.Ptr("hash4"), Name: qbt.Ptr("Movie.2024.BluRay"), Category: qbt.Ptr("movies")},
+		{Hash: qbt.Ptr("hash5"), Name: qbt.Ptr("Uncategorized.File"), Category: qbt.Ptr("")},
 	}
 
 	// Build the category index
@@ -1058,7 +1058,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Operator: OperatorExistsIn,
 				Value:    "imported-tv",
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("tv")},
 			expected: true, // hash2 has the same name in imported-tv
 		},
 		{
@@ -1068,7 +1068,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Operator: OperatorExistsIn,
 				Value:    "movies",
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("tv")},
 			expected: false, // No torrent with this name in movies
 		},
 		{
@@ -1078,7 +1078,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Operator: OperatorExistsIn,
 				Value:    "IMPORTED-TV",
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "test.show.s01e01.1080p", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("test.show.s01e01.1080p"), Category: qbt.Ptr("tv")},
 			expected: true, // Should match case-insensitively
 		},
 		{
@@ -1088,7 +1088,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Operator: OperatorExistsIn,
 				Value:    "imported-tv",
 			},
-			torrent:  qbt.Torrent{Hash: "hash2", Name: "Test.Show.S01E01.1080p", Category: "imported-tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("imported-tv")},
 			expected: false, // Only hash2 has this name in imported-tv, and it's the same torrent
 		},
 		{
@@ -1098,7 +1098,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Operator: OperatorExistsIn,
 				Value:    "nonexistent",
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("tv")},
 			expected: false,
 		},
 		{
@@ -1108,7 +1108,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Operator: OperatorExistsIn,
 				Value:    "",
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Uncategorized.File", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Uncategorized.File"), Category: qbt.Ptr("tv")},
 			expected: true, // hash5 has the same name with empty category
 		},
 		{
@@ -1118,7 +1118,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Operator: OperatorExistsIn,
 				Value:    "   ",
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("tv")},
 			expected: false,
 		},
 		{
@@ -1129,7 +1129,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Value:    "imported-tv",
 				Negate:   true,
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("tv")},
 			expected: false, // Negated: name DOES exist, so negated result is false
 		},
 		{
@@ -1139,7 +1139,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Operator: OperatorExistsIn,
 				Value:    "imported-tv",
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("tv")},
 			expected: false, // EXISTS_IN only valid for NAME field
 		},
 		{
@@ -1150,7 +1150,7 @@ func TestEvaluateCondition_ExistsIn(t *testing.T) {
 				Value:    "imported-tv",
 				Regex:    true, // Should be ignored
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("tv")},
 			expected: true,
 		},
 	}
@@ -1169,11 +1169,11 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 	// Build test torrents for the category index
 	// Note: CONTAINS_IN requires names >= 10 chars normalized
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Name: "Test.Show.S01E01.1080p.BluRay", Category: "tv"},
-		{Hash: "hash2", Name: "Test.Show.S01E01.1080p", Category: "imported-tv"},
-		{Hash: "hash3", Name: "Test.Show.S01E01.1080p.WEB-DL", Category: "imported-tv"},
-		{Hash: "hash4", Name: "Short", Category: "movies"}, // Too short for CONTAINS_IN
-		{Hash: "hash5", Name: "Another.Long.Enough.Name", Category: "movies"},
+		{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p.BluRay"), Category: qbt.Ptr("tv")},
+		{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("imported-tv")},
+		{Hash: qbt.Ptr("hash3"), Name: qbt.Ptr("Test.Show.S01E01.1080p.WEB-DL"), Category: qbt.Ptr("imported-tv")},
+		{Hash: qbt.Ptr("hash4"), Name: qbt.Ptr("Short"), Category: qbt.Ptr("movies")}, // Too short for CONTAINS_IN
+		{Hash: qbt.Ptr("hash5"), Name: qbt.Ptr("Another.Long.Enough.Name"), Category: qbt.Ptr("movies")},
 	}
 
 	// Build the category index
@@ -1197,7 +1197,7 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 				Value:    "imported-tv",
 			},
 			// "test show s01e01 1080p bluray" contains "test show s01e01 1080p"
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p.BluRay", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p.BluRay"), Category: qbt.Ptr("tv")},
 			expected: true,
 		},
 		{
@@ -1208,7 +1208,7 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 				Value:    "tv",
 			},
 			// hash1 has "test show s01e01 1080p bluray" which contains "test show s01e01 1080p"
-			torrent:  qbt.Torrent{Hash: "hash2", Name: "Test.Show.S01E01.1080p", Category: "imported-tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("imported-tv")},
 			expected: true,
 		},
 		{
@@ -1218,7 +1218,7 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 				Operator: OperatorContainsIn,
 				Value:    "imported-tv",
 			},
-			torrent:  qbt.Torrent{Hash: "hash2", Name: "Test.Show.S01E01.1080p", Category: "imported-tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("Test.Show.S01E01.1080p"), Category: qbt.Ptr("imported-tv")},
 			expected: true, // hash3 also has a similar name
 		},
 		{
@@ -1228,7 +1228,7 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 				Operator: OperatorContainsIn,
 				Value:    "movies",
 			},
-			torrent:  qbt.Torrent{Hash: "hashX", Name: "Tiny", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hashX"), Name: qbt.Ptr("Tiny"), Category: qbt.Ptr("tv")},
 			expected: false, // "tiny" is too short
 		},
 		{
@@ -1240,7 +1240,7 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 			},
 			// "Short.Movie.Extended.Cut.2024" contains "short" but "Short" in movies is too short (<10 chars)
 			// so it's skipped and no match is found
-			torrent:  qbt.Torrent{Hash: "hashX", Name: "Short.Movie.Extended.Cut.2024", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hashX"), Name: qbt.Ptr("Short.Movie.Extended.Cut.2024"), Category: qbt.Ptr("tv")},
 			expected: false, // Would match if short names weren't skipped
 		},
 		{
@@ -1250,7 +1250,7 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 				Operator: OperatorContainsIn,
 				Value:    "movies",
 			},
-			torrent:  qbt.Torrent{Hash: "hashX", Name: "Completely.Different.Release", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hashX"), Name: qbt.Ptr("Completely.Different.Release"), Category: qbt.Ptr("tv")},
 			expected: false,
 		},
 		{
@@ -1261,7 +1261,7 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 				Value:    "imported-tv",
 				Negate:   true,
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p.BluRay", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p.BluRay"), Category: qbt.Ptr("tv")},
 			expected: false, // Match found, negated = false
 		},
 		{
@@ -1271,7 +1271,7 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 				Operator: OperatorContainsIn,
 				Value:    "imported-tv",
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p.BluRay", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p.BluRay"), Category: qbt.Ptr("tv")},
 			expected: false,
 		},
 		{
@@ -1281,7 +1281,7 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 				Operator: OperatorContainsIn,
 				Value:    "nonexistent",
 			},
-			torrent:  qbt.Torrent{Hash: "hash1", Name: "Test.Show.S01E01.1080p.BluRay", Category: "tv"},
+			torrent:  qbt.Torrent{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Show.S01E01.1080p.BluRay"), Category: qbt.Ptr("tv")},
 			expected: false,
 		},
 	}
@@ -1298,10 +1298,10 @@ func TestEvaluateCondition_ContainsIn(t *testing.T) {
 
 func TestBuildCategoryIndex(t *testing.T) {
 	torrents := []qbt.Torrent{
-		{Hash: "hash1", Name: "Test.Torrent.A", Category: "movies"},
-		{Hash: "hash2", Name: "Test.Torrent.A", Category: "movies"}, // Same name, different hash
-		{Hash: "hash3", Name: "Test.Torrent.B", Category: "MOVIES"}, // Different case category
-		{Hash: "hash4", Name: "Uncategorized", Category: ""},        // Empty category
+		{Hash: qbt.Ptr("hash1"), Name: qbt.Ptr("Test.Torrent.A"), Category: qbt.Ptr("movies")},
+		{Hash: qbt.Ptr("hash2"), Name: qbt.Ptr("Test.Torrent.A"), Category: qbt.Ptr("movies")}, // Same name, different hash
+		{Hash: qbt.Ptr("hash3"), Name: qbt.Ptr("Test.Torrent.B"), Category: qbt.Ptr("MOVIES")}, // Different case category
+		{Hash: qbt.Ptr("hash4"), Name: qbt.Ptr("Uncategorized"), Category: qbt.Ptr("")},        // Empty category
 	}
 
 	categoryIndex, categoryNames := BuildCategoryIndex(torrents)
@@ -1378,10 +1378,10 @@ func TestNormalizeName(t *testing.T) {
 
 func TestEvaluateCondition_ErrorCases(t *testing.T) {
 	torrent := qbt.Torrent{
-		Name:        "Test.Torrent",
-		Size:        1073741824, // 1 GiB
-		Ratio:       2.0,
-		SeedingTime: 3600,
+		Name:        qbt.Ptr("Test.Torrent"),
+		Size:        qbt.Ptr(int64(1073741824)), // 1 GiB
+		Ratio:       qbt.Ptr(float64(2.0)),
+		SeedingTime: qbt.Ptr(int64(3600)),
 	}
 
 	tests := []struct {
@@ -1533,7 +1533,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorLessThan,
 				Value:    "3600", // 1 hour in seconds
 			},
-			torrent:  qbt.Torrent{AddedOn: nowUnix - 1800}, // added 30 minutes ago
+			torrent:  qbt.Torrent{AddedOn: qbt.Ptr(nowUnix - 1800)}, // added 30 minutes ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
@@ -1544,7 +1544,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorLessThan,
 				Value:    "3600", // 1 hour in seconds
 			},
-			torrent:  qbt.Torrent{AddedOn: nowUnix - 7200}, // added 2 hours ago
+			torrent:  qbt.Torrent{AddedOn: qbt.Ptr(nowUnix - 7200)}, // added 2 hours ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false,
 		},
@@ -1555,7 +1555,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "86400", // 1 day in seconds
 			},
-			torrent:  qbt.Torrent{AddedOn: nowUnix - 172800}, // added 2 days ago
+			torrent:  qbt.Torrent{AddedOn: qbt.Ptr(nowUnix - 172800)}, // added 2 days ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
@@ -1567,7 +1567,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				MinValue: float64Ptr(3600), // 1 hour
 				MaxValue: float64Ptr(7200), // 2 hours
 			},
-			torrent:  qbt.Torrent{AddedOn: nowUnix - 5400}, // added 1.5 hours ago
+			torrent:  qbt.Torrent{AddedOn: qbt.Ptr(nowUnix - 5400)}, // added 1.5 hours ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
@@ -1579,7 +1579,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				MinValue: float64Ptr(3600), // 1 hour
 				MaxValue: float64Ptr(7200), // 2 hours
 			},
-			torrent:  qbt.Torrent{AddedOn: nowUnix - 10800}, // added 3 hours ago
+			torrent:  qbt.Torrent{AddedOn: qbt.Ptr(nowUnix - 10800)}, // added 3 hours ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false,
 		},
@@ -1590,7 +1590,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "0",
 			},
-			torrent:  qbt.Torrent{AddedOn: 0},
+			torrent:  qbt.Torrent{AddedOn: qbt.Ptr(int64(0))},
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false,
 		},
@@ -1603,7 +1603,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorLessThan,
 				Value:    "3600", // 1 hour
 			},
-			torrent:  qbt.Torrent{CompletionOn: nowUnix - 1800}, // completed 30 min ago
+			torrent:  qbt.Torrent{CompletionOn: qbt.Ptr(nowUnix - 1800)}, // completed 30 min ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
@@ -1614,7 +1614,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "86400", // 1 day
 			},
-			torrent:  qbt.Torrent{CompletionOn: nowUnix - 172800}, // completed 2 days ago
+			torrent:  qbt.Torrent{CompletionOn: qbt.Ptr(nowUnix - 172800)}, // completed 2 days ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
@@ -1625,7 +1625,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "0", // any age
 			},
-			torrent:  qbt.Torrent{CompletionOn: 0}, // never completed
+			torrent:  qbt.Torrent{CompletionOn: qbt.Ptr(int64(0))}, // never completed
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false,
 		},
@@ -1636,7 +1636,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorGreaterThanOrEqual,
 				Value:    "86400", // 1 day
 			},
-			torrent:  qbt.Torrent{CompletionOn: -1}, // qBittorrent uses -1 for incomplete torrents
+			torrent:  qbt.Torrent{CompletionOn: qbt.Ptr(int64(-1))}, // qBittorrent uses -1 for incomplete torrents
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false,
 		},
@@ -1648,7 +1648,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				MinValue: float64Ptr(3600),
 				MaxValue: float64Ptr(7200),
 			},
-			torrent:  qbt.Torrent{CompletionOn: nowUnix - 5400}, // completed 1.5 hours ago
+			torrent:  qbt.Torrent{CompletionOn: qbt.Ptr(nowUnix - 5400)}, // completed 1.5 hours ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
@@ -1661,7 +1661,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorLessThan,
 				Value:    "3600", // 1 hour
 			},
-			torrent:  qbt.Torrent{LastActivity: nowUnix - 1800}, // active 30 min ago
+			torrent:  qbt.Torrent{LastActivity: qbt.Ptr(nowUnix - 1800)}, // active 30 min ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
@@ -1672,7 +1672,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "86400", // 1 day
 			},
-			torrent:  qbt.Torrent{LastActivity: nowUnix - 172800}, // active 2 days ago
+			torrent:  qbt.Torrent{LastActivity: qbt.Ptr(nowUnix - 172800)}, // active 2 days ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
@@ -1683,7 +1683,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "0", // any age
 			},
-			torrent:  qbt.Torrent{LastActivity: 0}, // never had activity
+			torrent:  qbt.Torrent{LastActivity: qbt.Ptr(int64(0))}, // never had activity
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false,
 		},
@@ -1695,7 +1695,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				MinValue: float64Ptr(3600),
 				MaxValue: float64Ptr(7200),
 			},
-			torrent:  qbt.Torrent{LastActivity: nowUnix - 5400}, // active 1.5 hours ago
+			torrent:  qbt.Torrent{LastActivity: qbt.Ptr(nowUnix - 5400)}, // active 1.5 hours ago
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
@@ -1708,7 +1708,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "0",
 			},
-			torrent:  qbt.Torrent{AddedOn: nowUnix + 3600}, // timestamp in the future
+			torrent:  qbt.Torrent{AddedOn: qbt.Ptr(nowUnix + 3600)}, // timestamp in the future
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true, // age clamped to 0
 		},
@@ -1719,7 +1719,7 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 				Operator: OperatorGreaterThan,
 				Value:    "0",
 			},
-			torrent:  qbt.Torrent{AddedOn: nowUnix + 3600}, // timestamp in the future
+			torrent:  qbt.Torrent{AddedOn: qbt.Ptr(nowUnix + 3600)}, // timestamp in the future
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false, // clamped to 0, so not > 0
 		},
@@ -1737,8 +1737,8 @@ func TestEvaluateCondition_AgeFields(t *testing.T) {
 
 func TestEvaluateCondition_HardlinkScope(t *testing.T) {
 	torrent := qbt.Torrent{
-		Hash: "abc123",
-		Name: "Test.Torrent",
+		Hash: qbt.Ptr("abc123"),
+		Name: qbt.Ptr("Test.Torrent"),
 	}
 
 	tests := []struct {
@@ -2033,7 +2033,7 @@ func TestEvaluateCondition_FreeSpaceWithSpaceToClear(t *testing.T) {
 		},
 	}
 
-	torrent := qbt.Torrent{Name: "Test"}
+	torrent := qbt.Torrent{Name: qbt.Ptr("Test")}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2060,7 +2060,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "noHL",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL, racing"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL, racing")},
 			expected: true,
 		},
 		{
@@ -2070,7 +2070,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "NOHL",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL, racing"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL, racing")},
 			expected: true,
 		},
 		{
@@ -2080,7 +2080,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "missing",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL, racing"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL, racing")},
 			expected: false,
 		},
 		{
@@ -2090,7 +2090,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "cross",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: false,
 		},
 		{
@@ -2100,7 +2100,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "sonarr",
 			},
-			torrent:  qbt.Torrent{Tags: "sonarr"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("sonarr")},
 			expected: true,
 		},
 		{
@@ -2110,7 +2110,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "noHL",
 			},
-			torrent:  qbt.Torrent{Tags: ""},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("")},
 			expected: false,
 		},
 		{
@@ -2120,7 +2120,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "noHL",
 			},
-			torrent:  qbt.Torrent{Tags: "   "},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("   ")},
 			expected: false,
 		},
 		{
@@ -2130,7 +2130,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "my tag",
 			},
-			torrent:  qbt.Torrent{Tags: "other, my tag, another"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("other, my tag, another")},
 			expected: true,
 		},
 		{
@@ -2140,7 +2140,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "",
 			},
-			torrent:  qbt.Torrent{Tags: "noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("noHL")},
 			expected: false,
 		},
 		{
@@ -2150,7 +2150,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "   ",
 			},
-			torrent:  qbt.Torrent{Tags: "noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("noHL")},
 			expected: false,
 		},
 		{
@@ -2160,7 +2160,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEqual,
 				Value:    "noHL",
 			},
-			torrent:  qbt.Torrent{Tags: "  noHL  , other"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("  noHL  , other")},
 			expected: true,
 		},
 
@@ -2172,7 +2172,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorNotEqual,
 				Value:    "noHL",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, racing"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, racing")},
 			expected: true,
 		},
 		{
@@ -2182,7 +2182,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorNotEqual,
 				Value:    "noHL",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL, racing"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL, racing")},
 			expected: false,
 		},
 		{
@@ -2192,7 +2192,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorNotEqual,
 				Value:    "noHL",
 			},
-			torrent:  qbt.Torrent{Tags: ""},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("")},
 			expected: true,
 		},
 		{
@@ -2202,7 +2202,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorNotEqual,
 				Value:    "NOHL",
 			},
-			torrent:  qbt.Torrent{Tags: "noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("noHL")},
 			expected: false,
 		},
 
@@ -2214,7 +2214,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorContains,
 				Value:    "seed",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL, racing"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL, racing")},
 			expected: true,
 		},
 		{
@@ -2224,7 +2224,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorContains,
 				Value:    "missing",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: false,
 		},
 		{
@@ -2234,7 +2234,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorContains,
 				Value:    "SEED",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: true,
 		},
 
@@ -2246,7 +2246,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorNotContains,
 				Value:    "missing",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: true,
 		},
 		{
@@ -2256,7 +2256,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorNotContains,
 				Value:    "seed",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: false,
 		},
 
@@ -2268,7 +2268,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorStartsWith,
 				Value:    "cross",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: true,
 		},
 		{
@@ -2278,7 +2278,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorStartsWith,
 				Value:    "seed",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: false,
 		},
 		{
@@ -2288,7 +2288,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorStartsWith,
 				Value:    "CROSS",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: true,
 		},
 
@@ -2300,7 +2300,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEndsWith,
 				Value:    "seed",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: true,
 		},
 		{
@@ -2310,7 +2310,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorEndsWith,
 				Value:    "cross",
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL")},
 			expected: false,
 		},
 
@@ -2322,7 +2322,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorMatches,
 				Value:    `\bnoHL\b`,
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL, racing"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL, racing")},
 			expected: true,
 		},
 		{
@@ -2332,7 +2332,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Operator: OperatorMatches,
 				Value:    `^noHL$`,
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL, racing"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL, racing")},
 			expected: false,
 		},
 		{
@@ -2343,7 +2343,7 @@ func TestEvaluateCondition_Tags(t *testing.T) {
 				Value:    `.*noHL.*`,
 				Regex:    true,
 			},
-			torrent:  qbt.Torrent{Tags: "cross-seed, noHL, racing"},
+			torrent:  qbt.Torrent{Tags: qbt.Ptr("cross-seed, noHL, racing")},
 			expected: true,
 		},
 	}
@@ -2371,52 +2371,43 @@ func TestEvaluateCondition_GoQBitTorrentAdditionalFields(t *testing.T) {
 		{
 			name:     "infohash v1",
 			cond:     &RuleCondition{Field: FieldInfohashV1, Operator: OperatorEqual, Value: "abc123"},
-			torrent:  qbt.Torrent{InfohashV1: "abc123"},
+			torrent:  qbt.Torrent{InfoHashV1: qbt.Ptr("abc123")},
 			expected: true,
 		},
 		{
 			name:     "infohash v2",
 			cond:     &RuleCondition{Field: FieldInfohashV2, Operator: OperatorEqual, Value: "def456"},
-			torrent:  qbt.Torrent{InfohashV2: "def456"},
+			torrent:  qbt.Torrent{InfoHashV2: qbt.Ptr("def456")},
 			expected: true,
 		},
 		{
 			name:     "magnet uri contains",
 			cond:     &RuleCondition{Field: FieldMagnetURI, Operator: OperatorContains, Value: "btih"},
-			torrent:  qbt.Torrent{MagnetURI: "magnet:?xt=urn:btih:abc123"},
+			torrent:  qbt.Torrent{MagnetURI: qbt.Ptr("magnet:?xt=urn:btih:abc123")},
 			expected: true,
 		},
 		{
 			name:     "download path",
 			cond:     &RuleCondition{Field: FieldDownloadPath, Operator: OperatorEqual, Value: "/data/downloading"},
-			torrent:  qbt.Torrent{DownloadPath: "/data/downloading"},
+			torrent:  qbt.Torrent{DownloadPath: qbt.Ptr("/data/downloading")},
 			expected: true,
 		},
 		{
 			name:     "created by",
 			cond:     &RuleCondition{Field: FieldCreatedBy, Operator: OperatorEqual, Value: "mktorrent"},
-			torrent:  qbt.Torrent{CreatedBy: "mktorrent"},
+			torrent:  qbt.Torrent{},
+			expected: false,
+		},
+		{
+			name:     "trackers list contains domain",
+			cond:     &RuleCondition{Field: FieldTrackers, Operator: OperatorContains, Value: "trackerb.org"},
+			torrent:  qbt.Torrent{Tracker: qbt.Ptr("udp://trackerb.org:1337/announce")},
 			expected: true,
 		},
 		{
-			name: "trackers list contains domain",
-			cond: &RuleCondition{Field: FieldTrackers, Operator: OperatorContains, Value: "trackerb.org"},
-			torrent: qbt.Torrent{
-				Trackers: []qbt.TorrentTracker{
-					{Url: "https://trackera.org/announce"},
-					{Url: "udp://trackerb.org:1337/announce"},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "trackers list matches customization display name",
-			cond: &RuleCondition{Field: FieldTrackers, Operator: OperatorEqual, Value: "BHD"},
-			torrent: qbt.Torrent{
-				Trackers: []qbt.TorrentTracker{
-					{Url: "https://beyond-hd.me/announce"},
-				},
-			},
+			name:    "trackers list matches customization display name",
+			cond:    &RuleCondition{Field: FieldTrackers, Operator: OperatorEqual, Value: "BHD"},
+			torrent: qbt.Torrent{Tracker: qbt.Ptr("https://beyond-hd.me/announce")},
 			ctx: &EvalContext{
 				TrackerDisplayNameByDomain: map[string]string{
 					"beyond-hd.me": "BHD",
@@ -2427,170 +2418,170 @@ func TestEvaluateCondition_GoQBitTorrentAdditionalFields(t *testing.T) {
 		{
 			name:     "completed bytes",
 			cond:     &RuleCondition{Field: FieldCompleted, Operator: OperatorEqual, Value: "1024"},
-			torrent:  qbt.Torrent{Completed: 1024},
+			torrent:  qbt.Torrent{Completed: qbt.Ptr(int64(1024))},
 			expected: true,
 		},
 		{
 			name:     "downloaded session bytes",
 			cond:     &RuleCondition{Field: FieldDownloadedSession, Operator: OperatorEqual, Value: "2048"},
-			torrent:  qbt.Torrent{DownloadedSession: 2048},
+			torrent:  qbt.Torrent{DownloadedSession: qbt.Ptr(int64(2048))},
 			expected: true,
 		},
 		{
 			name:     "uploaded session bytes",
 			cond:     &RuleCondition{Field: FieldUploadedSession, Operator: OperatorEqual, Value: "3072"},
-			torrent:  qbt.Torrent{UploadedSession: 3072},
+			torrent:  qbt.Torrent{UploadedSession: qbt.Ptr(int64(3072))},
 			expected: true,
 		},
 		{
 			name:     "added on timestamp evaluated as age duration",
 			cond:     &RuleCondition{Field: FieldAddedOn, Operator: OperatorGreaterThan, Value: "3600"},
-			torrent:  qbt.Torrent{AddedOn: nowUnix - 7200},
+			torrent:  qbt.Torrent{AddedOn: qbt.Ptr(nowUnix - 7200)},
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
 		{
 			name:     "completion on timestamp evaluated as age duration",
 			cond:     &RuleCondition{Field: FieldCompletionOn, Operator: OperatorLessThan, Value: "3600"},
-			torrent:  qbt.Torrent{CompletionOn: nowUnix - 1800},
+			torrent:  qbt.Torrent{CompletionOn: qbt.Ptr(nowUnix - 1800)},
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
 		{
 			name:     "completion on unset does not match",
 			cond:     &RuleCondition{Field: FieldCompletionOn, Operator: OperatorGreaterThan, Value: "0"},
-			torrent:  qbt.Torrent{CompletionOn: 0},
+			torrent:  qbt.Torrent{CompletionOn: qbt.Ptr(int64(0))},
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false,
 		},
 		{
 			name:     "last activity timestamp evaluated as age duration",
 			cond:     &RuleCondition{Field: FieldLastActivity, Operator: OperatorGreaterThanOrEqual, Value: "3600"},
-			torrent:  qbt.Torrent{LastActivity: nowUnix - 3600},
+			torrent:  qbt.Torrent{LastActivity: qbt.Ptr(nowUnix - 3600)},
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
 		{
 			name:     "last activity unset does not match",
 			cond:     &RuleCondition{Field: FieldLastActivity, Operator: OperatorGreaterThan, Value: "0"},
-			torrent:  qbt.Torrent{LastActivity: 0},
+			torrent:  qbt.Torrent{LastActivity: qbt.Ptr(int64(0))},
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false,
 		},
 		{
 			name:     "seen complete timestamp evaluated as age duration",
 			cond:     &RuleCondition{Field: FieldSeenComplete, Operator: OperatorBetween, MinValue: float64Ptr(3600), MaxValue: float64Ptr(7200)},
-			torrent:  qbt.Torrent{SeenComplete: nowUnix - 5400},
+			torrent:  qbt.Torrent{SeenComplete: qbt.Ptr(nowUnix - 5400)},
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: true,
 		},
 		{
 			name:     "seen complete unset does not match",
 			cond:     &RuleCondition{Field: FieldSeenComplete, Operator: OperatorGreaterThan, Value: "0"},
-			torrent:  qbt.Torrent{SeenComplete: 0},
+			torrent:  qbt.Torrent{SeenComplete: qbt.Ptr(int64(0))},
 			ctx:      &EvalContext{NowUnix: nowUnix},
 			expected: false,
 		},
 		{
 			name:     "eta duration",
 			cond:     &RuleCondition{Field: FieldETA, Operator: OperatorEqual, Value: "600"},
-			torrent:  qbt.Torrent{ETA: 600},
+			torrent:  qbt.Torrent{ETA: qbt.Ptr(int64(600))},
 			expected: true,
 		},
 		{
 			name:     "reannounce duration",
 			cond:     &RuleCondition{Field: FieldReannounce, Operator: OperatorEqual, Value: "1200"},
-			torrent:  qbt.Torrent{Reannounce: 1200},
+			torrent:  qbt.Torrent{Reannounce: qbt.Ptr(int64(1200))},
 			expected: true,
 		},
 		{
 			name:     "max seeding time",
 			cond:     &RuleCondition{Field: FieldMaxSeedingTime, Operator: OperatorEqual, Value: "3600"},
-			torrent:  qbt.Torrent{MaxSeedingTime: 3600},
+			torrent:  qbt.Torrent{MaxSeedingTime: qbt.Ptr(int64(3600))},
 			expected: true,
 		},
 		{
 			name:     "max inactive seeding time",
 			cond:     &RuleCondition{Field: FieldMaxInactiveSeedingTime, Operator: OperatorEqual, Value: "7200"},
-			torrent:  qbt.Torrent{MaxInactiveSeedingTime: 7200},
+			torrent:  qbt.Torrent{InactiveSeedingTimeLimit: qbt.Ptr(int64(7200))},
 			expected: true,
 		},
 		{
 			name:     "seeding time limit",
 			cond:     &RuleCondition{Field: FieldSeedingTimeLimit, Operator: OperatorEqual, Value: "1800"},
-			torrent:  qbt.Torrent{SeedingTimeLimit: 1800},
+			torrent:  qbt.Torrent{SeedingTimeLimit: qbt.Ptr(int64(1800))},
 			expected: true,
 		},
 		{
 			name:     "inactive seeding time limit",
 			cond:     &RuleCondition{Field: FieldInactiveSeedingTimeLimit, Operator: OperatorEqual, Value: "900"},
-			torrent:  qbt.Torrent{InactiveSeedingTimeLimit: 900},
+			torrent:  qbt.Torrent{InactiveSeedingTimeLimit: qbt.Ptr(int64(900))},
 			expected: true,
 		},
 		{
 			name:     "ratio limit",
 			cond:     &RuleCondition{Field: FieldRatioLimit, Operator: OperatorEqual, Value: "2.5"},
-			torrent:  qbt.Torrent{RatioLimit: 2.5},
+			torrent:  qbt.Torrent{RatioLimit: qbt.Ptr(float64(2.5))},
 			expected: true,
 		},
 		{
 			name:     "max ratio",
 			cond:     &RuleCondition{Field: FieldMaxRatio, Operator: OperatorEqual, Value: "5.0"},
-			torrent:  qbt.Torrent{MaxRatio: 5.0},
+			torrent:  qbt.Torrent{MaxRatio: qbt.Ptr(float64(5.0))},
 			expected: true,
 		},
 		{
 			name:     "popularity",
 			cond:     &RuleCondition{Field: FieldPopularity, Operator: OperatorEqual, Value: "0.75"},
-			torrent:  qbt.Torrent{Popularity: 0.75},
-			expected: true,
+			torrent:  qbt.Torrent{},
+			expected: false,
 		},
 		{
 			name:     "download limit",
 			cond:     &RuleCondition{Field: FieldDlLimit, Operator: OperatorEqual, Value: "1048576"},
-			torrent:  qbt.Torrent{DlLimit: 1048576},
+			torrent:  qbt.Torrent{DlLimit: qbt.Ptr(int64(1048576))},
 			expected: true,
 		},
 		{
 			name:     "upload limit",
 			cond:     &RuleCondition{Field: FieldUpLimit, Operator: OperatorEqual, Value: "524288"},
-			torrent:  qbt.Torrent{UpLimit: 524288},
+			torrent:  qbt.Torrent{UpLimit: qbt.Ptr(int64(524288))},
 			expected: true,
 		},
 		{
 			name:     "priority",
 			cond:     &RuleCondition{Field: FieldPriority, Operator: OperatorEqual, Value: "3"},
-			torrent:  qbt.Torrent{Priority: 3},
+			torrent:  qbt.Torrent{Priority: qbt.Ptr(3)},
 			expected: true,
 		},
 		{
 			name:     "auto managed",
 			cond:     &RuleCondition{Field: FieldAutoManaged, Operator: OperatorEqual, Value: "true"},
-			torrent:  qbt.Torrent{AutoManaged: true},
-			expected: true,
+			torrent:  qbt.Torrent{},
+			expected: false,
 		},
 		{
 			name:     "first last piece priority",
 			cond:     &RuleCondition{Field: FieldFirstLastPiecePrio, Operator: OperatorEqual, Value: "true"},
-			torrent:  qbt.Torrent{FirstLastPiecePrio: true},
+			torrent:  qbt.Torrent{FirstLastPiecePrio: qbt.Ptr(true)},
 			expected: true,
 		},
 		{
 			name:     "force start",
 			cond:     &RuleCondition{Field: FieldForceStart, Operator: OperatorEqual, Value: "true"},
-			torrent:  qbt.Torrent{ForceStart: true},
+			torrent:  qbt.Torrent{ForceStart: qbt.Ptr(true)},
 			expected: true,
 		},
 		{
 			name:     "sequential download",
 			cond:     &RuleCondition{Field: FieldSequentialDownload, Operator: OperatorEqual, Value: "true"},
-			torrent:  qbt.Torrent{SequentialDownload: true},
+			torrent:  qbt.Torrent{SequentialDownload: qbt.Ptr(true)},
 			expected: true,
 		},
 		{
 			name:     "super seeding",
 			cond:     &RuleCondition{Field: FieldSuperSeeding, Operator: OperatorEqual, Value: "true"},
-			torrent:  qbt.Torrent{SuperSeeding: true},
+			torrent:  qbt.Torrent{SuperSeeding: qbt.Ptr(true)},
 			expected: true,
 		},
 	}

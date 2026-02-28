@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/moistari/rls"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
@@ -504,17 +504,17 @@ func joinNormalizedCodecSlice(slice []string) string {
 }
 
 // getMatchTypeFromTitle checks if a candidate torrent has files matching what we want based on parsed title.
-func (s *Service) getMatchTypeFromTitle(targetName, candidateName string, targetRelease, candidateRelease *rls.Release, candidateFiles qbt.TorrentFiles) string {
+func (s *Service) getMatchTypeFromTitle(targetName, candidateName string, targetRelease, candidateRelease *rls.Release, candidateFiles []qbt.TorrentFile) string {
 	// Build candidate release keys from actual files with enrichment.
 	candidateReleases := make(map[releaseKey]int64)
 	for _, cf := range candidateFiles {
-		if !shouldIgnoreFile(cf.Name, s.stringNormalizer) {
-			fileRelease := s.parseReleaseName(cf.Name)
+		if !shouldIgnoreFile(qbt.Deref(cf.Name), s.stringNormalizer) {
+			fileRelease := s.parseReleaseName(qbt.Deref(cf.Name))
 			enrichedRelease := enrichReleaseFromTorrent(fileRelease, candidateRelease)
 
 			key := makeReleaseKey(enrichedRelease)
 			if key != (releaseKey{}) {
-				candidateReleases[key] = cf.Size
+				candidateReleases[key] = qbt.Deref(cf.Size)
 			}
 		}
 	}
@@ -622,7 +622,7 @@ type MatchResult struct {
 // getMatchTypeWithReason determines if files match for cross-seeding and provides
 // a detailed reason when they don't match.
 // tolerancePercent specifies the maximum size difference percentage for size matching (default 5%).
-func (s *Service) getMatchTypeWithReason(sourceRelease, candidateRelease *rls.Release, sourceFiles, candidateFiles qbt.TorrentFiles, tolerancePercent float64) MatchResult {
+func (s *Service) getMatchTypeWithReason(sourceRelease, candidateRelease *rls.Release, sourceFiles, candidateFiles []qbt.TorrentFile, tolerancePercent float64) MatchResult {
 	var timer *prometheus.Timer
 	if s.metrics != nil {
 		timer = prometheus.NewTimer(s.metrics.GetMatchTypeDuration)
@@ -653,19 +653,19 @@ func (s *Service) getMatchTypeWithReason(sourceRelease, candidateRelease *rls.Re
 
 	// Process source files
 	for _, sf := range sourceFiles {
-		if !shouldIgnoreFile(sf.Name, s.stringNormalizer) {
+		if !shouldIgnoreFile(qbt.Deref(sf.Name), s.stringNormalizer) {
 			filteredSourceFiles = append(filteredSourceFiles, TorrentFile{
-				Name: sf.Name,
-				Size: sf.Size,
+				Name: qbt.Deref(sf.Name),
+				Size: qbt.Deref(sf.Size),
 			})
-			totalSourceSize += sf.Size
+			totalSourceSize += qbt.Deref(sf.Size)
 
-			fileRelease := s.parseReleaseName(sf.Name)
+			fileRelease := s.parseReleaseName(qbt.Deref(sf.Name))
 			enrichedRelease := enrichReleaseFromTorrent(fileRelease, sourceRelease)
 			key := makeReleaseKey(enrichedRelease)
 			if key != (releaseKey{}) {
-				if existingSize, exists := sourceReleaseKeys[key]; !exists || sf.Size > existingSize {
-					sourceReleaseKeys[key] = sf.Size
+				if existingSize, exists := sourceReleaseKeys[key]; !exists || qbt.Deref(sf.Size) > existingSize {
+					sourceReleaseKeys[key] = qbt.Deref(sf.Size)
 				}
 			}
 		}
@@ -673,19 +673,19 @@ func (s *Service) getMatchTypeWithReason(sourceRelease, candidateRelease *rls.Re
 
 	// Process candidate files
 	for _, cf := range candidateFiles {
-		if !shouldIgnoreFile(cf.Name, s.stringNormalizer) {
+		if !shouldIgnoreFile(qbt.Deref(cf.Name), s.stringNormalizer) {
 			filteredCandidateFiles = append(filteredCandidateFiles, TorrentFile{
-				Name: cf.Name,
-				Size: cf.Size,
+				Name: qbt.Deref(cf.Name),
+				Size: qbt.Deref(cf.Size),
 			})
-			totalCandidateSize += cf.Size
+			totalCandidateSize += qbt.Deref(cf.Size)
 
-			fileRelease := s.parseReleaseName(cf.Name)
+			fileRelease := s.parseReleaseName(qbt.Deref(cf.Name))
 			enrichedRelease := enrichReleaseFromTorrent(fileRelease, candidateRelease)
 			key := makeReleaseKey(enrichedRelease)
 			if key != (releaseKey{}) {
-				if existingSize, exists := candidateReleaseKeys[key]; !exists || cf.Size > existingSize {
-					candidateReleaseKeys[key] = cf.Size
+				if existingSize, exists := candidateReleaseKeys[key]; !exists || qbt.Deref(cf.Size) > existingSize {
+					candidateReleaseKeys[key] = qbt.Deref(cf.Size)
 				}
 			}
 		}
@@ -817,7 +817,7 @@ func buildNoMatchReason(
 // Returns "exact" for perfect match, "partial" for season pack partial matches,
 // "size" for total size match, or "" for no match.
 // Uses streaming file comparison to reduce memory usage.
-func (s *Service) getMatchType(sourceRelease, candidateRelease *rls.Release, sourceFiles, candidateFiles qbt.TorrentFiles) string {
+func (s *Service) getMatchType(sourceRelease, candidateRelease *rls.Release, sourceFiles, candidateFiles []qbt.TorrentFile) string {
 	var timer *prometheus.Timer
 	if s.metrics != nil {
 		timer = prometheus.NewTimer(s.metrics.GetMatchTypeDuration)
@@ -846,20 +846,20 @@ func (s *Service) getMatchType(sourceRelease, candidateRelease *rls.Release, sou
 
 	// Process source files
 	for _, sf := range sourceFiles {
-		if !shouldIgnoreFile(sf.Name, s.stringNormalizer) {
+		if !shouldIgnoreFile(qbt.Deref(sf.Name), s.stringNormalizer) {
 			filteredSourceFiles = append(filteredSourceFiles, TorrentFile{
-				Name: sf.Name,
-				Size: sf.Size,
+				Name: qbt.Deref(sf.Name),
+				Size: qbt.Deref(sf.Size),
 			})
-			totalSourceSize += sf.Size
+			totalSourceSize += qbt.Deref(sf.Size)
 
-			fileRelease := s.parseReleaseName(sf.Name)
+			fileRelease := s.parseReleaseName(qbt.Deref(sf.Name))
 			enrichedRelease := enrichReleaseFromTorrent(fileRelease, sourceRelease)
 			key := makeReleaseKey(enrichedRelease)
 			if key != (releaseKey{}) {
 				// Keep max size when multiple files map to same key (e.g., mkv vs nfo for movies)
-				if existingSize, exists := sourceReleaseKeys[key]; !exists || sf.Size > existingSize {
-					sourceReleaseKeys[key] = sf.Size
+				if existingSize, exists := sourceReleaseKeys[key]; !exists || qbt.Deref(sf.Size) > existingSize {
+					sourceReleaseKeys[key] = qbt.Deref(sf.Size)
 				}
 			}
 		}
@@ -867,20 +867,20 @@ func (s *Service) getMatchType(sourceRelease, candidateRelease *rls.Release, sou
 
 	// Process candidate files
 	for _, cf := range candidateFiles {
-		if !shouldIgnoreFile(cf.Name, s.stringNormalizer) {
+		if !shouldIgnoreFile(qbt.Deref(cf.Name), s.stringNormalizer) {
 			filteredCandidateFiles = append(filteredCandidateFiles, TorrentFile{
-				Name: cf.Name,
-				Size: cf.Size,
+				Name: qbt.Deref(cf.Name),
+				Size: qbt.Deref(cf.Size),
 			})
-			totalCandidateSize += cf.Size
+			totalCandidateSize += qbt.Deref(cf.Size)
 
-			fileRelease := s.parseReleaseName(cf.Name)
+			fileRelease := s.parseReleaseName(qbt.Deref(cf.Name))
 			enrichedRelease := enrichReleaseFromTorrent(fileRelease, candidateRelease)
 			key := makeReleaseKey(enrichedRelease)
 			if key != (releaseKey{}) {
 				// Keep max size when multiple files map to same key (e.g., mkv vs nfo for movies)
-				if existingSize, exists := candidateReleaseKeys[key]; !exists || cf.Size > existingSize {
-					candidateReleaseKeys[key] = cf.Size
+				if existingSize, exists := candidateReleaseKeys[key]; !exists || qbt.Deref(cf.Size) > existingSize {
+					candidateReleaseKeys[key] = qbt.Deref(cf.Size)
 				}
 			}
 		}

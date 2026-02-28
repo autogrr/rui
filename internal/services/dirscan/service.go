@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/moistari/rls"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"

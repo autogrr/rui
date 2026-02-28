@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/alexedwards/scs/v2"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -861,7 +861,7 @@ func (a *torrentHashAdapter) GetAllTorrentHashes(ctx context.Context, instanceID
 	}
 	hashes := make([]string, len(torrents))
 	for i := range torrents {
-		hashes[i] = torrents[i].Hash
+		hashes[i] = qbt.Deref(torrents[i].Hash)
 	}
 	return hashes, nil
 }

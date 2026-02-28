@@ -13,6 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 
+	qbt "github.com/autogrr/go-qbittorrent"
+
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/qbittorrent"
 )
@@ -346,28 +348,28 @@ func (c *TorrentCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(
 				c.sessionDownload,
 				prometheus.CounterValue,
-				float64(stats.DlInfoData),
+				float64(qbt.Deref(stats.DlInfoData)),
 				instanceIDStr,
 				instanceName,
 			)
 			ch <- prometheus.MustNewConstMetric(
 				c.sessionUpload,
 				prometheus.CounterValue,
-				float64(stats.UpInfoData),
+				float64(qbt.Deref(stats.UpInfoData)),
 				instanceIDStr,
 				instanceName,
 			)
 			ch <- prometheus.MustNewConstMetric(
 				c.allTimeDownload,
 				prometheus.CounterValue,
-				float64(stats.AlltimeDl),
+				float64(qbt.Deref(stats.AllTimeDownload)),
 				instanceIDStr,
 				instanceName,
 			)
 			ch <- prometheus.MustNewConstMetric(
 				c.allTimeUpload,
 				prometheus.CounterValue,
-				float64(stats.AlltimeUl),
+				float64(qbt.Deref(stats.AllTimeUpload)),
 				instanceIDStr,
 				instanceName,
 			)

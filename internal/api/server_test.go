@@ -28,11 +28,9 @@ import (
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/qbittorrent"
 	"github.com/autogrr/rui/internal/services/dirscan"
-	"github.com/autogrr/rui/internal/services/license"
 	"github.com/autogrr/rui/internal/services/notifications"
 	"github.com/autogrr/rui/internal/services/trackericons"
 	"github.com/autogrr/rui/internal/update"
-	"github.com/autogrr/rui/internal/web"
 	"github.com/autogrr/rui/internal/web/swagger"
 )
 
@@ -141,8 +139,6 @@ func newTestDependencies(t *testing.T) *Dependencies {
 		ClientAPIKeyStore:         &models.ClientAPIKeyStore{},
 		ClientPool:                &qbittorrent.ClientPool{},
 		SyncManager:               qbittorrent.NewSyncManager(nil, trackerCustomizationStore),
-		WebHandler:                &web.Handler{},
-		LicenseService:            &license.Service{},
 		UpdateService:             &update.Service{},
 		TrackerIconService:        trackerIconService,
 		BackupService:             &backups.Service{},

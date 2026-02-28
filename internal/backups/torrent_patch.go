@@ -7,12 +7,11 @@ package backups
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/anacrolix/torrent/bencode"
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/qbittorrent"
@@ -121,23 +120,19 @@ func gatherTrackerURLs(ctx context.Context, sm *qbittorrent.SyncManager, instanc
 		trackers = append(trackers, url)
 	}
 
-	for _, tr := range torrent.Trackers {
-		appendTracker(tr.Url)
-	}
-
 	if len(trackers) == 0 {
-		extra, err := sm.GetTorrentTrackers(ctx, instanceID, torrent.Hash)
+		extra, err := sm.GetTorrentTrackers(ctx, instanceID, qbt.Deref(torrent.Hash))
 		if err == nil {
 			for _, tr := range extra {
-				appendTracker(tr.Url)
+				appendTracker(qbt.Deref(tr.URL))
 			}
-		} else if !errors.Is(err, qbt.ErrTorrentNotFound) {
-			log.Debug().Err(err).Str("hash", torrent.Hash).Int("instanceID", instanceID).Msg("Failed to fetch trackers for patching export")
+		} else if !strings.Contains(err.Error(), "404") {
+			log.Debug().Err(err).Str("hash", qbt.Deref(torrent.Hash)).Int("instanceID", instanceID).Msg("Failed to fetch trackers for patching export")
 		}
 	}
 
 	if len(trackers) == 0 {
-		appendTracker(torrent.Tracker)
+		appendTracker(qbt.Deref(torrent.Tracker))
 	}
 
 	return trackers

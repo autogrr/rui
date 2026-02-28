@@ -14,16 +14,17 @@ import (
 	"strconv"
 	"testing"
 
-	qbt "github.com/autobrr/go-qbittorrent"
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/require"
 
 	"github.com/autogrr/rui/internal/database"
 	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/qbittorrent"
 )
 
 type mockContentResolver struct {
-	files         *qbt.TorrentFiles
+	files         *qbittorrent.TorrentFiles
 	filesErr      error
 	properties    *qbt.TorrentProperties
 	propertiesErr error
@@ -34,7 +35,7 @@ type mockContentResolver struct {
 	torrentsCalls int
 }
 
-func (m *mockContentResolver) GetTorrentFiles(_ context.Context, _ int, _ string) (*qbt.TorrentFiles, error) {
+func (m *mockContentResolver) GetTorrentFiles(_ context.Context, _ int, _ string) (*qbittorrent.TorrentFiles, error) {
 	m.filesCalls++
 	return m.files, m.filesErr
 }
@@ -180,8 +181,8 @@ func TestDownloadTorrentContentFile_ReturnsNotFoundForUnknownFileIndex(t *testin
 	t.Parallel()
 
 	instanceStore, instanceID := createInstanceStoreWithInstance(t, true)
-	files := qbt.TorrentFiles{
-		{Index: 1, Name: "known.mkv"},
+	files := qbittorrent.TorrentFiles{
+		{Index: qbt.Ptr(1), Name: qbt.Ptr("known.mkv")},
 	}
 	resolver := &mockContentResolver{files: &files}
 	handler := &TorrentsHandler{
@@ -204,12 +205,12 @@ func TestDownloadTorrentContentFile_RejectsTraversalPaths(t *testing.T) {
 	t.Parallel()
 
 	instanceStore, instanceID := createInstanceStoreWithInstance(t, true)
-	files := qbt.TorrentFiles{
-		{Index: 5, Name: "../escape.txt"},
+	files := qbittorrent.TorrentFiles{
+		{Index: qbt.Ptr(5), Name: qbt.Ptr("../escape.txt")},
 	}
 	resolver := &mockContentResolver{
 		files:      &files,
-		properties: &qbt.TorrentProperties{SavePath: "/downloads"},
+		properties: &qbt.TorrentProperties{SavePath: qbt.Ptr("/downloads")},
 	}
 	handler := &TorrentsHandler{
 		instanceStore:   instanceStore,
@@ -229,12 +230,12 @@ func TestDownloadTorrentContentFile_ReturnsNotFoundWhenFileMissingOnDisk(t *test
 	t.Parallel()
 
 	instanceStore, instanceID := createInstanceStoreWithInstance(t, true)
-	files := qbt.TorrentFiles{
-		{Index: 2, Name: "movie.txt"},
+	files := qbittorrent.TorrentFiles{
+		{Index: qbt.Ptr(2), Name: qbt.Ptr("movie.txt")},
 	}
 	resolver := &mockContentResolver{
 		files:      &files,
-		properties: &qbt.TorrentProperties{SavePath: t.TempDir()},
+		properties: &qbt.TorrentProperties{SavePath: qbt.Ptr(t.TempDir())},
 	}
 	handler := &TorrentsHandler{
 		instanceStore:   instanceStore,
@@ -254,7 +255,7 @@ func TestDownloadTorrentContentFile_ReturnsServerErrorWhenPropertiesNil(t *testi
 	t.Parallel()
 
 	instanceStore, instanceID := createInstanceStoreWithInstance(t, true)
-	files := qbt.TorrentFiles{{Index: 4, Name: "movie.txt"}}
+	files := qbittorrent.TorrentFiles{{Index: qbt.Ptr(4), Name: qbt.Ptr("movie.txt")}}
 	resolver := &mockContentResolver{
 		files:      &files,
 		properties: nil,
@@ -286,11 +287,11 @@ func TestDownloadTorrentContentFile_SkipsDirectoryCandidateAndStreamsFile(t *tes
 	require.NoError(t, os.MkdirAll(savePath, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(savePath, relativePath), []byte("from save path"), 0o600))
 
-	files := qbt.TorrentFiles{{Index: 7, Name: relativePath}}
+	files := qbittorrent.TorrentFiles{{Index: qbt.Ptr(7), Name: qbt.Ptr(relativePath)}}
 	resolver := &mockContentResolver{
 		files:      &files,
-		properties: &qbt.TorrentProperties{SavePath: savePath},
-		torrents:   []qbt.Torrent{{ContentPath: contentPath}},
+		properties: &qbt.TorrentProperties{SavePath: qbt.Ptr(savePath)},
+		torrents:   []qbt.Torrent{{ContentPath: qbt.Ptr(contentPath)}},
 	}
 	handler := &TorrentsHandler{
 		instanceStore:   instanceStore,
@@ -316,10 +317,10 @@ func TestDownloadTorrentContentFile_StreamsFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(fullPath), 0o755))
 	require.NoError(t, os.WriteFile(fullPath, []byte("hello world"), 0o600))
 
-	files := qbt.TorrentFiles{{Index: 3, Name: relativePath}}
+	files := qbittorrent.TorrentFiles{{Index: qbt.Ptr(3), Name: qbt.Ptr(relativePath)}}
 	resolver := &mockContentResolver{
 		files:      &files,
-		properties: &qbt.TorrentProperties{SavePath: baseDir},
+		properties: &qbt.TorrentProperties{SavePath: qbt.Ptr(baseDir)},
 	}
 	handler := &TorrentsHandler{
 		instanceStore:   instanceStore,
