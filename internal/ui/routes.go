@@ -89,6 +89,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Post("/instances/{id}/toggle", h.PostInstanceToggle)
 
 			// HTMX partial fragments — return HTML snippets, not full pages.
+			r.Get("/partials/instances", h.GetInstancesListPartial)
+			r.Get("/partials/instances/{id}/status", h.GetInstanceStatusPartial)
 			r.Get("/partials/dashboard", h.GetDashboardPartial)
 			r.Post("/partials/dashboard/{id}/alt-speed", h.PostAltSpeedToggle)
 			r.Get("/partials/dashboard/tracker-breakdown", h.GetDashboardTrackerBreakdown)

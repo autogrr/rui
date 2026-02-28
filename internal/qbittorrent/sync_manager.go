@@ -269,6 +269,16 @@ func (sm *SyncManager) GetClient(ctx context.Context, instanceID int) (*Client, 
 	return sm.clientPool.GetClient(ctx, instanceID)
 }
 
+// GetClientOffline returns the cached client for an instance without performing
+// any health check or network call. Use this when you only need to read cached
+// state (e.g. GetCachedServerState) and must not block on connectivity.
+func (sm *SyncManager) GetClientOffline(ctx context.Context, instanceID int) (*Client, error) {
+	if sm == nil || sm.clientPool == nil {
+		return nil, fmt.Errorf("client pool unavailable")
+	}
+	return sm.clientPool.GetClientOffline(ctx, instanceID)
+}
+
 // getFilesManager returns the current files manager in a thread-safe manner
 // Returns nil if no files manager is set
 func (sm *SyncManager) getFilesManager() FilesManager {

@@ -25,6 +25,7 @@ import (
 // ------------------------------------------------------------------
 
 // GetInstances renders the full instances management page.
+// Static data (name/host/etc.) is rendered immediately; each card's status badge lazy-loads separately.
 func (h *Handler) GetInstances(w http.ResponseWriter, r *http.Request) {
 	username := UsernameFromContext(r.Context())
 	ctx := r.Context()
@@ -35,9 +36,11 @@ func (h *Handler) GetInstances(w http.ResponseWriter, r *http.Request) {
 		insts = []*models.Instance{}
 	}
 
-	items := buildInstanceListItems(ctx, insts, h.syncManager)
+	// Build static items (no connectivity check) — status lazy-loads per card.
+	items := make([]pages.InstanceListItem, 0, len(insts))
 	navInsts := make([]layouts.Instance, 0, len(insts))
 	for _, inst := range insts {
+		items = append(items, instanceToStaticItem(inst))
 		navInsts = append(navInsts, layouts.Instance{
 			ID:       inst.ID,
 			Name:     inst.Name,
@@ -60,6 +63,8 @@ func (h *Handler) GetInstances(w http.ResponseWriter, r *http.Request) {
 // ------------------------------------------------------------------
 
 // GetInstanceForm returns the add or edit form as an HTMX partial.
+// Uses only DB data (instanceToStaticItem) so the form is never blocked by a
+// live qBittorrent health-check — connection status is irrelevant for editing.
 func (h *Handler) GetInstanceForm(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	if idStr == "" {
@@ -79,7 +84,7 @@ func (h *Handler) GetInstanceForm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item := instanceToListItem(r.Context(), inst, h.syncManager)
+	item := instanceToStaticItem(inst)
 	render(w, r, http.StatusOK, pages.InstanceFormEdit(item, h.baseURL(), ""))
 }
 
@@ -218,7 +223,7 @@ func (h *Handler) PutInstance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if name == "" {
-		item := instanceToListItem(r.Context(), existing, h.syncManager)
+		item := instanceToStaticItem(existing)
 		render(w, r, http.StatusUnprocessableEntity, pages.InstanceFormEdit(item, h.baseURL(), "Instance name is required"))
 		return
 	}
@@ -261,7 +266,7 @@ func (h *Handler) PutInstance(w http.ResponseWriter, r *http.Request) {
 		existing2, _ := h.instanceStore.Get(r.Context(), id)
 		var item pages.InstanceListItem
 		if existing2 != nil {
-			item = instanceToListItem(r.Context(), existing2, h.syncManager)
+			item = instanceToStaticItem(existing2)
 		}
 		render(w, r, http.StatusUnprocessableEntity, pages.InstanceFormEdit(item, h.baseURL(), "Failed to update instance: "+err.Error()))
 		return
@@ -298,6 +303,8 @@ func (h *Handler) DeleteInstance(w http.ResponseWriter, r *http.Request) {
 // ------------------------------------------------------------------
 
 // PostInstanceToggle toggles the IsActive state of an instance.
+// The response card uses instanceToStaticItem (no live connectivity check);
+// the status badge lazy-loads from /ui/partials/instances/{id}/status.
 func (h *Handler) PostInstanceToggle(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
@@ -318,7 +325,7 @@ func (h *Handler) PostInstanceToggle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item := instanceToListItem(r.Context(), updated, h.syncManager)
+	item := instanceToStaticItem(updated)
 	render(w, r, http.StatusOK, pages.InstanceRowCard(item, h.baseURL()))
 }
 
@@ -326,23 +333,71 @@ func (h *Handler) PostInstanceToggle(w http.ResponseWriter, r *http.Request) {
 // Helpers
 // ------------------------------------------------------------------
 
-// renderInstanceSuccessPartial replaces the form slot with nothing and OOB-swaps the instance list.
+// GetInstancesListPartial returns just the instance list HTML (for OOB refreshes after add/edit/delete).
+func (h *Handler) GetInstancesListPartial(w http.ResponseWriter, r *http.Request) {
+	insts, err := h.instanceStore.List(r.Context())
+	if err != nil {
+		log.Error().Err(err).Msg("ui: failed to list instances for partial")
+		insts = []*models.Instance{}
+	}
+	items := make([]pages.InstanceListItem, 0, len(insts))
+	for _, inst := range insts {
+		items = append(items, instanceToStaticItem(inst))
+	}
+	render(w, r, http.StatusOK, pages.InstanceListPartial(items, h.baseURL()))
+}
+
+// GetInstanceStatusPartial checks live connectivity and returns the status badge fragment for one card.
+func (h *Handler) GetInstanceStatusPartial(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+	inst, err := h.instanceStore.Get(r.Context(), id)
+	if err != nil {
+		http.Error(w, "instance not found", http.StatusNotFound)
+		return
+	}
+	item := instanceToListItem(r.Context(), inst, h.syncManager)
+	render(w, r, http.StatusOK, pages.InstanceStatusPartial(item))
+}
+
+// renderInstanceSuccessPartial replaces the form slot and OOB-swaps the instance list after a save.
 func (h *Handler) renderInstanceSuccessPartial(w http.ResponseWriter, r *http.Request) {
 	insts, err := h.instanceStore.List(r.Context())
 	if err != nil {
 		insts = []*models.Instance{}
 	}
-	items := buildInstanceListItems(r.Context(), insts, h.syncManager)
+	items := make([]pages.InstanceListItem, 0, len(insts))
+	for _, inst := range insts {
+		items = append(items, instanceToStaticItem(inst))
+	}
 	render(w, r, http.StatusOK, pages.InstanceFormSuccessOOB(items, h.baseURL()))
 }
 
-// buildInstanceListItems converts model instances to page view items with live connectivity.
-func buildInstanceListItems(ctx context.Context, insts []*models.Instance, sm *qbittorrent.SyncManager) []pages.InstanceListItem {
-	items := make([]pages.InstanceListItem, 0, len(insts))
-	for _, inst := range insts {
-		items = append(items, instanceToListItem(ctx, inst, sm))
+// instanceToStaticItem builds a list item with only DB data — no connectivity check.
+// The card's status badge is loaded lazily from GetInstanceStatusPartial.
+func instanceToStaticItem(inst *models.Instance) pages.InstanceListItem {
+	item := pages.InstanceListItem{
+		ID:                       inst.ID,
+		Name:                     inst.Name,
+		Host:                     inst.Host,
+		Username:                 inst.Username,
+		TLSSkipVerify:            inst.TLSSkipVerify,
+		HasLocalFilesystemAccess: inst.HasLocalFilesystemAccess,
+		IsActive:                 inst.IsActive,
+		HasBasicAuth:             inst.BasicUsername != nil && *inst.BasicUsername != "",
+		UseHardlinks:             inst.UseHardlinks,
+		UseReflinks:              inst.UseReflinks,
+		HardlinkBaseDir:          inst.HardlinkBaseDir,
+		HardlinkDirPreset:        inst.HardlinkDirPreset,
+		FallbackToRegularMode:    inst.FallbackToRegularMode,
 	}
-	return items
+	if inst.BasicUsername != nil {
+		item.BasicUsername = *inst.BasicUsername
+	}
+	return item
 }
 
 // instanceToListItem converts a single Instance model to the page view type.
