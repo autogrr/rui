@@ -311,20 +311,16 @@ templ instanceFormCard(d instanceFormCardData) {
 		@card.Content(card.ContentProps{}) {
 			<form
 				id="instance-form"
-				hx-post={ action }
 				if isEdit {
 					hx-put={ action }
+				} else {
+					hx-post={ action }
 				}
 				hx-target="#instance-form-slot"
 				hx-swap="innerHTML"
 				x-data={ instanceFormAlpineData(authBypass, hasBasicAuth, localFS, d.UseHardlinks, d.UseReflinks) }
 				class="space-y-4"
 			>
-								if isEdit {
-					<input type="hidden" name="_method" value="PUT"/>
-				}
-
-				<!-- ── Connection ───────────────────────────────── -->
 				<p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 pb-1">Connection</p>
 
 				<!-- Name -->

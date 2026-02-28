@@ -876,241 +876,236 @@ func instanceFormCard(d instanceFormCardData) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<form id=\"instance-form\" hx-post=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var40 string
-				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(action)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 314, Col: 20}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<form id=\"instance-form\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if isEdit {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, " hx-put=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, " hx-put=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var40 string
+					templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(action)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 315, Col: 20}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				} else {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, " hx-post=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var41 string
 					templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(action)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 316, Col: 20}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 317, Col: 21}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, " hx-target=\"#instance-form-slot\" hx-swap=\"innerHTML\" x-data=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, " hx-target=\"#instance-form-slot\" hx-swap=\"innerHTML\" x-data=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var42 string
 				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(instanceFormAlpineData(authBypass, hasBasicAuth, localFS, d.UseHardlinks, d.UseReflinks))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 320, Col: 101}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 321, Col: 101}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "\" class=\"space-y-4\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				if isEdit {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<input type=\"hidden\" name=\"_method\" value=\"PUT\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<!-- ── Connection ───────────────────────────────── --><p class=\"text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 pb-1\">Connection</p><!-- Name --><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-name\">Instance Name</label> <input id=\"inst-name\" name=\"name\" type=\"text\" required value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "\" class=\"space-y-4\"><p class=\"text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 pb-1\">Connection</p><!-- Name --><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-name\">Instance Name</label> <input id=\"inst-name\" name=\"name\" type=\"text\" required value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var43 string
 				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 338, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 334, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\" placeholder=\"e.g., Home Server\" autocomplete=\"off\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><!-- Host --><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-host\">URL</label> <input id=\"inst-host\" name=\"host\" type=\"url\" required value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "\" placeholder=\"e.g., Home Server\" autocomplete=\"off\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><!-- Host --><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-host\">URL</label> <input id=\"inst-host\" name=\"host\" type=\"url\" required value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var44 string
 				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(host)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 353, Col: 18}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 349, Col: 18}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "\" placeholder=\"http://localhost:8080\" autocomplete=\"off\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><!-- TLS Skip Verify toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">Skip TLS Certificate Verification</label><p class=\"text-xs text-muted-foreground\">Allow connections to instances with self-signed certificates.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"tls_skip_verify\" value=\"on\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\" placeholder=\"http://localhost:8080\" autocomplete=\"off\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><!-- TLS Skip Verify toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">Skip TLS Certificate Verification</label><p class=\"text-xs text-muted-foreground\">Allow connections to instances with self-signed certificates.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"tls_skip_verify\" value=\"on\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if tlsSkipVerify {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, " class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary\"><span class=\"pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4\"></span></div></label></div><!-- ── Authentication ────────────────────────────── --><div class=\"flex items-center gap-3 pt-2\"><div class=\"flex-1 border-t border-border\"></div><p class=\"text-xs font-semibold uppercase tracking-wider text-muted-foreground/60\">Authentication</p><div class=\"flex-1 border-t border-border\"></div></div><!-- Auth Bypass toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">Authentication Bypass</label><p class=\"text-xs text-muted-foreground\">Enable when qBittorrent bypasses authentication for localhost or whitelisted IPs.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"auth_bypass\" value=\"on\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, " class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary\"><span class=\"pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4\"></span></div></label></div><!-- ── Authentication ────────────────────────────── --><div class=\"flex items-center gap-3 pt-2\"><div class=\"flex-1 border-t border-border\"></div><p class=\"text-xs font-semibold uppercase tracking-wider text-muted-foreground/60\">Authentication</p><div class=\"flex-1 border-t border-border\"></div></div><!-- Auth Bypass toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">Authentication Bypass</label><p class=\"text-xs text-muted-foreground\">Enable when qBittorrent bypasses authentication for localhost or whitelisted IPs.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"auth_bypass\" value=\"on\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if authBypass {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, " x-model=\"authBypass\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"authBypass ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"authBypass ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Username + Password (hidden when auth bypass) --><div x-show=\"!authBypass\" x-transition class=\"space-y-4\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-username\">Username</label> <input id=\"inst-username\" name=\"username\" type=\"text\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, " x-model=\"authBypass\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"authBypass ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"authBypass ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Username + Password (hidden when auth bypass) --><div x-show=\"!authBypass\" x-transition class=\"space-y-4\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-username\">Username</label> <input id=\"inst-username\" name=\"username\" type=\"text\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var45 string
 				templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 424, Col: 23}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 420, Col: 23}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\" placeholder=\"qBittorrent username (usually admin)\" autocomplete=\"off\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-password\">Password</label> <input id=\"inst-password\" name=\"password\" type=\"password\" placeholder=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "\" placeholder=\"qBittorrent username (usually admin)\" autocomplete=\"off\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-password\">Password</label> <input id=\"inst-password\" name=\"password\" type=\"password\" placeholder=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var46 string
 				templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(instancePasswordPlaceholder(id != 0))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 437, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 433, Col: 57}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "\" autocomplete=\"new-password\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div></div><!-- Basic Auth toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">HTTP Basic Authentication</label><p class=\"text-xs text-muted-foreground\">Enable if your qBittorrent is behind a reverse proxy with Basic Auth.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"show_basic_auth\" value=\"on\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\" autocomplete=\"new-password\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div></div><!-- Basic Auth toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">HTTP Basic Authentication</label><p class=\"text-xs text-muted-foreground\">Enable if your qBittorrent is behind a reverse proxy with Basic Auth.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"show_basic_auth\" value=\"on\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if hasBasicAuth {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, " x-model=\"showBasicAuth\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"showBasicAuth ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"showBasicAuth ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Basic Auth fields (shown when basic auth enabled) --><div x-show=\"showBasicAuth\" x-transition class=\"space-y-4 pl-4 border-l-2 border-muted\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-basic-user\">Basic Auth Username</label> <input id=\"inst-basic-user\" name=\"basic_username\" type=\"text\" placeholder=\"Basic auth username\" autocomplete=\"off\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-basic-pass\">Basic Auth Password</label> <input id=\"inst-basic-pass\" name=\"basic_password\" type=\"password\" placeholder=\"Basic auth password\" autocomplete=\"new-password\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div></div><!-- ── File System ────────────────────────────────── --><div class=\"flex items-center gap-3 pt-2\"><div class=\"flex-1 border-t border-border\"></div><p class=\"text-xs font-semibold uppercase tracking-wider text-muted-foreground/60\">File System</p><div class=\"flex-1 border-t border-border\"></div></div><!-- Local Filesystem Access toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">Local Filesystem Access</label><p class=\"text-xs text-muted-foreground\">Enable if qui can access this instance's download paths (required for hardlink detection in automations).</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"has_local_filesystem_access\" value=\"on\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, " x-model=\"showBasicAuth\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"showBasicAuth ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"showBasicAuth ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Basic Auth fields (shown when basic auth enabled) --><div x-show=\"showBasicAuth\" x-transition class=\"space-y-4 pl-4 border-l-2 border-muted\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-basic-user\">Basic Auth Username</label> <input id=\"inst-basic-user\" name=\"basic_username\" type=\"text\" placeholder=\"Basic auth username\" autocomplete=\"off\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-basic-pass\">Basic Auth Password</label> <input id=\"inst-basic-pass\" name=\"basic_password\" type=\"password\" placeholder=\"Basic auth password\" autocomplete=\"new-password\" data-1p-ignore class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"></div></div><!-- ── File System ────────────────────────────────── --><div class=\"flex items-center gap-3 pt-2\"><div class=\"flex-1 border-t border-border\"></div><p class=\"text-xs font-semibold uppercase tracking-wider text-muted-foreground/60\">File System</p><div class=\"flex-1 border-t border-border\"></div></div><!-- Local Filesystem Access toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-4\"><div class=\"space-y-1\"><label class=\"text-sm font-medium\">Local Filesystem Access</label><p class=\"text-xs text-muted-foreground\">Enable if qui can access this instance's download paths (required for hardlink detection in automations).</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"has_local_filesystem_access\" value=\"on\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if localFS {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, " x-model=\"localFS\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"localFS ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"localFS ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Hardlink / Reflink Mode (shown when local filesystem access is enabled) --><div x-show=\"localFS\" x-transition class=\"space-y-3 pl-4 border-l-2 border-muted\"><div class=\"space-y-0.5\"><p class=\"text-sm font-medium\">Cross-seed File Mode</p><p class=\"text-xs text-muted-foreground\">Configure how cross-seeded files are created. Hardlink and reflink modes require the base directory to be on the same filesystem as the instance's download paths.</p></div><!-- Mode radio group --><div class=\"space-y-2\"><label class=\"flex items-center gap-3 cursor-pointer\"><input type=\"radio\" name=\"hardlink_mode\" value=\"regular\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, " x-model=\"localFS\" class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors\" :class=\"localFS ? 'bg-primary' : 'bg-input'\"><span class=\"pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform\" :class=\"localFS ? 'translate-x-4' : 'translate-x-0'\"></span></div></label></div><!-- Hardlink / Reflink Mode (shown when local filesystem access is enabled) --><div x-show=\"localFS\" x-transition class=\"space-y-3 pl-4 border-l-2 border-muted\"><div class=\"space-y-0.5\"><p class=\"text-sm font-medium\">Cross-seed File Mode</p><p class=\"text-xs text-muted-foreground\">Configure how cross-seeded files are created. Hardlink and reflink modes require the base directory to be on the same filesystem as the instance's download paths.</p></div><!-- Mode radio group --><div class=\"space-y-2\"><label class=\"flex items-center gap-3 cursor-pointer\"><input type=\"radio\" name=\"hardlink_mode\" value=\"regular\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if !d.UseHardlinks && !d.UseReflinks {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, " x-model=\"hardlinkMode\" class=\"h-4 w-4 text-primary border-input\"> <span class=\"text-sm\">Regular — download files normally</span></label> <label class=\"flex items-center gap-3 cursor-pointer\"><input type=\"radio\" name=\"hardlink_mode\" value=\"hardlink\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, " x-model=\"hardlinkMode\" class=\"h-4 w-4 text-primary border-input\"> <span class=\"text-sm\">Regular — download files normally</span></label> <label class=\"flex items-center gap-3 cursor-pointer\"><input type=\"radio\" name=\"hardlink_mode\" value=\"hardlink\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if d.UseHardlinks {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, " x-model=\"hardlinkMode\" class=\"h-4 w-4 text-primary border-input\"> <span class=\"text-sm\">Hardlink — create hardlinked file tree</span></label> <label class=\"flex items-center gap-3 cursor-pointer\"><input type=\"radio\" name=\"hardlink_mode\" value=\"reflink\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, " x-model=\"hardlinkMode\" class=\"h-4 w-4 text-primary border-input\"> <span class=\"text-sm\">Hardlink — create hardlinked file tree</span></label> <label class=\"flex items-center gap-3 cursor-pointer\"><input type=\"radio\" name=\"hardlink_mode\" value=\"reflink\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if d.UseReflinks {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, " x-model=\"hardlinkMode\" class=\"h-4 w-4 text-primary border-input\"> <span class=\"text-sm\">Reflink (copy-on-write) — for cross-seeds with extra/missing files</span></label></div><!-- Base directory + preset (shown when hardlink or reflink mode) --><div x-show=\"hardlinkMode !== 'regular'\" x-transition class=\"space-y-3\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-hardlink-base\">Base Directory</label> <input id=\"inst-hardlink-base\" name=\"hardlink_base_dir\" type=\"text\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, " x-model=\"hardlinkMode\" class=\"h-4 w-4 text-primary border-input\"> <span class=\"text-sm\">Reflink (copy-on-write) — for cross-seeds with extra/missing files</span></label></div><!-- Base directory + preset (shown when hardlink or reflink mode) --><div x-show=\"hardlinkMode !== 'regular'\" x-transition class=\"space-y-3\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-hardlink-base\">Base Directory</label> <input id=\"inst-hardlink-base\" name=\"hardlink_base_dir\" type=\"text\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var47 string
 				templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(d.HardlinkBaseDir)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 586, Col: 33}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/instances.templ`, Line: 582, Col: 33}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "\" placeholder=\"/data/torrents\" autocomplete=\"off\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"><p class=\"text-xs text-muted-foreground\">Must be on the same filesystem as the download paths.</p></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-hardlink-preset\">Directory Structure</label> <select id=\"inst-hardlink-preset\" name=\"hardlink_dir_preset\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\"><option value=\"flat\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "\" placeholder=\"/data/torrents\" autocomplete=\"off\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2\"><p class=\"text-xs text-muted-foreground\">Must be on the same filesystem as the download paths.</p></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"inst-hardlink-preset\">Directory Structure</label> <select id=\"inst-hardlink-preset\" name=\"hardlink_dir_preset\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\"><option value=\"flat\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if d.HardlinkDirPreset == "flat" || d.HardlinkDirPreset == "" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, " selected")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, ">Flat — all files in base dir</option> <option value=\"by-tracker\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, ">Flat — all files in base dir</option> <option value=\"by-tracker\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if d.HardlinkDirPreset == "by-tracker" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, " selected")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, ">By tracker</option> <option value=\"by-instance\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, ">By tracker</option> <option value=\"by-instance\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if d.HardlinkDirPreset == "by-instance" {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, " selected")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, " selected")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, ">By instance</option></select></div><!-- Fallback toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-3\"><div class=\"space-y-0.5\"><label class=\"text-sm font-medium\">Fallback to Regular Mode</label><p class=\"text-xs text-muted-foreground\">Fall back to regular download if hardlink/reflink creation fails.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"fallback_to_regular\" value=\"on\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, ">By instance</option></select></div><!-- Fallback toggle --><div class=\"flex items-start justify-between gap-4 rounded-lg border bg-muted/40 p-3\"><div class=\"space-y-0.5\"><label class=\"text-sm font-medium\">Fallback to Regular Mode</label><p class=\"text-xs text-muted-foreground\">Fall back to regular download if hardlink/reflink creation fails.</p></div><label class=\"inline-flex cursor-pointer items-center gap-2\"><input type=\"checkbox\" name=\"fallback_to_regular\" value=\"on\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				if d.FallbackToRegularMode {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, " checked")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, " checked")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, " class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary\"><span class=\"pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4\"></span></div></label></div></div></div><!-- Form actions --><div class=\"flex gap-2 pt-2\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, " class=\"peer hidden\" role=\"switch\"><div class=\"relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors bg-input peer-checked:bg-primary\"><span class=\"pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-4\"></span></div></label></div></div></div><!-- Form actions --><div class=\"flex gap-2 pt-2\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1127,12 +1122,12 @@ func instanceFormCard(d instanceFormCardData) templ.Component {
 					}
 					ctx = templ.InitializeContext(ctx)
 					if isEdit {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "Save Changes")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "Save Changes")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 					} else {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "Add Instance")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "Add Instance")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -1155,7 +1150,7 @@ func instanceFormCard(d instanceFormCardData) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "Cancel")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "Cancel")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -1173,7 +1168,7 @@ func instanceFormCard(d instanceFormCardData) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</div></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</div></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1246,7 +1241,7 @@ func InstanceFormSuccessOOB(instances []InstanceListItem, baseURL string) templ.
 			templ_7745c5c3_Var50 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<!-- Form slot cleared --><!-- OOB: replace instance list --><div id=\"instance-list\" hx-swap-oob=\"innerHTML\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<!-- Form slot cleared --><!-- OOB: replace instance list --><div id=\"instance-list\" hx-swap-oob=\"innerHTML\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1254,7 +1249,7 @@ func InstanceFormSuccessOOB(instances []InstanceListItem, baseURL string) templ.
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

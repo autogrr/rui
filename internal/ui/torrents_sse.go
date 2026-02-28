@@ -25,7 +25,7 @@ import (
 //  1. Resolves the target instance (falls back to first active if instance_id=0).
 //  2. Sends an initial "connected" event.
 //  3. Polls the SyncManager cache every 3 s and emits "torrent-update" when the
-//     fingerprint changes (count + speed sum + first/last hash).
+//     fingerprint changes (count, state, or speeds bucketed to 100 KiB/s steps).
 //  4. Emits a keepalive comment every 15 s so proxies do not close the connection.
 //
 // Route: GET /ui/sse/torrents
@@ -73,9 +73,11 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 	var lastFP string
 
 	// fingerprint computes a cheap change-detection key from the in-memory cache.
-	// It reads the first 20 entries sorted by most-recent activity and hashes
-	// their hash+state+speeds so that additions, removals, and speed/state
-	// changes all register as a change.
+	// It hashes torrent count + per-torrent (hash, state, bucketed speeds) so
+	// that additions, removals, state changes, and meaningful speed changes all
+	// register as a change. Speeds are bucketed to 100 KiB/s steps so minor
+	// noise (±few KB/s) does not trigger spurious table reloads.
+	const speedBucket = 100 * 1024 // 100 KiB/s
 	fingerprint := func() string {
 		torrents, err := h.syncManager.GetTorrents(ctx, instanceID, qbt.TorrentFilterOptions{})
 		if err != nil {
@@ -83,13 +85,15 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 		}
 
 		h64 := fnv.New64a()
-		// Only track torrent-count + state changes — not speeds, which change
-		// every second and would trigger constant full-table re-renders.
 		fmt.Fprintf(h64, "%d", len(torrents)) //nolint:errcheck // hash writes never fail
 		limit := min(20, len(torrents))
 		for i := range limit {
 			t := &torrents[i]
-			fmt.Fprintf(h64, "%s%s", t.Hash, t.State) //nolint:errcheck
+			fmt.Fprintf(h64, "%s%s%d%d", //nolint:errcheck
+				t.Hash, t.State,
+				t.DlSpeed/speedBucket,
+				t.UpSpeed/speedBucket,
+			)
 		}
 		return fmt.Sprintf("%x", h64.Sum64())
 	}
@@ -107,7 +111,7 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 
-	pollTicker := time.NewTicker(5 * time.Second)
+	pollTicker := time.NewTicker(3 * time.Second)
 	keepaliveTicker := time.NewTicker(15 * time.Second)
 	defer pollTicker.Stop()
 	defer keepaliveTicker.Stop()

@@ -386,9 +386,9 @@ hx-on::after-request="renderFilterChips()"
 <!-- Filter builder popover -->
 <div class="relative" x-data="{ builderOpen: false }">
 <button
-@click="builderOpen = !builderOpen"
+@click="builderOpen = !builderOpen; if(builderOpen) initExprBuilder()"
 class="inline-flex items-center gap-1 h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-title="Add a filter condition"
+title="Build a filter expression"
 >
 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
 Filter
@@ -397,9 +397,10 @@ Filter
 x-show="builderOpen"
 x-cloak
 @click.outside="builderOpen = false"
-class="absolute left-0 top-full mt-1 z-30 rounded-lg border border-border bg-background shadow-lg p-3 space-y-2 min-w-max"
+class="absolute left-0 top-full mt-1 z-30 w-[26rem] rounded-lg border border-border bg-background shadow-lg p-3 space-y-2"
 >
 <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add Condition</p>
+<!-- Row 1: field + op + value + range toggle -->
 <div class="flex items-center gap-1.5 flex-wrap">
 <select id="eb-field" onchange="exprBuilderFieldChanged()" class="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring">
 <!-- populated by initExprBuilder() -->
@@ -408,20 +409,50 @@ class="absolute left-0 top-full mt-1 z-30 rounded-lg border border-border bg-bac
 <!-- populated by exprBuilderFieldChanged() -->
 </select>
 <div id="eb-val-container">
-<input id="eb-val" type="text" placeholder="value" class="h-7 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" onkeydown="if(event.key==='Enter'){event.preventDefault();exprBuilderAdd();}"/>
+<input id="eb-val" type="text" placeholder="value" class="h-7 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" onfocus="_ebFocusedVal='eb-val'" onkeydown="if(event.key==='Enter'){event.preventDefault();ebStageAdd();}"/>
 </div>
-<button onclick="exprBuilderAdd()" class="h-7 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">+ Add</button>
+<button id="eb-range-btn" type="button" onclick="ebToggleRange()" title="Add a second bound (range)" class="h-7 px-2 rounded-md border border-input bg-background text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">⇔</button>
 </div>
+<!-- Row 2: second constraint for range queries (hidden by default) -->
+<div id="eb-range-row" class="hidden flex items-center gap-1.5">
+<span class="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">and</span>
+<select id="eb-op2" class="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"></select>
+<div id="eb-val2-container">
+<input id="eb-val2" type="text" placeholder="value" class="h-7 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" onfocus="_ebFocusedVal='eb-val2'" onkeydown="if(event.key==='Enter'){event.preventDefault();ebStageAdd();}"/>
+</div>
+</div>
+<!-- Add row: next-connector toggle + Add / Update button + cancel -->
+<div class="flex items-center justify-between">
+<div class="inline-flex rounded border border-border overflow-hidden text-[10px] font-semibold" title="Connector for the next condition">
+<button id="eb-join-and" type="button" onclick="ebSetJoin('and')" class="px-2 py-0.5 bg-primary text-primary-foreground">AND</button>
+<button id="eb-join-or"  type="button" onclick="ebSetJoin('or')"  class="px-2 py-0.5 bg-background text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">OR</button>
+</div>
+<div class="flex items-center gap-2">
+<span id="eb-cancel-edit" class="hidden text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors" onclick="ebCancelEdit()">Cancel</span>
+<button id="eb-add-btn" onclick="ebStageAdd()" class="h-7 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors">+ Add</button>
+</div>
+</div>
+<!-- Staged conditions list (Sortable drag-and-drop); scrollable if many items -->
+<ol id="eb-conditions" class="space-y-1 list-none max-h-48 overflow-y-auto"></ol>
+<!-- Footer: group + clear + apply — only visible when there are staged conditions -->
+<div id="eb-footer" class="hidden border-t border-border pt-2 flex items-center justify-between gap-2">
+<div class="flex items-center gap-2">
+<button id="eb-group-btn" type="button" onclick="ebGroupChecked()" class="hidden h-6 rounded border border-border px-2 text-[10px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">↱ Group checked</button>
+<button type="button" onclick="ebClearAll()" class="text-xs text-muted-foreground hover:text-foreground transition-colors">Clear all</button>
+</div>
+<button type="button" onclick="ebCommit()" class="h-7 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors">Apply</button>
+</div>
+<!-- Raw expr escape hatch -->
 <div class="border-t border-border pt-2 flex items-center gap-2">
-<label class="text-xs text-muted-foreground shrink-0" for="current-expr">Custom expr:</label>
+<label class="text-xs text-muted-foreground shrink-0" for="current-expr">Expr:</label>
 <input
 id="current-expr"
 type="text"
 name="expr"
 value={ p.Expr }
 placeholder='e.g. Ratio &lt; 1 &amp;&amp; State == "downloading"'
-title="expr-lang fields: Name, State, Category, Tags, Ratio, Size, DlSpeed, UpSpeed, Uploaded, Downloaded, SeedingTime, TimeActive, Priority, SavePath, Tracker, Progress, Availability"
-class="h-7 flex-1 min-w-56 rounded-md border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
+title="expr-lang fields: Name, State, Category, Tags, Ratio, Size, DlSpeed, UpSpeed, Uploaded, Downloaded, SeedingTime, TimeActive, AddedOn, NumSeeds, NumLeechs, NumComplete, NumIncomplete, Priority, SavePath, Tracker, Progress, Availability"
+class="h-7 flex-1 rounded-md border border-input bg-background px-2 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-ring"
 hx-trigger="keyup changed delay:600ms"
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
 hx-target="#vt-data-slot"
@@ -512,17 +543,18 @@ Add
 
 <!-- Table + detail panel row -->
 <div class="flex flex-1 min-h-0 gap-2">
-<!-- Table + bulk bar wrapper (hx-ext="sse" so vt-data-slot can listen for live updates) -->
+<!-- Table + bulk bar wrapper -->
 <div
 class="flex flex-col flex-1 min-w-0"
-hx-ext="sse"
-sse-connect={ p.BaseURL + "/ui/sse/torrents?instance_id=" + itoa(p.InstanceID) }
 >
-<!-- vt-data-slot: hidden; receives HTMX swaps; JS reads embedded JSON to populate virtual table -->
+<!-- vt-data-slot: hidden; receives HTMX swaps. hx-ext="sse" lives here so the
+     SSE extension registers hx-trigger="sse:..." directly on this element. -->
 <div
 id="vt-data-slot"
 style="display:none"
-hx-trigger="sse:torrent-update throttle:8s"
+hx-ext="sse"
+sse-connect={ p.BaseURL + "/ui/sse/torrents?instance_id=" + itoa(p.InstanceID) }
+hx-trigger="sse:torrent-update throttle:2s"
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
 hx-swap="innerHTML"
 hx-push-url="false"
@@ -927,30 +959,35 @@ class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foregrou
 <!-- Virtual scroll + sort arrows + filter chips + expr builder JS -->
 <script>
 // ── Expr field definitions ──────────────────────────────────────────────────
+var _ebSpeedUnits    = [ { label:'B/s', f:1 }, { label:'KB/s', f:1024 }, { label:'MB/s', f:1048576, dflt:true }, { label:'GB/s', f:1073741824 } ];
+var _ebBytesUnits    = [ { label:'B', f:1 }, { label:'KB', f:1024 }, { label:'MB', f:1048576, dflt:true }, { label:'GB', f:1073741824 }, { label:'TB', f:1099511627776 } ];
+var _ebDurationUnits = [ { label:'sec', f:1 }, { label:'min', f:60, dflt:true }, { label:'hr', f:3600 }, { label:'day', f:86400 }, { label:'week', f:604800 } ];
+var _ebTimeAgoUnits  = [ { label:'s ago', ta:1 }, { label:'h ago', ta:3600, dflt:true }, { label:'d ago', ta:86400 }, { label:'w ago', ta:604800 }, { label:'mo ago', ta:2592000 } ];
 var _exprFields = [
-  { id: 'Name',        label: 'Name',         type: 'text' },
-  { id: 'State',       label: 'State',        type: 'enum', values: ['downloading','uploading','stalledDL','stalledUP','pausedDL','pausedUP','stoppedDL','stoppedUP','error','missingFiles','checkingUP','checkingDL','forcedUP','forcedDL','metaDL','allocating','moving','queuedDL','queuedUP'] },
-  { id: 'Category',    label: 'Category',     type: 'text' },
-  { id: 'Tags',        label: 'Tags',         type: 'text' },
-  { id: 'SavePath',    label: 'Save Path',    type: 'text' },
-  { id: 'Tracker',     label: 'Tracker',      type: 'text' },
-  { id: 'Ratio',       label: 'Ratio',        type: 'number' },
-  { id: 'Progress',    label: 'Progress (0-1)', type: 'number' },
-  { id: 'Size',        label: 'Size (bytes)', type: 'number' },
-  { id: 'TotalSize',   label: 'Total Size',   type: 'number' },
-  { id: 'DlSpeed',     label: 'DL Speed (B/s)', type: 'number' },
-  { id: 'UpSpeed',     label: 'UP Speed (B/s)', type: 'number' },
-  { id: 'Uploaded',    label: 'Uploaded',     type: 'number' },
-  { id: 'Downloaded',  label: 'Downloaded',   type: 'number' },
-  { id: 'NumSeeds',    label: 'Seeds',        type: 'number' },
-  { id: 'NumLeechs',   label: 'Leechers',     type: 'number' },
-  { id: 'SeedingTime', label: 'Seeding Time (s)', type: 'number' },
-  { id: 'TimeActive',  label: 'Time Active (s)',  type: 'number' },
-  { id: 'AmountLeft',  label: 'Amount Left',  type: 'number' },
-  { id: 'Priority',    label: 'Priority',     type: 'number' },
-  { id: 'Availability',label: 'Availability', type: 'number' },
-  { id: 'NumComplete', label: 'Total Seeds',  type: 'number' },
-  { id: 'NumIncomplete',label: 'Total Peers', type: 'number' },
+  { id: 'Name',          label: 'Name',           type: 'text' },
+  { id: 'State',         label: 'State',          type: 'enum', values: ['downloading','uploading','stalledDL','stalledUP','pausedDL','pausedUP','stoppedDL','stoppedUP','error','missingFiles','checkingUP','checkingDL','forcedUP','forcedDL','metaDL','allocating','moving','queuedDL','queuedUP'] },
+  { id: 'Category',      label: 'Category',       type: 'text' },
+  { id: 'Tags',          label: 'Tags',           type: 'text' },
+  { id: 'SavePath',      label: 'Save Path',      type: 'text' },
+  { id: 'Tracker',       label: 'Tracker',        type: 'text' },
+  { id: 'Ratio',         label: 'Ratio',          type: 'number' },
+  { id: 'Progress',      label: 'Progress (0–1)', type: 'number' },
+  { id: 'Priority',      label: 'Priority',       type: 'number' },
+  { id: 'Availability',  label: 'Availability',   type: 'number' },
+  { id: 'NumSeeds',      label: 'Seeds',          type: 'number' },
+  { id: 'NumLeechs',     label: 'Leechers',       type: 'number' },
+  { id: 'NumComplete',   label: 'Total Seeds',    type: 'number' },
+  { id: 'NumIncomplete', label: 'Total Peers',    type: 'number' },
+  { id: 'DlSpeed',       label: 'DL Speed',       type: 'number', units: _ebSpeedUnits },
+  { id: 'UpSpeed',       label: 'UP Speed',       type: 'number', units: _ebSpeedUnits },
+  { id: 'Size',          label: 'Size',           type: 'number', units: _ebBytesUnits },
+  { id: 'TotalSize',     label: 'Total Size',     type: 'number', units: _ebBytesUnits },
+  { id: 'Uploaded',      label: 'Uploaded',       type: 'number', units: _ebBytesUnits },
+  { id: 'Downloaded',    label: 'Downloaded',     type: 'number', units: _ebBytesUnits },
+  { id: 'AmountLeft',    label: 'Remaining',      type: 'number', units: _ebBytesUnits },
+  { id: 'SeedingTime',   label: 'Seeding Time',   type: 'number', units: _ebDurationUnits },
+  { id: 'TimeActive',    label: 'Time Active',    type: 'number', units: _ebDurationUnits },
+  { id: 'AddedOn',       label: 'Added On',       type: 'number', units: _ebTimeAgoUnits },
 ];
 var _exprOpsText   = ['contains','==','!=','startsWith','endsWith'];
 var _exprOpsNumber = ['<','<=','>','>=','==','!='];
@@ -963,7 +1000,98 @@ var _stateLabels   = {
   'allocating':'Allocating', 'moving':'Moving', 'queuedDL':'Queued↓', 'queuedUP':'Queued↑',
 };
 
-// ── Expr builder init ───────────────────────────────────────────────────────
+// ── Expr builder state ─────────────────────────────────────────────────────
+// Each item in _ebConditions is either:
+//   cond:  { kind:'cond',  join, checked, fieldId, op, rawVal, unitIdx,
+//            rangeOp, rawVal2, unitIdx2 }
+//   group: { kind:'group', join, checked, conditions:[...cond...] }
+// join is the connector placed BEFORE this item (ignored for idx 0).
+var _ebConditions = [];
+var _ebSortable   = null;
+var _ebJoin       = 'and';
+var _ebRangeOpen  = false;
+var _ebEditPath   = null;   // null | { rootIdx, innerIdx } — innerIdx=null for root items
+
+function ebSetJoin(j) {
+  _ebJoin = j;
+  var act = 'px-2 py-0.5 bg-primary text-primary-foreground';
+  var off = 'px-2 py-0.5 bg-background text-muted-foreground hover:bg-accent hover:text-foreground transition-colors';
+  var a = document.getElementById('eb-join-and'), o = document.getElementById('eb-join-or');
+  if (a) a.className = j === 'and' ? act : off;
+  if (o) o.className = j === 'or'  ? act : off;
+}
+
+function ebToggleRange() {
+  _ebRangeOpen = !_ebRangeOpen;
+  var row = document.getElementById('eb-range-row');
+  var btn = document.getElementById('eb-range-btn');
+  if (row) row.classList.toggle('hidden', !_ebRangeOpen);
+  if (btn) {
+    btn.classList.toggle('bg-accent',            _ebRangeOpen);
+    btn.classList.toggle('text-foreground',       _ebRangeOpen);
+    btn.classList.toggle('text-muted-foreground', !_ebRangeOpen);
+  }
+}
+
+// ── Field / unit helpers ────────────────────────────────────────────────────
+function _ebGetField(id)        { return _exprFields.find(function(f){ return f.id === id; }); }
+function _ebGetUnit(field, idx) { return (field && field.units && idx >= 0) ? (field.units[idx] || null) : null; }
+
+// _ebComputeVal: apply unit conversion to a raw string value.
+function _ebComputeVal(rawVal, field, unitIdx) {
+  var v = parseFloat(rawVal);
+  if (isNaN(v)) return rawVal;
+  var u = _ebGetUnit(field, unitIdx);
+  if (!u) return v;
+  if (u.ta) return Math.floor(Date.now() / 1000) - v * u.ta;  // time-ago → unix ts
+  return (u.f && u.f !== 1) ? Math.round(v * u.f) : v;
+}
+
+function _ebBuildAtom(field, op, computedVal) {
+  var s = String(computedVal);
+  if (op === 'contains')   return field.id + ' contains "'   + s + '"';
+  if (op === 'startsWith') return field.id + ' startsWith "' + s + '"';
+  if (op === 'endsWith')   return field.id + ' endsWith "'   + s + '"';
+  if (field.type === 'text' || field.type === 'enum') return field.id + ' ' + op + ' "' + s + '"';
+  return field.id + ' ' + op + ' ' + s;
+}
+
+// _ebCondToExpr: serialize a cond or group to expr string.
+function _ebCondToExpr(c) {
+  if (c.kind === 'group') {
+    var inner = c.conditions.map(function(cc, i) {
+      return (i === 0 ? '' : (cc.join === 'or' ? ' || ' : ' && ')) + _ebCondToExpr(cc);
+    }).join('');
+    return '(' + inner + ')';
+  }
+  var field = _ebGetField(c.fieldId);
+  if (!field) return '';
+  var v1 = _ebComputeVal(c.rawVal, field, c.unitIdx);
+  var e1 = _ebBuildAtom(field, c.op, v1);
+  if (c.rangeOp && c.rawVal2 !== '') {
+    var uIdx2 = c.unitIdx2 >= 0 ? c.unitIdx2 : c.unitIdx;
+    var v2    = _ebComputeVal(c.rawVal2, field, uIdx2);
+    return '(' + e1 + ' && ' + _ebBuildAtom(field, c.rangeOp, v2) + ')';
+  }
+  return e1;
+}
+
+// _ebCondLabel: human-readable label for staged-row display.
+function _ebCondLabel(c) {
+  if (c.kind === 'group') return '( ' + c.conditions.length + ' conditions )';
+  var field = _ebGetField(c.fieldId);
+  if (!field) return c.rawVal || '';
+  var u1  = _ebGetUnit(field, c.unitIdx);
+  var lbl = field.label + ' ' + c.op + ' ' + c.rawVal + (u1 ? '\u202f' + u1.label : '');
+  if (c.rangeOp && c.rawVal2 !== '') {
+    var uIdx2 = c.unitIdx2 >= 0 ? c.unitIdx2 : c.unitIdx;
+    var u2    = _ebGetUnit(field, uIdx2);
+    lbl += ' and ' + c.rangeOp + ' ' + c.rawVal2 + (u2 ? '\u202f' + u2.label : '');
+  }
+  return lbl;
+}
+
+// ── Builder init + field-change ─────────────────────────────────────────────
 function initExprBuilder() {
   var sel = document.getElementById('eb-field');
   if (!sel || sel.options.length > 0) return;
@@ -971,47 +1099,277 @@ function initExprBuilder() {
   exprBuilderFieldChanged();
 }
 
+// _ebValInput: input + optional unit select for a field.
+function _ebValInput(valId, unitId, field) {
+  var cls   = 'h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring';
+  var enter = 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();ebStageAdd();}"';
+  if (field.type === 'enum') {
+    return '<select id="'+valId+'" class="'+cls+'">'+
+      field.values.map(function(v){ return '<option value="'+v+'">'+(_stateLabels[v]||v)+'</option>'; }).join('')+'</select>';
+  }
+  var hasUnits = field.type === 'number' && field.units && field.units.length;
+  var wCls  = hasUnits ? 'w-16' : 'w-24';
+  var tAttr = field.type === 'number' ? 'type="number" step="any"' : 'type="text"';
+  var html  = '<input id="'+valId+'" '+tAttr+' placeholder="value" '+enter+' class="'+cls+' '+wCls+'"/>';
+  if (hasUnits) {
+    html += '<select id="'+unitId+'" class="'+cls+' ml-1">';
+    field.units.forEach(function(u, i) {
+      html += '<option value="'+i+'"'+(u.dflt ? ' selected' : '')+'>'+u.label+'</option>';
+    });
+    html += '</select>';
+  }
+  return html;
+}
+
 function exprBuilderFieldChanged() {
   var sel = document.getElementById('eb-field');
   if (!sel) return;
-  var field = _exprFields.find(function(f){ return f.id === sel.value; });
+  var field = _ebGetField(sel.value);
   if (!field) return;
-  var opSel = document.getElementById('eb-op');
-  var valContainer = document.getElementById('eb-val-container');
-  if (!opSel || !valContainer) return;
-  var ops = field.type === 'number' ? _exprOpsNumber : field.type === 'enum' ? _exprOpsEnum : _exprOpsText;
-  opSel.innerHTML = ops.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('');
-  if (field.type === 'enum') {
-    valContainer.innerHTML = '<select id="eb-val" class="h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring">' +
-      field.values.map(function(v){ return '<option value="'+v+'">'+(_stateLabels[v]||v)+'</option>'; }).join('') + '</select>';
-  } else if (field.type === 'number') {
-    valContainer.innerHTML = '<input id="eb-val" type="number" step="any" placeholder="value" class="h-7 w-24 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" onkeydown="if(event.key===\'Enter\'){event.preventDefault();exprBuilderAdd();}"/>';
-  } else {
-    valContainer.innerHTML = '<input id="eb-val" type="text" placeholder="value" class="h-7 w-28 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring" onkeydown="if(event.key===\'Enter\'){event.preventDefault();exprBuilderAdd();}"/>';
-  }
+  var opSel  = document.getElementById('eb-op'),  opSel2  = document.getElementById('eb-op2');
+  var valC   = document.getElementById('eb-val-container'), val2C = document.getElementById('eb-val2-container');
+  if (!opSel || !valC) return;
+  var ops    = field.type === 'number' ? _exprOpsNumber : field.type === 'enum' ? _exprOpsEnum : _exprOpsText;
+  var opOpts = ops.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('');
+  opSel.innerHTML = opOpts;
+  if (opSel2) opSel2.innerHTML = opOpts;
+  valC.innerHTML  = _ebValInput('eb-val',  'eb-unit',  field);
+  if (val2C) val2C.innerHTML = _ebValInput('eb-val2', 'eb-unit2', field);
 }
 
-function exprBuilderAdd() {
+// ── Stage: add / update ─────────────────────────────────────────────────────
+function _ebReadInputs() {
   var fieldSel = document.getElementById('eb-field');
   var opSel    = document.getElementById('eb-op');
   var valEl    = document.getElementById('eb-val');
-  if (!fieldSel || !opSel || !valEl) return;
-  var field = _exprFields.find(function(f){ return f.id === fieldSel.value; });
-  if (!field) return;
-  var op  = opSel.value;
+  var unitSel  = document.getElementById('eb-unit');
+  if (!fieldSel || !opSel || !valEl) return null;
+  var field = _ebGetField(fieldSel.value);
+  if (!field) return null;
   var val = valEl.value.trim();
-  if (val === '') return;
-  var cond;
-  if (op === 'contains')    cond = field.id + ' contains "' + val + '"';
-  else if (op === 'startsWith') cond = field.id + ' startsWith "' + val + '"';
-  else if (op === 'endsWith')   cond = field.id + ' endsWith "' + val + '"';
-  else if (field.type === 'text' || field.type === 'enum') cond = field.id + ' ' + op + ' "' + val + '"';
-  else cond = field.id + ' ' + op + ' ' + val;
+  if (val === '') return null;
+  var unitIdx = unitSel ? parseInt(unitSel.value, 10) : -1;
+  var rangeOp = null, rawVal2 = '', unitIdx2 = -1;
+  if (_ebRangeOpen) {
+    var op2Sel   = document.getElementById('eb-op2');
+    var val2El   = document.getElementById('eb-val2');
+    var unit2Sel = document.getElementById('eb-unit2');
+    if (op2Sel && val2El && val2El.value.trim() !== '') {
+      rangeOp  = op2Sel.value;
+      rawVal2  = val2El.value.trim();
+      unitIdx2 = unit2Sel ? parseInt(unit2Sel.value, 10) : unitIdx;
+    }
+  }
+  return { kind:'cond', join:_ebJoin, checked:false,
+    fieldId:fieldSel.value, op:opSel.value,
+    rawVal:val, unitIdx:unitIdx,
+    rangeOp:rangeOp, rawVal2:rawVal2, unitIdx2:unitIdx2 };
+}
+
+function ebStageAdd() {
+  var c = _ebReadInputs();
+  if (!c) return;
+  if (_ebEditPath !== null) {
+    var ep     = _ebEditPath;
+    var target = ep.innerIdx !== null
+      ? _ebConditions[ep.rootIdx].conditions[ep.innerIdx]
+      : _ebConditions[ep.rootIdx];
+    c.join = target.join;   // preserve existing connector
+    if (ep.innerIdx !== null) _ebConditions[ep.rootIdx].conditions[ep.innerIdx] = c;
+    else _ebConditions[ep.rootIdx] = c;
+    _ebEditPath = null;
+    var addBtn = document.getElementById('eb-add-btn'); if (addBtn) addBtn.textContent = '+ Add';
+    var cancel = document.getElementById('eb-cancel-edit'); if (cancel) cancel.classList.add('hidden');
+  } else {
+    _ebConditions.push(c);
+  }
+  document.getElementById('eb-val').value = '';
+  var v2 = document.getElementById('eb-val2'); if (v2) v2.value = '';
+  ebRenderConditions();
+}
+
+// ── Edit existing condition ─────────────────────────────────────────────────
+function ebEditCond(rootIdx, innerIdx) {
+  var c = innerIdx !== null
+    ? _ebConditions[rootIdx].conditions[innerIdx]
+    : _ebConditions[rootIdx];
+  if (!c || c.kind !== 'cond') return;
+  _ebEditPath = { rootIdx:rootIdx, innerIdx:innerIdx };
+
+  var fieldSel = document.getElementById('eb-field');
+  if (fieldSel) { fieldSel.value = c.fieldId; exprBuilderFieldChanged(); }
+  var opSel = document.getElementById('eb-op');  if (opSel) opSel.value = c.op;
+  var valEl = document.getElementById('eb-val'); if (valEl) valEl.value = c.rawVal;
+  var uSel  = document.getElementById('eb-unit'); if (uSel && c.unitIdx >= 0) uSel.value = c.unitIdx;
+
+  if (c.rangeOp) {
+    if (!_ebRangeOpen) ebToggleRange();
+    var op2  = document.getElementById('eb-op2');   if (op2)  op2.value  = c.rangeOp;
+    var val2 = document.getElementById('eb-val2');  if (val2) val2.value = c.rawVal2;
+    var u2   = document.getElementById('eb-unit2'); if (u2 && c.unitIdx2 >= 0) u2.value = c.unitIdx2;
+  } else {
+    if (_ebRangeOpen) ebToggleRange();
+  }
+  var addBtn = document.getElementById('eb-add-btn'); if (addBtn) addBtn.textContent = '\u2713 Update';
+  var cancel = document.getElementById('eb-cancel-edit'); if (cancel) cancel.classList.remove('hidden');
+}
+
+function ebCancelEdit() {
+  _ebEditPath = null;
+  var addBtn = document.getElementById('eb-add-btn'); if (addBtn) addBtn.textContent = '+ Add';
+  var cancel = document.getElementById('eb-cancel-edit'); if (cancel) cancel.classList.add('hidden');
+}
+
+// ── Render staged conditions ────────────────────────────────────────────────
+function ebRenderConditions() {
+  var list     = document.getElementById('eb-conditions');
+  var footer   = document.getElementById('eb-footer');
+  var groupBtn = document.getElementById('eb-group-btn');
+  if (!list) return;
+
+  var checkedCount = _ebConditions.filter(function(c){ return c.checked; }).length;
+  if (groupBtn) groupBtn.classList.toggle('hidden', checkedCount < 2);
+  if (footer)   footer.classList.toggle('hidden', _ebConditions.length === 0);
+
+  var JAC = 'inline-flex h-5 px-1.5 rounded-l text-[10px] font-semibold cursor-pointer select-none transition-colors';
+  var JOC = 'inline-flex h-5 px-1.5 rounded-r text-[10px] font-semibold cursor-pointer select-none transition-colors';
+
+  function joinPill(item, ri, ii) {
+    var isOr  = item.join === 'or';
+    var iiArg = ii !== null ? ',' + ii : ',null';
+    return '<div class="inline-flex rounded border border-border overflow-hidden shrink-0">'
+      + '<button type="button" class="'+JAC+(isOr  ? ' bg-muted text-muted-foreground' : ' bg-primary text-primary-foreground')+'" onclick="ebToggleJoin('+ri+iiArg+',\'and\')">AND</button>'
+      + '<button type="button" class="'+JOC+(!isOr ? ' bg-muted text-muted-foreground' : ' bg-primary text-primary-foreground')+'" onclick="ebToggleJoin('+ri+iiArg+',\'or\')">OR</button>'
+      + '</div>';
+  }
+
+  function condRow(c, ri, ii) {
+    var inGroup  = ii !== null;
+    var showJoin = inGroup ? ii > 0 : ri > 0;
+    var join     = showJoin ? joinPill(c, ri, inGroup ? ii : null) : '';
+    var iiArg    = ii !== null ? ii : 'null';
+    var lbl      = _escHtml(_ebCondLabel(c));
+    return '<li class="eb-cond-row flex items-center gap-1 rounded bg-muted/40 px-1.5 py-0.5'+(inGroup ? ' ml-2' : '')+'">'
+      + '<span class="cursor-grab text-muted-foreground shrink-0">\u2807</span>'
+      + (!inGroup ? '<input type="checkbox" class="shrink-0 rounded"'+(c.checked ? ' checked' : '')+' onchange="ebToggleCheck('+ri+')" />' : '')
+      + join
+      + '<code class="flex-1 text-xs font-mono truncate min-w-0 mx-0.5" title="'+lbl+'">'+lbl+'</code>'
+      + '<button type="button" onclick="ebEditCond('+ri+','+iiArg+')" class="shrink-0 text-muted-foreground hover:text-foreground transition-colors text-xs" title="Edit">\u270e</button>'
+      + '<button type="button" onclick="ebRemoveCond('+ri+','+iiArg+')" class="shrink-0 text-muted-foreground hover:text-destructive transition-colors text-sm leading-none" title="Remove">\u00d7</button>'
+      + '</li>';
+  }
+
+  list.innerHTML = _ebConditions.map(function(c, i) {
+    if (c.kind === 'group') {
+      var gJoin  = i > 0 ? joinPill(c, i, null) : '';
+      var inner  = c.conditions.map(function(cc, j){ return condRow(cc, i, j); }).join('');
+      return '<li class="eb-cond-row list-none rounded border border-border/60 bg-muted/20 p-1" data-root="'+i+'">'
+        + '<div class="flex items-center gap-1 mb-0.5">'
+        + '<span class="cursor-grab text-muted-foreground shrink-0">\u2807</span>'
+        + '<input type="checkbox" class="shrink-0 rounded"'+(c.checked ? ' checked' : '')+' onchange="ebToggleCheck('+i+')" />'
+        + gJoin
+        + '<span class="text-[10px] text-muted-foreground flex-1 ml-0.5">Group ('+c.conditions.length+')</span>'
+        + '<button type="button" onclick="ebUngroupAt('+i+')" class="text-[10px] text-muted-foreground hover:text-foreground transition-colors" title="Ungroup">\u21b1 ungroup</button>'
+        + '<button type="button" onclick="ebRemoveCond('+i+',null)" class="shrink-0 text-muted-foreground hover:text-destructive transition-colors text-sm leading-none ml-1">\u00d7</button>'
+        + '</div>'
+        + '<ol class="eb-group-inner space-y-0.5 list-none" data-gidx="'+i+'">'+inner+'</ol>'
+        + '</li>';
+    }
+    return condRow(c, i, null);
+  }).join('');
+
+  // Root Sortable.
+  if (_ebSortable) { _ebSortable.destroy(); _ebSortable = null; }
+  if (_ebConditions.length > 1 && window.Sortable) {
+    _ebSortable = Sortable.create(list, {
+      animation: 120, handle: '.eb-cond-row', ghostClass: 'opacity-40',
+      onEnd: function(evt) {
+        if (evt.oldIndex === evt.newIndex) return;
+        var moved = _ebConditions.splice(evt.oldIndex, 1)[0];
+        _ebConditions.splice(evt.newIndex, 0, moved);
+        ebRenderConditions();
+      },
+    });
+  }
+  // Per-group inner Sortables.
+  list.querySelectorAll('.eb-group-inner').forEach(function(el) {
+    var gIdx = parseInt(el.dataset.gidx, 10);
+    if (!window.Sortable || !_ebConditions[gIdx] || _ebConditions[gIdx].conditions.length < 2) return;
+    Sortable.create(el, {
+      animation: 120, handle: '.eb-cond-row', ghostClass: 'opacity-40',
+      onEnd: function(evt) {
+        if (evt.oldIndex === evt.newIndex) return;
+        var grp   = _ebConditions[gIdx].conditions;
+        var moved = grp.splice(evt.oldIndex, 1)[0];
+        grp.splice(evt.newIndex, 0, moved);
+        ebRenderConditions();
+      },
+    });
+  });
+}
+
+// ── Mutation helpers ────────────────────────────────────────────────────────
+function ebToggleJoin(rootIdx, innerIdx, j) {
+  var t = (innerIdx !== null && _ebConditions[rootIdx])
+    ? _ebConditions[rootIdx].conditions[innerIdx]
+    : _ebConditions[rootIdx];
+  if (t) { t.join = j; ebRenderConditions(); }
+}
+
+function ebRemoveCond(rootIdx, innerIdx) {
+  if (innerIdx !== null) {
+    _ebConditions[rootIdx].conditions.splice(innerIdx, 1);
+    if (_ebConditions[rootIdx].conditions.length === 0) _ebConditions.splice(rootIdx, 1);
+  } else {
+    _ebConditions.splice(rootIdx, 1);
+  }
+  ebRenderConditions();
+}
+
+function ebToggleCheck(rootIdx) {
+  if (_ebConditions[rootIdx]) { _ebConditions[rootIdx].checked = !_ebConditions[rootIdx].checked; ebRenderConditions(); }
+}
+
+function ebGroupChecked() {
+  var idxs = [];
+  _ebConditions.forEach(function(c, i){ if (c.checked) idxs.push(i); });
+  if (idxs.length < 2) return;
+  var kids = idxs.map(function(i){ return Object.assign({}, _ebConditions[i], { checked:false }); });
+  var groupJoin = kids[0].join; kids[0].join = 'and';
+  var group = { kind:'group', join:groupJoin, checked:false, conditions:kids };
+  var at = idxs[0];
+  for (var i = idxs.length - 1; i >= 0; i--) _ebConditions.splice(idxs[i], 1);
+  _ebConditions.splice(at, 0, group);
+  ebRenderConditions();
+}
+
+function ebUngroupAt(rootIdx) {
+  var g = _ebConditions[rootIdx];
+  if (!g || g.kind !== 'group') return;
+  var kids = g.conditions.map(function(c){ return Object.assign({}, c, {checked:false}); });
+  if (kids.length) kids[0].join = g.join;
+  [].splice.apply(_ebConditions, [rootIdx, 1].concat(kids));
+  ebRenderConditions();
+}
+
+function ebClearAll() {
+  _ebConditions = [];
+  ebCancelEdit();
+  ebRenderConditions();
+}
+
+// ebCommit — serialize staged list → #current-expr and fire refresh.
+function ebCommit() {
+  if (_ebConditions.length === 0) return;
+  var built = _ebConditions.map(function(c, i) {
+    return (i === 0 ? '' : (c.join === 'or' ? ' || ' : ' && ')) + _ebCondToExpr(c);
+  }).join('');
   var exprEl = document.getElementById('current-expr');
-  if (exprEl) { exprEl.value = exprEl.value ? exprEl.value + ' && ' + cond : cond; }
-  valEl.value = '';
-  renderFilterChips();
-  triggerTableRefresh();
+  if (!exprEl) return;
+  var prev = exprEl.value.trim();
+  exprEl.value = (prev && prev !== built) ? '(' + prev + ') && (' + built + ')' : built;
+  _ebConditions = []; ebCancelEdit(); ebRenderConditions();
+  renderFilterChips(); triggerTableRefresh();
 }
 
 // ── Filter chips ────────────────────────────────────────────────────────────

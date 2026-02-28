@@ -17,6 +17,8 @@ templ Base(p BaseProps) {
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<meta name="color-scheme" content="light dark"/>
+			<!-- HTMX config: swap 422 responses so validation errors are rendered inline -->
+			<meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true}]}'/>
 			<!-- Prevent Alpine.js x-cloak elements from flashing before init -->
 			<style>[x-cloak]{display:none !important}</style>
 			<title>
