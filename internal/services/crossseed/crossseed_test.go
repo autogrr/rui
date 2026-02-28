@@ -1287,7 +1287,56 @@ func TestPartialInPackMovieCollectionIntegration(t *testing.T) {
 		"partial-in-pack single file into folder uses SavePath, Subfolder layout creates folder")
 }
 
-// TestCrossSeed_TorrentCreationAndParsing tests creating torrents and extracting info
+func TestFindBestCandidateMatch_SingleFileSourceVsPackWithSample(t *testing.T) {
+	t.Parallel()
+
+	svc := &Service{
+		releaseCache:     releases.NewDefaultParser(),
+		stringNormalizer: stringutils.NewDefaultNormalizer(),
+	}
+
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("A.Real.File.That.Exists.1998.S11E11.1080p.WEB.h264-SOMEGROUP.mkv"), Size: qbt.Ptr(int64(2276921754))},
+	}
+
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("A.Real.File.That.Exists.1998.S11E11.1080p.WEB.h264-SOMEGROUP/A.Real.File.That.Exists.1998.S11E11.1080p.WEB.h264-SOMEGROUP.mkv"), Size: qbt.Ptr(int64(2276921754))},
+		{Name: qbt.Ptr("A.Real.File.That.Exists.1998.S11E11.1080p.WEB.h264-SOMEGROUP/Sample/a.real.file.that.exists.1998.s11e11.1080p.web.h264-somegroup.sample.mkv"), Size: qbt.Ptr(int64(52936909))},
+		{Name: qbt.Ptr("A.Real.File.That.Exists.1998.S11E11.1080p.WEB.h264-SOMEGROUP/a.real.file.that.exists.1998.s11e11.1080p.web.h264-somegroup.nfo"), Size: qbt.Ptr(int64(494))},
+		{Name: qbt.Ptr("A.Real.File.That.Exists.1998.S11E11.1080p.WEB.h264-SOMEGROUP/a.Real.file.that.exists.1998.s11e11.1080p.web.h264-somegroup.srr"), Size: qbt.Ptr(int64(4956))},
+	}
+
+	sourceRelease := svc.releaseCache.Parse("A.Real.File.That.Exists.1998.S11E11.1080p.WEB.h264-SOMEGROUP")
+
+	candidate := CrossSeedCandidate{
+		InstanceID:   1,
+		InstanceName: "test",
+		Torrents: []qbt.Torrent{{
+			Hash:     qbt.Ptr("abc123"),
+			Name:     qbt.Ptr("A.Real.File.That.Exists.1998.S11E11.1080p.WEB.h264-SOMEGROUP"),
+			Progress: qbt.Ptr(float64(1.0)),
+		}},
+	}
+
+	filesByHash := map[string][]qbt.TorrentFile{
+		"abc123": candidateFiles,
+	}
+
+	matchedTorrent, _, matchType, _ := svc.findBestCandidateMatch(
+		context.Background(),
+		candidate,
+		sourceRelease,
+		sourceFiles,
+		filesByHash,
+		5.0,
+	)
+
+	require.NotNil(t, matchedTorrent,
+		"single-file source should match candidate pack containing same episode with extra files")
+	require.Equal(t, "partial-contains", matchType,
+		"single-file source matched against pack with extras should produce partial-contains match")
+}
+
 func TestCrossSeed_TorrentCreationAndParsing(t *testing.T) {
 	tests := []struct {
 		name        string

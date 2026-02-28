@@ -1,0 +1,342 @@
+// Copyright (c) 2025-2026, s0up and the autobrr contributors.
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+package crossseed
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	qbt "github.com/autogrr/go-qbittorrent"
+	"github.com/stretchr/testify/require"
+
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/pkg/stringutils"
+)
+
+func TestProcessCrossSeedCandidate_PartialContainsExtrasRootlessRequiresLinkMode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceID := 1
+	matchedHash := "matchedhash"
+	newHash := "newhash"
+	torrentName := "Movie.2024.1080p.WEB-DL-GROUP"
+
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.1080p.WEB-DL-GROUP.mkv"), Size: qbt.Ptr(int64(1000))},
+	}
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.1080p.WEB-DL-GROUP/Movie.2024.1080p.WEB-DL-GROUP.mkv"), Size: qbt.Ptr(int64(1000))},
+		{Name: qbt.Ptr("Movie.2024.1080p.WEB-DL-GROUP/Sample/sample.mkv"), Size: qbt.Ptr(int64(100))},
+	}
+
+	matchedTorrent := qbt.Torrent{
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(torrentName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		ContentPath: qbt.Ptr("/downloads/Movie.2024.1080p.WEB-DL-GROUP.mkv"),
+	}
+
+	sync := &rootlessSavePathSyncManager{
+		files: map[string][]qbt.TorrentFile{
+			normalizeHash(matchedHash): candidateFiles,
+		},
+		props: map[string]*qbt.TorrentProperties{
+			normalizeHash(matchedHash): {SavePath: qbt.Ptr("/downloads")},
+		},
+	}
+
+	instanceStore := &rootlessSavePathInstanceStore{
+		instances: map[int]*models.Instance{
+			instanceID: {
+				ID:           instanceID,
+				UseHardlinks: false,
+				UseReflinks:  false,
+			},
+		},
+	}
+
+	service := &Service{
+		syncManager:      sync,
+		instanceStore:    instanceStore,
+		releaseCache:     NewReleaseCache(),
+		stringNormalizer: stringutils.NewDefaultNormalizer(),
+		automationSettingsLoader: func(context.Context) (*models.CrossSeedAutomationSettings, error) {
+			return models.DefaultCrossSeedAutomationSettings(), nil
+		},
+	}
+
+	candidate := CrossSeedCandidate{
+		InstanceID:   instanceID,
+		InstanceName: "test",
+		Torrents:     []qbt.Torrent{matchedTorrent},
+	}
+
+	result := service.processCrossSeedCandidate(
+		ctx,
+		candidate,
+		[]byte("torrent"),
+		newHash,
+		"",
+		torrentName,
+		&CrossSeedRequest{},
+		service.releaseCache.Parse(torrentName),
+		sourceFiles,
+		nil,
+	)
+
+	require.False(t, result.Success)
+	require.Equal(t, "requires_hardlink_reflink", result.Status)
+	require.Contains(t, result.Message, "requires hardlink or reflink mode")
+	require.Nil(t, sync.addedOptions, "regular mode must skip before AddTorrent")
+}
+
+func TestProcessCrossSeedCandidate_SizeFallbackExtrasRootlessRequiresLinkMode(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceID := 1
+	matchedHash := "matchedhash"
+	newHash := "newhash"
+	torrentName := "Unparsable.Release.Name-XYZ"
+
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("video.main.mkv"), Size: qbt.Ptr(int64(1000))},
+	}
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Unparsable.Release.Name-XYZ/video.main.mkv"), Size: qbt.Ptr(int64(1000))},
+		{Name: qbt.Ptr("Unparsable.Release.Name-XYZ/Sample/sample.mkv"), Size: qbt.Ptr(int64(100))},
+	}
+
+	matchedTorrent := qbt.Torrent{
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(torrentName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		ContentPath: qbt.Ptr("/downloads/video.main.mkv"),
+	}
+
+	sync := &rootlessSavePathSyncManager{
+		files: map[string][]qbt.TorrentFile{
+			normalizeHash(matchedHash): candidateFiles,
+		},
+		props: map[string]*qbt.TorrentProperties{
+			normalizeHash(matchedHash): {SavePath: qbt.Ptr("/downloads")},
+		},
+	}
+
+	instanceStore := &rootlessSavePathInstanceStore{
+		instances: map[int]*models.Instance{
+			instanceID: {
+				ID:           instanceID,
+				UseHardlinks: false,
+				UseReflinks:  false,
+			},
+		},
+	}
+
+	service := &Service{
+		syncManager:      sync,
+		instanceStore:    instanceStore,
+		releaseCache:     NewReleaseCache(),
+		stringNormalizer: stringutils.NewDefaultNormalizer(),
+		automationSettingsLoader: func(context.Context) (*models.CrossSeedAutomationSettings, error) {
+			return models.DefaultCrossSeedAutomationSettings(), nil
+		},
+	}
+
+	candidate := CrossSeedCandidate{
+		InstanceID:   instanceID,
+		InstanceName: "test",
+		Torrents:     []qbt.Torrent{matchedTorrent},
+	}
+
+	result := service.processCrossSeedCandidate(
+		ctx,
+		candidate,
+		[]byte("torrent"),
+		newHash,
+		"",
+		torrentName,
+		&CrossSeedRequest{},
+		service.releaseCache.Parse(torrentName),
+		sourceFiles,
+		nil,
+	)
+
+	require.False(t, result.Success)
+	require.Equal(t, "requires_hardlink_reflink", result.Status)
+	require.Contains(t, result.Message, "requires hardlink or reflink mode")
+	require.Nil(t, sync.addedOptions, "regular mode must skip before AddTorrent")
+}
+
+func TestProcessCrossSeedCandidate_PartialContainsExtrasRootlessHardlinkModeBypassesGuard(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceID := 1
+	matchedHash := "matchedhash"
+	newHash := "newhash"
+	torrentName := "Movie.2024.1080p.WEB-DL-GROUP"
+
+	tempDir := t.TempDir()
+	downloadsDir := filepath.Join(tempDir, "downloads")
+	require.NoError(t, os.MkdirAll(downloadsDir, 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(downloadsDir, "Movie.2024.1080p.WEB-DL-GROUP.mkv"),
+		[]byte("movie"),
+		0o600,
+	))
+
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.1080p.WEB-DL-GROUP.mkv"), Size: qbt.Ptr(int64(5))},
+	}
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.1080p.WEB-DL-GROUP/Movie.2024.1080p.WEB-DL-GROUP.mkv"), Size: qbt.Ptr(int64(5))},
+		{Name: qbt.Ptr("Movie.2024.1080p.WEB-DL-GROUP/Sample/sample.mkv"), Size: qbt.Ptr(int64(1))},
+	}
+
+	matchedTorrent := qbt.Torrent{
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(torrentName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		ContentPath: qbt.Ptr(filepath.Join(downloadsDir, "Movie.2024.1080p.WEB-DL-GROUP.mkv")),
+	}
+
+	sync := &rootlessSavePathSyncManager{
+		files: map[string][]qbt.TorrentFile{
+			normalizeHash(matchedHash): candidateFiles,
+		},
+		props: map[string]*qbt.TorrentProperties{
+			normalizeHash(matchedHash): {SavePath: qbt.Ptr(downloadsDir)},
+		},
+	}
+
+	instanceStore := &rootlessSavePathInstanceStore{
+		instances: map[int]*models.Instance{
+			instanceID: {
+				ID:                       instanceID,
+				UseHardlinks:             true,
+				UseReflinks:              false,
+				HasLocalFilesystemAccess: true,
+				HardlinkBaseDir:          filepath.Join(tempDir, "hardlinks"),
+			},
+		},
+	}
+
+	service := &Service{
+		syncManager:      sync,
+		instanceStore:    instanceStore,
+		releaseCache:     NewReleaseCache(),
+		stringNormalizer: stringutils.NewDefaultNormalizer(),
+		automationSettingsLoader: func(context.Context) (*models.CrossSeedAutomationSettings, error) {
+			return models.DefaultCrossSeedAutomationSettings(), nil
+		},
+	}
+
+	candidate := CrossSeedCandidate{
+		InstanceID:   instanceID,
+		InstanceName: "test",
+		Torrents:     []qbt.Torrent{matchedTorrent},
+	}
+
+	result := service.processCrossSeedCandidate(
+		ctx,
+		candidate,
+		[]byte("torrent"),
+		newHash,
+		"",
+		torrentName,
+		&CrossSeedRequest{},
+		service.releaseCache.Parse(torrentName),
+		sourceFiles,
+		nil,
+	)
+
+	require.True(t, result.Success)
+	require.Equal(t, "added_hardlink", result.Status)
+	require.NotEqual(t, "requires_hardlink_reflink", result.Status)
+	require.NotNil(t, sync.addedOptions, "hardlink mode should proceed to AddTorrent")
+}
+
+func TestProcessCrossSeedCandidate_PartialContainsExtrasRootlessReflinkModeBypassesGuard(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	instanceID := 1
+	matchedHash := "matchedhash"
+	newHash := "newhash"
+	torrentName := "Movie.2024.1080p.WEB-DL-GROUP"
+
+	candidateFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.1080p.WEB-DL-GROUP.mkv"), Size: qbt.Ptr(int64(1000))},
+	}
+	sourceFiles := []qbt.TorrentFile{
+		{Name: qbt.Ptr("Movie.2024.1080p.WEB-DL-GROUP/Movie.2024.1080p.WEB-DL-GROUP.mkv"), Size: qbt.Ptr(int64(1000))},
+		{Name: qbt.Ptr("Movie.2024.1080p.WEB-DL-GROUP/Sample/sample.mkv"), Size: qbt.Ptr(int64(100))},
+	}
+
+	matchedTorrent := qbt.Torrent{
+		Hash:        qbt.Ptr(matchedHash),
+		Name:        qbt.Ptr(torrentName),
+		Progress:    qbt.Ptr(float64(1.0)),
+		ContentPath: qbt.Ptr("/downloads/Movie.2024.1080p.WEB-DL-GROUP.mkv"),
+	}
+
+	sync := &rootlessSavePathSyncManager{
+		files: map[string][]qbt.TorrentFile{
+			normalizeHash(matchedHash): candidateFiles,
+		},
+		props: map[string]*qbt.TorrentProperties{
+			normalizeHash(matchedHash): {SavePath: qbt.Ptr("/downloads")},
+		},
+	}
+
+	instanceStore := &rootlessSavePathInstanceStore{
+		instances: map[int]*models.Instance{
+			instanceID: {
+				ID:                    instanceID,
+				UseHardlinks:          false,
+				UseReflinks:           true,
+				FallbackToRegularMode: false,
+				HardlinkBaseDir:       "",
+			},
+		},
+	}
+
+	service := &Service{
+		syncManager:      sync,
+		instanceStore:    instanceStore,
+		releaseCache:     NewReleaseCache(),
+		stringNormalizer: stringutils.NewDefaultNormalizer(),
+		automationSettingsLoader: func(context.Context) (*models.CrossSeedAutomationSettings, error) {
+			return models.DefaultCrossSeedAutomationSettings(), nil
+		},
+	}
+
+	candidate := CrossSeedCandidate{
+		InstanceID:   instanceID,
+		InstanceName: "test",
+		Torrents:     []qbt.Torrent{matchedTorrent},
+	}
+
+	result := service.processCrossSeedCandidate(
+		ctx,
+		candidate,
+		[]byte("torrent"),
+		newHash,
+		"",
+		torrentName,
+		&CrossSeedRequest{},
+		service.releaseCache.Parse(torrentName),
+		sourceFiles,
+		nil,
+	)
+
+	require.False(t, result.Success)
+	require.Equal(t, "reflink_error", result.Status)
+	require.NotEqual(t, "requires_hardlink_reflink", result.Status)
+	require.Nil(t, sync.addedOptions, "reflink mode should fail before AddTorrent when misconfigured")
+}

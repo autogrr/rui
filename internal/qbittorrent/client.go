@@ -538,8 +538,6 @@ func (c *Client) StartSyncManager(ctx context.Context) error {
 	return syncManager.Start(ctx)
 }
 
-const completionProgressThreshold = 0.9999
-
 const torrentAddedGraceWindow = 60 * time.Second
 
 func (c *Client) handleCompletionUpdates(data *qbt.MainData) {
@@ -666,27 +664,7 @@ func isTorrentComplete(t *qbt.Torrent) bool {
 		return false
 	}
 
-	if ptrFloat64(t.Progress) < completionProgressThreshold {
-		return false
-	}
-
-	switch ptrTorrentState(t.State) {
-	case qbt.StateDownloading,
-		qbt.StateMetaDL,
-		qbt.StatePausedDL,
-		qbt.StateStoppedDL,
-		qbt.StateQueuedDL,
-		qbt.StateStalledDL,
-		qbt.StateCheckingDL,
-		qbt.StateForcedDL,
-		qbt.StateCheckingResumeData,
-		qbt.StateAllocating,
-		qbt.StateMoving,
-		qbt.StateUnknown:
-		return false
-	default:
-		return true
-	}
+	return qbt.Deref(t.CompletionOn) > 0
 }
 
 // GetOrCreatePeerSyncManager gets or creates a PeerSyncManager for a specific torrent

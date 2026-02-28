@@ -3034,8 +3034,15 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 			rule := ruleByID[state.categoryRuleID]
 			if rule == nil {
 				// GroupId semantics are strict all-or-none: unresolved grouping rules are skipped.
+				// Legacy includeCrossSeeds should still apply to the trigger even if expansion can't be resolved.
+				if state.categoryIncludeCrossSeeds {
+					expandedHashes = append(expandedHashes, hash)
+				}
 				continue
 			}
+
+			catAction := getCategoryAction(rule)
+			legacyIncludeCrossSeeds := catAction.includeCrossSeeds
 
 			k := groupExpandKey{ruleID: rule.ID, groupID: state.categoryGroupID}
 			idx := groupIndexByKey[k]
@@ -3044,11 +3051,17 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 				groupIndexByKey[k] = idx
 			}
 			if idx == nil {
+				if legacyIncludeCrossSeeds {
+					expandedHashes = append(expandedHashes, hash)
+				}
 				continue
 			}
 
 			groupKey := idx.KeyForHash(hash)
 			if groupKey == "" {
+				if legacyIncludeCrossSeeds {
+					expandedHashes = append(expandedHashes, hash)
+				}
 				continue
 			}
 			if groupEligibilityByKey[k] == nil {
@@ -3060,8 +3073,9 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 				if !s.shouldExpandGroupWithAmbiguityPolicy(ctx, instanceID, rule, state.categoryGroupID, idx, hash, torrentByHash) {
 					eligible = false
 				}
-				if eligible {
-					catAction := getCategoryAction(rule)
+				// Legacy includeCrossSeeds expands the batch without requiring every group member
+				// to satisfy the action condition (e.g. TAG matches). GroupId is strict all-or-none.
+				if eligible && !legacyIncludeCrossSeeds {
 					if evalCtx != nil && catAction.condition != nil && ConditionUsesField(catAction.condition, FieldFreeSpace) {
 						evalCtx.LoadFreeSpaceSourceState(GetFreeSpaceRuleKey(rule))
 					}
@@ -3074,8 +3088,14 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 				groupEligibilityByKey[k][groupKey] = eligible
 			}
 			if !eligible {
+				if legacyIncludeCrossSeeds {
+					expandedHashes = append(expandedHashes, hash)
+				}
 				continue
 			}
+
+			// For legacy includeCrossSeeds: always apply to the trigger; expand related torrents when eligible.
+			// For explicit groupId: strict all-or-none (only include if group eligibility is satisfied).
 			expandedHashes = append(expandedHashes, hash)
 			if keysToExpand[k] == nil {
 				keysToExpand[k] = make(map[string]struct{})
@@ -4716,8 +4736,14 @@ func (s *Service) recordDryRunActivities(
 					rule = ruleByID[state.categoryRuleID]
 				}
 				if rule == nil {
+					if state.categoryIncludeCrossSeeds {
+						expandedHashes = append(expandedHashes, hash)
+					}
 					continue
 				}
+
+				catAction := getCategoryAction(rule)
+				legacyIncludeCrossSeeds := catAction.includeCrossSeeds
 
 				rgk := ruleGroupKey{ruleID: state.categoryRuleID, groupID: state.categoryGroupID}
 				gid := state.categoryGroupID
@@ -4727,10 +4753,16 @@ func (s *Service) recordDryRunActivities(
 					groupIndexByGroupID[rgk] = idx
 				}
 				if idx == nil {
+					if legacyIncludeCrossSeeds {
+						expandedHashes = append(expandedHashes, hash)
+					}
 					continue
 				}
 				groupKey := idx.KeyForHash(hash)
 				if groupKey == "" {
+					if legacyIncludeCrossSeeds {
+						expandedHashes = append(expandedHashes, hash)
+					}
 					continue
 				}
 				if groupEligibilityByGroupID[rgk] == nil {
@@ -4742,8 +4774,7 @@ func (s *Service) recordDryRunActivities(
 					if !s.shouldExpandGroupWithAmbiguityPolicy(ctx, instanceID, rule, gid, idx, hash, torrentByHash) {
 						eligible = false
 					}
-					if eligible {
-						catAction := getCategoryAction(rule)
+					if eligible && !legacyIncludeCrossSeeds {
 						if previewEvalCtx != nil && catAction.condition != nil && ConditionUsesField(catAction.condition, FieldFreeSpace) {
 							previewEvalCtx.LoadFreeSpaceSourceState(GetFreeSpaceRuleKey(rule))
 						}
@@ -4756,6 +4787,9 @@ func (s *Service) recordDryRunActivities(
 					groupEligibilityByGroupID[rgk][groupKey] = eligible
 				}
 				if !eligible {
+					if legacyIncludeCrossSeeds {
+						expandedHashes = append(expandedHashes, hash)
+					}
 					continue
 				}
 				expandedHashes = append(expandedHashes, hash)
