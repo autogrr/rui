@@ -12,7 +12,7 @@ require (
 	github.com/anacrolix/torrent v1.60.0
 	github.com/andybalholm/brotli v1.2.0
 	github.com/autobrr/autobrr v1.72.1
-	github.com/autogrr/go-qbittorrent v0.0.0-20260228035939-28a9cd214d8d
+	github.com/autogrr/go-qbittorrent v0.0.4
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/coreos/go-oidc/v3 v3.17.0
