@@ -251,13 +251,13 @@ func (s *Service) scanInstance(ctx context.Context, instanceID int, settings *mo
 		if !s.torrentMeetsCriteria(torrent, settings) {
 			continue
 		}
-		// Skip if we have tracker data and it shows healthy.
+		// Skip if we have inline tracker data and it shows healthy.
 		// For older qBittorrent without IncludeTrackers, Trackers will be empty
 		// and we'll enqueue the torrent - executeJob will check fresh tracker status.
-		if false { // trackers not available inline in new library
+		if len(torrent.Trackers) > 0 && s.hasHealthyTracker(torrent.Trackers) {
 			continue
 		}
-		trackers := s.getProblematicTrackers(nil)
+		trackers := s.getProblematicTrackers(torrent.Trackers)
 		s.enqueue(instanceID, strings.ToUpper(qbt.Deref(torrent.Hash)), qbt.Deref(torrent.Name), trackers)
 	}
 }

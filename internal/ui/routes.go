@@ -4,8 +4,11 @@
 package ui
 
 import (
+	"encoding/json"
 	"io/fs"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -39,7 +42,49 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 		if err != nil {
 			panic("ui: failed to create static sub-FS: " + err.Error())
 		}
-		r.Handle("/static/*", http.StripPrefix(h.baseURL()+"/ui/static", http.FileServerFS(staticFS)))
+		// Wrap with long-lived Cache-Control since embedded assets are
+		// immutable for a given binary. embed.FS has zero ModTime so
+		// http.FileServerFS sets no caching headers on its own.
+		staticHandler := http.StripPrefix(
+			h.baseURL()+"/ui/static",
+			staticCacheHeaders(http.FileServerFS(staticFS)),
+		)
+		r.Handle("/static/*", staticHandler)
+
+		// Build precache manifest — core JS + CSS, skip themes
+		// (users only use 1 of 44) and sw.js itself.
+		precacheManifest := buildPrecacheManifest(h.baseURL())
+
+		// Service worker — served from /ui/sw.js so its default scope
+		// covers all /ui/* pages. Precache manifest is injected at
+		// response time so it stays in sync with the embedded assets.
+		r.Get("/sw.js", func(w http.ResponseWriter, _ *http.Request) {
+			data, err := uistatic.Files.ReadFile("js/sw.js")
+			if err != nil {
+				http.Error(w, "not found", http.StatusNotFound)
+				return
+			}
+			// Inject the precache manifest into the JS source.
+			body := strings.Replace(
+				string(data),
+				"/*PRECACHE_MANIFEST*/[]/*END_PRECACHE_MANIFEST*/",
+				precacheManifest,
+				1,
+			)
+			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Service-Worker-Allowed", h.baseURL()+"/ui/")
+			_, _ = w.Write([]byte(body))
+		})
+
+		// Server-side SW kill switch — GET /ui/sw-uninstall clears all
+		// service-worker-related data via Clear-Site-Data header. Works
+		// even when the SW itself is broken and can't process messages.
+		r.Get("/sw-uninstall", func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Clear-Site-Data", `"storage"`)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(`<!doctype html><html><body><p>Service worker uninstalled.</p><script>setTimeout(function(){location.href='` + h.baseURL() + `/ui/dashboard';},500);</script></body></html>`))
+		})
 
 		// ----------------------------------------------------------
 		// Unauthenticated routes (still check setup where needed)
@@ -112,6 +157,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Get("/partials/torrents/export/{hash}", h.GetTorrentExport)
 			r.Post("/partials/torrents/add-trackers", h.PostTorrentAddTrackers)
 			r.Post("/partials/torrents/remove-trackers", h.PostTorrentRemoveTrackers)
+			r.Post("/partials/torrents/edit-tracker", h.PostTorrentEditTracker)
+			r.Post("/partials/torrents/rename-file", h.PostTorrentRenameFile)
+			r.Post("/partials/torrents/ban-peers", h.PostTorrentBanPeers)
+			r.Post("/partials/torrents/add-peers", h.PostTorrentAddPeers)
 			// SSE stream — pushes torrent-update events; HTMX SSE extension picks
 			// these up to trigger table refreshes while preserving filter state.
 			r.Get("/sse/torrents", h.StreamTorrentsSSE)
@@ -258,4 +307,47 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Get("/ui", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, h.baseURL()+"/ui/dashboard", http.StatusFound)
 	})
+}
+
+// ------------------------------------------------------------------
+// Static-asset helpers
+// ------------------------------------------------------------------
+
+// staticCacheHeaders wraps an http.Handler to set long-lived caching headers
+// for embedded static assets. embed.FS files have a zero ModTime so the Go
+// file server sets no caching headers on its own.
+func staticCacheHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 1 year, immutable. The SW stale-while-revalidate handles freshness;
+		// this is a belt-and-suspenders layer for browsers without SW support.
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// buildPrecacheManifest walks the embedded static FS and returns a JSON array
+// string of URLs for core JS and CSS files (excludes themes/ and sw.js).
+func buildPrecacheManifest(baseURL string) string {
+	var urls []string
+
+	_ = fs.WalkDir(uistatic.Files, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+
+		// Skip theme CSS (44 files, user uses 0-1), the SW itself, and the embed.go source.
+		dir := filepath.Dir(path)
+		if dir == "themes" || path == "js/sw.js" {
+			return nil
+		}
+
+		ext := filepath.Ext(path)
+		if ext == ".js" || ext == ".css" {
+			urls = append(urls, baseURL+"/ui/static/"+filepath.ToSlash(path))
+		}
+		return nil
+	})
+
+	b, _ := json.Marshal(urls)
+	return string(b)
 }

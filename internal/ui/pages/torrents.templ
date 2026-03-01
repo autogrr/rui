@@ -2487,6 +2487,85 @@ function handleAddTrackers(hash, instanceID, urls) {
   });
 }
 
+// Helper: refresh the detail panel after a mutation.
+function _refreshDetailPanel(hash, instanceID) {
+  var panel = document.getElementById('torrent-detail-panel');
+  if (panel) htmx.ajax('GET', _vtBaseURL + '/ui/partials/torrents/' + hash + '?instance_id=' + instanceID, {target: panel, swap: 'innerHTML'});
+}
+
+// Edit tracker URL (called from tracker context menu).
+function handleDetailEditTracker(hash, instanceID, oldURL, newURL) {
+  if (!oldURL || !newURL || oldURL === newURL) return;
+  var body = new URLSearchParams();
+  body.append('hash', hash);
+  body.append('instance_id', instanceID);
+  body.append('old_url', oldURL);
+  body.append('new_url', newURL);
+  fetch(_vtBaseURL + '/ui/partials/torrents/edit-tracker', { method: 'POST', body: body, credentials: 'same-origin' }).then(function(resp) {
+    if (resp.ok) _refreshDetailPanel(hash, instanceID);
+  });
+}
+
+// Remove tracker (called from tracker context menu).
+function handleDetailRemoveTracker(hash, instanceID, url) {
+  if (!url || !confirm('Remove tracker: ' + url + '?')) return;
+  var body = new URLSearchParams();
+  body.append('hash', hash);
+  body.append('instance_id', instanceID);
+  body.append('url', url);
+  fetch(_vtBaseURL + '/ui/partials/torrents/remove-trackers', { method: 'POST', body: body, credentials: 'same-origin' }).then(function(resp) {
+    if (resp.ok) _refreshDetailPanel(hash, instanceID);
+  });
+}
+
+// Set file priority from context menu.
+function handleDetailFilePriority(hash, instanceID, fileIndex, priority) {
+  var body = new URLSearchParams();
+  body.append('hash', hash);
+  body.append('instance_id', instanceID);
+  body.append('indices', String(fileIndex));
+  body.append('priority', String(priority));
+  fetch(_vtBaseURL + '/ui/partials/torrents/file-priority', { method: 'POST', body: body, credentials: 'same-origin' }).then(function(resp) {
+    if (resp.ok) _refreshDetailPanel(hash, instanceID);
+  });
+}
+
+// Rename file (called from file context menu).
+function handleDetailRenameFile(hash, instanceID, oldPath, newPath) {
+  if (!oldPath || !newPath || oldPath === newPath) return;
+  var body = new URLSearchParams();
+  body.append('hash', hash);
+  body.append('instance_id', instanceID);
+  body.append('old_path', oldPath);
+  body.append('new_path', newPath);
+  fetch(_vtBaseURL + '/ui/partials/torrents/rename-file', { method: 'POST', body: body, credentials: 'same-origin' }).then(function(resp) {
+    if (resp.ok) _refreshDetailPanel(hash, instanceID);
+  });
+}
+
+// Ban peer (called from peer context menu).
+function handleDetailBanPeer(instanceID, peerAddr) {
+  if (!peerAddr || !confirm('Ban peer: ' + peerAddr + '?')) return;
+  var body = new URLSearchParams();
+  body.append('instance_id', instanceID);
+  body.append('peers', peerAddr);
+  fetch(_vtBaseURL + '/ui/partials/torrents/ban-peers', { method: 'POST', body: body, credentials: 'same-origin' }).then(function(resp) {
+    // No panel refresh needed — peer will disappear on next SSE update.
+  });
+}
+
+// Add peers to a torrent (called from peer tab).
+function handleDetailAddPeers(hash, instanceID, peers) {
+  if (!peers || !peers.trim()) return;
+  var body = new URLSearchParams();
+  body.append('hash', hash);
+  body.append('instance_id', instanceID);
+  body.append('peers', peers.trim());
+  fetch(_vtBaseURL + '/ui/partials/torrents/add-peers', { method: 'POST', body: body, credentials: 'same-origin' }).then(function(resp) {
+    if (resp.ok) _refreshDetailPanel(hash, instanceID);
+  });
+}
+
 // ── Column visibility ────────────────────────────────────────────────────────
 var _tblColDefaults = JSON.parse(document.getElementById('col-defaults-json').textContent);
 var _tblCols = (function() {

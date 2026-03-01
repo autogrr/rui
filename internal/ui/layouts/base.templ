@@ -30,22 +30,74 @@ templ Base(p BaseProps) {
 			</title>
 			<!-- Favicon -->
 			<link rel="icon" type="image/svg+xml" href={ p.BaseURL + "/ui/static/favicon.svg" }/>
-			<!-- CSS (Tailwind-compiled, includes theme variables) -->
+			<!-- CSS (Tailwind-compiled, base theme only — theme overrides loaded dynamically) -->
 			<link rel="stylesheet" href={ p.BaseURL + "/ui/static/output.css" }/>
-			<!-- Theme initializer: apply dark class before first paint to prevent FOUC -->
+			<!-- Dynamic theme stylesheet — populated by the init script below -->
+			<link id="theme-css" rel="stylesheet" href=""/>
+			<!-- Theme initializer: apply dark class + load theme CSS before first paint to prevent FOUC -->
 			<script>
 				(function () {
-					var theme = localStorage.getItem('qui_theme') || 'system';
+					var theme = localStorage.getItem('rui:theme') || localStorage.getItem('qui_theme') || 'system';
 					var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 					if (isDark) document.documentElement.classList.add('dark');
 					else document.documentElement.classList.remove('dark');
 					var colorTheme = localStorage.getItem('rui:color-theme');
-					if (colorTheme) document.documentElement.setAttribute('data-theme', colorTheme);
-					else document.documentElement.removeAttribute('data-theme');
+					if (colorTheme === 'custom') {
+						document.documentElement.setAttribute('data-theme', 'custom');
+						var s = localStorage.getItem('rui:custom-theme');
+						if (s) {
+							try {
+								var c = JSON.parse(s);
+								var L=c.l, C=c.c, h=c.h;
+								var dL=Math.min(L+0.15,0.80), dC=C*0.88;
+								function v(l,ch){return 'oklch('+l+' '+ch.toFixed(4)+' '+h+')';}
+								var lt=':root[data-theme="custom"]{'+
+									'--background:'+v(0.995,C*0.015)+';--foreground:'+v(0.21,C*0.06)+';'+
+									'--card:oklch(1 0 0);--card-foreground:'+v(0.21,C*0.06)+';'+
+									'--popover:oklch(1 0 0);--popover-foreground:'+v(0.21,C*0.06)+';'+
+									'--primary:oklch('+L+' '+C+' '+h+');--primary-foreground:oklch(1 0 0);'+
+									'--secondary:'+v(0.96,C*0.04)+';--secondary-foreground:'+v(0.21,C*0.06)+';'+
+									'--muted:'+v(0.96,C*0.04)+';--muted-foreground:'+v(0.55,C*0.09)+';'+
+									'--accent:'+v(0.958,C*0.07)+';--accent-foreground:'+v(0.21,C*0.06)+';'+
+									'--destructive:oklch(0.577 0.215 27.3);--destructive-foreground:oklch(1 0 0);'+
+									'--border:'+v(0.92,C*0.05)+';--input:'+v(0.96,C*0.03)+';'+
+									'--ring:oklch('+L+' '+C+' '+h+');'+
+									'--sidebar:'+v(0.98,C*0.02)+';--sidebar-foreground:'+v(0.37,C*0.08)+';'+
+									'--sidebar-primary:oklch('+L+' '+C+' '+h+');--sidebar-primary-foreground:oklch(1 0 0);'+
+									'--sidebar-accent:oklch('+L+' '+C+' '+h+');--sidebar-accent-foreground:oklch(1 0 0);'+
+									'--sidebar-border:'+v(0.92,C*0.05)+';--sidebar-ring:oklch('+L+' '+C+' '+h+');}';
+								var dk='.dark[data-theme="custom"]{'+
+									'--background:'+v(0.18,C*0.07)+';--foreground:'+v(0.92,C*0.04)+';'+
+									'--card:'+v(0.24,C*0.08)+';--card-foreground:'+v(0.92,C*0.04)+';'+
+									'--popover:'+v(0.24,C*0.08)+';--popover-foreground:'+v(0.92,C*0.04)+';'+
+									'--primary:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--primary-foreground:oklch(1 0 0);'+
+									'--secondary:'+v(0.34,C*0.09)+';--secondary-foreground:'+v(0.92,C*0.04)+';'+
+									'--muted:'+v(0.26,C*0.07)+';--muted-foreground:'+v(0.70,C*0.07)+';'+
+									'--accent:'+v(0.35,C*0.16)+';--accent-foreground:'+v(0.98,C*0.02)+';'+
+									'--destructive:oklch(0.637 0.208 25.3);--destructive-foreground:oklch(0.98 0 0);'+
+									'--border:'+v(0.30,C*0.07)+';--input:'+v(0.34,C*0.09)+';'+
+									'--ring:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');'+
+									'--sidebar:'+v(0.16,C*0.06)+';--sidebar-foreground:'+v(0.70,C*0.07)+';'+
+									'--sidebar-primary:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--sidebar-primary-foreground:oklch(1 0 0);'+
+									'--sidebar-accent:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--sidebar-accent-foreground:oklch(1 0 0);'+
+									'--sidebar-border:'+v(0.30,C*0.07)+';--sidebar-ring:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');}';
+								var el=document.createElement('style');
+								el.id='custom-theme-css';
+								el.textContent=lt+dk;
+								document.head.appendChild(el);
+							} catch(e) {}
+						}
+					} else if (colorTheme) {
+						document.documentElement.setAttribute('data-theme', colorTheme);
+						document.getElementById('theme-css').href = '/ui/static/themes/' + colorTheme + '.css';
+					} else {
+						document.documentElement.removeAttribute('data-theme');
+						document.getElementById('theme-css').removeAttribute('href');
+					}
 				})();
 			</script>
 		</head>
-		<body class="min-h-screen bg-background text-foreground antialiased">
+		<body hx-boost="true" class="min-h-screen bg-background text-foreground antialiased">
 			{ children... }
 			<!-- Toast region: empty container; toasts are injected dynamically via
 			     the 'toast' HTMX trigger event and processed by toast.min.js. -->
@@ -105,6 +157,61 @@ templ Base(p BaseProps) {
 			<script defer src={ p.BaseURL + "/ui/static/js/tagsinput.min.js" }></script>
 			<script defer src={ p.BaseURL + "/ui/static/js/textarea.min.js" }></script>
 			<script defer src={ p.BaseURL + "/ui/static/js/toast.min.js" }></script>
+			<!-- Service Worker registration + SPA helpers -->
+			<script>
+				(function () {
+					if (!('serviceWorker' in navigator)) return;
+					var m = location.pathname.match(/(.*?)\/ui\b/);
+					var base = m ? m[1] : '';
+					var showUpdateToast = function () {
+						// Guard: only show once per page lifecycle.
+						if (window._ruiUpdateShown) return;
+						window._ruiUpdateShown = true;
+						var region = document.getElementById('toast-region');
+						if (!region) return;
+						var el = document.createElement('div');
+						el.className = 'pointer-events-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-300';
+						el.innerHTML = '<div class="w-full bg-popover text-popover-foreground rounded-lg shadow-md border px-4 py-3 flex items-center gap-2 border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400">'
+							+ '<span class="mr-2 text-base" aria-hidden="true">\u2139\ufe0f</span>'
+							+ '<span class="flex-1 min-w-0 text-sm">A new version is available.</span>'
+							+ '<button onclick="location.reload()" class="shrink-0 text-xs font-medium px-2.5 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">Reload</button>'
+							+ '</div>';
+						region.appendChild(el);
+					};
+					// Register — browser no-ops if already active.
+					navigator.serviceWorker.register(base + '/ui/sw.js', { scope: base + '/ui/' }).then(function (reg) {
+						// Poll for updates every 60 s so long-lived tabs notice new deployments.
+						setInterval(function () { reg.update(); }, 60000);
+						// Detect when a new SW is found and waiting/activating.
+						reg.addEventListener('updatefound', function () {
+							var newSW = reg.installing;
+							if (!newSW) return;
+							newSW.addEventListener('statechange', function () {
+								// Only show toast when the NEW sw becomes active and there
+								// was already a controller (i.e. this is an update, not first install).
+								if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
+									showUpdateToast();
+								}
+							});
+						});
+					});
+					// Listen for messages from the SW.
+					navigator.serviceWorker.addEventListener('message', function (e) {
+						if (e.data && e.data.type === 'SW_UNINSTALLED') location.reload();
+						if (e.data && e.data.type === 'SW_UPDATED') showUpdateToast();
+					});
+					// Global kill switch — call from console or settings page.
+					window.ruiUninstallSW = function () {
+						if (navigator.serviceWorker.controller) {
+							navigator.serviceWorker.controller.postMessage({ type: 'UNINSTALL' });
+						} else {
+							navigator.serviceWorker.getRegistration().then(function (reg) {
+								if (reg) reg.unregister().then(function () { location.reload(); });
+							});
+						}
+					};
+				})();
+			</script>
 		</body>
 	</html>
 }

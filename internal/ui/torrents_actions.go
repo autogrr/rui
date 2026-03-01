@@ -355,3 +355,126 @@ func (h *Handler) PostTorrentRemoveTrackers(w http.ResponseWriter, r *http.Reque
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// PostTorrentEditTracker edits a tracker URL for a torrent.
+// Route: POST /ui/partials/torrents/edit-tracker
+func (h *Handler) PostTorrentEditTracker(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	hash := r.FormValue("hash")
+	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
+	oldURL := strings.TrimSpace(r.FormValue("old_url"))
+	newURL := strings.TrimSpace(r.FormValue("new_url"))
+
+	if h.syncManager == nil || hash == "" || instanceID == 0 || oldURL == "" || newURL == "" {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.syncManager.BulkEditTrackers(r.Context(), instanceID, []string{hash}, oldURL, newURL); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PostTorrentRenameFile renames a file inside a torrent.
+// Route: POST /ui/partials/torrents/rename-file
+func (h *Handler) PostTorrentRenameFile(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	hash := r.FormValue("hash")
+	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
+	oldPath := strings.TrimSpace(r.FormValue("old_path"))
+	newPath := strings.TrimSpace(r.FormValue("new_path"))
+
+	if h.syncManager == nil || hash == "" || instanceID == 0 || oldPath == "" || newPath == "" {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.syncManager.RenameTorrentFile(r.Context(), instanceID, hash, oldPath, newPath); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PostTorrentBanPeers bans the specified peers.
+// Route: POST /ui/partials/torrents/ban-peers
+func (h *Handler) PostTorrentBanPeers(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
+	peersStr := strings.TrimSpace(r.FormValue("peers"))
+
+	if h.syncManager == nil || instanceID == 0 || peersStr == "" {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	peers := strings.Split(peersStr, "\n")
+	cleaned := make([]string, 0, len(peers))
+	for _, p := range peers {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			cleaned = append(cleaned, p)
+		}
+	}
+	if len(cleaned) == 0 {
+		http.Error(w, "no peers specified", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.syncManager.BanPeers(r.Context(), instanceID, cleaned); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PostTorrentAddPeers adds peers to the specified torrent.
+// Route: POST /ui/partials/torrents/add-peers
+func (h *Handler) PostTorrentAddPeers(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	hash := r.FormValue("hash")
+	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
+	peersStr := strings.TrimSpace(r.FormValue("peers"))
+
+	if h.syncManager == nil || hash == "" || instanceID == 0 || peersStr == "" {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	peers := strings.Split(peersStr, "\n")
+	cleaned := make([]string, 0, len(peers))
+	for _, p := range peers {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			cleaned = append(cleaned, p)
+		}
+	}
+	if len(cleaned) == 0 {
+		http.Error(w, "no peers specified", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.syncManager.AddPeersToTorrents(r.Context(), instanceID, []string{hash}, cleaned); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

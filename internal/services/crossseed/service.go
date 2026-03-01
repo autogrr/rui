@@ -5376,7 +5376,12 @@ func (s *Service) detectGazelleSourceSite(torrent *qbt.Torrent) (string, bool) {
 	seen := make(map[string]struct{}, 2)
 
 	candidates := []string{qbt.Deref(torrent.Tracker)}
-	// torrent.Trackers field removed in new library - use primary tracker only
+	// Also include inline tracker URLs when available (populated via IncludeTrackers).
+	for _, t := range torrent.Trackers {
+		if url := qbt.Deref(t.URL); url != "" {
+			candidates = append(candidates, url)
+		}
+	}
 	for _, c := range candidates {
 		domain := normalizeLowerTrim(s.syncManager.ExtractDomainFromURL(strings.TrimSpace(c)))
 		if domain == "" || domain == "unknown" {
@@ -8424,7 +8429,14 @@ func (s *Service) extractTrackerDomainsFromTorrent(torrent *qbt.Torrent) []strin
 		}
 	}
 
-	// torrent.Trackers removed in new library - primary tracker handled above
+	// Also add domains from inline tracker data when available (populated via IncludeTrackers).
+	for _, t := range torrent.Trackers {
+		if url := qbt.Deref(t.URL); url != "" && s.syncManager != nil {
+			if domain := s.syncManager.ExtractDomainFromURL(url); domain != "" && domain != "Unknown" {
+				domains[domain] = struct{}{}
+			}
+		}
+	}
 
 	// Convert to slice
 	var result []string

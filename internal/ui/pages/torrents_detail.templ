@@ -152,7 +152,7 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 			</div>
 
 			<!-- Files tab -->
-			<div x-show="tab === 'files'">
+			<div x-show="tab === 'files'" x-data="{ fileCtx: { show: false, x: 0, y: 0, name: '', index: -1, hash: '', instance: '' }, renameDialog: false, renameOld: '', renameNew: '' }">
 				if len(p.Files) == 0 {
 					<p class="p-3 text-muted-foreground">No file information available.</p>
 				} else {
@@ -168,7 +168,10 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 						</thead>
 						<tbody class="divide-y divide-border">
 							for _, f := range p.Files {
-								<tr class="hover:bg-muted/40">
+								<tr
+									class="hover:bg-muted/40"
+									@contextmenu.prevent={ fmt.Sprintf("fileCtx = { show: true, x: $event.clientX, y: $event.clientY, name: %q, index: %d, hash: %q, instance: %q }", qbt.Deref(f.Name), qbt.Deref(f.Index), p.Hash, strconv.Itoa(p.InstanceID)) }
+								>
 									<td class="px-3 py-1 text-muted-foreground tabular-nums">
 										{ strconv.Itoa(qbt.Deref(f.Index)) }
 									</td>
@@ -208,10 +211,49 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 						</tbody>
 					</table>
 				}
+				<!-- File context menu -->
+				<div
+					x-show="fileCtx.show"
+					x-cloak
+					@click.outside="fileCtx.show = false"
+					@keydown.escape.window="fileCtx.show = false"
+					:style="'left:' + fileCtx.x + 'px; top:' + fileCtx.y + 'px'"
+					class="fixed z-[60] min-w-[10rem] rounded-lg border border-border bg-background shadow-xl py-1 text-xs"
+				>
+					<button type="button" @click="renameOld = fileCtx.name; renameNew = fileCtx.name; renameDialog = true; fileCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename
+					</button>
+					<div class="my-1 border-t border-border"></div>
+					<button type="button" @click="handleDetailFilePriority(fileCtx.hash, fileCtx.instance, fileCtx.index, 1); fileCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Normal Priority</button>
+					<button type="button" @click="handleDetailFilePriority(fileCtx.hash, fileCtx.instance, fileCtx.index, 6); fileCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">High Priority</button>
+					<button type="button" @click="handleDetailFilePriority(fileCtx.hash, fileCtx.instance, fileCtx.index, 7); fileCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Maximum Priority</button>
+					<button type="button" @click="handleDetailFilePriority(fileCtx.hash, fileCtx.instance, fileCtx.index, 0); fileCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors text-muted-foreground">Skip</button>
+					<div class="my-1 border-t border-border"></div>
+					<button type="button" @click="navigator.clipboard.writeText(fileCtx.name); fileCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy Path
+					</button>
+				</div>
+				<!-- Rename file dialog -->
+				<div x-show="renameDialog" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+					<div class="w-96 rounded-xl border border-border bg-background shadow-xl p-5 space-y-3" @click.outside="renameDialog = false">
+						<h3 class="font-semibold text-sm">Rename File</h3>
+						<p class="text-xs text-muted-foreground truncate" x-text="renameOld"></p>
+						<input
+							x-model="renameNew"
+							type="text"
+							class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							@keydown.enter="handleDetailRenameFile(fileCtx.hash, fileCtx.instance, renameOld, renameNew); renameDialog = false"
+						/>
+						<div class="flex justify-end gap-2">
+							<button @click="renameDialog = false" class="rounded px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent">Cancel</button>
+							<button @click="handleDetailRenameFile(fileCtx.hash, fileCtx.instance, renameOld, renameNew); renameDialog = false" class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Rename</button>
+						</div>
+					</div>
+				</div>
 			</div>
 
 			<!-- Trackers tab -->
-			<div x-show="tab === 'trackers'" x-data="{ showAddTracker: false, newTrackerURLs: '' }">
+			<div x-show="tab === 'trackers'" x-data="{ showAddTracker: false, newTrackerURLs: '', trkCtx: { show: false, x: 0, y: 0, url: '', hash: '', instance: '', isReal: false }, editDialog: false, editOld: '', editNew: '' }">
 				if len(p.Trackers) == 0 {
 					<p class="p-3 text-muted-foreground">No trackers available.</p>
 				} else {
@@ -222,12 +264,14 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">Seeds</th>
 								<th class="px-3 py-1.5 font-medium text-muted-foreground text-right w-16">Peers</th>
 								<th class="px-3 py-1.5 font-medium text-muted-foreground w-24">Status</th>
-								<th class="px-3 py-1.5 font-medium text-muted-foreground w-8"></th>
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-border">
 							for _, tr := range p.Trackers {
-								<tr class="hover:bg-muted/40 group">
+								<tr
+									class="hover:bg-muted/40 group"
+									@contextmenu.prevent={ fmt.Sprintf("trkCtx = { show: true, x: $event.clientX, y: $event.clientY, url: %q, hash: %q, instance: %q, isReal: %t }", qbt.Deref(tr.URL), p.Hash, strconv.Itoa(p.InstanceID), isRealTrackerURL(qbt.Deref(tr.URL))) }
+								>
 									<td class="px-3 py-1 max-w-xs">
 										<span class="block truncate text-xs" title={ qbt.Deref(tr.URL) }>{ qbt.Deref(tr.URL) }</span>
 										if qbt.Deref(tr.Message) != "" {
@@ -253,24 +297,53 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 											{ trackerStatusLabel(int(qbt.Deref(tr.Status))) }
 										</span>
 									</td>
-									<td class="px-3 py-1">
-										if isRealTrackerURL(qbt.Deref(tr.URL)) {
-											<button
-												class="tracker-remove-btn opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground hover:text-destructive transition-all"
-												title="Remove tracker"
-												data-hash={ p.Hash }
-												data-instance={ strconv.Itoa(p.InstanceID) }
-												data-url={ qbt.Deref(tr.URL) }
-											>
-												<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-											</button>
-										}
-									</td>
 								</tr>
 							}
 						</tbody>
 					</table>
 				}
+				<!-- Tracker context menu -->
+				<div
+					x-show="trkCtx.show"
+					x-cloak
+					@click.outside="trkCtx.show = false"
+					@keydown.escape.window="trkCtx.show = false"
+					:style="'left:' + trkCtx.x + 'px; top:' + trkCtx.y + 'px'"
+					class="fixed z-[60] min-w-[10rem] rounded-lg border border-border bg-background shadow-xl py-1 text-xs"
+				>
+					<template x-if="trkCtx.isReal">
+						<div>
+							<button type="button" @click="editOld = trkCtx.url; editNew = trkCtx.url; editDialog = true; trkCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+								<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Edit Tracker
+							</button>
+							<button type="button" @click="handleDetailRemoveTracker(trkCtx.hash, trkCtx.instance, trkCtx.url); trkCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors">
+								<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>Remove Tracker
+							</button>
+							<div class="my-1 border-t border-border"></div>
+						</div>
+					</template>
+					<button type="button" @click="navigator.clipboard.writeText(trkCtx.url); trkCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy URL
+					</button>
+				</div>
+				<!-- Edit tracker dialog -->
+				<div x-show="editDialog" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-background/80 backdrop-blur-sm">
+					<div class="w-96 rounded-xl border border-border bg-background shadow-xl p-5 space-y-3" @click.outside="editDialog = false">
+						<h3 class="font-semibold text-sm">Edit Tracker</h3>
+						<p class="text-xs text-muted-foreground truncate" x-text="editOld"></p>
+						<input
+							x-model="editNew"
+							type="text"
+							placeholder="New tracker URL"
+							class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+							@keydown.enter="handleDetailEditTracker(trkCtx.hash, trkCtx.instance, editOld, editNew); editDialog = false"
+						/>
+						<div class="flex justify-end gap-2">
+							<button @click="editDialog = false" class="rounded px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent">Cancel</button>
+							<button @click="handleDetailEditTracker(trkCtx.hash, trkCtx.instance, editOld, editNew); editDialog = false" class="rounded bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">Save</button>
+						</div>
+					</div>
+				</div>
 				<!-- Add Tracker -->
 				<div class="border-t border-border p-2">
 					<template x-if="!showAddTracker">
@@ -312,7 +385,7 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 			</div>
 
 			<!-- Peers tab -->
-			<div x-show="tab === 'peers'">
+			<div x-show="tab === 'peers'" x-data="{ peerCtx: { show: false, x: 0, y: 0, ip: '', port: '', hash: '', instance: '', client: '' }, showAddPeers: false, newPeerAddrs: '' }">
 				if len(p.Peers) == 0 {
 					<p class="p-3 text-muted-foreground">No peers connected.</p>
 				} else {
@@ -328,7 +401,10 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 						</thead>
 						<tbody class="divide-y divide-border">
 							for _, peer := range p.Peers {
-								<tr class="hover:bg-muted/40">
+								<tr
+									class="hover:bg-muted/40"
+									@contextmenu.prevent={ fmt.Sprintf("peerCtx = { show: true, x: $event.clientX, y: $event.clientY, ip: %q, port: %q, hash: %q, instance: %q, client: %q }", qbt.Deref(peer.IP), strconv.Itoa(qbt.Deref(peer.Port)), p.Hash, strconv.Itoa(p.InstanceID), qbt.Deref(peer.Client)) }
+								>
 									<td class="px-3 py-1 tabular-nums whitespace-nowrap">
 										{ qbt.Deref(peer.IP) }:{ strconv.Itoa(qbt.Deref(peer.Port)) }
 									</td>
@@ -357,6 +433,67 @@ templ TorrentDetailPanel(p TorrentDetailProps) {
 						</tbody>
 					</table>
 				}
+				<!-- Peer context menu -->
+				<div
+					x-show="peerCtx.show"
+					x-cloak
+					@click.outside="peerCtx.show = false"
+					@keydown.escape.window="peerCtx.show = false"
+					:style="'left:' + peerCtx.x + 'px; top:' + peerCtx.y + 'px'"
+					class="fixed z-[60] min-w-[10rem] rounded-lg border border-border bg-background shadow-xl py-1 text-xs"
+				>
+					<button type="button" @click="handleDetailBanPeer(peerCtx.instance, peerCtx.ip + ':' + peerCtx.port); peerCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>Ban Peer
+					</button>
+					<div class="my-1 border-t border-border"></div>
+					<button type="button" @click="navigator.clipboard.writeText(peerCtx.ip); peerCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy IP
+					</button>
+					<button type="button" @click="navigator.clipboard.writeText(peerCtx.ip + ':' + peerCtx.port); peerCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy IP:Port
+					</button>
+					<button type="button" @click="navigator.clipboard.writeText(peerCtx.client); peerCtx.show = false" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy Client
+					</button>
+				</div>
+				<!-- Add Peers -->
+				<div class="border-t border-border p-2">
+					<template x-if="!showAddPeers">
+						<button
+							@click="showAddPeers = true"
+							class="flex items-center gap-1.5 text-xs text-primary hover:underline"
+						>
+							<svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+							Add Peers
+						</button>
+					</template>
+					<template x-if="showAddPeers">
+						<div class="space-y-2">
+							<textarea
+								x-model="newPeerAddrs"
+								rows="3"
+								placeholder="One peer per line (host:port)"
+								class="w-full rounded-md border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+							></textarea>
+							<div class="flex gap-2 justify-end">
+								<button
+									@click="showAddPeers = false; newPeerAddrs = ''"
+									class="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
+								>
+									Cancel
+								</button>
+								<button
+									class="rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+									data-hash={ p.Hash }
+									data-instance={ strconv.Itoa(p.InstanceID) }
+									@click="handleDetailAddPeers($el.dataset.hash, $el.dataset.instance, newPeerAddrs); showAddPeers = false; newPeerAddrs = ''"
+								>
+									Add
+								</button>
+							</div>
+						</div>
+					</template>
+				</div>
 			</div>
 
 			<!-- WebSeeds tab -->

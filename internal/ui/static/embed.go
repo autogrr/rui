@@ -7,5 +7,5 @@ package static
 
 import "embed"
 
-//go:embed output.css js
+//go:embed output.css js themes
 var Files embed.FS

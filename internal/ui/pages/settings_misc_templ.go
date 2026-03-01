@@ -325,7 +325,7 @@ func SettingsThemesSection(p SettingsProps) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "Choose the color scheme. Stored in your browser.")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "Choose appearance settings. Stored in your browser.")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -357,99 +357,247 @@ func SettingsThemesSection(p SettingsProps) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<div x-data=\"themePrefs()\" x-init=\"init()\" class=\"space-y-6\"><!-- Color scheme --><div class=\"space-y-3\"><label class=\"text-sm font-medium\">Color Scheme</label><div class=\"flex flex-wrap gap-3\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<div x-data=\"themePrefs()\" x-init=\"init()\" class=\"space-y-8\"><!-- Color scheme --><div class=\"space-y-3\"><label class=\"text-sm font-medium\">Color Scheme</label><div class=\"flex flex-wrap gap-3\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = themeOptionCard("system", "System", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = schemeCard("system", "System", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = themeOptionCard("light", "Light", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = schemeCard("light", "Light", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = themeOptionCard("dark", "Dark", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = schemeCard("dark", "Dark", `<svg class="h-5 w-5 mx-auto mb-1 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div></div><!-- Color theme --><div class=\"space-y-3\"><label class=\"text-sm font-medium\">Color Theme</label><div class=\"flex flex-wrap gap-3\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("", "Autobrr", "oklch(0.5461 0.2152 262.8809)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = separator.Separator(separator.Props{}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("amber_minimal", "Amber Minimal", "oklch(0.7686 0.1647 70.0804)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<!-- rui default --><div class=\"space-y-3\"><div><label class=\"text-sm font-medium\">rui Default</label><p class=\"text-xs text-muted-foreground mt-0.5\">Magenta — the signature rui accent</p></div><div class=\"flex flex-wrap gap-3\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("amethyst_haze", "Amethyst Haze", "oklch(0.6104 0.0767 299.7335)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = themeCard("", "rui Magenta", "oklch(0.575 0.198 349)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("bubblegum", "Bubblegum", "oklch(0.6209 0.1801 348.1385)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</div></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("catppuccin", "Catppuccin", "oklch(0.5547 0.2503 297.0156)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = separator.Separator(separator.Props{}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("claude", "Claude", "oklch(0.6171 0.1375 39.0427)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<!-- Colors of the Year --><div class=\"space-y-3\"><div><label class=\"text-sm font-medium\">Colors of the Year</label><p class=\"text-xs text-muted-foreground mt-0.5\">Curated themes inspired by the annual Color of the Year</p></div><div class=\"flex flex-wrap gap-3\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("cyberpunk", "Cyberpunk", "oklch(0.6726 0.2904 341.4084)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("mocha_mousse", "Mocha Mousse", "2025", "oklch(0.550 0.060 55)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("matrix", "The Matrix", "oklch(0.6271 0.1699 149.2138)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("peach_fuzz", "Peach Fuzz", "2024", "oklch(0.750 0.100 55)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("perpetuity", "Perpetuity", "oklch(0.5624 0.0947 203.2755)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("viva_magenta", "Viva Magenta", "2023", "oklch(0.500 0.200 10)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("synthwave", "Synthwave", "oklch(0.6942 0.2264 354.0533)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("very_peri", "Very Peri", "2022", "oklch(0.560 0.150 285)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("tangerine", "Tangerine", "oklch(0.6397 0.1720 36.4421)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("illuminating", "Illuminating", "2021", "oklch(0.850 0.160 95)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("kyle", "The Kyle", "oklch(0.5432 0.2254 351.5646)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("classic_blue", "Classic Blue", "2020", "oklch(0.430 0.130 260)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("minimal", "Minimal", "oklch(0.2050 0 0)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("living_coral", "Living Coral", "2019", "oklch(0.650 0.180 25)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("kitsune", "Kitsune", "oklch(0.65 0.15 350)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("ultra_violet", "Ultra Violet", "2018", "oklch(0.430 0.130 300)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("napster", "Napster", "oklch(0.30 0.14 265)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("greenery", "Greenery", "2017", "oklch(0.650 0.130 130)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("nightwalker", "Nightwalker", "oklch(0.6231 0.1880 259.8145)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("rose_quartz", "Rose Quartz", "2016", "oklch(0.680 0.095 10)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("nord", "Nord", "oklch(0.7746 0.0622 217.4690)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("marsala", "Marsala", "2015", "oklch(0.475 0.080 20)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = colorThemeCard("swizzin", "Swizzin", "oklch(0.4580 0.0732 250.9460)").Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = cotyCard("radiant_orchid", "Radiant Orchid", "2014", "oklch(0.550 0.140 325)").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</div></div><p class=\"text-xs text-muted-foreground\">The selection is applied immediately. No page reload required.</p></div>")
+				templ_7745c5c3_Err = cotyCard("emerald", "Emerald", "2013", "oklch(0.570 0.130 168)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("tangerine_tango", "Tangerine Tango", "2012", "oklch(0.550 0.200 28)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("honeysuckle", "Honeysuckle", "2011", "oklch(0.560 0.170 7)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("turquoise", "Turquoise", "2010", "oklch(0.620 0.100 185)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("mimosa", "Mimosa", "2009", "oklch(0.780 0.150 85)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("blue_iris", "Blue Iris", "2008", "oklch(0.475 0.130 280)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("chili_pepper", "Chili Pepper", "2007", "oklch(0.420 0.170 15)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("sand_dollar", "Sand Dollar", "2006", "oklch(0.600 0.065 60)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("blue_turquoise", "Blue Turquoise", "2005", "oklch(0.620 0.095 190)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("tigerlily", "Tigerlily", "2004", "oklch(0.580 0.190 30)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("aqua_sky", "Aqua Sky", "2003", "oklch(0.600 0.095 190)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("true_red", "True Red", "2002", "oklch(0.460 0.200 22)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("fuchsia_rose", "Fuchsia Rose", "2001", "oklch(0.520 0.170 350)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = cotyCard("cerulean", "Cerulean", "2000", "oklch(0.580 0.110 235)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = separator.Separator(separator.Props{}).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<!-- Community Themes (from qui) --><div class=\"space-y-3\"><div><label class=\"text-sm font-medium\">Community Themes</label><p class=\"text-xs text-muted-foreground mt-0.5\">Ported from <a href=\"https://github.com/autobrr/qui\" target=\"_blank\" rel=\"noopener\" class=\"underline decoration-muted-foreground/40 hover:text-primary hover:decoration-primary transition-colors\">qui</a></p></div><div class=\"flex flex-wrap gap-3\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("autobrr", "Autobrr", "oklch(0.546 0.215 262.9)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("amber_minimal", "Amber Minimal", "oklch(0.769 0.165 70.1)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("amethyst_haze", "Amethyst Haze", "oklch(0.610 0.077 299.7)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("bubblegum", "Bubblegum", "oklch(0.621 0.180 348.1)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("catppuccin", "Catppuccin", "oklch(0.555 0.250 297.0)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("claude", "Claude", "oklch(0.617 0.138 39.0)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("cyberpunk", "Cyberpunk", "oklch(0.673 0.290 341.4)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("kitsune", "Kitsune", "oklch(0.650 0.150 350)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("kyle", "The Kyle", "oklch(0.543 0.225 351.6)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("matrix", "The Matrix", "oklch(0.627 0.170 149.2)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("minimal", "Minimal", "oklch(0.205 0 0)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("napster", "Napster", "oklch(0.300 0.140 265)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("nightwalker", "Nightwalker", "oklch(0.623 0.188 259.8)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("nord", "Nord", "oklch(0.775 0.062 217.5)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("perpetuity", "Perpetuity", "oklch(0.562 0.095 203.3)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("swizzin", "Swizzin", "oklch(0.458 0.073 250.9)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("synthwave", "Synthwave", "oklch(0.694 0.226 354.1)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = themeCard("tangerine", "Tangerine", "oklch(0.640 0.172 36.4)").Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</div></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = separator.Separator(separator.Props{}).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<!-- Custom Theme Creator --><div class=\"space-y-3\"><div><label class=\"text-sm font-medium\">Custom Theme Creator</label><p class=\"text-xs text-muted-foreground mt-0.5\">Pick an accent color to generate a bespoke theme</p></div><div class=\"flex flex-wrap gap-2\"><template x-for=\"color in colorSwatches\" :key=\"color.name\"><button type=\"button\" class=\"group relative w-10 h-10 rounded-full ring-1 ring-border cursor-pointer transition-all hover:scale-110 hover:ring-2 hover:ring-primary\" :class=\"{'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110': colorTheme === 'custom' && customHue === color.h}\" :style=\"'background-color: oklch(' + color.l + ' ' + color.c + ' ' + color.h + ')'\" :title=\"color.name\" @click=\"applyCustomColor(color)\"></button></template></div><template x-if=\"colorTheme === 'custom' && customName\"><p class=\"text-xs text-primary font-medium\" x-text=\"'Active: ' + customName\"></p></template></div><p class=\"text-xs text-muted-foreground\">Selection is applied immediately. No page reload required.</p></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -465,7 +613,7 @@ func SettingsThemesSection(p SettingsProps) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<script>\n\t\tfunction themePrefs() {\n\t\t\treturn {\n\t\t\t\tscheme: 'system',\n\t\t\t\tcolorTheme: '',\n\t\t\t\tinit() {\n\t\t\t\t\tthis.scheme = localStorage.getItem('rui:theme') || 'system';\n\t\t\t\t\tthis.colorTheme = localStorage.getItem('rui:color-theme') || '';\n\t\t\t\t},\n\t\t\t\tselect(value) {\n\t\t\t\t\tthis.scheme = value;\n\t\t\t\t\tlocalStorage.setItem('rui:theme', value);\n\t\t\t\t\tapplyTheme(value);\n\t\t\t\t},\n\t\t\t\tselectColor(value) {\n\t\t\t\t\tthis.colorTheme = value;\n\t\t\t\t\tif (value) {\n\t\t\t\t\t\tlocalStorage.setItem('rui:color-theme', value);\n\t\t\t\t\t\tdocument.documentElement.setAttribute('data-theme', value);\n\t\t\t\t\t} else {\n\t\t\t\t\t\tlocalStorage.removeItem('rui:color-theme');\n\t\t\t\t\t\tdocument.documentElement.removeAttribute('data-theme');\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t};\n\t\t}\n\n\t\tfunction applyTheme(scheme) {\n\t\t\tconst prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n\t\t\tconst dark = scheme === 'dark' || (scheme === 'system' && prefersDark);\n\t\t\tdocument.documentElement.classList.toggle('dark', dark);\n\t\t}\n\n\t\t// Apply on page load\n\t\t(function() {\n\t\t\tconst stored = localStorage.getItem('rui:theme') || 'system';\n\t\t\tapplyTheme(stored);\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<script>\n\t\tfunction themePrefs() {\n\t\t\treturn {\n\t\t\t\tscheme: 'system',\n\t\t\t\tcolorTheme: '',\n\t\t\t\tcustomHue: null,\n\t\t\t\tcustomName: '',\n\t\t\t\tcolorSwatches: [\n\t\t\t\t\t{name:'Red',     l:0.55, c:0.22, h:25},\n\t\t\t\t\t{name:'Orange',  l:0.68, c:0.19, h:50},\n\t\t\t\t\t{name:'Yellow',  l:0.87, c:0.17, h:90},\n\t\t\t\t\t{name:'Green',   l:0.58, c:0.17, h:148},\n\t\t\t\t\t{name:'Teal',    l:0.56, c:0.12, h:195},\n\t\t\t\t\t{name:'Cyan',    l:0.56, c:0.12, h:225},\n\t\t\t\t\t{name:'Blue',    l:0.48, c:0.20, h:264},\n\t\t\t\t\t{name:'Violet',  l:0.46, c:0.23, h:300},\n\t\t\t\t\t{name:'Fuchsia', l:0.55, c:0.20, h:330},\n\t\t\t\t\t{name:'Magenta', l:0.575,c:0.198,h:349},\n\t\t\t\t\t{name:'Rose',    l:0.70, c:0.14, h:10},\n\t\t\t\t\t{name:'Cocoa',   l:0.48, c:0.06, h:55},\n\t\t\t\t\t{name:'Gray',    l:0.58, c:0.005,h:260},\n\t\t\t\t\t{name:'Slate',   l:0.38, c:0.02, h:260},\n\t\t\t\t],\n\t\t\t\tinit() {\n\t\t\t\t\tthis.scheme = localStorage.getItem('rui:theme') || 'system';\n\t\t\t\t\tthis.colorTheme = localStorage.getItem('rui:color-theme') || '';\n\t\t\t\t\tif (this.colorTheme === 'custom') {\n\t\t\t\t\t\tvar s = localStorage.getItem('rui:custom-theme');\n\t\t\t\t\t\tif (s) {\n\t\t\t\t\t\t\ttry {\n\t\t\t\t\t\t\t\tvar d = JSON.parse(s);\n\t\t\t\t\t\t\t\tthis.customHue = d.h;\n\t\t\t\t\t\t\t\tthis.customName = d.name || '';\n\t\t\t\t\t\t\t\tthis._injectCSS(d);\n\t\t\t\t\t\t\t} catch(e) {}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tselect(v) {\n\t\t\t\t\tthis.scheme = v;\n\t\t\t\t\tlocalStorage.setItem('rui:theme', v);\n\t\t\t\t\t_applyScheme(v);\n\t\t\t\t},\n\t\t\t\tselectColor(v) {\n\t\t\t\t\tthis.colorTheme = v;\n\t\t\t\t\tthis._clearCustom();\n\t\t\t\t\tif (v) {\n\t\t\t\t\t\tlocalStorage.setItem('rui:color-theme', v);\n\t\t\t\t\t\tdocument.documentElement.setAttribute('data-theme', v);\n\t\t\t\t\t\tdocument.getElementById('theme-css').href = '/ui/static/themes/' + v + '.css';\n\t\t\t\t\t} else {\n\t\t\t\t\t\tlocalStorage.removeItem('rui:color-theme');\n\t\t\t\t\t\tdocument.documentElement.removeAttribute('data-theme');\n\t\t\t\t\t\tdocument.getElementById('theme-css').removeAttribute('href');\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tapplyCustomColor(c) {\n\t\t\t\t\tthis.colorTheme = 'custom';\n\t\t\t\t\tthis.customHue = c.h;\n\t\t\t\t\tthis.customName = c.name;\n\t\t\t\t\tlocalStorage.setItem('rui:color-theme', 'custom');\n\t\t\t\t\tlocalStorage.setItem('rui:custom-theme', JSON.stringify(c));\n\t\t\t\t\tdocument.getElementById('theme-css').removeAttribute('href');\n\t\t\t\t\tdocument.documentElement.setAttribute('data-theme', 'custom');\n\t\t\t\t\tthis._injectCSS(c);\n\t\t\t\t},\n\t\t\t\t_clearCustom() {\n\t\t\t\t\tvar el = document.getElementById('custom-theme-css');\n\t\t\t\t\tif (el) el.remove();\n\t\t\t\t\tthis.customHue = null;\n\t\t\t\t\tthis.customName = '';\n\t\t\t\t\tlocalStorage.removeItem('rui:custom-theme');\n\t\t\t\t},\n\t\t\t\t_injectCSS(c) {\n\t\t\t\t\tvar el = document.getElementById('custom-theme-css');\n\t\t\t\t\tif (el) el.remove();\n\t\t\t\t\tvar L=c.l, C=c.c, h=c.h;\n\t\t\t\t\tvar dL=Math.min(L+0.15,0.80), dC=C*0.88;\n\t\t\t\t\tfunction v(lightness,chroma){return 'oklch('+lightness+' '+chroma.toFixed(4)+' '+h+')';}\n\t\t\t\t\tvar lt=':root[data-theme=\"custom\"]{'+\n\t\t\t\t\t\t'--background:'+v(0.995,C*0.015)+';--foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--card:oklch(1 0 0);--card-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--popover:oklch(1 0 0);--popover-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--primary:oklch('+L+' '+C+' '+h+');--primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--secondary:'+v(0.96,C*0.04)+';--secondary-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--muted:'+v(0.96,C*0.04)+';--muted-foreground:'+v(0.55,C*0.09)+';'+\n\t\t\t\t\t\t'--accent:'+v(0.958,C*0.07)+';--accent-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--destructive:oklch(0.577 0.215 27.3);--destructive-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--border:'+v(0.92,C*0.05)+';--input:'+v(0.96,C*0.03)+';'+\n\t\t\t\t\t\t'--ring:oklch('+L+' '+C+' '+h+');'+\n\t\t\t\t\t\t'--sidebar:'+v(0.98,C*0.02)+';--sidebar-foreground:'+v(0.37,C*0.08)+';'+\n\t\t\t\t\t\t'--sidebar-primary:oklch('+L+' '+C+' '+h+');--sidebar-primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-accent:oklch('+L+' '+C+' '+h+');--sidebar-accent-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-border:'+v(0.92,C*0.05)+';--sidebar-ring:oklch('+L+' '+C+' '+h+');}';\n\t\t\t\t\tvar dk='.dark[data-theme=\"custom\"]{'+\n\t\t\t\t\t\t'--background:'+v(0.18,C*0.07)+';--foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--card:'+v(0.24,C*0.08)+';--card-foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--popover:'+v(0.24,C*0.08)+';--popover-foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--primary:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--secondary:'+v(0.34,C*0.09)+';--secondary-foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--muted:'+v(0.26,C*0.07)+';--muted-foreground:'+v(0.70,C*0.07)+';'+\n\t\t\t\t\t\t'--accent:'+v(0.35,C*0.16)+';--accent-foreground:'+v(0.98,C*0.02)+';'+\n\t\t\t\t\t\t'--destructive:oklch(0.637 0.208 25.3);--destructive-foreground:oklch(0.98 0 0);'+\n\t\t\t\t\t\t'--border:'+v(0.30,C*0.07)+';--input:'+v(0.34,C*0.09)+';'+\n\t\t\t\t\t\t'--ring:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');'+\n\t\t\t\t\t\t'--sidebar:'+v(0.16,C*0.06)+';--sidebar-foreground:'+v(0.70,C*0.07)+';'+\n\t\t\t\t\t\t'--sidebar-primary:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--sidebar-primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-accent:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--sidebar-accent-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-border:'+v(0.30,C*0.07)+';--sidebar-ring:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');}';\n\t\t\t\t\tvar s=document.createElement('style');\n\t\t\t\t\ts.id='custom-theme-css';\n\t\t\t\t\ts.textContent=lt+dk;\n\t\t\t\t\tdocument.head.appendChild(s);\n\t\t\t\t},\n\t\t\t};\n\t\t}\n\n\t\tfunction _applyScheme(scheme) {\n\t\t\tvar prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n\t\t\tvar dark = scheme === 'dark' || (scheme === 'system' && prefersDark);\n\t\t\tdocument.documentElement.classList.toggle('dark', dark);\n\t\t}\n\n\t\t(function() {\n\t\t\t_applyScheme(localStorage.getItem('rui:theme') || 'system');\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -494,46 +642,46 @@ func dateFormatOption(value, example string) templ.Component {
 			templ_7745c5c3_Var14 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<label class=\"flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 text-sm\" :class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<label class=\"flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 text-sm\" :class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs("{'border-primary bg-primary/5': dateFormat === '" + value + "', 'border-input': dateFormat !== '" + value + "'}")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 238, Col: 124}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 403, Col: 124}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\"><input type=\"radio\" name=\"date-format\" value=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\"><input type=\"radio\" name=\"date-format\" value=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 240, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 405, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\" x-model=\"dateFormat\" @change=\"save()\" class=\"sr-only\"> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "\" x-model=\"dateFormat\" @change=\"save()\" class=\"sr-only\"> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(example)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 241, Col: 11}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 406, Col: 11}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "</label>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</label>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -541,7 +689,7 @@ func dateFormatOption(value, example string) templ.Component {
 	})
 }
 
-func themeOptionCard(value, label, iconSVG string) templ.Component {
+func schemeCard(value, label, iconSVG string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -562,33 +710,33 @@ func themeOptionCard(value, label, iconSVG string) templ.Component {
 			templ_7745c5c3_Var18 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<button type=\"button\" class=\"rounded-lg border p-4 w-28 text-center text-sm transition-colors hover:border-primary cursor-pointer\" :class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "<button type=\"button\" class=\"rounded-lg border p-4 w-28 text-center text-sm transition-colors hover:border-primary cursor-pointer\" :class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs("{'border-primary bg-primary/5 font-medium': scheme === '" + value + "', 'border-input': scheme !== '" + value + "'}")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 249, Col: 128}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 414, Col: 128}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\" @click=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\" @click=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs("select('" + value + "')")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 250, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 415, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -599,13 +747,13 @@ func themeOptionCard(value, label, iconSVG string) templ.Component {
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 253, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 418, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</button>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</button>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -613,7 +761,7 @@ func themeOptionCard(value, label, iconSVG string) templ.Component {
 	})
 }
 
-func colorThemeCard(value, label, primaryColor string) templ.Component {
+func themeCard(value, label, primaryColor string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -634,59 +782,153 @@ func colorThemeCard(value, label, primaryColor string) templ.Component {
 			templ_7745c5c3_Var22 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<button type=\"button\" class=\"rounded-lg border p-3 w-28 text-center text-xs transition-colors hover:border-primary cursor-pointer\" :class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<button type=\"button\" class=\"rounded-lg border p-3 w-28 text-center text-xs transition-colors hover:border-primary cursor-pointer\" :class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs("{'border-primary bg-primary/5 font-medium': colorTheme === '" + value + "', 'border-input': colorTheme !== '" + value + "'}")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 261, Col: 136}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 426, Col: 136}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\" @click=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "\" @click=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs("selectColor('" + value + "')")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 262, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 427, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\"><span class=\"block w-8 h-8 rounded-full mx-auto mb-2 ring-1 ring-border\" style=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "\"><span class=\"block w-8 h-8 rounded-full mx-auto mb-2 ring-1 ring-border\" style=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var25 string
 		templ_7745c5c3_Var25, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background-color: " + primaryColor + ";")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 264, Col: 124}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 429, Col: 124}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\"></span> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\"></span> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var26 string
 		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 265, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 430, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</button>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</button>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+func cotyCard(value, label, year, primaryColor string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var27 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var27 == nil {
+			templ_7745c5c3_Var27 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<button type=\"button\" class=\"rounded-lg border p-3 w-32 text-center text-xs transition-colors hover:border-primary cursor-pointer\" :class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var28 string
+		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs("{'border-primary bg-primary/5 font-medium': colorTheme === '" + value + "', 'border-input': colorTheme !== '" + value + "'}")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 438, Col: 136}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\" @click=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var29 string
+		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs("selectColor('" + value + "')")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 439, Col: 41}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\"><span class=\"block w-8 h-8 rounded-full mx-auto mb-2 ring-1 ring-border\" style=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var30 string
+		templ_7745c5c3_Var30, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background-color: " + primaryColor + ";")
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 441, Col: 124}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "\"></span> <span class=\"block font-medium\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var31 string
+		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 442, Col: 41}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</span> <span class=\"block text-muted-foreground mt-0.5\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var32 string
+		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(year)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 443, Col: 57}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "</span></button>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -720,9 +962,9 @@ func SettingsLogsSection(p SettingsProps) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var27 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var27 == nil {
-			templ_7745c5c3_Var27 = templ.NopComponent
+		templ_7745c5c3_Var33 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var33 == nil {
+			templ_7745c5c3_Var33 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		templ_7745c5c3_Err = settingsLogsContent(p).Render(ctx, templ_7745c5c3_Buffer)
@@ -749,16 +991,16 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var28 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var28 == nil {
-			templ_7745c5c3_Var28 = templ.NopComponent
+		templ_7745c5c3_Var34 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var34 == nil {
+			templ_7745c5c3_Var34 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<div class=\"space-y-6\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<div class=\"space-y-6\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Var29 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var35 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -770,7 +1012,7 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Var30 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_Var36 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 				if !templ_7745c5c3_IsBuffer {
@@ -782,129 +1024,6 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Var31 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-					if !templ_7745c5c3_IsBuffer {
-						defer func() {
-							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-							if templ_7745c5c3_Err == nil {
-								templ_7745c5c3_Err = templ_7745c5c3_BufErr
-							}
-						}()
-					}
-					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "Log Settings")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					return nil
-				})
-				templ_7745c5c3_Err = card.Title(card.TitleProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var31), templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, " ")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Var32 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-					if !templ_7745c5c3_IsBuffer {
-						defer func() {
-							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-							if templ_7745c5c3_Err == nil {
-								templ_7745c5c3_Err = templ_7745c5c3_BufErr
-							}
-						}()
-					}
-					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "Configure log level and file rotation. Changes take effect immediately.")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					return nil
-				})
-				templ_7745c5c3_Err = card.Description(card.DescriptionProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var32), templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				return nil
-			})
-			templ_7745c5c3_Err = card.Header(card.HeaderProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var30), templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, " ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Var33 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-				if !templ_7745c5c3_IsBuffer {
-					defer func() {
-						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-						if templ_7745c5c3_Err == nil {
-							templ_7745c5c3_Err = templ_7745c5c3_BufErr
-						}
-					}()
-				}
-				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div id=\"log-settings-result\" class=\"mb-4\"></div><form hx-post=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var34 string
-				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/settings/logs")
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 297, Col: 55}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "\" hx-target=\"#log-settings-result\" hx-swap=\"innerHTML\" class=\"space-y-4\"><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"log-level\">Log Level</label> <select id=\"log-level\" name=\"level\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\">")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				for _, lvl := range []string{"trace", "debug", "info", "warn", "error"} {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<option value=\"")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var35 string
-					templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(lvl)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 308, Col: 28}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "\">")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					var templ_7745c5c3_Var36 string
-					templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(lvl)
-					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 308, Col: 36}
-					}
-					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</option>")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</select></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"log-max-size\">Max File Size (MB)</label> <input id=\"log-max-size\" name=\"max_size\" type=\"number\" min=\"1\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"50\"></div></div><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"log-max-backups\">Max Backups</label> <input id=\"log-max-backups\" name=\"max_backups\" type=\"number\" min=\"0\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"3\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"log-path\">Log File Path (optional)</label> <input id=\"log-path\" name=\"path\" type=\"text\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"/var/log/rui/rui.log\"></div></div>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
 				templ_7745c5c3_Var37 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -917,44 +1036,52 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "Save Log Settings")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "Log Settings")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = button.Button(button.Props{Type: button.TypeSubmit}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var37), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = card.Title(card.TitleProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var37), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var38 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "Configure log level and file rotation. Changes take effect immediately.")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = card.Description(card.DescriptionProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var38), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = card.Content(card.ContentProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var33), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = card.Header(card.HeaderProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			return nil
-		})
-		templ_7745c5c3_Err = card.Card(card.Props{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var29), templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Var38 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-			if !templ_7745c5c3_IsBuffer {
-				defer func() {
-					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err == nil {
-						templ_7745c5c3_Err = templ_7745c5c3_BufErr
-					}
-				}()
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
 			}
-			ctx = templ.InitializeContext(ctx)
 			templ_7745c5c3_Var39 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -967,11 +1094,60 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "<div class=\"flex items-center justify-between\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<div id=\"log-settings-result\" class=\"mb-4\"></div><form hx-post=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Var40 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				var templ_7745c5c3_Var40 string
+				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/settings/logs")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 475, Col: 55}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\" hx-target=\"#log-settings-result\" hx-swap=\"innerHTML\" class=\"space-y-4\"><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"log-level\">Log Level</label> <select id=\"log-level\" name=\"level\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				for _, lvl := range []string{"trace", "debug", "info", "warn", "error"} {
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<option value=\"")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var41 string
+					templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(lvl)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 486, Col: 28}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "\">")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					var templ_7745c5c3_Var42 string
+					templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(lvl)
+					if templ_7745c5c3_Err != nil {
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 486, Col: 36}
+					}
+					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</option>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</select></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"log-max-size\">Max File Size (MB)</label> <input id=\"log-max-size\" name=\"max_size\" type=\"number\" min=\"1\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"50\"></div></div><div class=\"grid gap-4 sm:grid-cols-2\"><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"log-max-backups\">Max Backups</label> <input id=\"log-max-backups\" name=\"max_backups\" type=\"number\" min=\"0\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"3\"></div><div class=\"space-y-1.5\"><label class=\"text-sm font-medium\" for=\"log-path\">Log File Path (optional)</label> <input id=\"log-path\" name=\"path\" type=\"text\" class=\"flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring\" placeholder=\"/var/log/rui/rui.log\"></div></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var43 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 					if !templ_7745c5c3_IsBuffer {
@@ -983,31 +1159,45 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, "Live Log Stream")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "Save Log Settings")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = card.Title(card.TitleProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var40), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = button.Button(button.Props{Type: button.TypeSubmit}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var43), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "<button type=\"button\" id=\"log-stream-toggle\" class=\"inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors\" onclick=\"toggleLogStream(this)\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polygon points=\"5 3 19 12 5 21 5 3\"></polygon></svg> Start Stream</button></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "</form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = card.Header(card.HeaderProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var39), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = card.Content(card.ContentProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var39), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, " ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
+			return nil
+		})
+		templ_7745c5c3_Err = card.Card(card.Props{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var35), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var44 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
 			}
-			templ_7745c5c3_Var41 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Var45 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 				if !templ_7745c5c3_IsBuffer {
@@ -1019,36 +1209,88 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<div id=\"log-stream-container\" data-stream-url=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<div class=\"flex items-center justify-between\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var42 string
-				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/settings/logs/stream")
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 359, Col: 70}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
+				templ_7745c5c3_Var46 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "Live Log Stream")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = card.Title(card.TitleProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var46), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "\" class=\"rounded-md bg-black/90 text-green-400 font-mono text-xs p-4 h-96 overflow-y-auto space-y-0.5 hidden\" role=\"log\" aria-live=\"polite\" aria-label=\"Live log stream\"><p class=\"text-muted-foreground\">Connecting to log stream...</p></div>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<button type=\"button\" id=\"log-stream-toggle\" class=\"inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors\" onclick=\"toggleLogStream(this)\"><svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polygon points=\"5 3 19 12 5 21 5 3\"></polygon></svg> Start Stream</button></div>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = card.Content(card.ContentProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = card.Header(card.HeaderProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var45), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Var47 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<div id=\"log-stream-container\" data-stream-url=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var48 string
+				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/settings/logs/stream")
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 537, Col: 70}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\" class=\"rounded-md bg-black/90 text-green-400 font-mono text-xs p-4 h-96 overflow-y-auto space-y-0.5 hidden\" role=\"log\" aria-live=\"polite\" aria-label=\"Live log stream\"><p class=\"text-muted-foreground\">Connecting to log stream...</p></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = card.Content(card.ContentProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = card.Card(card.Props{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var38), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = card.Card(card.Props{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var44), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</div><script>\n\t\t(function() {\n\t\t\tlet es = null;\n\n\t\t\twindow.toggleLogStream = function(btn) {\n\t\t\t\tconst container = document.getElementById('log-stream-container');\n\t\t\t\tif (es) {\n\t\t\t\t\tes.close();\n\t\t\t\t\tes = null;\n\t\t\t\t\tbtn.innerHTML = '<svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polygon points=\"5 3 19 12 5 21 5 3\"/></svg> Start Stream';\n\t\t\t\t\tcontainer.classList.add('hidden');\n\t\t\t\t\treturn;\n\t\t\t\t}\n\n\t\t\t\tcontainer.classList.remove('hidden');\n\t\t\t\tcontainer.innerHTML = '<p class=\"text-muted-foreground\">Connecting...</p>';\n\t\t\t\tbtn.innerHTML = '<svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"6\" y=\"4\" width=\"4\" height=\"16\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\"/></svg> Stop Stream';\n\n\t\t\t\tconst streamURL = container.dataset.streamUrl;\n\t\t\t\tes = new EventSource(streamURL);\n\t\t\t\tes.onopen = function() {\n\t\t\t\t\tcontainer.innerHTML = '';\n\t\t\t\t};\n\t\t\t\tes.onmessage = function(e) {\n\t\t\t\t\tconst line = document.createElement('p');\n\t\t\t\t\tline.textContent = e.data;\n\t\t\t\t\tcontainer.appendChild(line);\n\t\t\t\t\tcontainer.scrollTop = container.scrollHeight;\n\t\t\t\t\twhile (container.children.length > 2000) {\n\t\t\t\t\t\tcontainer.removeChild(container.firstChild);\n\t\t\t\t\t}\n\t\t\t\t};\n\t\t\t\tes.onerror = function() {\n\t\t\t\t\tconst line = document.createElement('p');\n\t\t\t\t\tline.className = 'text-red-400';\n\t\t\t\t\tline.textContent = '[stream error — reconnecting…]';\n\t\t\t\t\tcontainer.appendChild(line);\n\t\t\t\t};\n\t\t\t};\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "</div><script>\n\t\t(function() {\n\t\t\tlet es = null;\n\n\t\t\twindow.toggleLogStream = function(btn) {\n\t\t\t\tconst container = document.getElementById('log-stream-container');\n\t\t\t\tif (es) {\n\t\t\t\t\tes.close();\n\t\t\t\t\tes = null;\n\t\t\t\t\tbtn.innerHTML = '<svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polygon points=\"5 3 19 12 5 21 5 3\"/></svg> Start Stream';\n\t\t\t\t\tcontainer.classList.add('hidden');\n\t\t\t\t\treturn;\n\t\t\t\t}\n\n\t\t\t\tcontainer.classList.remove('hidden');\n\t\t\t\tcontainer.innerHTML = '<p class=\"text-muted-foreground\">Connecting...</p>';\n\t\t\t\tbtn.innerHTML = '<svg class=\"h-3.5 w-3.5\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"6\" y=\"4\" width=\"4\" height=\"16\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\"/></svg> Stop Stream';\n\n\t\t\t\tconst streamURL = container.dataset.streamUrl;\n\t\t\t\tes = new EventSource(streamURL);\n\t\t\t\tes.onopen = function() {\n\t\t\t\t\tcontainer.innerHTML = '';\n\t\t\t\t};\n\t\t\t\tes.onmessage = function(e) {\n\t\t\t\t\tconst line = document.createElement('p');\n\t\t\t\t\tline.textContent = e.data;\n\t\t\t\t\tcontainer.appendChild(line);\n\t\t\t\t\tcontainer.scrollTop = container.scrollHeight;\n\t\t\t\t\twhile (container.children.length > 2000) {\n\t\t\t\t\t\tcontainer.removeChild(container.firstChild);\n\t\t\t\t\t}\n\t\t\t\t};\n\t\t\t\tes.onerror = function() {\n\t\t\t\t\tconst line = document.createElement('p');\n\t\t\t\t\tline.className = 'text-red-400';\n\t\t\t\t\tline.textContent = '[stream error — reconnecting…]';\n\t\t\t\t\tcontainer.appendChild(line);\n\t\t\t\t};\n\t\t\t};\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1073,44 +1315,44 @@ func LogSettingsResultPartial(ok bool, msg string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var43 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var43 == nil {
-			templ_7745c5c3_Var43 = templ.NopComponent
+		templ_7745c5c3_Var49 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var49 == nil {
+			templ_7745c5c3_Var49 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
 		if ok {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "<p class=\"text-sm text-green-700 dark:text-green-400\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<p class=\"text-sm text-green-700 dark:text-green-400\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var44 string
-			templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
+			var templ_7745c5c3_Var50 string
+			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 416, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 594, Col: 61}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "<p class=\"text-sm text-destructive\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<p class=\"text-sm text-destructive\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var45 string
-			templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
+			var templ_7745c5c3_Var51 string
+			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 418, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 596, Col: 43}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -597,10 +597,9 @@ func (sm *SyncManager) setValidatedTrackerMapping(instanceID int, mapping *Valid
 	sm.validatedTrackerMapping[instanceID] = mapping
 }
 
-// getDomainsForTorrent extracts the tracker domain from a torrent's Tracker field.
-// The old Trackers []TorrentTracker slice was removed in the new library; we rely
-// on the single primary tracker URL (t.Tracker *string) that qBittorrent always
-// populates.
+// getDomainsForTorrent extracts tracker domains from a torrent.
+// It uses the primary Tracker URL (always populated by qBittorrent) and also
+// checks inline Trackers when available (populated via IncludeTrackers).
 func (sm *SyncManager) getDomainsForTorrent(t *qbt.Torrent) map[string]struct{} {
 	domains := make(map[string]struct{})
 	if t == nil {
@@ -609,6 +608,14 @@ func (sm *SyncManager) getDomainsForTorrent(t *qbt.Torrent) map[string]struct{} 
 	if tracker := ptrStr(t.Tracker); tracker != "" {
 		if domain := sm.ExtractDomainFromURL(tracker); domain != "" && domain != "Unknown" {
 			domains[domain] = struct{}{}
+		}
+	}
+	// Also check inline tracker data when available (populated with IncludeTrackers).
+	for _, tr := range t.Trackers {
+		if url := qbt.Deref(tr.URL); url != "" {
+			if domain := sm.ExtractDomainFromURL(url); domain != "" && domain != "Unknown" {
+				domains[domain] = struct{}{}
+			}
 		}
 	}
 	return domains

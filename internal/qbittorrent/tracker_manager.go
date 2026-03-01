@@ -52,9 +52,10 @@ func NewTrackerManager(api trackerAPI) *TrackerManager {
 // cache. It returns the original slice (unchanged) and a map of tracker lists
 // keyed by hash.
 //
-// NOTE: Unlike the old autobrr implementation, tracker data is NOT written back
-// to the Torrent objects because qbt.Torrent no longer carries a Trackers field.
-// Callers must use the returned trackerMap.
+// NOTE: Tracker data is returned in trackerMap rather than written back to
+// Torrent.Trackers. The inline field is populated only when IncludeTrackers is
+// set on a GetTorrents call; torrents from the sync/maindata path do not carry
+// inline trackers. Callers must use the returned trackerMap.
 func (tm *TrackerManager) HydrateTorrents(ctx context.Context, torrents []qbt.Torrent) ([]qbt.Torrent, map[string][]qbt.TorrentTracker) {
 	if tm == nil || len(torrents) == 0 {
 		return torrents, nil
@@ -121,11 +122,13 @@ func (tm *TrackerManager) hydrateWithIncludeTrackers(
 			if hash == "" {
 				continue
 			}
-			// The include_trackers option populates the tracker list only when
-			// the API supports it; the qbt.Torrent struct no longer carries
-			// Trackers, so we fall back to GetTorrentTrackers per-hash instead.
 			if _, ok := hashToIndex[hash]; ok {
 				if _, wasPending := pending[hash]; wasPending {
+					// Use inline tracker data when available (qBittorrent >= 5.1 with IncludeTrackers).
+					if len(t.Trackers) > 0 {
+						trackerMap[hash] = t.Trackers
+						tm.cache.Set(hash, t.Trackers, trackerCacheTTL)
+					}
 					delete(pending, hash)
 					progress++
 				}
