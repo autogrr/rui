@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -27,6 +26,7 @@ var ErrInstanceNotFound = errors.New("instance not found")
 
 type Instance struct {
 	ID                       int     `json:"id"`
+	OwnerID                  int     `json:"owner_id"`
 	Name                     string  `json:"name"`
 	Host                     string  `json:"host"`
 	Username                 string  `json:"username"`
@@ -51,6 +51,7 @@ func (i Instance) MarshalJSON() ([]byte, error) {
 	// Create the JSON structure with redacted password fields
 	return json.Marshal(&struct {
 		ID                       int        `json:"id"`
+		OwnerID                  int        `json:"owner_id"`
 		Name                     string     `json:"name"`
 		Host                     string     `json:"host"`
 		Username                 string     `json:"username"`
@@ -71,6 +72,7 @@ func (i Instance) MarshalJSON() ([]byte, error) {
 		SortOrder                int        `json:"sortOrder"`
 	}{
 		ID:            i.ID,
+		OwnerID:       i.OwnerID,
 		Name:          i.Name,
 		Host:          i.Host,
 		Username:      i.Username,
@@ -98,6 +100,7 @@ func (i *Instance) UnmarshalJSON(data []byte) error {
 	// Temporary struct for unmarshaling
 	var temp struct {
 		ID                       int        `json:"id"`
+		OwnerID                  int        `json:"owner_id"`
 		Name                     string     `json:"name"`
 		Host                     string     `json:"host"`
 		Username                 string     `json:"username"`
@@ -124,6 +127,7 @@ func (i *Instance) UnmarshalJSON(data []byte) error {
 
 	// Copy non-secret fields
 	i.ID = temp.ID
+	i.OwnerID = temp.OwnerID
 	i.Name = temp.Name
 	i.Host = temp.Host
 	i.Username = temp.Username
@@ -278,7 +282,7 @@ func validateAndNormalizeHost(rawHost string) (string, error) {
 	return u.String(), nil
 }
 
-func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, password string, basicUsername, basicPassword *string, tlsSkipVerify bool, hasLocalFilesystemAccess *bool) (*Instance, error) {
+func (s *InstanceStore) Create(ctx context.Context, ownerID int, name, rawHost, username, password string, basicUsername, basicPassword *string, tlsSkipVerify bool, hasLocalFilesystemAccess *bool) (*Instance, error) {
 	// Validate and normalize the host
 	normalizedHost, err := validateAndNormalizeHost(rawHost)
 	if err != nil {
@@ -313,36 +317,52 @@ func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, pas
 	}
 	defer tx.Rollback()
 
-	// Intern all strings in a single call
-	allIDs, err := dbinterface.InternStringNullable(ctx, tx, &name, &normalizedHost, &username, basicUsername)
+	// Intern required non-empty strings: name, host, encrypted password
+	requiredIDs, err := dbinterface.InternStrings(ctx, tx, name, normalizedHost, encryptedPassword)
 	if err != nil {
-		return nil, fmt.Errorf("failed to intern strings: %w", err)
+		return nil, fmt.Errorf("failed to intern required strings: %w", err)
 	}
+	nameID := requiredIDs[0]
+	hostID := requiredIDs[1]
+	passwordEncryptedID := requiredIDs[2]
 
-	// Ensure required fields (name, host, username) have valid IDs
-	// If username is empty (localhost bypass), intern the empty string
-	nameID := allIDs[0].Int64
-	hostID := allIDs[1].Int64
-
+	// Intern username: may be empty for localhost bypass auth
 	var usernameID int64
-	if allIDs[2].Valid {
-		usernameID = allIDs[2].Int64
+	if username != "" {
+		ids, err := dbinterface.InternStrings(ctx, tx, username)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern username: %w", err)
+		}
+		usernameID = ids[0]
 	} else {
-		// Username was empty - intern empty string for localhost bypass auth
 		usernameID, err = dbinterface.InternEmptyString(ctx, tx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to intern empty username: %w", err)
 		}
 	}
 
-	// Insert instance with the interned IDs
-	var instanceID int
-	var passwordEncrypted sql.NullString
-	var basicPasswordEncrypted sql.NullString
-	var tlsSkipVerifyResult bool
-	var hasLocalFilesystemAccessResult bool
-	var sortOrder int
-	var isActive bool
+	// Intern hardlink_base_dir and hardlink_dir_preset (NOT NULL, default to empty string on create)
+	hardlinkBaseDirID, err := dbinterface.InternEmptyString(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern empty hardlink_base_dir: %w", err)
+	}
+	hardlinkDirPresetID, err := dbinterface.InternEmptyString(ctx, tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern empty hardlink_dir_preset: %w", err)
+	}
+
+	// Intern nullable strings: basic_username, basic_password_encrypted
+	var basicUsernamePtr, basicPasswordEncPtr *string
+	if basicUsername != nil && *basicUsername != "" {
+		basicUsernamePtr = basicUsername
+	}
+	if encryptedBasicPassword != nil {
+		basicPasswordEncPtr = encryptedBasicPassword
+	}
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx, basicUsernamePtr, basicPasswordEncPtr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern nullable strings: %w", err)
+	}
 
 	// Default hasLocalFilesystemAccess to false if not provided (opt-in feature)
 	localAccess := false
@@ -350,40 +370,47 @@ func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, pas
 		localAccess = *hasLocalFilesystemAccess
 	}
 
+	// Insert instance with interned string IDs
+	var instanceID int
+	var sortOrder int
+	var isActive bool
+
 	err = tx.QueryRowContext(ctx, `
 		WITH next_sort AS (
 			SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM instances
 		)
 		INSERT INTO instances (
+			owner_id,
 			name_id,
 			host_id,
 			username_id,
-			password_encrypted,
+			password_encrypted_id,
 			basic_username_id,
-			basic_password_encrypted,
+			basic_password_encrypted_id,
 			tls_skip_verify,
 			has_local_filesystem_access,
+			hardlink_base_dir_id,
+			hardlink_dir_preset_id,
 			sort_order
 		)
-		SELECT ?, ?, ?, ?, ?, ?, ?, ?, next_order FROM next_sort
-		RETURNING id, password_encrypted, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access
+		SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, next_order FROM next_sort
+		RETURNING id, sort_order, is_active
 	`,
+		ownerID,
 		nameID,
 		hostID,
 		usernameID,
-		encryptedPassword,
-		allIDs[3],
-		encryptedBasicPassword,
+		passwordEncryptedID,
+		nullIDs[0],
+		nullIDs[1],
 		tlsSkipVerify,
 		localAccess,
+		hardlinkBaseDirID,
+		hardlinkDirPresetID,
 	).Scan(
 		&instanceID,
-		&passwordEncrypted,
-		&basicPasswordEncrypted,
-		&tlsSkipVerifyResult,
 		&sortOrder,
 		&isActive,
-		&hasLocalFilesystemAccessResult,
 	)
 	if err != nil {
 		return nil, err
@@ -391,21 +418,22 @@ func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, pas
 
 	instance := &Instance{
 		ID:                       instanceID,
+		OwnerID:                  ownerID,
 		Name:                     name,
 		Host:                     normalizedHost,
 		Username:                 username,
-		PasswordEncrypted:        passwordEncrypted.String,
-		TLSSkipVerify:            tlsSkipVerifyResult,
-		HasLocalFilesystemAccess: hasLocalFilesystemAccessResult,
+		PasswordEncrypted:        encryptedPassword,
+		TLSSkipVerify:            tlsSkipVerify,
+		HasLocalFilesystemAccess: localAccess,
 		SortOrder:                sortOrder,
 		IsActive:                 isActive,
 	}
 
-	if basicUsername != nil {
+	if basicUsername != nil && *basicUsername != "" {
 		instance.BasicUsername = basicUsername
 	}
-	if basicPasswordEncrypted.Valid {
-		instance.BasicPasswordEncrypted = &basicPasswordEncrypted.String
+	if encryptedBasicPassword != nil {
+		instance.BasicPasswordEncrypted = encryptedBasicPassword
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -417,12 +445,13 @@ func (s *InstanceStore) Create(ctx context.Context, name, rawHost, username, pas
 
 func (s *InstanceStore) Get(ctx context.Context, id int) (*Instance, error) {
 	query := `
-		SELECT id, name, host, username, password_encrypted, basic_username, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access, use_hardlinks, hardlink_base_dir, hardlink_dir_preset, use_reflinks, fallback_to_regular_mode
+		SELECT id, owner_id, name, host, username, password_encrypted, basic_username, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access, use_hardlinks, hardlink_base_dir, hardlink_dir_preset, use_reflinks, fallback_to_regular_mode
 		FROM instances_view
 		WHERE id = ?
 	`
 
 	var instanceID int
+	var ownerID int
 	var name, host, username, passwordEncrypted string
 	var basicUsername, basicPasswordEncrypted sql.NullString
 	var tlsSkipVerify bool
@@ -436,6 +465,7 @@ func (s *InstanceStore) Get(ctx context.Context, id int) (*Instance, error) {
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&instanceID,
+		&ownerID,
 		&name,
 		&host,
 		&username,
@@ -461,6 +491,7 @@ func (s *InstanceStore) Get(ctx context.Context, id int) (*Instance, error) {
 
 	instance := &Instance{
 		ID:                       instanceID,
+		OwnerID:                  ownerID,
 		Name:                     name,
 		Host:                     host,
 		Username:                 username,
@@ -488,7 +519,7 @@ func (s *InstanceStore) Get(ctx context.Context, id int) (*Instance, error) {
 
 func (s *InstanceStore) List(ctx context.Context) ([]*Instance, error) {
 	query := `
-		SELECT id, name, host, username, password_encrypted, basic_username, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access, use_hardlinks, hardlink_base_dir, hardlink_dir_preset, use_reflinks, fallback_to_regular_mode
+		SELECT id, owner_id, name, host, username, password_encrypted, basic_username, basic_password_encrypted, tls_skip_verify, sort_order, is_active, has_local_filesystem_access, use_hardlinks, hardlink_base_dir, hardlink_dir_preset, use_reflinks, fallback_to_regular_mode
 		FROM instances_view
 		ORDER BY sort_order ASC, name COLLATE NOCASE ASC, id ASC
 	`
@@ -502,6 +533,7 @@ func (s *InstanceStore) List(ctx context.Context) ([]*Instance, error) {
 	var instances []*Instance
 	for rows.Next() {
 		var id int
+		var ownerID int
 		var name, host, username, passwordEncrypted string
 		var basicUsername, basicPasswordEncrypted sql.NullString
 		var tlsSkipVerify bool
@@ -515,6 +547,7 @@ func (s *InstanceStore) List(ctx context.Context) ([]*Instance, error) {
 
 		err := rows.Scan(
 			&id,
+			&ownerID,
 			&name,
 			&host,
 			&username,
@@ -537,6 +570,7 @@ func (s *InstanceStore) List(ctx context.Context) ([]*Instance, error) {
 
 		instance := &Instance{
 			ID:                       id,
+			OwnerID:                  ownerID,
 			Name:                     name,
 			Host:                     host,
 			Username:                 username,
@@ -594,29 +628,23 @@ func (s *InstanceStore) Update(ctx context.Context, id int, name, rawHost, usern
 	}
 	defer tx.Rollback()
 
-	// Prepare strings to intern - always intern name, host, username
-	// Also intern basic_username if it's provided and not empty
-	var basicUsernameToIntern *string
-	if basicUsername != nil && *basicUsername != "" {
-		basicUsernameToIntern = basicUsername
-	}
-
-	// Intern all strings in a single call
-	allIDs, err := dbinterface.InternStringNullable(ctx, tx, &name, &normalizedHost, &username, basicUsernameToIntern)
+	// Intern required non-empty strings: name, host
+	requiredIDs, err := dbinterface.InternStrings(ctx, tx, name, normalizedHost)
 	if err != nil {
-		return nil, fmt.Errorf("failed to intern strings: %w", err)
+		return nil, fmt.Errorf("failed to intern required strings: %w", err)
 	}
+	nameID := requiredIDs[0]
+	hostID := requiredIDs[1]
 
-	// Ensure required fields (name, host, username) have valid IDs
-	// If username is empty (localhost bypass), intern the empty string
-	nameID := allIDs[0].Int64
-	hostID := allIDs[1].Int64
-
+	// Intern username: may be empty for localhost bypass auth
 	var usernameID int64
-	if allIDs[2].Valid {
-		usernameID = allIDs[2].Int64
+	if username != "" {
+		ids, err := dbinterface.InternStrings(ctx, tx, username)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern username: %w", err)
+		}
+		usernameID = ids[0]
 	} else {
-		// Username was empty - intern empty string for localhost bypass auth
 		usernameID, err = dbinterface.InternEmptyString(ctx, tx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to intern empty username: %w", err)
@@ -627,19 +655,22 @@ func (s *InstanceStore) Update(ctx context.Context, id int, name, rawHost, usern
 	query := "UPDATE instances SET name_id = ?, host_id = ?, username_id = ?"
 	args := []any{nameID, hostID, usernameID}
 
-	// Handle basic_username update
+	// Handle basic_username update (nullable)
 	if basicUsername != nil {
 		if *basicUsername == "" {
 			// Empty string explicitly provided - clear the basic username
 			query += ", basic_username_id = NULL"
 		} else {
-			// Basic username provided - use the already interned ID
+			nullIDs, err := dbinterface.InternStringNullable(ctx, tx, basicUsername)
+			if err != nil {
+				return nil, fmt.Errorf("failed to intern basic username: %w", err)
+			}
 			query += ", basic_username_id = ?"
-			args = append(args, allIDs[3])
+			args = append(args, nullIDs[0])
 		}
 	}
 
-	// Handle password update - encrypt if provided
+	// Handle password update - encrypt and intern if provided
 	passwordToStore := password
 	if username == "" {
 		passwordToStore = ""
@@ -649,23 +680,30 @@ func (s *InstanceStore) Update(ctx context.Context, id int, name, rawHost, usern
 		if err != nil {
 			return nil, fmt.Errorf("failed to encrypt password: %w", err)
 		}
-		query += ", password_encrypted = ?"
-		args = append(args, encryptedPassword)
+		pwIDs, err := dbinterface.InternStrings(ctx, tx, encryptedPassword)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern encrypted password: %w", err)
+		}
+		query += ", password_encrypted_id = ?"
+		args = append(args, pwIDs[0])
 	}
 
-	// Handle basic password update
+	// Handle basic password update (nullable) - encrypt and intern if provided
 	if basicPassword != nil {
 		if *basicPassword == "" {
 			// Empty string explicitly provided - clear the basic password
-			query += ", basic_password_encrypted = NULL"
+			query += ", basic_password_encrypted_id = NULL"
 		} else {
-			// Basic password provided - encrypt and update
 			encryptedBasicPassword, err := s.encrypt(*basicPassword)
 			if err != nil {
 				return nil, fmt.Errorf("failed to encrypt basic auth password: %w", err)
 			}
-			query += ", basic_password_encrypted = ?"
-			args = append(args, encryptedBasicPassword)
+			bpIDs, err := dbinterface.InternStrings(ctx, tx, encryptedBasicPassword)
+			if err != nil {
+				return nil, fmt.Errorf("failed to intern encrypted basic password: %w", err)
+			}
+			query += ", basic_password_encrypted_id = ?"
+			args = append(args, bpIDs[0])
 		}
 	}
 
@@ -686,13 +724,41 @@ func (s *InstanceStore) Update(ctx context.Context, id int, name, rawHost, usern
 		}
 
 		if params.HardlinkBaseDir != nil {
-			query += ", hardlink_base_dir = ?"
-			args = append(args, *params.HardlinkBaseDir)
+			// NOT NULL column - use InternEmptyString for empty, InternStrings for non-empty
+			var hdID int64
+			if *params.HardlinkBaseDir != "" {
+				ids, err := dbinterface.InternStrings(ctx, tx, *params.HardlinkBaseDir)
+				if err != nil {
+					return nil, fmt.Errorf("failed to intern hardlink_base_dir: %w", err)
+				}
+				hdID = ids[0]
+			} else {
+				hdID, err = dbinterface.InternEmptyString(ctx, tx)
+				if err != nil {
+					return nil, fmt.Errorf("failed to intern empty hardlink_base_dir: %w", err)
+				}
+			}
+			query += ", hardlink_base_dir_id = ?"
+			args = append(args, hdID)
 		}
 
 		if params.HardlinkDirPreset != nil {
-			query += ", hardlink_dir_preset = ?"
-			args = append(args, *params.HardlinkDirPreset)
+			// NOT NULL column - use InternEmptyString for empty, InternStrings for non-empty
+			var hpID int64
+			if *params.HardlinkDirPreset != "" {
+				ids, err := dbinterface.InternStrings(ctx, tx, *params.HardlinkDirPreset)
+				if err != nil {
+					return nil, fmt.Errorf("failed to intern hardlink_dir_preset: %w", err)
+				}
+				hpID = ids[0]
+			} else {
+				hpID, err = dbinterface.InternEmptyString(ctx, tx)
+				if err != nil {
+					return nil, fmt.Errorf("failed to intern empty hardlink_dir_preset: %w", err)
+				}
+			}
+			query += ", hardlink_dir_preset_id = ?"
+			args = append(args, hpID)
 		}
 
 		if params.UseReflinks != nil {

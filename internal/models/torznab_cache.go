@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -44,7 +43,7 @@ func (s *TorznabTorrentCacheStore) Fetch(ctx context.Context, indexerID int, cac
 
 	const query = `
 		SELECT id, torrent_data, cached_at
-		FROM torznab_torrent_cache
+		FROM torznab_torrent_cache_view
 		WHERE indexer_id = ? AND cache_key = ?
 	`
 
@@ -89,32 +88,59 @@ func (s *TorznabTorrentCacheStore) Store(ctx context.Context, entry *TorznabTorr
 		return fmt.Errorf("torrent data required")
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("store torrent cache: begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern cache_key (required, non-empty)
+	requiredIDs, err := dbinterface.InternStrings(ctx, tx, entry.CacheKey)
+	if err != nil {
+		return fmt.Errorf("store torrent cache: intern cache_key: %w", err)
+	}
+	cacheKeyID := requiredIDs[0]
+
+	// Intern optional strings: guid, download_url, info_hash, title
+	guid := &entry.GUID
+	downloadURL := &entry.DownloadURL
+	infoHash := &entry.InfoHash
+	title := &entry.Title
+	nullableIDs, err := dbinterface.InternStringNullable(ctx, tx, guid, downloadURL, infoHash, title)
+	if err != nil {
+		return fmt.Errorf("store torrent cache: intern optional strings: %w", err)
+	}
+
 	const query = `
 		INSERT INTO torznab_torrent_cache (
-			indexer_id, cache_key, guid, download_url, info_hash, title, size_bytes, torrent_data, cached_at, last_used_at
+			indexer_id, cache_key_id, guid_id, download_url_id, info_hash_id, title_id, size_bytes, torrent_data, cached_at, last_used_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		ON CONFLICT(indexer_id, cache_key) DO UPDATE SET
-			guid = excluded.guid,
-			download_url = excluded.download_url,
-			info_hash = COALESCE(excluded.info_hash, torznab_torrent_cache.info_hash),
-			title = excluded.title,
+		ON CONFLICT(indexer_id, cache_key_id) DO UPDATE SET
+			guid_id = excluded.guid_id,
+			download_url_id = excluded.download_url_id,
+			info_hash_id = COALESCE(excluded.info_hash_id, torznab_torrent_cache.info_hash_id),
+			title_id = excluded.title_id,
 			size_bytes = excluded.size_bytes,
 			torrent_data = excluded.torrent_data,
 			cached_at = CURRENT_TIMESTAMP,
 			last_used_at = CURRENT_TIMESTAMP
 	`
 
-	if _, err := s.db.ExecContext(ctx, query,
+	if _, err := tx.ExecContext(ctx, query,
 		entry.IndexerID,
-		entry.CacheKey,
-		entry.GUID,
-		entry.DownloadURL,
-		entry.InfoHash,
-		entry.Title,
+		cacheKeyID,
+		nullableIDs[0], // guid_id
+		nullableIDs[1], // download_url_id
+		nullableIDs[2], // info_hash_id
+		nullableIDs[3], // title_id
 		entry.SizeBytes,
 		entry.TorrentData,
 	); err != nil {
 		return fmt.Errorf("store torrent cache entry: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("store torrent cache: commit: %w", err)
 	}
 
 	return nil

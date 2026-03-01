@@ -144,7 +144,8 @@ func (h *ArrHandler) CreateInstance(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	instance, err := h.instanceStore.Create(ctx, req.Type, req.Name, req.BaseURL, req.APIKey, req.BasicUsername, req.BasicPassword, req.Enabled, req.Priority, req.TimeoutSeconds)
+	// rui is single-user; owner is always ID 1
+	instance, err := h.instanceStore.Create(ctx, 1, req.Type, req.Name, req.BaseURL, req.APIKey, req.BasicUsername, req.BasicPassword, req.Enabled, req.Priority, req.TimeoutSeconds)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create ARR instance")
 		if errors.Is(err, models.ErrBasicAuthPasswordRequired) {

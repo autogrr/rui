@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	SessionName = "qui_user_session"
+	SessionName = "rui_user_session"
 )
 
 var (
@@ -129,7 +129,7 @@ func (s *Service) ChangePassword(ctx context.Context, oldPassword, newPassword s
 	}
 
 	// Update password
-	if err := s.userStore.UpdatePassword(ctx, hashedPassword); err != nil {
+	if err := s.userStore.UpdatePassword(ctx, user.ID, hashedPassword); err != nil {
 		return fmt.Errorf("failed to update password: %w", err)
 	}
 

@@ -7,11 +7,12 @@ package proxy
 import (
 	"context"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
 
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/pkg/debounce"
@@ -23,20 +24,16 @@ const (
 	ClientAPIKeyContextKey contextKey = "client_api_key"
 	InstanceIDContextKey   contextKey = "instance_id"
 
-	apiKeyDebounceDelay   = 10 * time.Second
-	apiKeyDebouncerTTL    = 5 * time.Minute
-	apiKeyCleanupInterval = time.Minute
+	apiKeyDebounceDelay = 10 * time.Second
+	apiKeyDebouncerTTL  = 5 * time.Minute
 )
 
-type debouncerEntry struct {
-	debouncer *debounce.Debouncer
-	lastUsed  time.Time
-}
-
-var (
-	apiKeyDebouncers           = make(map[string]*debouncerEntry)
-	apiKeyDebouncersMu         sync.Mutex
-	apiKeyDebouncerCleanupOnce sync.Once
+var apiKeyDebouncers = ttlcache.New(
+	ttlcache.Options[string, *debounce.Debouncer]{}.
+		SetDefaultTTL(apiKeyDebouncerTTL).
+		SetDeallocationFunc(func(_ string, d *debounce.Debouncer, _ ttlcache.DeallocationReason) {
+			d.Stop()
+		}),
 )
 
 func userAgentOrUnknown(r *http.Request) string {
@@ -46,58 +43,23 @@ func userAgentOrUnknown(r *http.Request) string {
 	return "unknown"
 }
 
-// getOrCreateDebouncer returns a debouncer for the given key hash, creating one if it doesn't exist
+// getOrCreateDebouncer returns the debouncer for keyHash, creating one if absent.
+// Get extends the sliding-window TTL on each call so active keys are not evicted.
+// If two goroutines race to create, the loser's debouncer is stopped immediately.
 func getOrCreateDebouncer(keyHash string) *debounce.Debouncer {
-	startAPIKeyDebouncerCleanup()
-
-	now := time.Now()
-	apiKeyDebouncersMu.Lock()
-	if entry, exists := apiKeyDebouncers[keyHash]; exists {
-		entry.lastUsed = now
-		debouncer := entry.debouncer
-		apiKeyDebouncersMu.Unlock()
-		return debouncer
+	// Fast path: entry exists and TTL is extended by Get.
+	if d, ok := apiKeyDebouncers.Get(keyHash); ok {
+		return d
 	}
 
-	entry := &debouncerEntry{
-		debouncer: debounce.New(apiKeyDebounceDelay),
-		lastUsed:  now,
+	// Slow path: create a new debouncer and store it atomically.
+	newD := debounce.New(apiKeyDebounceDelay)
+	existing, _ := apiKeyDebouncers.GetOrSet(keyHash, newD, ttlcache.DefaultTTL)
+	if existing != newD {
+		// Raced; stop the unused debouncer and return the winner.
+		newD.Stop()
 	}
-
-	apiKeyDebouncers[keyHash] = entry
-	apiKeyDebouncersMu.Unlock()
-	return entry.debouncer
-}
-
-func startAPIKeyDebouncerCleanup() {
-	apiKeyDebouncerCleanupOnce.Do(func() {
-		go func() {
-			ticker := time.NewTicker(apiKeyCleanupInterval)
-			defer ticker.Stop()
-
-			for range ticker.C {
-				cleanupStaleDebouncers()
-			}
-		}()
-	})
-}
-
-func cleanupStaleDebouncers() {
-	now := time.Now()
-	var toStop []*debounce.Debouncer
-
-	apiKeyDebouncersMu.Lock()
-	for key, entry := range apiKeyDebouncers {
-		if now.Sub(entry.lastUsed) > apiKeyDebouncerTTL {
-			delete(apiKeyDebouncers, key)
-			toStop = append(toStop, entry.debouncer)
-		}
-	}
-	apiKeyDebouncersMu.Unlock()
-
-	for _, debouncer := range toStop {
-		debouncer.Stop()
-	}
+	return existing
 }
 
 // ClientAPIKeyMiddleware validates client API keys and extracts instance information
@@ -143,7 +105,7 @@ func ClientAPIKeyMiddleware(store *models.ClientAPIKeyStore) func(http.Handler) 
 
 			if !debouncer.Queued() {
 				debouncer.Do(func() {
-					if err := store.UpdateLastUsed(context.Background(), clientAPIKey.KeyHash); err != nil {
+					if err := store.UpdateLastUsed(context.Background(), clientAPIKey.ID); err != nil {
 						log.Error().Err(err).Int("keyId", clientAPIKey.ID).Msg("Failed to update API key last used timestamp")
 					}
 				})

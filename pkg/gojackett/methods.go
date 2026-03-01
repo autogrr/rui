@@ -11,8 +11,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"github.com/autogrr/rui/pkg/redact"
 )
 
@@ -33,7 +31,7 @@ func (c *Client) GetIndexersCtx(ctx context.Context) (Indexers, error) {
 	var ind Indexers
 	resp, err := c.getCtx(ctx, "all/results/torznab/api", opts)
 	if err != nil {
-		return ind, errors.Wrap(err, "all endpoint error")
+		return ind, fmt.Errorf("all endpoint error: %w", err)
 	}
 
 	defer drainAndClose(resp.Body)
@@ -54,7 +52,7 @@ func (c *Client) GetTorrentsCtx(ctx context.Context, indexer string, opts map[st
 	var rss Rss
 	resp, err := c.getCtx(ctx, indexer+"/results/torznab/api", opts)
 	if err != nil {
-		return rss, errors.Wrap(err, indexer+" endpoint error")
+		return rss, fmt.Errorf("%s endpoint error: %w", indexer, err)
 	}
 
 	defer drainAndClose(resp.Body)
@@ -62,7 +60,7 @@ func (c *Client) GetTorrentsCtx(ctx context.Context, indexer string, opts map[st
 	// Read the response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return rss, errors.Wrap(err, "failed to read response")
+		return rss, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	// Check if the response is an error
@@ -70,7 +68,7 @@ func (c *Client) GetTorrentsCtx(ctx context.Context, indexer string, opts map[st
 	if strings.HasPrefix(bodyStr, "<error") {
 		var torznabErr TorznabError
 		if err := xml.Unmarshal(body, &torznabErr); err != nil {
-			return rss, errors.Wrap(err, "failed to decode torznab error response")
+			return rss, fmt.Errorf("failed to decode torznab error response: %w", err)
 		}
 		return rss, fmt.Errorf("torznab error %s: %s", torznabErr.Code, torznabErr.Message)
 	}
@@ -87,7 +85,7 @@ func (c *Client) GetEnclosure(enclosure string) ([]byte, error) {
 func (c *Client) GetEnclosureCtx(ctx context.Context, enclosure string) ([]byte, error) {
 	resp, err := c.getRawCtx(ctx, enclosure)
 	if err != nil {
-		return nil, errors.Wrap(err, redact.URLString(enclosure))
+		return nil, fmt.Errorf("%s: %w", redact.URLString(enclosure), err)
 	}
 
 	defer drainAndClose(resp.Body)
@@ -122,7 +120,7 @@ func (c *Client) SearchDirectCtx(ctx context.Context, query string, opts map[str
 	var rss Rss
 	resp, err := c.getCtx(ctx, "", opts)
 	if err != nil {
-		return rss, errors.Wrap(err, "direct search endpoint error")
+		return rss, fmt.Errorf("direct search endpoint error: %w", err)
 	}
 
 	defer drainAndClose(resp.Body)
@@ -149,7 +147,7 @@ func (c *Client) GetCapsDirectCtx(ctx context.Context) (Indexers, error) {
 	var ind Indexers
 	resp, err := c.getCtx(ctx, "", opts)
 	if err != nil {
-		return ind, errors.Wrap(err, "direct caps endpoint error")
+		return ind, fmt.Errorf("direct caps endpoint error: %w", err)
 	}
 
 	defer drainAndClose(resp.Body)
@@ -230,7 +228,7 @@ func (c *Client) TVSearchCtx(ctx context.Context, opts TVSearchOptions) (Rss, er
 
 	resp, err := c.getCtx(ctx, endpoint, params)
 	if err != nil {
-		return rss, errors.Wrap(err, "tv search endpoint error")
+		return rss, fmt.Errorf("tv search endpoint error: %w", err)
 	}
 
 	defer drainAndClose(resp.Body)
@@ -303,7 +301,7 @@ func (c *Client) MovieSearchCtx(ctx context.Context, opts MovieSearchOptions) (R
 
 	resp, err := c.getCtx(ctx, endpoint, params)
 	if err != nil {
-		return rss, errors.Wrap(err, "movie search endpoint error")
+		return rss, fmt.Errorf("movie search endpoint error: %w", err)
 	}
 
 	defer drainAndClose(resp.Body)
@@ -384,7 +382,7 @@ func (c *Client) MusicSearchCtx(ctx context.Context, opts MusicSearchOptions) (R
 
 	resp, err := c.getCtx(ctx, endpoint, params)
 	if err != nil {
-		return rss, errors.Wrap(err, "music search endpoint error")
+		return rss, fmt.Errorf("music search endpoint error: %w", err)
 	}
 
 	defer drainAndClose(resp.Body)
@@ -457,7 +455,7 @@ func (c *Client) BookSearchCtx(ctx context.Context, opts BookSearchOptions) (Rss
 
 	resp, err := c.getCtx(ctx, endpoint, params)
 	if err != nil {
-		return rss, errors.Wrap(err, "book search endpoint error")
+		return rss, fmt.Errorf("book search endpoint error: %w", err)
 	}
 
 	defer drainAndClose(resp.Body)

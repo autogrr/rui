@@ -55,10 +55,10 @@ templ Authenticated(p AuthProps) {
 		<div
 			class="flex h-screen overflow-hidden bg-background"
 			x-data="{
-				sidebarOpen: localStorage.getItem('qui_sidebar') !== 'false',
+				sidebarOpen: (localStorage.getItem('rui:sidebar') || localStorage.getItem('qui_sidebar')) !== 'false',
 				toggleSidebar() {
 					this.sidebarOpen = !this.sidebarOpen;
-					localStorage.setItem('qui_sidebar', this.sidebarOpen);
+					localStorage.setItem('rui:sidebar', this.sidebarOpen);
 				},
 				init() {
 					// Remove the pre-Alpine sidebar-width attribute once Alpine has applied
@@ -304,12 +304,12 @@ templ instanceSelector(instances []Instance, active *Instance, baseURL string) {
 templ themeToggle() {
 	<button
 		x-data="{
-			theme: localStorage.getItem('qui_theme') || 'system',
+			theme: localStorage.getItem('rui:theme') || localStorage.getItem('qui_theme') || 'system',
 			cycle() {
 				const order = ['light', 'dark', 'system'];
 				const idx = order.indexOf(this.theme);
 				this.theme = order[(idx + 1) % order.length];
-				localStorage.setItem('qui_theme', this.theme);
+				localStorage.setItem('rui:theme', this.theme);
 				if (this.theme === 'dark') {
 					document.documentElement.classList.add('dark');
 				} else if (this.theme === 'light') {

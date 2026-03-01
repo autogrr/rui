@@ -76,7 +76,6 @@ func (p *AutomationPayload) toModel(instanceID int, id int) *models.Automation {
 		InstanceID:      instanceID,
 		Name:            p.Name,
 		TrackerPattern:  trackerPattern,
-		TrackerDomains:  normalizedDomains,
 		Conditions:      p.Conditions,
 		FreeSpaceSource: p.FreeSpaceSource,
 		Enabled:         true,

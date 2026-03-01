@@ -404,7 +404,7 @@ func (h *JackettHandler) CreateIndexer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	indexer, err := h.indexerStore.CreateWithIndexerID(r.Context(), name, baseURL, indexerID, apiKey, req.BasicUsername, req.BasicPassword, enabled, priority, timeoutSeconds, backend)
+	indexer, err := h.indexerStore.CreateWithIndexerID(r.Context(), 1, name, baseURL, indexerID, apiKey, req.BasicUsername, req.BasicPassword, enabled, priority, timeoutSeconds, backend)
 	if err != nil {
 		if errors.Is(err, models.ErrTorznabIndexerIDRequired) {
 			RespondError(w, http.StatusBadRequest, err.Error())

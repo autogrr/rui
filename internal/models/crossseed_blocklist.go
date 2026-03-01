@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -19,6 +18,7 @@ import (
 type CrossSeedBlocklistEntry struct {
 	InstanceID int       `json:"instanceId"`
 	InfoHash   string    `json:"infoHash"`
+	OwnerID    int       `json:"ownerId"`
 	Note       string    `json:"note,omitempty"`
 	CreatedAt  time.Time `json:"createdAt"`
 }
@@ -33,8 +33,8 @@ func NewCrossSeedBlocklistStore(db dbinterface.Querier) *CrossSeedBlocklistStore
 
 func (s *CrossSeedBlocklistStore) List(ctx context.Context, instanceID int) ([]*CrossSeedBlocklistEntry, error) {
 	query := `
-		SELECT instance_id, infohash, note, created_at
-		FROM cross_seed_blocklist
+		SELECT instance_id, infohash, owner_id, note, created_at
+		FROM cross_seed_blocklist_view
 	`
 	args := []any{}
 	if instanceID > 0 {
@@ -52,7 +52,7 @@ func (s *CrossSeedBlocklistStore) List(ctx context.Context, instanceID int) ([]*
 	var entries []*CrossSeedBlocklistEntry
 	for rows.Next() {
 		var entry CrossSeedBlocklistEntry
-		if err := rows.Scan(&entry.InstanceID, &entry.InfoHash, &entry.Note, &entry.CreatedAt); err != nil {
+		if err := rows.Scan(&entry.InstanceID, &entry.InfoHash, &entry.OwnerID, &entry.Note, &entry.CreatedAt); err != nil {
 			return nil, err
 		}
 		entries = append(entries, &entry)
@@ -66,13 +66,13 @@ func (s *CrossSeedBlocklistStore) List(ctx context.Context, instanceID int) ([]*
 
 func (s *CrossSeedBlocklistStore) Get(ctx context.Context, instanceID int, infoHash string) (*CrossSeedBlocklistEntry, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT instance_id, infohash, note, created_at
-		FROM cross_seed_blocklist
+		SELECT instance_id, infohash, owner_id, note, created_at
+		FROM cross_seed_blocklist_view
 		WHERE instance_id = ? AND infohash = ?
 	`, instanceID, normalizeInfoHash(infoHash))
 
 	var entry CrossSeedBlocklistEntry
-	if err := row.Scan(&entry.InstanceID, &entry.InfoHash, &entry.Note, &entry.CreatedAt); err != nil {
+	if err := row.Scan(&entry.InstanceID, &entry.InfoHash, &entry.OwnerID, &entry.Note, &entry.CreatedAt); err != nil {
 		return nil, err
 	}
 
@@ -93,14 +93,62 @@ func (s *CrossSeedBlocklistStore) Upsert(ctx context.Context, entry *CrossSeedBl
 	}
 	note := strings.TrimSpace(entry.Note)
 
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO cross_seed_blocklist (instance_id, infohash, note)
-		VALUES (?, ?, ?)
-		ON CONFLICT(instance_id, infohash)
-		DO UPDATE SET note = excluded.note
-	`, entry.InstanceID, normalized, note)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from the instance
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM instances WHERE id = ?`, entry.InstanceID).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get owner from instance: %w", err)
+	}
+
+	// Intern infohash and note
+	stringsToIntern := []string{normalized}
+	if note == "" {
+		// Need to intern empty string for note
+		noteID, err := dbinterface.InternEmptyString(ctx, tx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern empty note: %w", err)
+		}
+
+		ids, err := dbinterface.InternStrings(ctx, tx, normalized)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern strings: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO cross_seed_blocklist (instance_id, infohash_id, owner_id, note_id)
+			VALUES (?, ?, ?, ?)
+			ON CONFLICT(instance_id, infohash_id)
+			DO UPDATE SET note_id = excluded.note_id
+		`, entry.InstanceID, ids[0], ownerID, noteID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		stringsToIntern = append(stringsToIntern, note)
+
+		ids, err := dbinterface.InternStrings(ctx, tx, stringsToIntern...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern strings: %w", err)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO cross_seed_blocklist (instance_id, infohash_id, owner_id, note_id)
+			VALUES (?, ?, ?, ?)
+			ON CONFLICT(instance_id, infohash_id)
+			DO UPDATE SET note_id = excluded.note_id
+		`, entry.InstanceID, ids[0], ownerID, ids[1])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return s.Get(ctx, entry.InstanceID, normalized)
@@ -112,10 +160,25 @@ func (s *CrossSeedBlocklistStore) Delete(ctx context.Context, instanceID int, in
 		return errors.New("infohash is required")
 	}
 
-	res, err := s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up infohash_id from string_pool
+	var infohashID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM string_pool WHERE value = ?`, normalized).Scan(&infohashID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return sql.ErrNoRows
+		}
+		return err
+	}
+
+	res, err := tx.ExecContext(ctx, `
 		DELETE FROM cross_seed_blocklist
-		WHERE instance_id = ? AND infohash = ?
-	`, instanceID, normalized)
+		WHERE instance_id = ? AND infohash_id = ?
+	`, instanceID, infohashID)
 	if err != nil {
 		return err
 	}
@@ -126,6 +189,10 @@ func (s *CrossSeedBlocklistStore) Delete(ctx context.Context, instanceID int, in
 	}
 	if affected == 0 {
 		return sql.ErrNoRows
+	}
+
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -145,7 +212,7 @@ func (s *CrossSeedBlocklistStore) FindBlocked(ctx context.Context, instanceID in
 	placeholders := buildPlaceholders(len(normalized))
 	query := fmt.Sprintf(`
 		SELECT infohash
-		FROM cross_seed_blocklist
+		FROM cross_seed_blocklist_view
 		WHERE instance_id = ? AND infohash IN (%s)
 		LIMIT 1
 	`, placeholders)

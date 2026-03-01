@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	_ "net/http/pprof"
@@ -18,7 +19,6 @@ import (
 
 	"github.com/alexedwards/scs/v2"
 	qbt "github.com/autogrr/go-qbittorrent"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -39,7 +39,9 @@ import (
 	"github.com/autogrr/rui/internal/services/dirscan"
 	"github.com/autogrr/rui/internal/services/externalprograms"
 	"github.com/autogrr/rui/internal/services/filesmanager"
+	"github.com/autogrr/rui/internal/services/intake"
 	"github.com/autogrr/rui/internal/services/jackett"
+	"github.com/autogrr/rui/internal/services/library"
 	"github.com/autogrr/rui/internal/services/notifications"
 	"github.com/autogrr/rui/internal/services/orphanscan"
 	"github.com/autogrr/rui/internal/services/reannounce"
@@ -348,7 +350,7 @@ If no --config-dir is specified, uses the OS-specific default location:
 			}
 
 			userStore = models.NewUserStore(db)
-			if err = userStore.UpdatePassword(ctx, hashedPassword); err != nil {
+			if err = userStore.UpdatePassword(ctx, user.ID, hashedPassword); err != nil {
 				return fmt.Errorf("failed to update password: %w", err)
 			}
 
@@ -519,27 +521,37 @@ func (app *Application) runServer() {
 	// Initialize Torznab torrent cache, search cache and Jackett/Torznab service
 	torznabTorrentCache := models.NewTorznabTorrentCacheStore(db)
 	torznabSearchCache := models.NewTorznabSearchCacheStore(db)
-	cacheTTL := jackett.DefaultSearchCacheTTL
-	if cacheSettings, err := torznabSearchCache.GetSettings(context.Background()); err != nil {
-		log.Warn().Err(err).Msg("Using default torznab search cache TTL (failed to load settings)")
-	} else if cacheSettings != nil && cacheSettings.TTLMinutes > 0 {
-		cacheTTL = time.Duration(cacheSettings.TTLMinutes) * time.Minute
-		if cacheTTL < jackett.MinSearchCacheTTL {
-			cacheTTL = jackett.MinSearchCacheTTL
-		}
 
-		if rebased, err := torznabSearchCache.RebaseTTL(context.Background(), int(cacheTTL/time.Minute)); err != nil {
-			log.Warn().Err(err).Msg("Failed to rebase torznab search cache TTL to persisted settings")
-		} else if rebased > 0 {
-			log.Info().
-				Int64("updatedRows", rebased).
-				Float64("ttlHours", cacheTTL.Hours()).
-				Msg("Rebased torznab search cache entries to persisted TTL")
+	// Resolve owner ID for owner-scoped settings (single-user: first user)
+	var settingsOwnerID int
+	if err := db.QueryRowContext(context.Background(), `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&settingsOwnerID); err != nil {
+		log.Warn().Err(err).Msg("No users found; owner-scoped settings will use default TTL")
+	}
+
+	cacheTTL := jackett.DefaultSearchCacheTTL
+	if settingsOwnerID > 0 {
+		if cacheSettings, err := torznabSearchCache.GetSettings(context.Background(), settingsOwnerID); err != nil {
+			log.Warn().Err(err).Msg("Using default torznab search cache TTL (failed to load settings)")
+		} else if cacheSettings != nil && cacheSettings.TTLMinutes > 0 {
+			cacheTTL = time.Duration(cacheSettings.TTLMinutes) * time.Minute
+			if cacheTTL < jackett.MinSearchCacheTTL {
+				cacheTTL = jackett.MinSearchCacheTTL
+			}
+
+			if rebased, err := torznabSearchCache.RebaseTTL(context.Background(), int(cacheTTL/time.Minute)); err != nil {
+				log.Warn().Err(err).Msg("Failed to rebase torznab search cache TTL to persisted settings")
+			} else if rebased > 0 {
+				log.Info().
+					Int64("updatedRows", rebased).
+					Float64("ttlHours", cacheTTL.Hours()).
+					Msg("Rebased torznab search cache entries to persisted TTL")
+			}
 		}
 	}
 	jackettService := jackett.NewService(
 		torznabIndexerStore,
 		jackett.WithTorrentCache(torznabTorrentCache),
+		jackett.WithOwnerID(settingsOwnerID),
 		jackett.WithSearchCache(torznabSearchCache, jackett.SearchCacheConfig{
 			TTL: cacheTTL,
 		}),
@@ -551,6 +563,18 @@ func (app *Application) runServer() {
 	// Initialize ARR service for Sonarr/Radarr ID lookup
 	arrService := arr.NewService(arrInstanceStore, arrIDCacheStore)
 	log.Info().Msg("ARR service initialized")
+
+	// Initialize library service (native rls+expr title matching)
+	libraryTitleStore := models.NewLibraryTitleStore(db)
+	libraryRuleStore := models.NewLibraryRuleStore(db)
+	libraryService := library.New(libraryTitleStore, libraryRuleStore, arrService)
+	log.Info().Msg("Library service initialized")
+
+	// Initialize intake pipeline service
+	intakePipelineStore := models.NewIntakePipelineStore(db)
+	intakeEventStore := models.NewIntakeEventStore(db)
+	intakeService := intake.New(intakePipelineStore, intakeEventStore, libraryService, arrService)
+	log.Info().Msg("Intake pipeline service initialized")
 
 	// Initialize automation activity store and external programs service
 	automationActivityStore := models.NewAutomationActivityStore(db)
@@ -682,7 +706,7 @@ func (app *Application) runServer() {
 	sessionManager := scs.New()
 	sessionManager.Store = sqlite3store.New(db)
 	sessionManager.Lifetime = 24 * time.Hour * 30 // 30 days
-	sessionManager.Cookie.Name = "qui_user_session"
+	sessionManager.Cookie.Name = auth.SessionName
 	sessionManager.Cookie.HttpOnly = true
 	sessionManager.Cookie.SameSite = http.SameSiteLaxMode
 	sessionManager.Cookie.Secure = false // Will be set to true when HTTPS is detected
@@ -724,6 +748,12 @@ func (app *Application) runServer() {
 		DirScanService:                   dirScanService,
 		ArrInstanceStore:                 arrInstanceStore,
 		ArrService:                       arrService,
+		LibraryTitleStore:                libraryTitleStore,
+		LibraryRuleStore:                 libraryRuleStore,
+		LibraryService:                   libraryService,
+		IntakePipelineStore:              intakePipelineStore,
+		IntakeEventStore:                 intakeEventStore,
+		IntakeService:                    intakeService,
 	})
 
 	// Reconcile any cross-seed runs left in 'running' status from a previous crash/restart.

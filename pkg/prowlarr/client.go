@@ -62,7 +62,7 @@ func NewClient(cfg Config) *Client {
 
 	ua := strings.TrimSpace(cfg.UserAgent)
 	if ua == "" {
-		ua = "qui"
+		ua = "rui"
 	}
 	version := strings.TrimSpace(cfg.Version)
 	if version != "" && !strings.Contains(ua, version) {

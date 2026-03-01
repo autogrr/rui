@@ -128,6 +128,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 				http.Redirect(w, r, h.baseURL()+"/ui/settings/instances", http.StatusSeeOther)
 			})
 			r.Get("/dir-scan", h.GetDirScan)
+			r.Get("/library", h.GetLibrary)
+			r.Get("/intake", h.GetIntake)
 
 			// Instance CRUD (HTMX-driven).
 			r.Post("/instances", h.PostInstance)
@@ -293,6 +295,9 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Post("/partials/dir-scan/directories/{id}/scan", h.PostDirScanTrigger)
 			r.Post("/partials/dir-scan/directories/{id}/cancel", h.PostDirScanCancel)
 			r.Get("/partials/dir-scan/runs/{id}", h.GetDirScanRunsPartial)
+
+			// Library management.
+			r.Post("/partials/library/sync", h.PostLibrarySync)
 
 			// Backups.
 			r.Get("/partials/backups/settings/{instanceId}", h.GetBackupSettingsPartial)

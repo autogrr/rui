@@ -457,6 +457,7 @@ func (h *Handler) GetAutomationRuleFormEdit(w http.ResponseWriter, r *http.Reque
 		InstanceID:     a.InstanceID,
 		Name:           a.Name,
 		TrackerPattern: a.TrackerPattern,
+		ExprFilter:     a.ExprFilter,
 		DryRun:         a.DryRun,
 		Enabled:        a.Enabled,
 		Conditions:     a.Conditions,
@@ -498,6 +499,7 @@ func (h *Handler) PostAutomationRule(w http.ResponseWriter, r *http.Request) {
 		InstanceID:     instanceID,
 		Name:           name,
 		TrackerPattern: strings.TrimSpace(r.FormValue("tracker_pattern")),
+		ExprFilter:     strings.TrimSpace(r.FormValue("expr_filter")),
 		DryRun:         r.FormValue("dry_run") == "true",
 		Enabled:        r.FormValue("enabled") == "true",
 		Conditions:     conditions,
@@ -538,7 +540,7 @@ func (h *Handler) PutAutomationRule(w http.ResponseWriter, r *http.Request) {
 		extPrograms := h.listExtPrograms(ctx)
 		item := pages.AutomationRuleFormItem{
 			ID: a.ID, InstanceID: a.InstanceID, Name: a.Name,
-			TrackerPattern: a.TrackerPattern, DryRun: a.DryRun, Enabled: a.Enabled,
+			TrackerPattern: a.TrackerPattern, ExprFilter: a.ExprFilter, DryRun: a.DryRun, Enabled: a.Enabled,
 			Conditions: a.Conditions,
 			ErrMsg:     "Name is required",
 		}
@@ -551,7 +553,7 @@ func (h *Handler) PutAutomationRule(w http.ResponseWriter, r *http.Request) {
 		extPrograms := h.listExtPrograms(ctx)
 		item := pages.AutomationRuleFormItem{
 			ID: a.ID, InstanceID: a.InstanceID, Name: a.Name,
-			TrackerPattern: a.TrackerPattern, DryRun: a.DryRun, Enabled: a.Enabled,
+			TrackerPattern: a.TrackerPattern, ExprFilter: a.ExprFilter, DryRun: a.DryRun, Enabled: a.Enabled,
 			Conditions: a.Conditions,
 			ErrMsg:     errMsg,
 		}
@@ -561,6 +563,7 @@ func (h *Handler) PutAutomationRule(w http.ResponseWriter, r *http.Request) {
 
 	a.Name = name
 	a.TrackerPattern = strings.TrimSpace(r.FormValue("tracker_pattern"))
+	a.ExprFilter = strings.TrimSpace(r.FormValue("expr_filter"))
 	a.DryRun = r.FormValue("dry_run") == "true"
 	a.Enabled = r.FormValue("enabled") == "true"
 	a.Conditions = conditions
@@ -570,7 +573,7 @@ func (h *Handler) PutAutomationRule(w http.ResponseWriter, r *http.Request) {
 		extPrograms := h.listExtPrograms(ctx)
 		item := pages.AutomationRuleFormItem{
 			ID: a.ID, InstanceID: a.InstanceID, Name: a.Name,
-			TrackerPattern: a.TrackerPattern, DryRun: a.DryRun, Enabled: a.Enabled,
+			TrackerPattern: a.TrackerPattern, ExprFilter: a.ExprFilter, DryRun: a.DryRun, Enabled: a.Enabled,
 			Conditions: a.Conditions,
 			ErrMsg:     "Failed to update rule: " + err.Error(),
 		}

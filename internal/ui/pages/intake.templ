@@ -1,0 +1,228 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// IntakeProps holds data for the intake pipeline page.
+type IntakeProps struct {
+	BaseURL     string
+	Username    string
+	Version     string
+	CurrentPath string
+	Instances   []layouts.Instance
+
+	Pipelines []*models.IntakePipeline
+	Events    []*models.IntakeEvent
+	Error     string
+}
+
+// intakeStatusBadge returns badge CSS for an intake status.
+func intakeStatusBadge(status string) string {
+	switch status {
+	case "grabbed":
+		return "bg-green-500/15 text-green-700 dark:text-green-400"
+	case "skipped":
+		return "bg-muted text-muted-foreground"
+	case "removed":
+		return "bg-red-500/15 text-red-700 dark:text-red-400"
+	case "matched":
+		return "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+	case "error":
+		return "bg-red-500/15 text-red-700 dark:text-red-400"
+	case "pending":
+		return "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400"
+	default:
+		return "bg-muted text-muted-foreground"
+	}
+}
+
+templ Intake(p IntakeProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Intake",
+		CurrentPath: p.CurrentPath,
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		<div class="flex flex-col gap-6 p-6">
+			<!-- Header -->
+			<div class="flex items-center justify-between">
+				<div>
+					<h1 class="text-2xl font-bold tracking-tight">Intake Pipeline</h1>
+					<p class="text-sm text-muted-foreground mt-1">
+						Process releases through configurable pipelines. *arr instances act as info providers — monitored status is ignored.
+					</p>
+				</div>
+				<div class="flex items-center gap-2">
+					<button
+						class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted"
+						hx-get={ p.BaseURL + "/ui/partials/intake/process-form" }
+						hx-target="#intake-process-modal"
+						hx-swap="innerHTML"
+					>
+						Test Release
+					</button>
+				</div>
+			</div>
+
+			if p.Error != "" {
+				<div class="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+					{ p.Error }
+				</div>
+			}
+
+			<!-- Modal target -->
+			<div id="intake-process-modal"></div>
+
+			<!-- Pipelines -->
+			<div class="rounded-lg border bg-card">
+				<div class="flex items-center justify-between p-4 border-b">
+					<h2 class="font-semibold">Pipelines <span class="ml-1.5 text-xs text-muted-foreground font-normal">({ fmt.Sprintf("%d", len(p.Pipelines)) })</span></h2>
+					<p class="text-xs text-muted-foreground">Evaluated in sort order. First pipeline+rule match wins.</p>
+				</div>
+				if len(p.Pipelines) == 0 {
+					<div class="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
+						<svg class="h-10 w-10 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+							<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+						</svg>
+						<p class="text-sm">No intake pipelines configured.</p>
+						<p class="text-xs">Create a pipeline via the REST API (POST /api/intake/pipelines).</p>
+					</div>
+				} else {
+					<div class="divide-y">
+						for _, pipeline := range p.Pipelines {
+							<div class="p-4">
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-3">
+										<div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+											{ fmt.Sprintf("%d", pipeline.SortOrder) }
+										</div>
+										<div>
+											<span class="font-medium">{ pipeline.Name }</span>
+											if !pipeline.Enabled {
+												<span class="ml-2 text-xs text-muted-foreground">(disabled)</span>
+											}
+											if pipeline.Description != "" {
+												<p class="text-xs text-muted-foreground mt-0.5">{ pipeline.Description }</p>
+											}
+										</div>
+									</div>
+									<div class="flex items-center gap-2">
+										if len(pipeline.ContentTypes) > 0 {
+											for _, ct := range pipeline.ContentTypes {
+												<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryContentTypeBadge(ct) }>
+													{ ct }
+												</span>
+											}
+										} else {
+											<span class="text-xs text-muted-foreground">all types</span>
+										}
+									</div>
+								</div>
+								if len(pipeline.Rules) > 0 {
+									<div class="mt-3 ml-11">
+										<table class="w-full text-xs">
+											<thead>
+												<tr class="text-muted-foreground">
+													<th class="text-left pb-1 font-medium pr-4">Rule</th>
+													<th class="text-left pb-1 font-medium pr-4">Filter</th>
+													<th class="text-left pb-1 font-medium">Action</th>
+												</tr>
+											</thead>
+											<tbody class="divide-y divide-border/50">
+												for _, rule := range pipeline.Rules {
+													<tr>
+														<td class="py-1 pr-4">{ rule.Name }</td>
+														<td class="py-1 pr-4 font-mono text-muted-foreground max-w-xs truncate">
+															if rule.ExprFilter == "" {
+																<span class="italic">— match all —</span>
+															} else {
+																{ rule.ExprFilter }
+															}
+														</td>
+														<td class="py-1">
+															<span class={ "inline-flex rounded-full px-2 py-0.5 font-medium " + libraryActionBadge(string(rule.Action)) }>
+																{ string(rule.Action) }
+															</span>
+														</td>
+													</tr>
+												}
+											</tbody>
+										</table>
+									</div>
+								}
+							</div>
+						}
+					</div>
+				}
+			</div>
+
+			<!-- Recent Events -->
+			<div class="rounded-lg border bg-card">
+				<div class="flex items-center justify-between p-4 border-b">
+					<h2 class="font-semibold">Recent Events <span class="ml-1.5 text-xs text-muted-foreground font-normal">({ fmt.Sprintf("%d", len(p.Events)) })</span></h2>
+				</div>
+				if len(p.Events) == 0 {
+					<div class="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
+						<p class="text-sm">No intake events yet.</p>
+						<p class="text-xs">Events are recorded when releases are processed through the intake pipeline.</p>
+					</div>
+				} else {
+					<div class="overflow-x-auto">
+						<table class="w-full text-sm">
+							<thead>
+								<tr class="border-b bg-muted/30">
+									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Release</th>
+									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Matched Title</th>
+									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Rule</th>
+									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Status</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y">
+								for _, ev := range p.Events {
+									<tr class="hover:bg-muted/20 transition-colors">
+										<td class="px-4 py-2.5">
+											<div class="font-medium truncate max-w-xs">{ ev.ReleaseName }</div>
+											if ev.ParsedTitle != "" {
+												<div class="text-xs text-muted-foreground">{ ev.ParsedTitle }</div>
+											}
+										</td>
+										<td class="px-4 py-2.5 text-muted-foreground">
+											if ev.MatchedTitle != "" {
+												{ ev.MatchedTitle }
+											} else {
+												<span class="text-xs italic">—</span>
+											}
+										</td>
+										<td class="px-4 py-2.5 text-xs text-muted-foreground">
+											if ev.MatchedRuleName != "" {
+												{ ev.MatchedRuleName }
+											} else {
+												<span class="italic">—</span>
+											}
+										</td>
+										<td class="px-4 py-2.5">
+											<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + intakeStatusBadge(string(ev.Status)) }>
+												{ string(ev.Status) }
+											</span>
+											if ev.Error != "" {
+												<div class="text-xs text-destructive mt-0.5 truncate max-w-xs">{ ev.Error }</div>
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+		</div>
+	}
+}

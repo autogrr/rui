@@ -197,7 +197,8 @@ func (s *Service) runScheduler() {
 func (s *Service) checkScheduledScans() {
 	ctx := s.schedulerCtx
 
-	settings, err := s.store.GetSettings(ctx)
+	// Use ownerID=1 (admin) for the scheduler; rui is single-user.
+	settings, err := s.store.GetSettings(ctx, 1)
 	if err != nil {
 		log.Error().Err(err).Msg("dirscan: failed to get settings")
 		return
@@ -486,7 +487,15 @@ func (s *Service) markRunCanceled(ctx context.Context, runID int64, l *zerolog.L
 }
 
 func (s *Service) loadSettingsAndMatcher(ctx context.Context, runID int64, instanceID int, l *zerolog.Logger) (*models.DirScanSettings, *Matcher, bool) {
-	settings, err := s.store.GetSettings(ctx)
+	// Derive ownerID from the target instance; fall back to 1 (admin) on error.
+	ownerID := 1
+	if s.instanceStore != nil {
+		if inst, instErr := s.instanceStore.Get(ctx, instanceID); instErr == nil && inst != nil {
+			ownerID = inst.OwnerID
+		}
+	}
+
+	settings, err := s.store.GetSettings(ctx, ownerID)
 	if err != nil {
 		if l != nil {
 			l.Error().Err(err).Msg("dirscan: failed to get settings")
@@ -2364,18 +2373,18 @@ func (s *Service) getDirectoryMutex(directoryID int) *sync.Mutex {
 	return mu
 }
 
-// GetSettings returns the global directory scanner settings.
-func (s *Service) GetSettings(ctx context.Context) (*models.DirScanSettings, error) {
-	settings, err := s.store.GetSettings(ctx)
+// GetSettings returns the directory scanner settings for the given owner.
+func (s *Service) GetSettings(ctx context.Context, ownerID int) (*models.DirScanSettings, error) {
+	settings, err := s.store.GetSettings(ctx, ownerID)
 	if err != nil {
 		return nil, fmt.Errorf("get settings: %w", err)
 	}
 	return settings, nil
 }
 
-// UpdateSettings updates the global directory scanner settings.
-func (s *Service) UpdateSettings(ctx context.Context, settings *models.DirScanSettings) (*models.DirScanSettings, error) {
-	updated, err := s.store.UpdateSettings(ctx, settings)
+// UpdateSettings updates the directory scanner settings for the given owner.
+func (s *Service) UpdateSettings(ctx context.Context, ownerID int, settings *models.DirScanSettings) (*models.DirScanSettings, error) {
+	updated, err := s.store.UpdateSettings(ctx, ownerID, settings)
 	if err != nil {
 		return nil, fmt.Errorf("update settings: %w", err)
 	}

@@ -1976,6 +1976,9 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 		return exists && now.Sub(ts) < s.cfg.SkipWithin
 	}
 
+	// Pre-compile expr_filter programs for all eligible rules once per run.
+	exprPrograms := buildExprPrograms(eligibleRules)
+
 	// Compute which rules actually have matching torrents that won't be skipped.
 	// This must happen after skipCheck is defined so we only stamp lastRuleRun
 	// for rules that will actually process at least one torrent.
@@ -1984,14 +1987,14 @@ func (s *Service) applyRulesForInstance(ctx context.Context, instanceID int, for
 		if skipCheck(qbt.Deref(torrent.Hash)) {
 			continue
 		}
-		for _, rule := range selectMatchingRules(torrent, eligibleRules, s.syncManager) {
+		for _, rule := range selectMatchingRules(torrent, eligibleRules, s.syncManager, exprPrograms) {
 			rulesUsed[rule.ID] = struct{}{}
 		}
 	}
 
 	// Process all torrents through all eligible rules
 	ruleStats := make(map[int]*ruleRunStats)
-	states := processTorrents(torrents, eligibleRules, evalCtx, s.syncManager, skipCheck, ruleStats)
+	states := processTorrents(torrents, eligibleRules, evalCtx, s.syncManager, skipCheck, ruleStats, exprPrograms)
 
 	if len(states) == 0 {
 		log.Debug().

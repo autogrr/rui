@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -8,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/autogrr/rui/internal/dbinterface"
@@ -42,6 +42,7 @@ const (
 
 type AutomationActivity struct {
 	ID            int             `json:"id"`
+	OwnerID       int             `json:"ownerId"`
 	InstanceID    int             `json:"instanceId"`
 	Hash          string          `json:"hash"`
 	TorrentName   string          `json:"torrentName,omitempty"`
@@ -95,9 +96,40 @@ func (s *AutomationActivityStore) insert(ctx context.Context, activity *Automati
 		return nil, nil
 	}
 
-	var detailsStr sql.NullString
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from the instance
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM instances WHERE id = ?`, activity.InstanceID).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get instance owner: %w", err)
+	}
+
+	// Intern required strings: hash, action, outcome
+	ids, err := dbinterface.InternStrings(ctx, tx, activity.Hash, activity.Action, activity.Outcome)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+	hashID, actionID, outcomeID := ids[0], ids[1], ids[2]
+
+	// Intern nullable strings: torrent_name, tracker_domain, rule_name, reason, details
+	var detailsPtr *string
 	if len(activity.Details) > 0 {
-		detailsStr = sql.NullString{String: string(activity.Details), Valid: true}
+		d := string(activity.Details)
+		detailsPtr = &d
+	}
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx,
+		&activity.TorrentName,
+		&activity.TrackerDomain,
+		&activity.RuleName,
+		&activity.Reason,
+		detailsPtr,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern nullable strings: %w", err)
 	}
 
 	var ruleID sql.NullInt64
@@ -105,13 +137,21 @@ func (s *AutomationActivityStore) insert(ctx context.Context, activity *Automati
 		ruleID = sql.NullInt64{Int64: int64(*activity.RuleID), Valid: true}
 	}
 
-	return s.db.ExecContext(ctx, `
+	res, err := tx.ExecContext(ctx, `
 		INSERT INTO automation_activity
-			(instance_id, hash, torrent_name, tracker_domain, action, rule_id, rule_name, outcome, reason, details)
+			(owner_id, instance_id, hash_id, torrent_name_id, tracker_domain_id, action_id, rule_id, rule_name_id, outcome_id, reason_id, details_id)
 		VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, activity.InstanceID, activity.Hash, activity.TorrentName, activity.TrackerDomain, activity.Action,
-		ruleID, activity.RuleName, activity.Outcome, activity.Reason, detailsStr)
+			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, ownerID, activity.InstanceID, hashID, nullIDs[0], nullIDs[1], actionID, ruleID, nullIDs[2], outcomeID, nullIDs[3], nullIDs[4])
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return res, nil
 }
 
 func (s *AutomationActivityStore) ListByInstance(ctx context.Context, instanceID int, limit int) ([]*AutomationActivity, error) {
@@ -120,8 +160,8 @@ func (s *AutomationActivityStore) ListByInstance(ctx context.Context, instanceID
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, instance_id, hash, torrent_name, tracker_domain, action, rule_id, rule_name, outcome, reason, details, created_at
-		FROM automation_activity
+		SELECT id, owner_id, instance_id, hash, torrent_name, tracker_domain, action, rule_id, rule_name, outcome, reason, details, created_at
+		FROM automation_activity_view
 		WHERE instance_id = ?
 		ORDER BY created_at DESC
 		LIMIT ?
@@ -139,6 +179,7 @@ func (s *AutomationActivityStore) ListByInstance(ctx context.Context, instanceID
 
 		if err := rows.Scan(
 			&a.ID,
+			&a.OwnerID,
 			&a.InstanceID,
 			&a.Hash,
 			&torrentName,

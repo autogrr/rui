@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -19,8 +18,9 @@ func TestDirScanStore_SettingsRoundTrip_MaxSearcheeAgeDays(t *testing.T) {
 	ctx := context.Background()
 	db := setupDirScanTestDB(t)
 	store := models.NewDirScanStore(db)
+	ownerID := createTestUser(t, db)
 
-	updated, err := store.UpdateSettings(ctx, &models.DirScanSettings{
+	updated, err := store.UpdateSettings(ctx, ownerID, &models.DirScanSettings{
 		Enabled:                      true,
 		MatchMode:                    models.MatchModeStrict,
 		SizeTolerancePercent:         5,
@@ -37,7 +37,7 @@ func TestDirScanStore_SettingsRoundTrip_MaxSearcheeAgeDays(t *testing.T) {
 	require.NotNil(t, updated)
 	require.Equal(t, 7, updated.MaxSearcheeAgeDays)
 
-	reloaded, err := store.GetSettings(ctx)
+	reloaded, err := store.GetSettings(ctx, ownerID)
 	require.NoError(t, err)
 	require.NotNil(t, reloaded)
 	require.Equal(t, 7, reloaded.MaxSearcheeAgeDays)
@@ -50,8 +50,9 @@ func TestDirScanStore_UpdateSettings_RejectsNegativeMaxSearcheeAgeDays(t *testin
 	ctx := context.Background()
 	db := setupDirScanTestDB(t)
 	store := models.NewDirScanStore(db)
+	ownerID := createTestUser(t, db)
 
-	_, err := store.UpdateSettings(ctx, &models.DirScanSettings{
+	_, err := store.UpdateSettings(ctx, ownerID, &models.DirScanSettings{
 		MaxSearcheeAgeDays: -1,
 	})
 	require.Error(t, err)

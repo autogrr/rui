@@ -19,6 +19,7 @@ type AutomationItem struct {
 	InstanceName   string
 	Name           string
 	TrackerPattern string
+	ExprFilter     string
 	Enabled        bool
 	DryRun         bool
 	SortOrder      int
@@ -45,6 +46,7 @@ type AutomationRuleFormItem struct {
 	InstanceID     int
 	Name           string
 	TrackerPattern string
+	ExprFilter     string
 	DryRun         bool
 	Enabled        bool
 	ErrMsg         string
@@ -496,6 +498,7 @@ func AutomationFromModel(a *models.Automation, instanceName string) AutomationIt
 		InstanceName:   instanceName,
 		Name:           a.Name,
 		TrackerPattern: a.TrackerPattern,
+		ExprFilter:     a.ExprFilter,
 		Enabled:        a.Enabled,
 		DryRun:         a.DryRun,
 		SortOrder:      a.SortOrder,
@@ -805,8 +808,33 @@ templ automationFormFields(item AutomationRuleFormItem, instances []layouts.Inst
 			}
 		</div>
 	</div>
-	<div class="text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
-		<strong>Note:</strong> Each action applies to all matching torrents. Advanced per-action conditions (ratio, size, age, state…) are configurable via the API.
+	<!-- Torrent Filter (expr-lang pre-filter) -->
+	<div class="border-t border-border pt-4">
+		<p class="text-sm font-medium mb-1">Torrent Filter <span class="text-xs font-normal text-muted-foreground">(optional — only matching torrents trigger this rule)</span></p>
+		<p class="text-xs text-muted-foreground mb-2">Leave blank to match all torrents. Example: <code class="font-mono bg-muted px-1 rounded">Size &gt; 10 * 1024 * 1024 * 1024 and Category == "tv"</code></p>
+		<input type="hidden" name="expr_filter" id="auto-ef-out" value={ item.ExprFilter }/>
+		<input
+			type="text" id="auto-ef-text"
+			placeholder="e.g. Category == &quot;movies&quot; and Size > 1073741824"
+			value={ item.ExprFilter }
+			oninput="document.getElementById('auto-ef-out').value = this.value"
+			class="h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring mb-2"
+		/>
+		<details>
+			<summary class="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors select-none">▶ Visual filter builder</summary>
+			<div id="auto-ef-builder" class="mt-2 bg-muted/20 rounded-md p-2"></div>
+		</details>
+		<script>
+			(function () {
+				var c = document.getElementById('auto-ef-builder');
+				if (!c) return;
+				function boot() {
+					if (typeof RuiExprBuilder === 'undefined') { setTimeout(boot, 50); return; }
+					new RuiExprBuilder({ container: 'auto-ef-builder', outputEl: 'auto-ef-out', onApply: function(e) { document.getElementById('auto-ef-text').value = e; } }).init();
+				}
+				boot();
+			})();
+		</script>
 	</div>
 	<!-- Buttons -->
 	<div class="flex justify-end gap-2 pt-2 border-t border-border">

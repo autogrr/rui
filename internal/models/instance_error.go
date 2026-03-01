@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -27,6 +26,7 @@ const (
 
 type InstanceError struct {
 	ID           int       `json:"id"`
+	OwnerID      int       `json:"ownerId"`
 	InstanceID   int       `json:"instanceId"`
 	ErrorType    string    `json:"errorType"`
 	ErrorMessage string    `json:"errorMessage"`
@@ -64,22 +64,15 @@ func (s *InstanceErrorStore) RecordError(ctx context.Context, instanceID int, er
 	defer tx.Rollback()
 
 	// Validate that the instance exists before trying to record error
-	var exists int
-	existsQuery := `SELECT COUNT(*) FROM instances WHERE id = ?`
-	scanErr := tx.QueryRowContext(ctx, existsQuery, instanceID).Scan(&exists)
+	var ownerID int
+	existsQuery := `SELECT owner_id FROM instances WHERE id = ?`
+	scanErr := tx.QueryRowContext(ctx, existsQuery, instanceID).Scan(&ownerID)
 	if scanErr != nil {
 		if scanErr == sql.ErrNoRows {
 			// Instance doesn't exist, silently skip recording the error
-			// This can happen during instance deletion or with stale references
 			return nil
 		}
-		// Return any other Scan error up the stack with context
 		return fmt.Errorf("failed to check instance existence: %w", scanErr)
-	}
-	if exists == 0 {
-		// Instance doesn't exist, silently skip recording the error
-		// This can happen during instance deletion or with stale references
-		return nil
 	}
 
 	// Simple deduplication: check if same error was recorded in last minute using view
@@ -99,8 +92,8 @@ func (s *InstanceErrorStore) RecordError(ctx context.Context, instanceID int, er
 	}
 
 	// Insert the error with interned IDs
-	_, execErr := tx.ExecContext(ctx, `INSERT INTO instance_errors (instance_id, error_type_id, error_message_id) VALUES (?, ?, ?)`,
-		instanceID, ids[0], ids[1])
+	_, execErr := tx.ExecContext(ctx, `INSERT INTO instance_errors (owner_id, instance_id, error_type_id, error_message_id) VALUES (?, ?, ?, ?)`,
+		ownerID, instanceID, ids[0], ids[1])
 
 	// Handle foreign key constraint errors gracefully
 	var sqlErr *sqlite.Error
@@ -118,7 +111,7 @@ func (s *InstanceErrorStore) RecordError(ctx context.Context, instanceID int, er
 
 // GetRecentErrors retrieves the last N errors for an instance
 func (s *InstanceErrorStore) GetRecentErrors(ctx context.Context, instanceID int, limit int) ([]InstanceError, error) {
-	query := `SELECT id, instance_id, error_type, error_message, occurred_at 
+	query := `SELECT id, owner_id, instance_id, error_type, error_message, occurred_at 
               FROM instance_errors_view 
               WHERE instance_id = ? 
               ORDER BY occurred_at DESC 
@@ -133,7 +126,7 @@ func (s *InstanceErrorStore) GetRecentErrors(ctx context.Context, instanceID int
 	var errors []InstanceError
 	for rows.Next() {
 		var e InstanceError
-		if err := rows.Scan(&e.ID, &e.InstanceID, &e.ErrorType, &e.ErrorMessage, &e.OccurredAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.OwnerID, &e.InstanceID, &e.ErrorType, &e.ErrorMessage, &e.OccurredAt); err != nil {
 			return nil, err
 		}
 		errors = append(errors, e)

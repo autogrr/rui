@@ -23,7 +23,7 @@ type MetricsCollector struct {
 func NewMetricsCollector() *MetricsCollector {
 	return &MetricsCollector{
 		wedgedTransactionDesc: prometheus.NewDesc(
-			"qui_db_wedged_transaction_total",
+			"rui_db_wedged_transaction_total",
 			"Number of times BeginTx detected a wedged transaction (indicates a bug)",
 			nil,
 			nil,

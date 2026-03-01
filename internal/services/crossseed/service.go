@@ -35,8 +35,8 @@ import (
 	"time"
 
 	"github.com/anacrolix/torrent/metainfo"
-	"github.com/autobrr/autobrr/pkg/ttlcache"
 	qbt "github.com/autogrr/go-qbittorrent"
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
 	"github.com/cespare/xxhash/v2"
 	"github.com/moistari/rls"
 	"github.com/prometheus/client_golang/prometheus"
@@ -127,79 +127,79 @@ type ServiceMetrics struct {
 func NewServiceMetrics() *ServiceMetrics {
 	return &ServiceMetrics{
 		FindCandidatesDuration: promauto.NewHistogram(prometheus.HistogramOpts{
-			Name:    "qui_crossseed_find_candidates_duration_seconds",
+			Name:    "rui_crossseed_find_candidates_duration_seconds",
 			Help:    "Time spent finding cross-seed candidates",
 			Buckets: prometheus.DefBuckets,
 		}),
 		FindCandidatesTotal: promauto.NewCounter(prometheus.CounterOpts{
-			Name: "qui_crossseed_find_candidates_total",
+			Name: "rui_crossseed_find_candidates_total",
 			Help: "Total number of find candidates requests",
 		}),
 		CrossSeedDuration: promauto.NewHistogram(prometheus.HistogramOpts{
-			Name:    "qui_crossseed_cross_seed_duration_seconds",
+			Name:    "rui_crossseed_cross_seed_duration_seconds",
 			Help:    "Time spent performing cross-seed operations",
 			Buckets: prometheus.DefBuckets,
 		}),
 		CrossSeedTotal: promauto.NewCounter(prometheus.CounterOpts{
-			Name: "qui_crossseed_cross_seed_total",
+			Name: "rui_crossseed_cross_seed_total",
 			Help: "Total number of cross-seed operations",
 		}),
 		CrossSeedSuccessRate: promauto.NewCounterVec(prometheus.CounterOpts{
-			Name: "qui_crossseed_success_total",
+			Name: "rui_crossseed_success_total",
 			Help: "Total number of successful cross-seed operations by status",
 		}, []string{"status"}),
 		CacheHitRate: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "qui_crossseed_cache_hit_rate",
+			Name: "rui_crossseed_cache_hit_rate",
 			Help: "Cache hit rate for various caches (0.0 to 1.0)",
 		}),
 		ActiveAsyncOperations: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "qui_crossseed_active_async_operations",
+			Name: "rui_crossseed_active_async_operations",
 			Help: "Number of active async filtering operations",
 		}),
 		TorrentFilesCacheSize: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "qui_crossseed_torrent_files_cache_size",
+			Name: "rui_crossseed_torrent_files_cache_size",
 			Help: "Number of entries in torrent files cache",
 		}),
 		SearchResultCacheSize: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "qui_crossseed_search_result_cache_size",
+			Name: "rui_crossseed_search_result_cache_size",
 			Help: "Number of entries in search result cache",
 		}),
 		AsyncFilteringCacheSize: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "qui_crossseed_async_filtering_cache_size",
+			Name: "rui_crossseed_async_filtering_cache_size",
 			Help: "Number of entries in async filtering cache",
 		}),
 		IndexerDomainCacheSize: promauto.NewGauge(prometheus.GaugeOpts{
-			Name: "qui_crossseed_indexer_domain_cache_size",
+			Name: "rui_crossseed_indexer_domain_cache_size",
 			Help: "Number of entries in indexer domain cache",
 		}),
 		ReleaseCacheParseDuration: promauto.NewHistogram(prometheus.HistogramOpts{
-			Name:    "qui_crossseed_release_parse_duration_seconds",
+			Name:    "rui_crossseed_release_parse_duration_seconds",
 			Help:    "Time spent parsing release names",
 			Buckets: []float64{0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0},
 		}),
 		GetMatchTypeDuration: promauto.NewHistogram(prometheus.HistogramOpts{
-			Name:    "qui_crossseed_get_match_type_duration_seconds",
+			Name:    "rui_crossseed_get_match_type_duration_seconds",
 			Help:    "Time spent determining file match types",
 			Buckets: prometheus.DefBuckets,
 		}),
 		GetMatchTypeCalls: promauto.NewCounter(prometheus.CounterOpts{
-			Name: "qui_crossseed_get_match_type_calls_total",
+			Name: "rui_crossseed_get_match_type_calls_total",
 			Help: "Total number of getMatchType calls",
 		}),
 		GetMatchTypeNoMatch: promauto.NewCounter(prometheus.CounterOpts{
-			Name: "qui_crossseed_get_match_type_no_match_total",
+			Name: "rui_crossseed_get_match_type_no_match_total",
 			Help: "Total number of getMatchType calls that resulted in no match",
 		}),
 		GetMatchTypeExactMatch: promauto.NewCounter(prometheus.CounterOpts{
-			Name: "qui_crossseed_get_match_type_exact_match_total",
+			Name: "rui_crossseed_get_match_type_exact_match_total",
 			Help: "Total number of getMatchType calls that resulted in exact match",
 		}),
 		GetMatchTypePartialMatch: promauto.NewCounter(prometheus.CounterOpts{
-			Name: "qui_crossseed_get_match_type_partial_match_total",
+			Name: "rui_crossseed_get_match_type_partial_match_total",
 			Help: "Total number of getMatchType calls that resulted in partial match",
 		}),
 		GetMatchTypeSizeMatch: promauto.NewCounter(prometheus.CounterOpts{
-			Name: "qui_crossseed_get_match_type_size_match_total",
+			Name: "rui_crossseed_get_match_type_size_match_total",
 			Help: "Total number of getMatchType calls that resulted in size match",
 		}),
 	}
@@ -255,6 +255,20 @@ func initializeDomainMappings() map[string][]string {
 		"flacsfor.me":    {"redacted.sh"},
 		"home.opsfet.ch": {"orpheus.network"},
 	}
+}
+
+// defaultOwnerID is used for all store operations until multi-user auth context is available.
+// rui is a single-user self-hosted app; the admin user is always owner 1.
+const defaultOwnerID = 1
+
+// resolveOwnerID derives the owner from an instance, falling back to defaultOwnerID.
+func (s *Service) resolveOwnerID(ctx context.Context, instanceID int) int {
+	if instanceID > 0 && s.instanceStore != nil {
+		if inst, err := s.instanceStore.Get(ctx, instanceID); err == nil && inst != nil {
+			return inst.OwnerID
+		}
+	}
+	return defaultOwnerID
 }
 
 // Service provides cross-seed functionality
@@ -950,7 +964,7 @@ func (s *Service) GetAutomationSettings(ctx context.Context) (*models.CrossSeedA
 		return models.DefaultCrossSeedAutomationSettings(), nil
 	}
 
-	settings, err := s.automationStore.GetSettings(ctx)
+	settings, err := s.automationStore.GetSettings(ctx, defaultOwnerID)
 	if err != nil {
 		return nil, fmt.Errorf("load automation settings: %w", err)
 	}
@@ -1002,7 +1016,7 @@ func (s *Service) UpdateAutomationSettings(ctx context.Context, settings *models
 		return nil, errors.New("automation storage not configured")
 	}
 
-	updated, err := s.automationStore.UpsertSettings(ctx, settings)
+	updated, err := s.automationStore.UpsertSettings(ctx, defaultOwnerID, settings)
 	if err != nil {
 		return nil, fmt.Errorf("persist automation settings: %w", err)
 	}
@@ -1085,7 +1099,7 @@ func (s *Service) GetSearchSettings(ctx context.Context) (*models.CrossSeedSearc
 		return settings, nil
 	}
 
-	settings, err := s.automationStore.GetSearchSettings(ctx)
+	settings, err := s.automationStore.GetSearchSettings(ctx, defaultOwnerID)
 	if err != nil {
 		return nil, fmt.Errorf("load search settings: %w", err)
 	}
@@ -1169,7 +1183,7 @@ func (s *Service) PatchSearchSettings(ctx context.Context, patch SearchSettingsP
 		}
 	}
 
-	return s.automationStore.UpsertSearchSettings(ctx, settings)
+	return s.automationStore.UpsertSearchSettings(ctx, defaultOwnerID, settings)
 }
 
 // ReconcileInterruptedRuns marks any runs that were left in 'running' status as failed.
@@ -1310,7 +1324,7 @@ func (s *Service) RunAutomation(ctx context.Context, opts AutomationRunOptions) 
 		}
 		cooldown := max(time.Duration(intervalMinutes)*time.Minute, 30*time.Minute)
 
-		lastRun, err := s.automationStore.GetLatestRun(ctx)
+		lastRun, err := s.automationStore.GetLatestRun(ctx, defaultOwnerID)
 		if err != nil {
 			return nil, fmt.Errorf("load latest automation run metadata: %w", err)
 		}
@@ -1341,7 +1355,7 @@ func (s *Service) RunAutomation(ctx context.Context, opts AutomationRunOptions) 
 		StartedAt:   time.Now().UTC(),
 	}
 
-	storedRun, err := s.automationStore.CreateRun(ctx, run)
+	storedRun, err := s.automationStore.CreateRun(ctx, defaultOwnerID, run)
 	if err != nil {
 		return nil, err
 	}
@@ -1512,7 +1526,7 @@ func (s *Service) GetAutomationStatus(ctx context.Context) (*AutomationStatus, e
 	}
 
 	if s.automationStore != nil {
-		lastRun, err := s.automationStore.GetLatestRun(ctx)
+		lastRun, err := s.automationStore.GetLatestRun(ctx, defaultOwnerID)
 		if err != nil {
 			return nil, fmt.Errorf("load latest automation run: %w", err)
 		}
@@ -1556,7 +1570,7 @@ func (s *Service) ListAutomationRuns(ctx context.Context, limit, offset int) ([]
 	if s.automationStore == nil {
 		return []*models.CrossSeedRun{}, nil
 	}
-	runs, err := s.automationStore.ListRuns(ctx, limit, offset)
+	runs, err := s.automationStore.ListRuns(ctx, defaultOwnerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list automation runs: %w", err)
 	}
@@ -1977,7 +1991,7 @@ func (s *Service) StartSearchRun(ctx context.Context, opts SearchRunOptions) (*m
 		Results:         []models.CrossSeedSearchResult{},
 	}
 
-	storedRun, err := s.automationStore.CreateSearchRun(ctx, newRun)
+	storedRun, err := s.automationStore.CreateSearchRun(ctx, s.resolveOwnerID(ctx, newRun.InstanceID), newRun)
 	if err != nil {
 		s.searchMu.Unlock()
 		return nil, err
@@ -2202,7 +2216,7 @@ func (s *Service) computeNextRunDelay(ctx context.Context, settings *models.Cros
 	}
 	interval := max(time.Duration(intervalMinutes)*time.Minute, 30*time.Minute)
 
-	lastRun, err := s.automationStore.GetLatestRun(ctx)
+	lastRun, err := s.automationStore.GetLatestRun(ctx, defaultOwnerID)
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to get latest cross-seed run metadata")
 		return time.Minute, false
@@ -2732,7 +2746,7 @@ func (s *Service) markFeedItem(ctx context.Context, result jackett.SearchResult,
 		InfoHash:   infoHash,
 	}
 
-	if err := s.automationStore.MarkFeedItem(ctx, item); err != nil {
+	if err := s.automationStore.MarkFeedItem(ctx, defaultOwnerID, item); err != nil {
 		log.Debug().Err(err).Str("guid", result.GUID).Msg("Failed to persist cross-seed feed item state")
 	}
 }
@@ -5744,7 +5758,7 @@ func (s *Service) buildGazelleClientSet(ctx context.Context, settings *models.Cr
 		if hostKey == "" {
 			continue
 		}
-		key, ok, err := s.automationStore.GetDecryptedGazelleAPIKey(ctx, host)
+		key, ok, err := s.automationStore.GetDecryptedGazelleAPIKey(ctx, defaultOwnerID, host)
 		if err != nil {
 			log.Warn().Err(err).Str("host", host).Msg("[CROSSSEED-GAZELLE] Failed to decrypt API key")
 			continue
@@ -7093,7 +7107,7 @@ func (s *Service) propagateDuplicateSearchHistory(ctx context.Context, state *se
 		if strings.TrimSpace(dupHash) == "" {
 			continue
 		}
-		if err := s.automationStore.UpsertSearchHistory(ctx, state.opts.InstanceID, dupHash, processedAt); err != nil {
+		if err := s.automationStore.UpsertSearchHistory(ctx, s.resolveOwnerID(ctx, state.opts.InstanceID), state.opts.InstanceID, dupHash, processedAt); err != nil {
 			log.Debug().
 				Err(err).
 				Str("hash", dupHash).
@@ -7303,7 +7317,7 @@ func (s *Service) processSearchCandidate(ctx context.Context, state *searchRunSt
 	processedAt := time.Now().UTC()
 
 	if s.automationStore != nil {
-		if err := s.automationStore.UpsertSearchHistory(ctx, state.opts.InstanceID, qbt.Deref(torrent.Hash), processedAt); err != nil {
+		if err := s.automationStore.UpsertSearchHistory(ctx, s.resolveOwnerID(ctx, state.opts.InstanceID), state.opts.InstanceID, qbt.Deref(torrent.Hash), processedAt); err != nil {
 			log.Debug().Err(err).Msg("failed to update search history")
 		}
 		s.propagateDuplicateSearchHistory(ctx, state, qbt.Deref(torrent.Hash), processedAt)

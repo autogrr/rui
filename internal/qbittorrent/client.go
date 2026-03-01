@@ -12,9 +12,8 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/autobrr/autobrr/pkg/ttlcache"
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
 	qbt "github.com/autogrr/go-qbittorrent"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
 
@@ -440,7 +439,7 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 
 	if err := c.RefreshCapabilities(ctx); err != nil {
 		c.updateHealthStatus(false)
-		return errors.Wrap(err, "health check failed")
+		return fmt.Errorf("health check failed: %w", err)
 	}
 
 	c.updateHealthStatus(true)

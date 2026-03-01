@@ -6,13 +6,13 @@ package qbittorrent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/autobrr/autobrr/pkg/ttlcache"
-	"github.com/pkg/errors"
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/models"
@@ -187,7 +187,7 @@ func (cp *ClientPool) GetClientWithTimeout(ctx context.Context, instanceID int, 
 
 		if err := client.HealthCheck(ctx); err != nil {
 			// Healthcheck failed, just return nil
-			return nil, errors.Wrap(err, "client healthcheck failed")
+			return nil, fmt.Errorf("client healthcheck failed: %w", err)
 		}
 		// Healthcheck succeeded, return client
 		return client, nil

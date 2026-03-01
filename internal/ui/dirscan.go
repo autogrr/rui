@@ -45,10 +45,11 @@ func (h *Handler) GetDirScan(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) GetDirScanSettingsPartial(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	ownerID := h.sessionManager.GetInt(ctx, "user_id")
 
 	var settings *models.DirScanSettings
 	if h.dirScanService != nil {
-		s, err := h.dirScanService.GetSettings(ctx)
+		s, err := h.dirScanService.GetSettings(ctx, ownerID)
 		if err != nil {
 			log.Error().Err(err).Msg("dirscan ui: failed to get settings")
 		} else {
@@ -72,9 +73,10 @@ func (h *Handler) PostDirScanSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch existing to preserve fields not in the form.
+	ownerID := h.sessionManager.GetInt(ctx, "user_id")
 	var existing *models.DirScanSettings
 	if h.dirScanService != nil {
-		if s, err := h.dirScanService.GetSettings(ctx); err == nil && s != nil {
+		if s, err := h.dirScanService.GetSettings(ctx, ownerID); err == nil && s != nil {
 			existing = s
 		}
 	}
@@ -96,7 +98,7 @@ func (h *Handler) PostDirScanSettings(w http.ResponseWriter, r *http.Request) {
 
 	errMsg := ""
 	if h.dirScanService != nil {
-		if _, err := h.dirScanService.UpdateSettings(ctx, existing); err != nil {
+		if _, err := h.dirScanService.UpdateSettings(ctx, ownerID, existing); err != nil {
 			errMsg = "Failed to save: " + err.Error()
 			log.Error().Err(err).Msg("dirscan ui: failed to update settings")
 		}
@@ -111,7 +113,7 @@ func (h *Handler) PostDirScanSettings(w http.ResponseWriter, r *http.Request) {
 	// Re-fetch to get saved values.
 	var saved *models.DirScanSettings
 	if h.dirScanService != nil {
-		if s, err := h.dirScanService.GetSettings(ctx); err == nil {
+		if s, err := h.dirScanService.GetSettings(ctx, ownerID); err == nil {
 			saved = s
 		}
 	}

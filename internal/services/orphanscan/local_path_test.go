@@ -17,10 +17,10 @@ import (
 func TestLocalDiscUnitsOnPath(t *testing.T) {
 	// Local-only diagnostic test.
 	// Run with:
-	//   $env:QUI_LOCAL_SCAN_PATH='D:\\UA_Linked\\BHD'; go test ./internal/services/orphanscan -run TestLocalDiscUnitsOnPath -count=1 -v
-	path := os.Getenv("QUI_LOCAL_SCAN_PATH")
+	//   $env:RUI_LOCAL_SCAN_PATH='D:\\UA_Linked\\BHD'; go test ./internal/services/orphanscan -run TestLocalDiscUnitsOnPath -count=1 -v
+	path := os.Getenv("RUI_LOCAL_SCAN_PATH")
 	if path == "" {
-		t.Skip("set QUI_LOCAL_SCAN_PATH to run this local test")
+		t.Skip("set RUI_LOCAL_SCAN_PATH to run this local test")
 	}
 	path = filepath.Clean(path)
 
@@ -62,10 +62,10 @@ func TestLocalAllUnitsOnPath(t *testing.T) {
 	//   - Disc layouts (BDMV/VIDEO_TS) collapse to a parent folder unit
 	//   - Everything else is per-file
 	// Run with:
-	//   $env:QUI_LOCAL_SCAN_PATH='D:\\UA_Linked\\BHD'; go test ./internal/services/orphanscan -run TestLocalAllUnitsOnPath -count=1 -v
-	path := os.Getenv("QUI_LOCAL_SCAN_PATH")
+	//   $env:RUI_LOCAL_SCAN_PATH='D:\\UA_Linked\\BHD'; go test ./internal/services/orphanscan -run TestLocalAllUnitsOnPath -count=1 -v
+	path := os.Getenv("RUI_LOCAL_SCAN_PATH")
 	if path == "" {
-		t.Skip("set QUI_LOCAL_SCAN_PATH to run this local test")
+		t.Skip("set RUI_LOCAL_SCAN_PATH to run this local test")
 	}
 	path = filepath.Clean(path)
 

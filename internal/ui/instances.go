@@ -144,9 +144,10 @@ func (h *Handler) PostInstance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	localFSBool := localFS
+	ownerID := h.sessionManager.GetInt(r.Context(), "user_id")
 	created, err := h.instanceStore.Create(
 		r.Context(),
-		name, host, username, password,
+		ownerID, name, host, username, password,
 		basicUserPtr, basicPassPtr,
 		tlsSkipVerify, &localFSBool,
 	)

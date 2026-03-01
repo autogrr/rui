@@ -106,7 +106,8 @@ func (h *Handler) PostIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	_, err := h.arrInstanceStore.Create(ctx, instType, name, baseURL, apiKey, nil, nil, enabled, 0, timeout)
+	ownerID := h.sessionManager.GetInt(ctx, "user_id")
+	_, err := h.arrInstanceStore.Create(ctx, ownerID, instType, name, baseURL, apiKey, nil, nil, enabled, 0, timeout)
 	if err != nil {
 		render(w, r, http.StatusUnprocessableEntity, pages.IntegrationFormNew(h.baseURL(), "Failed to create integration: "+err.Error()))
 		return

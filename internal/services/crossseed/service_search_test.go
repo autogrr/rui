@@ -276,7 +276,7 @@ func TestResolveTorznabIndexerIDs_ExcludesOPSREDForSearchWhenGazelleConfigured(t
 	}
 	store, err := models.NewCrossSeedStore(db, key)
 	require.NoError(t, err)
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 		OrpheusAPIKey:  "ops-key",
@@ -311,7 +311,7 @@ func TestResolveTorznabIndexerIDs_DoesNotExcludeOPSREDForPartialGazelleConfig(t 
 	}
 	store, err := models.NewCrossSeedStore(db, key)
 	require.NoError(t, err)
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 	})
@@ -384,7 +384,7 @@ func TestRefreshSearchQueueCountsCooldownEligibleTorrents(t *testing.T) {
 	require.NoError(t, err)
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 	service := &Service{
 		automationStore: store,
@@ -400,10 +400,10 @@ func TestRefreshSearchQueueCountsCooldownEligibleTorrents(t *testing.T) {
 	}
 
 	now := time.Now().UTC()
-	require.NoError(t, store.UpsertSearchHistory(ctx, instance.ID, "recent-hash", now.Add(-1*time.Hour)))
-	require.NoError(t, store.UpsertSearchHistory(ctx, instance.ID, "stale-hash", now.Add(-13*time.Hour)))
+	require.NoError(t, store.UpsertSearchHistory(ctx, 1, instance.ID, "recent-hash", now.Add(-1*time.Hour)))
+	require.NoError(t, store.UpsertSearchHistory(ctx, 1, instance.ID, "stale-hash", now.Add(-13*time.Hour)))
 
-	run, err := store.CreateSearchRun(ctx, &models.CrossSeedSearchRun{
+	run, err := store.CreateSearchRun(ctx, 1, &models.CrossSeedSearchRun{
 		InstanceID:      instance.ID,
 		Status:          models.CrossSeedSearchRunStatusRunning,
 		StartedAt:       now,
@@ -449,7 +449,7 @@ func TestRefreshSearchQueue_TorznabDisabledCountsAllSources(t *testing.T) {
 	require.NoError(t, err)
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	service := &Service{
@@ -466,7 +466,7 @@ func TestRefreshSearchQueue_TorznabDisabledCountsAllSources(t *testing.T) {
 	}
 
 	now := time.Now().UTC()
-	run, err := store.CreateSearchRun(ctx, &models.CrossSeedSearchRun{
+	run, err := store.CreateSearchRun(ctx, 1, &models.CrossSeedSearchRun{
 		InstanceID:      instance.ID,
 		Status:          models.CrossSeedSearchRunStatusRunning,
 		StartedAt:       now,
@@ -511,7 +511,7 @@ func TestRefreshSearchQueue_TorznabDisabledSkipsAlreadyCrossSeeded(t *testing.T)
 	require.NoError(t, err)
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	// Minimal torrent bytes; "source" flag hashing is based on info dict.
@@ -558,7 +558,7 @@ func TestRefreshSearchQueue_TorznabDisabledSkipsAlreadyCrossSeeded(t *testing.T)
 	}
 
 	now := time.Now().UTC()
-	run, err := store.CreateSearchRun(ctx, &models.CrossSeedSearchRun{
+	run, err := store.CreateSearchRun(ctx, 1, &models.CrossSeedSearchRun{
 		InstanceID:      instance.ID,
 		Status:          models.CrossSeedSearchRunStatusRunning,
 		StartedAt:       now,
@@ -605,7 +605,7 @@ func TestPropagateDuplicateSearchHistory(t *testing.T) {
 	require.NoError(t, err)
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	service := &Service{
@@ -651,12 +651,12 @@ func TestStartSearchRun_AllowsGazelleOnlyWhenTorznabUnavailable(t *testing.T) {
 	require.NoError(t, err)
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	// Seeded Torrent Search should be able to start even with no Torznab indexers configured,
 	// as long as Gazelle matching is enabled.
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 	})
@@ -708,7 +708,7 @@ func TestStartSearchRun_DisableTorznabRequiresGazelle(t *testing.T) {
 
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	svc := &Service{
@@ -741,7 +741,7 @@ func TestStartSearchRun_DisableTorznabRequiresDecryptableGazelleKey(t *testing.T
 	}
 	goodStore, err := models.NewCrossSeedStore(db, key)
 	require.NoError(t, err)
-	_, err = goodStore.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = goodStore.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 	})
@@ -754,7 +754,7 @@ func TestStartSearchRun_DisableTorznabRequiresDecryptableGazelleKey(t *testing.T
 	require.NoError(t, err)
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 	svc := &Service{
 		instanceStore:    instanceStore,
@@ -789,10 +789,10 @@ func TestStartSearchRun_DisableTorznabSkipsJackettProbe(t *testing.T) {
 
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 	})
@@ -846,10 +846,10 @@ func TestStartSearchRun_FallsBackToGazelleWhenJackettProbeFails(t *testing.T) {
 
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 	})
@@ -902,7 +902,7 @@ func TestStartSearchRun_JackettProbeFailureRequiresGazelle(t *testing.T) {
 
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	svc := &Service{
@@ -939,10 +939,10 @@ func TestStartSearchRun_DisableTorznabUsesGazelleIntervalFloor(t *testing.T) {
 
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 	})
@@ -997,7 +997,7 @@ func TestStartSearchRun_TorznabKeepsConservativeIntervalFloor(t *testing.T) {
 
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	svc := &Service{
@@ -1217,7 +1217,7 @@ func TestSearchTorrentMatches_GazelleSourceWithoutBackendsReturnsError(t *testin
 
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	sourceHash := "223759985c562a644428312c8cd3585d04686847"
@@ -1261,7 +1261,7 @@ func TestSearchTorrentMatches_DisableTorznabWithoutGazelleReturnsError(t *testin
 
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	sourceHash := "223759985c562a644428312c8cd3585d04686847"
@@ -1312,12 +1312,12 @@ func TestSearchTorrentMatches_DisableTorznab_AllowsPartialGazelleConfig(t *testi
 
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	// Only RED key configured: OPS-sourced torrents can be searched (target=RED),
 	// but RED-sourced torrents cannot (target=OPS). Gazelle-only mode should not hard-fail.
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 	})
@@ -1372,11 +1372,11 @@ func TestSearchTorrentMatches_GazelleSkipsWhenTargetHashExistsLocally(t *testing
 	require.NoError(t, err)
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	// Enable Gazelle and set OPS key (needed when source is RED and target is OPS).
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		OrpheusAPIKey:  "ops-key",
 		RedactedAPIKey: "red-key",

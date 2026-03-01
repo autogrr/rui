@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -18,6 +17,7 @@ import (
 
 type BackupSettings struct {
 	InstanceID        int       `json:"instanceId"`
+	OwnerID           int       `json:"ownerId"`
 	Enabled           bool      `json:"enabled"`
 	HourlyEnabled     bool      `json:"hourlyEnabled"`
 	DailyEnabled      bool      `json:"dailyEnabled"`
@@ -30,6 +30,7 @@ type BackupSettings struct {
 	IncludeCategories bool      `json:"includeCategories"`
 	IncludeTags       bool      `json:"includeTags"`
 	CustomPath        *string   `json:"customPath,omitempty"`
+	ExprFilter        string    `json:"exprFilter,omitempty"` // optional expr-lang torrent inclusion filter
 	CreatedAt         time.Time `json:"createdAt"`
 	UpdatedAt         time.Time `json:"updatedAt"`
 }
@@ -49,6 +50,7 @@ func DefaultBackupSettings(instanceID int) *BackupSettings {
 		IncludeCategories: true,
 		IncludeTags:       true,
 		CustomPath:        nil,
+		ExprFilter:        "",
 		CreatedAt:         time.Now().UTC(),
 		UpdatedAt:         time.Now().UTC(),
 	}
@@ -76,6 +78,7 @@ const (
 
 type BackupRun struct {
 	ID             int64                       `json:"id"`
+	OwnerID        int                         `json:"ownerId"`
 	InstanceID     int                         `json:"instanceId"`
 	Kind           BackupRunKind               `json:"kind"`
 	Status         BackupRunStatus             `json:"status"`
@@ -124,22 +127,23 @@ func NewBackupStore(db dbinterface.Querier) *BackupStore {
 
 func (s *BackupStore) GetSettings(ctx context.Context, instanceID int) (*BackupSettings, error) {
 	query := `
-        SELECT instance_id, enabled, hourly_enabled, daily_enabled, weekly_enabled, monthly_enabled,
+        SELECT instance_id, owner_id, enabled, hourly_enabled, daily_enabled, weekly_enabled, monthly_enabled,
                keep_hourly, keep_daily, keep_weekly, keep_monthly,
-               include_categories, include_tags, custom_path, created_at, updated_at
-        FROM instance_backup_settings
+               include_categories, include_tags, custom_path, expr_filter, created_at, updated_at
+        FROM instance_backup_settings_view
         WHERE instance_id = ?
     `
 
 	row := s.db.QueryRowContext(ctx, query, instanceID)
 
 	var settings BackupSettings
-	var customPath sql.NullString
+	var customPath string
 	var createdAt sql.NullTime
 	var updatedAt sql.NullTime
 
 	err := row.Scan(
 		&settings.InstanceID,
+		&settings.OwnerID,
 		&settings.Enabled,
 		&settings.HourlyEnabled,
 		&settings.DailyEnabled,
@@ -152,6 +156,7 @@ func (s *BackupStore) GetSettings(ctx context.Context, instanceID int) (*BackupS
 		&settings.IncludeCategories,
 		&settings.IncludeTags,
 		&customPath,
+		&settings.ExprFilter,
 		&createdAt,
 		&updatedAt,
 	)
@@ -163,8 +168,8 @@ func (s *BackupStore) GetSettings(ctx context.Context, instanceID int) (*BackupS
 		return nil, err
 	}
 
-	if customPath.Valid {
-		settings.CustomPath = &customPath.String
+	if customPath != "" {
+		settings.CustomPath = &customPath
 	}
 	if createdAt.Valid {
 		settings.CreatedAt = createdAt.Time
@@ -187,13 +192,20 @@ func (s *BackupStore) UpsertSettings(ctx context.Context, settings *BackupSettin
 	}
 	defer tx.Rollback()
 
+	// Intern custom_path (nullable)
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx, settings.CustomPath)
+	if err != nil {
+		return fmt.Errorf("failed to intern custom_path: %w", err)
+	}
+
 	query := `
         INSERT INTO instance_backup_settings (
-            instance_id, enabled, hourly_enabled, daily_enabled, weekly_enabled, monthly_enabled,
+            instance_id, owner_id, enabled, hourly_enabled, daily_enabled, weekly_enabled, monthly_enabled,
             keep_hourly, keep_daily, keep_weekly, keep_monthly,
-            include_categories, include_tags, custom_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            include_categories, include_tags, custom_path_id, expr_filter
+        ) VALUES (?, (SELECT owner_id FROM instances WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(instance_id) DO UPDATE SET
+            owner_id = excluded.owner_id,
             enabled = excluded.enabled,
             hourly_enabled = excluded.hourly_enabled,
             daily_enabled = excluded.daily_enabled,
@@ -205,12 +217,14 @@ func (s *BackupStore) UpsertSettings(ctx context.Context, settings *BackupSettin
             keep_monthly = excluded.keep_monthly,
             include_categories = excluded.include_categories,
             include_tags = excluded.include_tags,
-            custom_path = excluded.custom_path
+            custom_path_id = excluded.custom_path_id,
+            expr_filter = excluded.expr_filter
     `
 
 	_, err = tx.ExecContext(
 		ctx,
 		query,
+		settings.InstanceID,
 		settings.InstanceID,
 		settings.Enabled,
 		settings.HourlyEnabled,
@@ -223,7 +237,8 @@ func (s *BackupStore) UpsertSettings(ctx context.Context, settings *BackupSettin
 		maxInt(settings.KeepMonthly, 0),
 		settings.IncludeCategories,
 		settings.IncludeTags,
-		settings.CustomPath,
+		nullIDs[0],
+		settings.ExprFilter,
 	)
 
 	if err != nil {
@@ -256,12 +271,10 @@ func (s *BackupStore) CreateRun(ctx context.Context, run *BackupRun) error {
 	}
 	defer tx.Rollback()
 
-	// Intern all strings in a single call (convert required strings to pointers)
-	kind := string(run.Kind)
-	status := string(run.Status)
-	allIDs, err := dbinterface.InternStringNullable(ctx, tx, &kind, &status, &run.RequestedBy, run.ArchivePath, run.ManifestPath, run.ErrorMessage)
+	// Intern required strings
+	reqIDs, err := dbinterface.InternStrings(ctx, tx, string(run.Kind), string(run.Status), run.RequestedBy)
 	if err != nil {
-		return fmt.Errorf("failed to intern strings: %w", err)
+		return fmt.Errorf("failed to intern required strings: %w", err)
 	}
 
 	categoryJSON, err := marshalCategoryCounts(run.CategoryCounts)
@@ -279,13 +292,20 @@ func (s *BackupStore) CreateRun(ctx context.Context, run *BackupRun) error {
 		return err
 	}
 
+	// Intern nullable strings
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx, run.ArchivePath, run.ManifestPath, categoryJSON, categoriesJSON, tagsJSON, run.ErrorMessage)
+	if err != nil {
+		return fmt.Errorf("failed to intern nullable strings: %w", err)
+	}
+
 	res, err := tx.ExecContext(ctx, `
 		INSERT INTO instance_backup_runs (
-			instance_id, kind_id, status_id, requested_by_id, requested_at, started_at, completed_at,
-			archive_path_id, manifest_path_id, total_bytes, torrent_count, category_counts_json, categories_json, tags_json, error_message_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, run.InstanceID, allIDs[0], allIDs[1], allIDs[2], run.RequestedAt, run.StartedAt, run.CompletedAt,
-		allIDs[3], allIDs[4], run.TotalBytes, run.TorrentCount, categoryJSON, categoriesJSON, tagsJSON, allIDs[5])
+			owner_id, instance_id, kind_id, status_id, requested_by_id, requested_at, started_at, completed_at,
+			archive_path_id, manifest_path_id, total_bytes, torrent_count,
+			category_counts_json_id, categories_json_id, tags_json_id, error_message_id
+		) VALUES ((SELECT owner_id FROM instances WHERE id = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, run.InstanceID, run.InstanceID, reqIDs[0], reqIDs[1], reqIDs[2], run.RequestedAt, run.StartedAt, run.CompletedAt,
+		nullIDs[0], nullIDs[1], run.TotalBytes, run.TorrentCount, nullIDs[2], nullIDs[3], nullIDs[4], nullIDs[5])
 	if err != nil {
 		return err
 	}
@@ -413,11 +433,16 @@ func (s *BackupStore) UpdateRunMetadata(ctx context.Context, runID int64, update
 		return err
 	}
 
-	// Intern all strings in a single call
-	status := string(run.Status)
-	allIDs, err := dbinterface.InternStringNullable(ctx, tx, &status, run.ArchivePath, run.ManifestPath, run.ErrorMessage)
+	// Intern required status string
+	reqIDs, err := dbinterface.InternStrings(ctx, tx, string(run.Status))
 	if err != nil {
-		return fmt.Errorf("failed to intern strings: %w", err)
+		return fmt.Errorf("failed to intern required strings: %w", err)
+	}
+
+	// Intern nullable strings
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx, run.ArchivePath, run.ManifestPath, categoryJSON, categoriesJSON, tagsJSON, run.ErrorMessage)
+	if err != nil {
+		return fmt.Errorf("failed to intern nullable strings: %w", err)
 	}
 
 	// Execute UPDATE with interned IDs
@@ -430,13 +455,13 @@ func (s *BackupStore) UpdateRunMetadata(ctx context.Context, runID int64, update
             manifest_path_id = ?,
             total_bytes = ?,
             torrent_count = ?,
-            category_counts_json = ?,
-            categories_json = ?,
-            tags_json = ?,
+            category_counts_json_id = ?,
+            categories_json_id = ?,
+            tags_json_id = ?,
             error_message_id = ?
         WHERE id = ?
-	`, allIDs[0], run.StartedAt, run.CompletedAt, allIDs[1], allIDs[2],
-		run.TotalBytes, run.TorrentCount, categoryJSON, categoriesJSON, tagsJSON, allIDs[3], runID)
+	`, reqIDs[0], run.StartedAt, run.CompletedAt, nullIDs[0], nullIDs[1],
+		run.TotalBytes, run.TorrentCount, nullIDs[2], nullIDs[3], nullIDs[4], nullIDs[5], runID)
 	if err != nil {
 		return err
 	}
@@ -475,22 +500,27 @@ func (s *BackupStore) updateMultipleRunsStatusChunk(ctx context.Context, runIDs 
 	}
 	defer tx.Rollback()
 
-	// Intern all strings in a single call
-	statusStr := string(status)
-	allIDs, err := dbinterface.InternStringNullable(ctx, tx, &statusStr, errorMessage)
+	// Intern required status string
+	reqIDs, err := dbinterface.InternStrings(ctx, tx, string(status))
 	if err != nil {
-		return fmt.Errorf("failed to intern strings: %w", err)
+		return fmt.Errorf("failed to intern status: %w", err)
+	}
+
+	// Intern nullable error message
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx, errorMessage)
+	if err != nil {
+		return fmt.Errorf("failed to intern error message: %w", err)
 	}
 
 	query := "UPDATE instance_backup_runs SET status_id = ?, completed_at = ?, error_message_id = ? WHERE id IN " + buildInPlaceholders(len(runIDs))
 
-	args := []any{allIDs[0]}
+	args := []any{reqIDs[0]}
 	if completedAt != nil {
 		args = append(args, *completedAt)
 	} else {
 		args = append(args, nil)
 	}
-	args = append(args, allIDs[1])
+	args = append(args, nullIDs[0])
 
 	for _, runID := range runIDs {
 		args = append(args, runID)
@@ -506,7 +536,7 @@ func (s *BackupStore) updateMultipleRunsStatusChunk(ctx context.Context, runIDs 
 
 func (s *BackupStore) getRunForUpdate(ctx context.Context, tx dbinterface.TxQuerier, runID int64) (*BackupRun, error) {
 	query := `
-		SELECT id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
+		SELECT id, owner_id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
 		       archive_path, manifest_path, total_bytes, torrent_count, category_counts_json, categories_json, tags_json, error_message
 		FROM instance_backup_runs_view
 		WHERE id = ?
@@ -526,6 +556,7 @@ func (s *BackupStore) getRunForUpdate(ctx context.Context, tx dbinterface.TxQuer
 
 	err := row.Scan(
 		&run.ID,
+		&run.OwnerID,
 		&run.InstanceID,
 		&run.Kind,
 		&run.Status,
@@ -596,7 +627,7 @@ func (s *BackupStore) ListRuns(ctx context.Context, instanceID int, limit, offse
 	}
 
 	query := `
-        SELECT id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
+        SELECT id, owner_id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
                archive_path, manifest_path, total_bytes, torrent_count, category_counts_json, categories_json, tags_json, error_message
         FROM instance_backup_runs_view
         WHERE instance_id = ?
@@ -625,6 +656,7 @@ func (s *BackupStore) ListRuns(ctx context.Context, instanceID int, limit, offse
 
 		if err := rows.Scan(
 			&run.ID,
+			&run.OwnerID,
 			&run.InstanceID,
 			&run.Kind,
 			&run.Status,
@@ -990,7 +1022,7 @@ func (s *BackupStore) ListItemsForRuns(ctx context.Context, runIDs []int64) ([]*
 }
 
 func (s *BackupStore) listItemsForRunsChunk(ctx context.Context, runIDs []int64) ([]*BackupItem, error) {
-	args := make([]interface{}, len(runIDs))
+	args := make([]any, len(runIDs))
 	for i, id := range runIDs {
 		args[i] = id
 	}
@@ -1198,7 +1230,7 @@ func (s *BackupStore) countBlobReferencesBatchChunk(ctx context.Context, relPath
 }
 
 func (s *BackupStore) countBlobReferencesChunk(ctx context.Context, relPaths []string) (map[string]int, error) {
-	args := make([]interface{}, len(relPaths))
+	args := make([]any, len(relPaths))
 	for i, path := range relPaths {
 		args[i] = path
 	}
@@ -1255,7 +1287,7 @@ func (s *BackupStore) ListRunsByKind(ctx context.Context, instanceID int, kind B
 	}
 
 	query := `
-		SELECT id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
+		SELECT id, owner_id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
 		       archive_path, manifest_path, total_bytes, torrent_count, category_counts_json, categories_json, tags_json, error_message
 		FROM instance_backup_runs_view
 		WHERE instance_id = ? AND kind = ?
@@ -1283,6 +1315,7 @@ func (s *BackupStore) ListRunsByKind(ctx context.Context, instanceID int, kind B
 
 		if err := rows.Scan(
 			&run.ID,
+			&run.OwnerID,
 			&run.InstanceID,
 			&run.Kind,
 			&run.Status,
@@ -1352,7 +1385,7 @@ func (s *BackupStore) ListRunsByKind(ctx context.Context, instanceID int, kind B
 
 func (s *BackupStore) GetRun(ctx context.Context, runID int64) (*BackupRun, error) {
 	query := `
-        SELECT id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
+        SELECT id, owner_id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
                archive_path, manifest_path, total_bytes, torrent_count, category_counts_json, categories_json, tags_json, error_message
         FROM instance_backup_runs_view
         WHERE id = ?
@@ -1370,6 +1403,7 @@ func (s *BackupStore) GetRun(ctx context.Context, runID int64) (*BackupRun, erro
 
 	err := s.db.QueryRowContext(ctx, query, runID).Scan(
 		&run.ID,
+		&run.OwnerID,
 		&run.InstanceID,
 		&run.Kind,
 		&run.Status,
@@ -1469,13 +1503,13 @@ func (s *BackupStore) GetRuns(ctx context.Context, runIDs []int64) ([]*BackupRun
 }
 
 func (s *BackupStore) getRunsChunk(ctx context.Context, runIDs []int64) ([]*BackupRun, error) {
-	args := make([]interface{}, len(runIDs))
+	args := make([]any, len(runIDs))
 	for i, id := range runIDs {
 		args[i] = id
 	}
 
 	query := `
-        SELECT id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
+        SELECT id, owner_id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
                archive_path, manifest_path, total_bytes, torrent_count, category_counts_json, categories_json, tags_json, error_message
         FROM instance_backup_runs_view
         WHERE id IN ` + buildInPlaceholders(len(runIDs))
@@ -1501,6 +1535,7 @@ func (s *BackupStore) getRunsChunk(ctx context.Context, runIDs []int64) ([]*Back
 
 		err := rows.Scan(
 			&run.ID,
+			&run.OwnerID,
 			&run.InstanceID,
 			&run.Kind,
 			&run.Status,
@@ -1571,10 +1606,10 @@ func (s *BackupStore) getRunsChunk(ctx context.Context, runIDs []int64) ([]*Back
 
 func (s *BackupStore) ListEnabledSettings(ctx context.Context) ([]*BackupSettings, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT instance_id, enabled, hourly_enabled, daily_enabled, weekly_enabled, monthly_enabled,
+		SELECT instance_id, owner_id, enabled, hourly_enabled, daily_enabled, weekly_enabled, monthly_enabled,
 		       keep_hourly, keep_daily, keep_weekly, keep_monthly,
-		       include_categories, include_tags, custom_path, created_at, updated_at
-		FROM instance_backup_settings
+		       include_categories, include_tags, custom_path, expr_filter, created_at, updated_at
+		FROM instance_backup_settings_view
 		WHERE enabled = 1
 	`)
 	if err != nil {
@@ -1586,12 +1621,13 @@ func (s *BackupStore) ListEnabledSettings(ctx context.Context) ([]*BackupSetting
 
 	for rows.Next() {
 		var s BackupSettings
-		var customPath sql.NullString
+		var customPath string
 		var createdAt sql.NullTime
 		var updatedAt sql.NullTime
 
 		if err := rows.Scan(
 			&s.InstanceID,
+			&s.OwnerID,
 			&s.Enabled,
 			&s.HourlyEnabled,
 			&s.DailyEnabled,
@@ -1604,14 +1640,15 @@ func (s *BackupStore) ListEnabledSettings(ctx context.Context) ([]*BackupSetting
 			&s.IncludeCategories,
 			&s.IncludeTags,
 			&customPath,
+			&s.ExprFilter,
 			&createdAt,
 			&updatedAt,
 		); err != nil {
 			return nil, err
 		}
 
-		if customPath.Valid {
-			s.CustomPath = &customPath.String
+		if customPath != "" {
+			s.CustomPath = &customPath
 		}
 		if createdAt.Valid {
 			s.CreatedAt = createdAt.Time
@@ -1852,7 +1889,7 @@ func (s *BackupStore) cleanupRunsChunk(ctx context.Context, runIDs []int64) erro
 	}
 	defer tx.Rollback()
 
-	args := make([]interface{}, len(runIDs))
+	args := make([]any, len(runIDs))
 	for i, id := range runIDs {
 		args[i] = id
 	}
@@ -1884,8 +1921,7 @@ func (s *BackupStore) RemoveFailedRunsBefore(ctx context.Context, cutoff time.Ti
 	defer tx.Rollback()
 
 	// Intern the status string
-	status := string(BackupRunStatusFailed)
-	ids, err := dbinterface.InternStringNullable(ctx, tx, &status)
+	ids, err := dbinterface.InternStrings(ctx, tx, string(BackupRunStatusFailed))
 	if err != nil {
 		return 0, fmt.Errorf("failed to intern status: %w", err)
 	}
@@ -1910,7 +1946,7 @@ func (s *BackupStore) RemoveFailedRunsBefore(ctx context.Context, cutoff time.Ti
 // These are runs that were interrupted by a restart or crash.
 func (s *BackupStore) FindIncompleteRuns(ctx context.Context) ([]*BackupRun, error) {
 	query := `
-        SELECT id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
+        SELECT id, owner_id, instance_id, kind, status, requested_by, requested_at, started_at, completed_at,
                archive_path, manifest_path, total_bytes, torrent_count, category_counts_json, categories_json, tags_json, error_message
         FROM instance_backup_runs_view
         WHERE status IN (?, ?)
@@ -1937,6 +1973,7 @@ func (s *BackupStore) FindIncompleteRuns(ctx context.Context) ([]*BackupRun, err
 
 		if err := rows.Scan(
 			&run.ID,
+			&run.OwnerID,
 			&run.InstanceID,
 			&run.Kind,
 			&run.Status,

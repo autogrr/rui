@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -62,16 +61,17 @@ func (s *DashboardSettingsStore) GetByUserID(ctx context.Context, userID int) (*
 		SELECT id, user_id, section_visibility, section_order, section_collapsed,
 		       tracker_breakdown_sort_column, tracker_breakdown_sort_direction,
 		       tracker_breakdown_items_per_page, created_at, updated_at
-		FROM dashboard_settings
+		FROM dashboard_settings_view
 		WHERE user_id = ?
 	`, userID)
 
 	var ds DashboardSettings
 	var visibilityJSON, orderJSON, collapsedJSON string
+	var sortColumn, sortDirection sql.NullString
 
 	err := row.Scan(
 		&ds.ID, &ds.UserID, &visibilityJSON, &orderJSON, &collapsedJSON,
-		&ds.TrackerBreakdownSortColumn, &ds.TrackerBreakdownSortDir,
+		&sortColumn, &sortDirection,
 		&ds.TrackerBreakdownItemsPerPage, &ds.CreatedAt, &ds.UpdatedAt,
 	)
 
@@ -81,6 +81,13 @@ func (s *DashboardSettingsStore) GetByUserID(ctx context.Context, userID int) (*
 	}
 	if err != nil {
 		return nil, err
+	}
+
+	if sortColumn.Valid {
+		ds.TrackerBreakdownSortColumn = sortColumn.String
+	}
+	if sortDirection.Valid {
+		ds.TrackerBreakdownSortDir = sortDirection.String
 	}
 
 	// Parse JSON fields
@@ -157,27 +164,49 @@ func (s *DashboardSettingsStore) Update(ctx context.Context, userID int, input *
 		return nil, err
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern required JSON strings
+	ids, err := dbinterface.InternStrings(ctx, tx, string(visibilityJSON), string(orderJSON), string(collapsedJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	// Intern optional sort column and direction
+	nullableIDs, err := dbinterface.InternStringNullable(ctx, tx, &existing.TrackerBreakdownSortColumn, &existing.TrackerBreakdownSortDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern nullable strings: %w", err)
+	}
+
 	// Update in database
-	_, err = s.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		UPDATE dashboard_settings
-		SET section_visibility = ?,
-		    section_order = ?,
-		    section_collapsed = ?,
-		    tracker_breakdown_sort_column = ?,
-		    tracker_breakdown_sort_direction = ?,
+		SET section_visibility_id = ?,
+		    section_order_id = ?,
+		    section_collapsed_id = ?,
+		    tracker_breakdown_sort_column_id = ?,
+		    tracker_breakdown_sort_direction_id = ?,
 		    tracker_breakdown_items_per_page = ?
 		WHERE user_id = ?
 	`,
-		string(visibilityJSON),
-		string(orderJSON),
-		string(collapsedJSON),
-		existing.TrackerBreakdownSortColumn,
-		existing.TrackerBreakdownSortDir,
+		ids[0],
+		ids[1],
+		ids[2],
+		nullableIDs[0],
+		nullableIDs[1],
 		existing.TrackerBreakdownItemsPerPage,
 		userID,
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return s.GetByUserID(ctx, userID)
@@ -194,12 +223,24 @@ func (s *DashboardSettingsStore) createDefault(ctx context.Context, userID int) 
 		return nil, fmt.Errorf("marshal section order: %w", err)
 	}
 
-	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO dashboard_settings (user_id, section_visibility, section_order, section_collapsed,
-		                                tracker_breakdown_sort_column, tracker_breakdown_sort_direction,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern required JSON strings + default sort values
+	ids, err := dbinterface.InternStrings(ctx, tx, string(visibilityJSON), string(orderJSON), "{}", "uploaded", "desc")
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO dashboard_settings (user_id, section_visibility_id, section_order_id, section_collapsed_id,
+		                                tracker_breakdown_sort_column_id, tracker_breakdown_sort_direction_id,
 		                                tracker_breakdown_items_per_page)
-		VALUES (?, ?, ?, '{}', 'uploaded', 'desc', 15)
-	`, userID, string(visibilityJSON), string(orderJSON))
+		VALUES (?, ?, ?, ?, ?, ?, 15)
+	`, userID, ids[0], ids[1], ids[2], ids[3], ids[4])
 	if err != nil {
 		return nil, err
 	}
@@ -207,6 +248,10 @@ func (s *DashboardSettingsStore) createDefault(ctx context.Context, userID int) 
 	id, err := res.LastInsertId()
 	if err != nil {
 		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return &DashboardSettings{

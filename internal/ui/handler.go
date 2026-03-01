@@ -24,7 +24,9 @@ import (
 	"github.com/autogrr/rui/internal/services/crossseed"
 	"github.com/autogrr/rui/internal/services/dirscan"
 	"github.com/autogrr/rui/internal/services/externalprograms"
+	"github.com/autogrr/rui/internal/services/intake"
 	"github.com/autogrr/rui/internal/services/jackett"
+	"github.com/autogrr/rui/internal/services/library"
 	"github.com/autogrr/rui/internal/services/notifications"
 	"github.com/autogrr/rui/internal/services/orphanscan"
 	"github.com/autogrr/rui/internal/services/reannounce"
@@ -51,27 +53,35 @@ type Handler struct {
 	syncManager    *qbittorrent.SyncManager // nil if not yet connected
 
 	// Extended services for fully-implemented pages.
-	jackettService          *jackett.Service
-	indexerStore            *models.TorznabIndexerStore
-	arrService              *arr.Service
-	arrInstanceStore        *models.ArrInstanceStore
-	extProgramService       *externalprograms.Service
-	extProgramStore         *models.ExternalProgramStore
-	notificationService     *notifications.Service
-	notificationTargetStore *models.NotificationTargetStore
-	crossSeedService        *crossseed.Service
-	crossSeedCompStore      *models.InstanceCrossSeedCompletionStore
-	automationService       *automations.Service
-	automationStore         *models.AutomationStore
-	automationActivityStore *models.AutomationActivityStore
-	backupsService          *backups.Service
-	clientAPIKeyStore       *models.ClientAPIKeyStore
-		trackerCustomizationStore *models.TrackerCustomizationStore
-	reannounceService *reannounce.Service
-	reannounceStore   *models.InstanceReannounceStore
-	orphanScanService *orphanscan.Service
-	orphanScanStore   *models.OrphanScanStore
-	dirScanService    *dirscan.Service
+	jackettService            *jackett.Service
+	indexerStore              *models.TorznabIndexerStore
+	arrService                *arr.Service
+	arrInstanceStore          *models.ArrInstanceStore
+	extProgramService         *externalprograms.Service
+	extProgramStore           *models.ExternalProgramStore
+	notificationService       *notifications.Service
+	notificationTargetStore   *models.NotificationTargetStore
+	crossSeedService          *crossseed.Service
+	crossSeedCompStore        *models.InstanceCrossSeedCompletionStore
+	automationService         *automations.Service
+	automationStore           *models.AutomationStore
+	automationActivityStore   *models.AutomationActivityStore
+	backupsService            *backups.Service
+	clientAPIKeyStore         *models.ClientAPIKeyStore
+	trackerCustomizationStore *models.TrackerCustomizationStore
+	reannounceService         *reannounce.Service
+	reannounceStore           *models.InstanceReannounceStore
+	orphanScanService         *orphanscan.Service
+	orphanScanStore           *models.OrphanScanStore
+	dirScanService            *dirscan.Service
+
+	// Library and intake pipeline services.
+	libraryService      *library.Service
+	libraryTitleStore   *models.LibraryTitleStore
+	libraryRuleStore    *models.LibraryRuleStore
+	intakeService       *intake.Service
+	intakePipelineStore *models.IntakePipelineStore
+	intakeEventStore    *models.IntakeEventStore
 }
 
 // Dependencies are the inputs required to build a Handler.
@@ -85,27 +95,35 @@ type Dependencies struct {
 	SyncManager    *qbittorrent.SyncManager // optional; enables live dashboard stats
 
 	// Extended services — all optional; nil disables the relevant page/section.
-	JackettService          *jackett.Service
-	IndexerStore            *models.TorznabIndexerStore
-	ArrService              *arr.Service
-	ArrInstanceStore        *models.ArrInstanceStore
-	ExtProgramService       *externalprograms.Service
-	ExtProgramStore         *models.ExternalProgramStore
-	NotificationService     *notifications.Service
-	NotificationTargetStore *models.NotificationTargetStore
-	CrossSeedService        *crossseed.Service
-	CrossSeedCompStore      *models.InstanceCrossSeedCompletionStore
-	AutomationService       *automations.Service
-	AutomationStore         *models.AutomationStore
-	AutomationActivityStore *models.AutomationActivityStore
-	BackupsService          *backups.Service
-	ClientAPIKeyStore       *models.ClientAPIKeyStore
-		TrackerCustomizationStore *models.TrackerCustomizationStore
-	ReannounceService *reannounce.Service
-	ReannounceStore   *models.InstanceReannounceStore
-	OrphanScanService *orphanscan.Service
-	OrphanScanStore   *models.OrphanScanStore
-	DirScanService    *dirscan.Service
+	JackettService            *jackett.Service
+	IndexerStore              *models.TorznabIndexerStore
+	ArrService                *arr.Service
+	ArrInstanceStore          *models.ArrInstanceStore
+	ExtProgramService         *externalprograms.Service
+	ExtProgramStore           *models.ExternalProgramStore
+	NotificationService       *notifications.Service
+	NotificationTargetStore   *models.NotificationTargetStore
+	CrossSeedService          *crossseed.Service
+	CrossSeedCompStore        *models.InstanceCrossSeedCompletionStore
+	AutomationService         *automations.Service
+	AutomationStore           *models.AutomationStore
+	AutomationActivityStore   *models.AutomationActivityStore
+	BackupsService            *backups.Service
+	ClientAPIKeyStore         *models.ClientAPIKeyStore
+	TrackerCustomizationStore *models.TrackerCustomizationStore
+	ReannounceService         *reannounce.Service
+	ReannounceStore           *models.InstanceReannounceStore
+	OrphanScanService         *orphanscan.Service
+	OrphanScanStore           *models.OrphanScanStore
+	DirScanService            *dirscan.Service
+
+	// Library and intake pipeline services — all optional; nil disables the relevant page.
+	LibraryService      *library.Service
+	LibraryTitleStore   *models.LibraryTitleStore
+	LibraryRuleStore    *models.LibraryRuleStore
+	IntakeService       *intake.Service
+	IntakePipelineStore *models.IntakePipelineStore
+	IntakeEventStore    *models.IntakeEventStore
 }
 
 // NewHandler constructs a new UI Handler.
@@ -119,26 +137,33 @@ func NewHandler(deps Dependencies) *Handler {
 		oidcProvider:   deps.OIDCProvider,
 		syncManager:    deps.SyncManager,
 
-		jackettService:          deps.JackettService,
-		indexerStore:            deps.IndexerStore,
-		arrService:              deps.ArrService,
-		arrInstanceStore:        deps.ArrInstanceStore,
-		extProgramService:       deps.ExtProgramService,
-		extProgramStore:         deps.ExtProgramStore,
-		notificationService:     deps.NotificationService,
-		notificationTargetStore: deps.NotificationTargetStore,
-		crossSeedService:        deps.CrossSeedService,
-		crossSeedCompStore:      deps.CrossSeedCompStore,
-		automationService:       deps.AutomationService,
-		automationStore:         deps.AutomationStore,
-		automationActivityStore: deps.AutomationActivityStore,
-		backupsService:          deps.BackupsService,
-		clientAPIKeyStore:       deps.ClientAPIKeyStore,
-				trackerCustomizationStore: deps.TrackerCustomizationStore,
-		reannounceStore:   deps.ReannounceStore,
-		orphanScanService: deps.OrphanScanService,
-		orphanScanStore:   deps.OrphanScanStore,
-		dirScanService:    deps.DirScanService,
+		jackettService:            deps.JackettService,
+		indexerStore:              deps.IndexerStore,
+		arrService:                deps.ArrService,
+		arrInstanceStore:          deps.ArrInstanceStore,
+		extProgramService:         deps.ExtProgramService,
+		extProgramStore:           deps.ExtProgramStore,
+		notificationService:       deps.NotificationService,
+		notificationTargetStore:   deps.NotificationTargetStore,
+		crossSeedService:          deps.CrossSeedService,
+		crossSeedCompStore:        deps.CrossSeedCompStore,
+		automationService:         deps.AutomationService,
+		automationStore:           deps.AutomationStore,
+		automationActivityStore:   deps.AutomationActivityStore,
+		backupsService:            deps.BackupsService,
+		clientAPIKeyStore:         deps.ClientAPIKeyStore,
+		trackerCustomizationStore: deps.TrackerCustomizationStore,
+		reannounceStore:           deps.ReannounceStore,
+		orphanScanService:         deps.OrphanScanService,
+		orphanScanStore:           deps.OrphanScanStore,
+		dirScanService:            deps.DirScanService,
+
+		libraryService:      deps.LibraryService,
+		libraryTitleStore:   deps.LibraryTitleStore,
+		libraryRuleStore:    deps.LibraryRuleStore,
+		intakeService:       deps.IntakeService,
+		intakePipelineStore: deps.IntakePipelineStore,
+		intakeEventStore:    deps.IntakeEventStore,
 	}
 }
 

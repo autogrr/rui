@@ -34,7 +34,9 @@ import (
 	"github.com/autogrr/rui/internal/services/dirscan"
 	"github.com/autogrr/rui/internal/services/externalprograms"
 	"github.com/autogrr/rui/internal/services/filesmanager"
+	"github.com/autogrr/rui/internal/services/intake"
 	"github.com/autogrr/rui/internal/services/jackett"
+	"github.com/autogrr/rui/internal/services/library"
 	"github.com/autogrr/rui/internal/services/notifications"
 	"github.com/autogrr/rui/internal/services/orphanscan"
 	"github.com/autogrr/rui/internal/services/reannounce"
@@ -82,6 +84,12 @@ type Server struct {
 	dirScanService                   *dirscan.Service
 	arrInstanceStore                 *models.ArrInstanceStore
 	arrService                       *arr.Service
+	libraryTitleStore                *models.LibraryTitleStore
+	libraryRuleStore                 *models.LibraryRuleStore
+	libraryService                   *library.Service
+	intakePipelineStore              *models.IntakePipelineStore
+	intakeEventStore                 *models.IntakeEventStore
+	intakeService                    *intake.Service
 }
 
 type Dependencies struct {
@@ -119,6 +127,12 @@ type Dependencies struct {
 	DirScanService                   *dirscan.Service
 	ArrInstanceStore                 *models.ArrInstanceStore
 	ArrService                       *arr.Service
+	LibraryTitleStore                *models.LibraryTitleStore
+	LibraryRuleStore                 *models.LibraryRuleStore
+	LibraryService                   *library.Service
+	IntakePipelineStore              *models.IntakePipelineStore
+	IntakeEventStore                 *models.IntakeEventStore
+	IntakeService                    *intake.Service
 }
 
 func NewServer(deps *Dependencies) *Server {
@@ -164,6 +178,12 @@ func NewServer(deps *Dependencies) *Server {
 		dirScanService:                   deps.DirScanService,
 		arrInstanceStore:                 deps.ArrInstanceStore,
 		arrService:                       deps.ArrService,
+		libraryTitleStore:                deps.LibraryTitleStore,
+		libraryRuleStore:                 deps.LibraryRuleStore,
+		libraryService:                   deps.LibraryService,
+		intakePipelineStore:              deps.IntakePipelineStore,
+		intakeEventStore:                 deps.IntakeEventStore,
+		intakeService:                    deps.IntakeService,
 	}
 
 	return &s
@@ -296,6 +316,8 @@ func (s *Server) Handler() (*chi.Mux, error) {
 	clientAPIKeysHandler := handlers.NewClientAPIKeysHandler(s.clientAPIKeyStore, s.instanceStore, s.config.Config.BaseURL)
 	externalProgramsHandler := handlers.NewExternalProgramsHandler(s.externalProgramStore, s.externalProgramService, s.clientPool, s.automationStore)
 	arrHandler := handlers.NewArrHandler(s.arrInstanceStore, s.arrService)
+	libraryHandler := handlers.NewLibraryHandler(s.libraryTitleStore, s.libraryRuleStore, s.libraryService)
+	intakeHandler := handlers.NewIntakeHandler(s.intakePipelineStore, s.intakeEventStore, s.intakeService)
 	versionHandler := handlers.NewVersionHandler(s.updateService)
 	qbittorrentInfoHandler := handlers.NewQBittorrentInfoHandler(s.clientPool)
 	backupsHandler := handlers.NewBackupsHandler(s.backupService)
@@ -412,6 +434,12 @@ func (s *Server) Handler() (*chi.Mux, error) {
 				r.Post("/test", arrHandler.TestConnection)
 				r.Post("/resolve", arrHandler.Resolve)
 			})
+
+			// Library management (native rls+expr matching)
+			libraryHandler.Routes(r)
+
+			// Intake pipeline
+			intakeHandler.Routes(r)
 
 			// Tracker customizations (nicknames and merged domains)
 			r.Route("/tracker-customizations", func(r chi.Router) {
@@ -658,11 +686,17 @@ func (s *Server) Handler() (*chi.Mux, error) {
 		AutomationStore:         s.automationStore,
 		AutomationActivityStore: s.automationActivityStore,
 		BackupsService:          s.backupService,
-		ClientAPIKeyStore:       s.clientAPIKeyStore,			TrackerCustomizationStore: s.trackerCustomizationStore,		ReannounceService:       s.reannounceService,
-		ReannounceStore:         s.instanceReannounce,
-		OrphanScanService:       s.orphanScanService,
-		OrphanScanStore:         s.orphanScanStore,
-		DirScanService:          s.dirScanService,
+		ClientAPIKeyStore:       s.clientAPIKeyStore, TrackerCustomizationStore: s.trackerCustomizationStore, ReannounceService: s.reannounceService,
+		ReannounceStore:     s.instanceReannounce,
+		OrphanScanService:   s.orphanScanService,
+		OrphanScanStore:     s.orphanScanStore,
+		DirScanService:      s.dirScanService,
+		LibraryService:      s.libraryService,
+		LibraryTitleStore:   s.libraryTitleStore,
+		LibraryRuleStore:    s.libraryRuleStore,
+		IntakeService:       s.intakeService,
+		IntakePipelineStore: s.intakePipelineStore,
+		IntakeEventStore:    s.intakeEventStore,
 	})
 
 	uiDashboard := strings.TrimSuffix(baseURL, "/") + "/ui/dashboard"

@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -7,6 +6,7 @@ package models
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"time"
@@ -58,9 +58,9 @@ func ComputeTitleHash(title string) string {
 
 // Get retrieves a cached ID entry if it exists and hasn't expired
 func (s *ArrIDCacheStore) Get(ctx context.Context, titleHash, contentType string) (*ArrIDCacheEntry, error) {
-	query := `
+	const query = `
 		SELECT id, title_hash, content_type, arr_instance_id, imdb_id, tmdb_id, tvdb_id, tvmaze_id, is_negative, cached_at, expires_at
-		FROM arr_id_cache
+		FROM arr_id_cache_view
 		WHERE title_hash = ? AND content_type = ? AND expires_at > CURRENT_TIMESTAMP
 	`
 
@@ -106,14 +106,10 @@ func (s *ArrIDCacheStore) Get(ctx context.Context, titleHash, contentType string
 func (s *ArrIDCacheStore) Set(ctx context.Context, titleHash, contentType string, arrInstanceID *int, ids *ExternalIDs, isNegative bool, ttl time.Duration) error {
 	expiresAt := time.Now().Add(ttl)
 
-	// Prepare nullable values
-	var imdbID *string
+	// Prepare nullable values for non-interned columns
 	var tmdbID, tvdbID, tvmazeID *int
 
 	if ids != nil {
-		if ids.IMDbID != "" {
-			imdbID = &ids.IMDbID
-		}
 		if ids.TMDbID > 0 {
 			tmdbID = &ids.TMDbID
 		}
@@ -125,12 +121,35 @@ func (s *ArrIDCacheStore) Set(ctx context.Context, titleHash, contentType string
 		}
 	}
 
-	query := `
-		INSERT INTO arr_id_cache (title_hash, content_type, arr_instance_id, imdb_id, tmdb_id, tvdb_id, tvmaze_id, is_negative, expires_at)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern required strings: title_hash and content_type
+	requiredIDs, err := dbinterface.InternStrings(ctx, tx, titleHash, contentType)
+	if err != nil {
+		return fmt.Errorf("failed to intern strings: %w", err)
+	}
+	titleHashID, contentTypeID := requiredIDs[0], requiredIDs[1]
+
+	// Intern optional imdb_id
+	var imdbIDSid sql.NullInt64
+	if ids != nil && ids.IMDbID != "" {
+		nullableIDs, err := dbinterface.InternStringNullable(ctx, tx, &ids.IMDbID)
+		if err != nil {
+			return fmt.Errorf("failed to intern imdb_id: %w", err)
+		}
+		imdbIDSid = nullableIDs[0]
+	}
+
+	const query = `
+		INSERT INTO arr_id_cache (title_hash_id, content_type_id, arr_instance_id, imdb_id_sid, tmdb_id, tvdb_id, tvmaze_id, is_negative, expires_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(title_hash, content_type) DO UPDATE SET
+		ON CONFLICT(title_hash_id, content_type_id) DO UPDATE SET
 			arr_instance_id = excluded.arr_instance_id,
-			imdb_id = excluded.imdb_id,
+			imdb_id_sid = excluded.imdb_id_sid,
 			tmdb_id = excluded.tmdb_id,
 			tvdb_id = excluded.tvdb_id,
 			tvmaze_id = excluded.tvmaze_id,
@@ -139,9 +158,13 @@ func (s *ArrIDCacheStore) Set(ctx context.Context, titleHash, contentType string
 			expires_at = excluded.expires_at
 	`
 
-	_, err := s.db.ExecContext(ctx, query, titleHash, contentType, arrInstanceID, imdbID, tmdbID, tvdbID, tvmazeID, isNegative, expiresAt)
+	_, err = tx.ExecContext(ctx, query, titleHashID, contentTypeID, arrInstanceID, imdbIDSid, tmdbID, tvdbID, tvmazeID, isNegative, expiresAt)
 	if err != nil {
 		return fmt.Errorf("failed to set arr id cache entry: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -149,7 +172,11 @@ func (s *ArrIDCacheStore) Set(ctx context.Context, titleHash, contentType string
 
 // Delete removes a specific cache entry
 func (s *ArrIDCacheStore) Delete(ctx context.Context, titleHash, contentType string) error {
-	query := `DELETE FROM arr_id_cache WHERE title_hash = ? AND content_type = ?`
+	const query = `
+		DELETE FROM arr_id_cache WHERE id IN (
+			SELECT id FROM arr_id_cache_view WHERE title_hash = ? AND content_type = ?
+		)
+	`
 
 	_, err := s.db.ExecContext(ctx, query, titleHash, contentType)
 	if err != nil {
@@ -161,7 +188,7 @@ func (s *ArrIDCacheStore) Delete(ctx context.Context, titleHash, contentType str
 
 // DeleteByArrInstance removes all cache entries for a specific ARR instance
 func (s *ArrIDCacheStore) DeleteByArrInstance(ctx context.Context, arrInstanceID int) error {
-	query := `DELETE FROM arr_id_cache WHERE arr_instance_id = ?`
+	const query = `DELETE FROM arr_id_cache WHERE arr_instance_id = ?`
 
 	_, err := s.db.ExecContext(ctx, query, arrInstanceID)
 	if err != nil {
@@ -173,7 +200,7 @@ func (s *ArrIDCacheStore) DeleteByArrInstance(ctx context.Context, arrInstanceID
 
 // CleanupExpired removes all expired cache entries
 func (s *ArrIDCacheStore) CleanupExpired(ctx context.Context) (int64, error) {
-	query := `DELETE FROM arr_id_cache WHERE expires_at <= CURRENT_TIMESTAMP`
+	const query = `DELETE FROM arr_id_cache WHERE expires_at <= CURRENT_TIMESTAMP`
 
 	result, err := s.db.ExecContext(ctx, query)
 	if err != nil {
@@ -191,7 +218,7 @@ func (s *ArrIDCacheStore) CleanupExpired(ctx context.Context) (int64, error) {
 // Count returns the total number of cache entries
 func (s *ArrIDCacheStore) Count(ctx context.Context) (int64, error) {
 	var count int64
-	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM arr_id_cache").Scan(&count)
+	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM arr_id_cache_view").Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count arr id cache entries: %w", err)
 	}
@@ -201,7 +228,7 @@ func (s *ArrIDCacheStore) Count(ctx context.Context) (int64, error) {
 // CountValid returns the number of non-expired cache entries
 func (s *ArrIDCacheStore) CountValid(ctx context.Context) (int64, error) {
 	var count int64
-	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM arr_id_cache WHERE expires_at > CURRENT_TIMESTAMP").Scan(&count)
+	err := s.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM arr_id_cache_view WHERE expires_at > CURRENT_TIMESTAMP").Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("failed to count valid arr id cache entries: %w", err)
 	}

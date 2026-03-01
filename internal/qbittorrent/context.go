@@ -8,7 +8,7 @@ import "context"
 
 type contextKey string
 
-const skipTrackerHydrationKey contextKey = "qui_skip_tracker_hydration"
+const skipTrackerHydrationKey contextKey = "rui_skip_tracker_hydration"
 
 // WithSkipTrackerHydration marks the context so tracker enrichment/hydration is skipped.
 func WithSkipTrackerHydration(ctx context.Context) context.Context {

@@ -19,7 +19,7 @@
  *                   },
  *     // optional
  *     rowHeight   : 40,         // initial row-height estimate (px, auto-measured)
- *     overscan    : 5,          // extra rows rendered beyond the viewport
+ *     overscan    : 15,         // extra rows rendered beyond the viewport
  *     emptyText   : 'No items.', // shown when rows array is empty
  *     afterRender : function() { /* called after each DOM update *\/ },
  *   });
@@ -41,7 +41,8 @@
     this._rowTag      = (opts.rowTag     || 'tr').toLowerCase();
     this._rh          = opts.rowHeight   || 40;
     this._initialRh   = this._rh;
-    this._overscan    = opts.overscan    || 5;
+    this._rhMeasured  = false;          // true once we've read an actual row height
+    this._overscan    = opts.overscan    || 15;
     this._renderRow   = opts.renderRow;
     this._emptyText   = opts.emptyText   || 'No items.';
     this._afterRender = opts.afterRender || null;
@@ -51,6 +52,7 @@
     this._topId       = opts.tbodyId + '-vl-top';
     this._botId       = opts.tbodyId + '-vl-bot';
     this._ro          = null;
+    this._raf         = null;
   }
 
   VirtualList.prototype._el = function (id) {
@@ -110,24 +112,50 @@
   VirtualList.prototype.load = function (rows) {
     this.rows   = rows || [];
     this._cache = {};
-    this._rh    = this._initialRh; // reset to configured estimate, not hardcoded 40
+    // Do NOT reset _rh — preserve the measured row height across data refreshes
+    // so render() immediately targets the correct viewport window.
 
     var tbody     = this._el(this._tbid);
     var container = this._el(this._cid);
     if (!tbody || !container) return;
+
+    // Save scroll position before touching the DOM.
+    // Removing all rows collapses scrollHeight to near-zero, causing the browser
+    // to clip both scrollTop and scrollLeft back to 0.
+    var savedScrollTop  = container.scrollTop;
+    var savedScrollLeft = container.scrollLeft;
 
     // Remove stale spacers and clear the tbody
     var old;
     old = this._el(this._topId); if (old) old.parentNode.removeChild(old);
     old = this._el(this._botId); if (old) old.parentNode.removeChild(old);
     while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-    tbody.appendChild(this._mkSpacer(this._topId));
-    tbody.appendChild(this._mkSpacer(this._botId));
+
+    var topSpacer = this._mkSpacer(this._topId);
+    var botSpacer = this._mkSpacer(this._botId);
+    tbody.appendChild(topSpacer);
+    tbody.appendChild(botSpacer);
+
+    // Pre-size the bottom spacer to the approximate full content height so that
+    // scrollHeight is large enough for the restored position before render().
+    this._setSpacerH(botSpacer, this.rows.length * this._rh);
+
+    // Restore scroll position.
+    container.scrollTop  = savedScrollTop;
+    container.scrollLeft = savedScrollLeft;
 
     // Attach scroll + resize listeners once per instance
     if (!this._listening) {
       var self = this;
-      container.addEventListener('scroll', function () { self.render(); }, { passive: true });
+      container.addEventListener('scroll', function () {
+        // Throttle to one render per animation frame — stays synchronous with
+        // the paint cycle but avoids redundant layout work on rapid scroll.
+        if (self._raf) return;
+        self._raf = requestAnimationFrame(function () {
+          self._raf = null;
+          self.render();
+        });
+      }, { passive: true });
       window.addEventListener('resize', function () { self.render(); }, { passive: true });
       // Re-render when the scroll container itself is resized (e.g. detail panel open/close)
       if (typeof ResizeObserver !== 'undefined') {
@@ -205,18 +233,22 @@
     }
     tbody.insertBefore(frag, bot);
 
-    // Auto-measure actual row height after the first real render
-    if (this._rh === 40) {
+    // Auto-measure actual row height after the first real render.
+    // Use a flag so this works regardless of the configured initial rowHeight.
+    if (!this._rhMeasured) {
       var first = top.nextSibling;
       if (first && first !== bot) {
         var h = first.getBoundingClientRect().height;
-        if (h > 4) this._rh = h;
+        if (h > 4) {
+          this._rh         = h;
+          this._rhMeasured = true;
+        }
       }
     }
 
     // Prune cache entries far outside the visible range to bound memory usage.
-    // Keep a generous buffer (4x overscan) to avoid re-creating rows on small scrolls.
-    var pruneMargin = overscan * 4;
+    // Keep a wide buffer (8x overscan) to avoid recreating rows on fast scrolls.
+    var pruneMargin = overscan * 8;
     var keepStart = Math.max(0, startIdx - pruneMargin);
     var keepEnd   = Math.min(total, endIdx + pruneMargin);
     for (var key in cache) {
@@ -241,7 +273,9 @@
 
   /** Disconnect observers. Safe to discard the instance after this. */
   VirtualList.prototype.destroy = function () {
-    if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    if (this._ro)          { this._ro.disconnect();          this._ro = null; }
+    if (this._containerRO) { this._containerRO.disconnect(); this._containerRO = null; }
+    if (this._raf)         { cancelAnimationFrame(this._raf); this._raf = null; }
     this.rows   = [];
     this._cache = {};
   };

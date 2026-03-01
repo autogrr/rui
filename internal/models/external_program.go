@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -26,6 +25,7 @@ type PathMapping struct {
 // ExternalProgram represents a configured external program that can be executed from the torrent context menu
 type ExternalProgram struct {
 	ID           int           `json:"id"`
+	OwnerID      int           `json:"owner_id"`
 	Name         string        `json:"name"`
 	Path         string        `json:"path"`
 	ArgsTemplate string        `json:"args_template"`
@@ -71,12 +71,40 @@ func NewExternalProgramStore(db dbinterface.Querier) *ExternalProgramStore {
 	return &ExternalProgramStore{db: db}
 }
 
+// scanExternalProgram scans a row from external_programs_view into an ExternalProgram
+func scanExternalProgram(scanner interface{ Scan(...any) error }) (*ExternalProgram, error) {
+	program := &ExternalProgram{}
+	var enabled, useTerminal int
+	var pathMappingsJSON string
+	if err := scanner.Scan(
+		&program.ID,
+		&program.OwnerID,
+		&program.Name,
+		&program.Path,
+		&program.ArgsTemplate,
+		&enabled,
+		&useTerminal,
+		&pathMappingsJSON,
+		&program.CreatedAt,
+		&program.UpdatedAt,
+	); err != nil {
+		return nil, err
+	}
+	program.Enabled = enabled == 1
+	program.UseTerminal = useTerminal == 1
+
+	if pathMappingsJSON != "" && pathMappingsJSON != "[]" {
+		if err := json.Unmarshal([]byte(pathMappingsJSON), &program.PathMappings); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal path mappings: %w", err)
+		}
+	}
+	return program, nil
+}
+
+const externalProgramViewCols = `id, owner_id, name, path, args_template, enabled, use_terminal, path_mappings, created_at, updated_at`
+
 func (s *ExternalProgramStore) List(ctx context.Context) ([]*ExternalProgram, error) {
-	query := `
-		SELECT id, name, path, args_template, enabled, use_terminal, path_mappings, created_at, updated_at
-		FROM external_programs
-		ORDER BY name ASC
-	`
+	query := `SELECT ` + externalProgramViewCols + ` FROM external_programs_view ORDER BY name ASC`
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -86,48 +114,18 @@ func (s *ExternalProgramStore) List(ctx context.Context) ([]*ExternalProgram, er
 
 	var programs []*ExternalProgram
 	for rows.Next() {
-		program := &ExternalProgram{}
-		var enabled, useTerminal int
-		var pathMappingsJSON string
-		if err := rows.Scan(
-			&program.ID,
-			&program.Name,
-			&program.Path,
-			&program.ArgsTemplate,
-			&enabled,
-			&useTerminal,
-			&pathMappingsJSON,
-			&program.CreatedAt,
-			&program.UpdatedAt,
-		); err != nil {
+		program, err := scanExternalProgram(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan external program: %w", err)
-		}
-		program.Enabled = enabled == 1
-		program.UseTerminal = useTerminal == 1
-
-		// Unmarshal path mappings
-		if pathMappingsJSON != "" && pathMappingsJSON != "[]" {
-			if err := json.Unmarshal([]byte(pathMappingsJSON), &program.PathMappings); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal path mappings: %w", err)
-			}
 		}
 		programs = append(programs, program)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating external programs: %w", err)
-	}
-
-	return programs, nil
+	return programs, rows.Err()
 }
 
 func (s *ExternalProgramStore) ListEnabled(ctx context.Context) ([]*ExternalProgram, error) {
-	query := `
-		SELECT id, name, path, args_template, enabled, use_terminal, path_mappings, created_at, updated_at
-		FROM external_programs
-		WHERE enabled = 1
-		ORDER BY name ASC
-	`
+	query := `SELECT ` + externalProgramViewCols + ` FROM external_programs_view WHERE enabled = 1 ORDER BY name ASC`
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -137,63 +135,20 @@ func (s *ExternalProgramStore) ListEnabled(ctx context.Context) ([]*ExternalProg
 
 	var programs []*ExternalProgram
 	for rows.Next() {
-		program := &ExternalProgram{}
-		var enabled, useTerminal int
-		var pathMappingsJSON string
-		if err := rows.Scan(
-			&program.ID,
-			&program.Name,
-			&program.Path,
-			&program.ArgsTemplate,
-			&enabled,
-			&useTerminal,
-			&pathMappingsJSON,
-			&program.CreatedAt,
-			&program.UpdatedAt,
-		); err != nil {
+		program, err := scanExternalProgram(rows)
+		if err != nil {
 			return nil, fmt.Errorf("failed to scan external program: %w", err)
-		}
-		program.Enabled = enabled == 1
-		program.UseTerminal = useTerminal == 1
-
-		// Unmarshal path mappings
-		if pathMappingsJSON != "" && pathMappingsJSON != "[]" {
-			if err := json.Unmarshal([]byte(pathMappingsJSON), &program.PathMappings); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal path mappings: %w", err)
-			}
 		}
 		programs = append(programs, program)
 	}
 
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating enabled external programs: %w", err)
-	}
-
-	return programs, nil
+	return programs, rows.Err()
 }
 
 func (s *ExternalProgramStore) GetByID(ctx context.Context, id int) (*ExternalProgram, error) {
-	query := `
-		SELECT id, name, path, args_template, enabled, use_terminal, path_mappings, created_at, updated_at
-		FROM external_programs
-		WHERE id = ?
-	`
+	query := `SELECT ` + externalProgramViewCols + ` FROM external_programs_view WHERE id = ?`
 
-	program := &ExternalProgram{}
-	var enabled, useTerminal int
-	var pathMappingsJSON string
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
-		&program.ID,
-		&program.Name,
-		&program.Path,
-		&program.ArgsTemplate,
-		&enabled,
-		&useTerminal,
-		&pathMappingsJSON,
-		&program.CreatedAt,
-		&program.UpdatedAt,
-	)
-
+	program, err := scanExternalProgram(s.db.QueryRowContext(ctx, query, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrExternalProgramNotFound
 	}
@@ -201,95 +156,75 @@ func (s *ExternalProgramStore) GetByID(ctx context.Context, id int) (*ExternalPr
 		return nil, fmt.Errorf("failed to get external program: %w", err)
 	}
 
-	program.Enabled = enabled == 1
-	program.UseTerminal = useTerminal == 1
-
-	// Unmarshal path mappings
-	if pathMappingsJSON != "" && pathMappingsJSON != "[]" {
-		if err := json.Unmarshal([]byte(pathMappingsJSON), &program.PathMappings); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal path mappings: %w", err)
-		}
-	}
-
 	return program, nil
 }
 
 func (s *ExternalProgramStore) Create(ctx context.Context, create *ExternalProgramCreate) (*ExternalProgram, error) {
-	// Marshal path mappings to JSON
 	pathMappingsJSON, err := json.Marshal(create.PathMappings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal path mappings: %w", err)
 	}
+	pathMappingsStr := string(pathMappingsJSON)
 
-	query := `
-		INSERT INTO external_programs (name, path, args_template, enabled, use_terminal, path_mappings, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		RETURNING id, name, path, args_template, enabled, use_terminal, path_mappings, created_at, updated_at
-	`
-
-	enabledInt := 0
-	if create.Enabled {
-		enabledInt = 1
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	useTerminalInt := 0
-	if create.UseTerminal {
-		useTerminalInt = 1
+	defer tx.Rollback()
+
+	// Intern all string fields
+	ids, err := dbinterface.InternStrings(ctx, tx, create.Name, create.Path, create.ArgsTemplate, pathMappingsStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
 	}
 
-	program := &ExternalProgram{}
-	var enabled, useTerminal int
-	var pathMappingsJSONStr string
-	err = s.db.QueryRowContext(ctx, query, create.Name, create.Path, create.ArgsTemplate, enabledInt, useTerminalInt, string(pathMappingsJSON)).Scan(
-		&program.ID,
-		&program.Name,
-		&program.Path,
-		&program.ArgsTemplate,
-		&enabled,
-		&useTerminal,
-		&pathMappingsJSONStr,
-		&program.CreatedAt,
-		&program.UpdatedAt,
-	)
+	// Get first user as owner
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get owner: %w", err)
+	}
+
+	var programID int64
+	err = tx.QueryRowContext(ctx, `
+		INSERT INTO external_programs (owner_id, name_id, path_id, args_template_id, enabled, use_terminal, path_mappings_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		RETURNING id
+	`, ownerID, ids[0], ids[1], ids[2], BoolToSQLite(create.Enabled), BoolToSQLite(create.UseTerminal), ids[3]).Scan(&programID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create external program: %w", err)
 	}
 
-	program.Enabled = enabled == 1
-	program.UseTerminal = useTerminal == 1
-
-	// Unmarshal path mappings
-	if pathMappingsJSONStr != "" && pathMappingsJSONStr != "[]" {
-		if err := json.Unmarshal([]byte(pathMappingsJSONStr), &program.PathMappings); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal path mappings: %w", err)
-		}
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
-	return program, nil
+	return s.GetByID(ctx, int(programID))
 }
 
 func (s *ExternalProgramStore) Update(ctx context.Context, id int, update *ExternalProgramUpdate) (*ExternalProgram, error) {
-	// Marshal path mappings to JSON
 	pathMappingsJSON, err := json.Marshal(update.PathMappings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal path mappings: %w", err)
 	}
+	pathMappingsStr := string(pathMappingsJSON)
 
-	query := `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern all string fields
+	ids, err := dbinterface.InternStrings(ctx, tx, update.Name, update.Path, update.ArgsTemplate, pathMappingsStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	result, err := tx.ExecContext(ctx, `
 		UPDATE external_programs
-		SET name = ?, path = ?, args_template = ?, enabled = ?, use_terminal = ?, path_mappings = ?, updated_at = CURRENT_TIMESTAMP
+		SET name_id = ?, path_id = ?, args_template_id = ?, enabled = ?, use_terminal = ?, path_mappings_id = ?
 		WHERE id = ?
-	`
-
-	enabledInt := 0
-	if update.Enabled {
-		enabledInt = 1
-	}
-	useTerminalInt := 0
-	if update.UseTerminal {
-		useTerminalInt = 1
-	}
-
-	result, err := s.db.ExecContext(ctx, query, update.Name, update.Path, update.ArgsTemplate, enabledInt, useTerminalInt, string(pathMappingsJSON), id)
+	`, ids[0], ids[1], ids[2], BoolToSQLite(update.Enabled), BoolToSQLite(update.UseTerminal), ids[3], id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update external program: %w", err)
 	}
@@ -298,18 +233,19 @@ func (s *ExternalProgramStore) Update(ctx context.Context, id int, update *Exter
 	if err != nil {
 		return nil, fmt.Errorf("failed to get rows affected: %w", err)
 	}
-
 	if rowsAffected == 0 {
 		return nil, ErrExternalProgramNotFound
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
 	return s.GetByID(ctx, id)
 }
 
 func (s *ExternalProgramStore) Delete(ctx context.Context, id int) error {
-	query := `DELETE FROM external_programs WHERE id = ?`
-
-	result, err := s.db.ExecContext(ctx, query, id)
+	result, err := s.db.ExecContext(ctx, `DELETE FROM external_programs WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete external program: %w", err)
 	}
@@ -318,7 +254,6 @@ func (s *ExternalProgramStore) Delete(ctx context.Context, id int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get rows affected: %w", err)
 	}
-
 	if rowsAffected == 0 {
 		return ErrExternalProgramNotFound
 	}

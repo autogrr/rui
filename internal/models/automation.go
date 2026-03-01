@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -52,12 +51,13 @@ type FreeSpaceSource struct {
 
 type Automation struct {
 	ID              int               `json:"id"`
+	OwnerID         int               `json:"ownerId"`
 	InstanceID      int               `json:"instanceId"`
 	Name            string            `json:"name"`
 	TrackerPattern  string            `json:"trackerPattern"`
-	TrackerDomains  []string          `json:"trackerDomains,omitempty"`
 	Conditions      *ActionConditions `json:"conditions"`
 	FreeSpaceSource *FreeSpaceSource  `json:"freeSpaceSource,omitempty"` // nil = default qBittorrent free space
+	ExprFilter      string            `json:"exprFilter,omitempty"`      // optional expr-lang torrent pre-filter
 	Enabled         bool              `json:"enabled"`
 	DryRun          bool              `json:"dryRun"`
 	SortOrder       int               `json:"sortOrder"`
@@ -99,10 +99,7 @@ func splitPatterns(pattern string) []string {
 	return parts
 }
 
-func normalizeTrackerPattern(pattern string, domains []string) string {
-	if len(domains) > 0 {
-		pattern = strings.Join(domains, ",")
-	}
+func normalizeTrackerPattern(pattern string) string {
 	pattern = strings.TrimSpace(pattern)
 	if pattern == "" {
 		return ""
@@ -116,8 +113,8 @@ func normalizeTrackerPattern(pattern string, domains []string) string {
 
 func (s *AutomationStore) ListByInstance(ctx context.Context, instanceID int) ([]*Automation, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, instance_id, name, tracker_pattern, conditions, enabled, dry_run, sort_order, interval_seconds, free_space_source, created_at, updated_at
-		FROM automations
+		SELECT id, owner_id, instance_id, name, tracker_pattern, conditions, enabled, sort_order, interval_seconds, free_space_source, expr_filter, dry_run, created_at, updated_at
+		FROM automations_view
 		WHERE instance_id = ?
 		ORDER BY sort_order ASC, id ASC
 	`, instanceID)
@@ -135,15 +132,17 @@ func (s *AutomationStore) ListByInstance(ctx context.Context, instanceID int) ([
 
 		if err := rows.Scan(
 			&automation.ID,
+			&automation.OwnerID,
 			&automation.InstanceID,
 			&automation.Name,
 			&automation.TrackerPattern,
 			&conditionsJSON,
 			&automation.Enabled,
-			&automation.DryRun,
 			&automation.SortOrder,
 			&intervalSeconds,
 			&freeSpaceSourceJSON,
+			&automation.ExprFilter,
+			&automation.DryRun,
 			&automation.CreatedAt,
 			&automation.UpdatedAt,
 		); err != nil {
@@ -156,8 +155,6 @@ func (s *AutomationStore) ListByInstance(ctx context.Context, instanceID int) ([
 		}
 		conditions.Normalize()
 		automation.Conditions = &conditions
-
-		automation.TrackerDomains = splitPatterns(automation.TrackerPattern)
 
 		if intervalSeconds.Valid {
 			v := int(intervalSeconds.Int64)
@@ -184,8 +181,8 @@ func (s *AutomationStore) ListByInstance(ctx context.Context, instanceID int) ([
 
 func (s *AutomationStore) Get(ctx context.Context, instanceID, id int) (*Automation, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, instance_id, name, tracker_pattern, conditions, enabled, dry_run, sort_order, interval_seconds, free_space_source, created_at, updated_at
-		FROM automations
+		SELECT id, owner_id, instance_id, name, tracker_pattern, conditions, enabled, sort_order, interval_seconds, free_space_source, expr_filter, dry_run, created_at, updated_at
+		FROM automations_view
 		WHERE id = ? AND instance_id = ?
 	`, id, instanceID)
 
@@ -196,15 +193,17 @@ func (s *AutomationStore) Get(ctx context.Context, instanceID, id int) (*Automat
 
 	if err := row.Scan(
 		&automation.ID,
+		&automation.OwnerID,
 		&automation.InstanceID,
 		&automation.Name,
 		&automation.TrackerPattern,
 		&conditionsJSON,
 		&automation.Enabled,
-		&automation.DryRun,
 		&automation.SortOrder,
 		&intervalSeconds,
 		&freeSpaceSourceJSON,
+		&automation.ExprFilter,
+		&automation.DryRun,
 		&automation.CreatedAt,
 		&automation.UpdatedAt,
 	); err != nil {
@@ -217,8 +216,6 @@ func (s *AutomationStore) Get(ctx context.Context, instanceID, id int) (*Automat
 	}
 	conditions.Normalize()
 	automation.Conditions = &conditions
-
-	automation.TrackerDomains = splitPatterns(automation.TrackerPattern)
 
 	if intervalSeconds.Valid {
 		v := int(intervalSeconds.Int64)
@@ -257,7 +254,7 @@ func (s *AutomationStore) Create(ctx context.Context, automation *Automation) (*
 		return nil, fmt.Errorf("invalid external program action: %w", err)
 	}
 
-	automation.TrackerPattern = normalizeTrackerPattern(automation.TrackerPattern, automation.TrackerDomains)
+	automation.TrackerPattern = normalizeTrackerPattern(automation.TrackerPattern)
 
 	sortOrder := automation.SortOrder
 	if sortOrder == 0 {
@@ -278,21 +275,68 @@ func (s *AutomationStore) Create(ctx context.Context, automation *Automation) (*
 		intervalSeconds = sql.NullInt64{Int64: int64(*automation.IntervalSeconds), Valid: true}
 	}
 
-	var freeSpaceSourceJSON sql.NullString
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from the instance
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM instances WHERE id = ?`, automation.InstanceID).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get instance owner: %w", err)
+	}
+
+	// Intern required strings: name, conditions
+	ids, err := dbinterface.InternStrings(ctx, tx, automation.Name, string(conditionsJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+	nameID, conditionsID := ids[0], ids[1]
+
+	// Intern tracker_pattern (may be empty)
+	var trackerPatternID int64
+	if automation.TrackerPattern != "" {
+		tpIDs, err := dbinterface.InternStrings(ctx, tx, automation.TrackerPattern)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern tracker pattern: %w", err)
+		}
+		trackerPatternID = tpIDs[0]
+	} else {
+		trackerPatternID, err = dbinterface.InternEmptyString(ctx, tx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern empty tracker pattern: %w", err)
+		}
+	}
+
+	// Intern free_space_source (nullable)
+	var freeSpaceSourceID sql.NullInt64
 	if automation.FreeSpaceSource != nil {
 		data, marshalErr := json.Marshal(automation.FreeSpaceSource)
 		if marshalErr != nil {
 			return nil, fmt.Errorf("failed to marshal free_space_source: %w", marshalErr)
 		}
-		freeSpaceSourceJSON = sql.NullString{String: string(data), Valid: true}
+		fssStr := string(data)
+		nullIDs, internErr := dbinterface.InternStringNullable(ctx, tx, &fssStr)
+		if internErr != nil {
+			return nil, fmt.Errorf("failed to intern free_space_source: %w", internErr)
+		}
+		freeSpaceSourceID = nullIDs[0]
 	}
 
-	res, err := s.db.ExecContext(ctx, `
+	// Intern expr_filter (always present, may be empty)
+	exprFilterIDs, err := dbinterface.InternStrings(ctx, tx, automation.ExprFilter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern expr_filter: %w", err)
+	}
+	exprFilterID := exprFilterIDs[0]
+
+	res, err := tx.ExecContext(ctx, `
 		INSERT INTO automations
-			(instance_id, name, tracker_pattern, conditions, enabled, dry_run, sort_order, interval_seconds, free_space_source)
+			(owner_id, instance_id, name_id, tracker_pattern_id, conditions_id, enabled, dry_run, sort_order, interval_seconds, free_space_source_id, expr_filter_id)
 		VALUES
-			(?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, automation.InstanceID, automation.Name, automation.TrackerPattern, string(conditionsJSON), boolToInt(automation.Enabled), boolToInt(automation.DryRun), sortOrder, intervalSeconds, freeSpaceSourceJSON)
+			(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, ownerID, automation.InstanceID, nameID, trackerPatternID, conditionsID, boolToInt(automation.Enabled), boolToInt(automation.DryRun), sortOrder, intervalSeconds, freeSpaceSourceID, exprFilterID)
 	if err != nil {
 		return nil, err
 	}
@@ -300,6 +344,10 @@ func (s *AutomationStore) Create(ctx context.Context, automation *Automation) (*
 	id, err := res.LastInsertId()
 	if err != nil {
 		return nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
 	return s.Get(ctx, automation.InstanceID, int(id))
@@ -317,7 +365,7 @@ func (s *AutomationStore) Update(ctx context.Context, automation *Automation) (*
 		return nil, fmt.Errorf("invalid external program action: %w", err)
 	}
 
-	automation.TrackerPattern = normalizeTrackerPattern(automation.TrackerPattern, automation.TrackerDomains)
+	automation.TrackerPattern = normalizeTrackerPattern(automation.TrackerPattern)
 
 	conditionsJSON, err := json.Marshal(automation.Conditions)
 	if err != nil {
@@ -329,20 +377,61 @@ func (s *AutomationStore) Update(ctx context.Context, automation *Automation) (*
 		intervalSeconds = sql.NullInt64{Int64: int64(*automation.IntervalSeconds), Valid: true}
 	}
 
-	var freeSpaceSourceJSON sql.NullString
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern required strings: name, conditions
+	ids, err := dbinterface.InternStrings(ctx, tx, automation.Name, string(conditionsJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+	nameID, conditionsID := ids[0], ids[1]
+
+	// Intern tracker_pattern (may be empty)
+	var trackerPatternID int64
+	if automation.TrackerPattern != "" {
+		tpIDs, err := dbinterface.InternStrings(ctx, tx, automation.TrackerPattern)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern tracker pattern: %w", err)
+		}
+		trackerPatternID = tpIDs[0]
+	} else {
+		trackerPatternID, err = dbinterface.InternEmptyString(ctx, tx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern empty tracker pattern: %w", err)
+		}
+	}
+
+	// Intern free_space_source (nullable)
+	var freeSpaceSourceID sql.NullInt64
 	if automation.FreeSpaceSource != nil {
 		data, marshalErr := json.Marshal(automation.FreeSpaceSource)
 		if marshalErr != nil {
 			return nil, fmt.Errorf("failed to marshal free_space_source: %w", marshalErr)
 		}
-		freeSpaceSourceJSON = sql.NullString{String: string(data), Valid: true}
+		fssStr := string(data)
+		nullIDs, internErr := dbinterface.InternStringNullable(ctx, tx, &fssStr)
+		if internErr != nil {
+			return nil, fmt.Errorf("failed to intern free_space_source: %w", internErr)
+		}
+		freeSpaceSourceID = nullIDs[0]
 	}
 
-	res, err := s.db.ExecContext(ctx, `
+	// Intern expr_filter (always present, may be empty)
+	exprFilterIDs, err := dbinterface.InternStrings(ctx, tx, automation.ExprFilter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern expr_filter: %w", err)
+	}
+	exprFilterID := exprFilterIDs[0]
+
+	res, err := tx.ExecContext(ctx, `
 		UPDATE automations
-		SET name = ?, tracker_pattern = ?, conditions = ?, enabled = ?, dry_run = ?, sort_order = ?, interval_seconds = ?, free_space_source = ?
+		SET name_id = ?, tracker_pattern_id = ?, conditions_id = ?, enabled = ?, dry_run = ?, sort_order = ?, interval_seconds = ?, free_space_source_id = ?, expr_filter_id = ?
 		WHERE id = ? AND instance_id = ?
-	`, automation.Name, automation.TrackerPattern, string(conditionsJSON), boolToInt(automation.Enabled), boolToInt(automation.DryRun), automation.SortOrder, intervalSeconds, freeSpaceSourceJSON, automation.ID, automation.InstanceID)
+	`, nameID, trackerPatternID, conditionsID, boolToInt(automation.Enabled), boolToInt(automation.DryRun), automation.SortOrder, intervalSeconds, freeSpaceSourceID, exprFilterID, automation.ID, automation.InstanceID)
 	if err != nil {
 		return nil, err
 	}
@@ -352,6 +441,10 @@ func (s *AutomationStore) Update(ctx context.Context, automation *Automation) (*
 	}
 	if rows == 0 {
 		return nil, sql.ErrNoRows
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
 	return s.Get(ctx, automation.InstanceID, automation.ID)
@@ -397,7 +490,7 @@ type AutomationReference struct {
 func (s *AutomationStore) FindByExternalProgramID(ctx context.Context, programID int) ([]*AutomationReference, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, instance_id, name
-		FROM automations
+		FROM automations_view
 		WHERE json_extract(conditions, '$.externalProgram.programId') = ?
 	`, programID)
 	if err != nil {
@@ -420,16 +513,71 @@ func (s *AutomationStore) FindByExternalProgramID(ctx context.Context, programID
 // that reference the given program ID. This is used for cascade delete.
 // Clears references regardless of whether the action is enabled or disabled.
 func (s *AutomationStore) ClearExternalProgramAction(ctx context.Context, programID int) (int64, error) {
-	// Set externalProgram to null in the conditions JSON for all matching automations
-	res, err := s.db.ExecContext(ctx, `
-		UPDATE automations
-		SET conditions = json_remove(conditions, '$.externalProgram')
+	// Find automations referencing this program via the view (which resolves conditions from string_pool)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, conditions
+		FROM automations_view
 		WHERE json_extract(conditions, '$.externalProgram.programId') = ?
 	`, programID)
 	if err != nil {
 		return 0, err
 	}
-	return res.RowsAffected()
+	defer rows.Close()
+
+	type match struct {
+		id         int
+		conditions string
+	}
+	var matches []match
+	for rows.Next() {
+		var m match
+		if err := rows.Scan(&m.id, &m.conditions); err != nil {
+			return 0, err
+		}
+		matches = append(matches, m)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	if len(matches) == 0 {
+		return 0, nil
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var count int64
+	for _, m := range matches {
+		// Remove externalProgram from conditions JSON
+		var condMap map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(m.conditions), &condMap); err != nil {
+			return 0, fmt.Errorf("failed to unmarshal conditions for automation %d: %w", m.id, err)
+		}
+		delete(condMap, "externalProgram")
+		newCondJSON, err := json.Marshal(condMap)
+		if err != nil {
+			return 0, fmt.Errorf("failed to marshal conditions for automation %d: %w", m.id, err)
+		}
+
+		condIDs, err := dbinterface.InternStrings(ctx, tx, string(newCondJSON))
+		if err != nil {
+			return 0, fmt.Errorf("failed to intern conditions: %w", err)
+		}
+
+		if _, err := tx.ExecContext(ctx, `UPDATE automations SET conditions_id = ? WHERE id = ?`, condIDs[0], m.id); err != nil {
+			return 0, fmt.Errorf("failed to update automation %d: %w", m.id, err)
+		}
+		count++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return count, nil
 }
 
 func boolToInt(v bool) int {

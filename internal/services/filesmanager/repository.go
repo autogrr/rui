@@ -37,7 +37,7 @@ type fileRow struct {
 	size            int64
 	progress        float64
 	priority        int
-	isSeed          interface{}
+	isSeed          any
 	pieceRangeStart int64
 	pieceRangeEnd   int64
 	availability    float64
@@ -266,7 +266,7 @@ func (r *Repository) UpsertFiles(ctx context.Context, files []CachedFile) error 
 				return fmt.Errorf("missing interned ID for file %s", f.Name)
 			}
 
-			var isSeed interface{}
+			var isSeed any
 			if f.IsSeed != nil {
 				isSeed = *f.IsSeed
 			}
@@ -308,7 +308,7 @@ func (r *Repository) UpsertFiles(ctx context.Context, files []CachedFile) error 
 	t := time.Now()
 
 	// Pre-allocate args slice to reuse across batches
-	args := make([]interface{}, 0, fileBatchSize*12)
+	args := make([]any, 0, fileBatchSize*12)
 
 	// Batch insert files
 	for i := 0; i < len(allRows); i += fileBatchSize {
@@ -569,7 +569,7 @@ func (r *Repository) UpsertSyncInfoBatch(ctx context.Context, infos []SyncInfo) 
 	fullBatchQuery := dbinterface.BuildQueryWithPlaceholders(queryTemplate, 5, syncBatchSize)
 
 	// Pre-allocate args slice to reuse across batches
-	args := make([]interface{}, 0, syncBatchSize*5)
+	args := make([]any, 0, syncBatchSize*5)
 
 	// Batch insert sync infos
 	for i := 0; i < len(infos); i += syncBatchSize {

@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -28,6 +27,16 @@ func setupDirScanTestDB(t *testing.T) *database.DB {
 	return db
 }
 
+// createTestUser inserts a minimal user row and returns its id.
+func createTestUser(t *testing.T, db *database.DB) int {
+	t.Helper()
+
+	userStore := models.NewUserStore(db)
+	user, err := userStore.Create(context.Background(), "testuser", "$argon2id$v=19$m=65536$p=1$salt$hash")
+	require.NoError(t, err)
+	return user.ID
+}
+
 func TestDirScanStore_CreateRunIfNoActive_CreatesQueuedRun(t *testing.T) {
 	ctx := context.Background()
 	db := setupDirScanTestDB(t)
@@ -35,7 +44,7 @@ func TestDirScanStore_CreateRunIfNoActive_CreatesQueuedRun(t *testing.T) {
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
 
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	store := models.NewDirScanStore(db)
@@ -74,7 +83,7 @@ func TestDirScanStore_MarkActiveRunsFailed_IncludesQueued(t *testing.T) {
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
 
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
 	require.NoError(t, err)
 
 	store := models.NewDirScanStore(db)

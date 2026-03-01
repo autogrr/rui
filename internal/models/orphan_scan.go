@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -21,6 +20,7 @@ import (
 // OrphanScanSettings represents orphan scan settings for an instance.
 type OrphanScanSettings struct {
 	ID                  int64     `json:"id"`
+	OwnerID             int       `json:"ownerId"`
 	InstanceID          int       `json:"instanceId"`
 	Enabled             bool      `json:"enabled"`
 	GracePeriodMinutes  int       `json:"gracePeriodMinutes"`
@@ -37,6 +37,7 @@ type OrphanScanSettings struct {
 // OrphanScanRun represents an orphan scan run.
 type OrphanScanRun struct {
 	ID             int64      `json:"id"`
+	OwnerID        int        `json:"ownerId"`
 	InstanceID     int        `json:"instanceId"`
 	Status         string     `json:"status"` // pending, scanning, preview_ready, deleting, completed, failed, canceled
 	TriggeredBy    string     `json:"triggeredBy"`
@@ -76,10 +77,10 @@ func NewOrphanScanStore(db dbinterface.Querier) *OrphanScanStore {
 // Returns nil if no settings exist.
 func (s *OrphanScanStore) GetSettings(ctx context.Context, instanceID int) (*OrphanScanSettings, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, instance_id, enabled, grace_period_minutes, ignore_paths,
+		SELECT id, owner_id, instance_id, enabled, grace_period_minutes, ignore_paths,
 		       scan_interval_hours, preview_sort, max_files_per_run, auto_cleanup_enabled,
 		       auto_cleanup_max_files, created_at, updated_at
-		FROM orphan_scan_settings
+		FROM orphan_scan_settings_view
 		WHERE instance_id = ?
 	`, instanceID)
 
@@ -88,6 +89,7 @@ func (s *OrphanScanStore) GetSettings(ctx context.Context, instanceID int) (*Orp
 
 	err := row.Scan(
 		&settings.ID,
+		&settings.OwnerID,
 		&settings.InstanceID,
 		&settings.Enabled,
 		&settings.GracePeriodMinutes,
@@ -130,25 +132,56 @@ func (s *OrphanScanStore) UpsertSettings(ctx context.Context, settings *OrphanSc
 		return nil, err
 	}
 
-	_, err = s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from instance
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM instances WHERE id = ?`, settings.InstanceID).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get owner: %w", err)
+	}
+
+	// Intern preview_sort (required)
+	ids, err := dbinterface.InternStrings(ctx, tx, settings.PreviewSort)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+	previewSortID := ids[0]
+
+	// Intern ignore_paths JSON (nullable)
+	ignorePathsStr := string(ignorePathsJSON)
+	nullableIDs, err := dbinterface.InternStringNullable(ctx, tx, &ignorePathsStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern nullable strings: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO orphan_scan_settings
-				(instance_id, enabled, grace_period_minutes, ignore_paths, scan_interval_hours,
-				 preview_sort, max_files_per_run, auto_cleanup_enabled, auto_cleanup_max_files)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+				(owner_id, instance_id, enabled, grace_period_minutes, ignore_paths_id, scan_interval_hours,
+				 preview_sort_id, max_files_per_run, auto_cleanup_enabled, auto_cleanup_max_files)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(instance_id) DO UPDATE SET
+			owner_id = excluded.owner_id,
 			enabled = excluded.enabled,
 			grace_period_minutes = excluded.grace_period_minutes,
-			ignore_paths = excluded.ignore_paths,
+			ignore_paths_id = excluded.ignore_paths_id,
 			scan_interval_hours = excluded.scan_interval_hours,
-			preview_sort = excluded.preview_sort,
+			preview_sort_id = excluded.preview_sort_id,
 			max_files_per_run = excluded.max_files_per_run,
 			auto_cleanup_enabled = excluded.auto_cleanup_enabled,
 			auto_cleanup_max_files = excluded.auto_cleanup_max_files
-	`, settings.InstanceID, boolToInt(settings.Enabled), settings.GracePeriodMinutes,
-		string(ignorePathsJSON), settings.ScanIntervalHours, settings.PreviewSort, settings.MaxFilesPerRun,
+	`, ownerID, settings.InstanceID, boolToInt(settings.Enabled), settings.GracePeriodMinutes,
+		nullableIDs[0], settings.ScanIntervalHours, previewSortID, settings.MaxFilesPerRun,
 		boolToInt(settings.AutoCleanupEnabled), settings.AutoCleanupMaxFiles)
 	if err != nil {
 		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return s.GetSettings(ctx, settings.InstanceID)
@@ -156,16 +189,38 @@ func (s *OrphanScanStore) UpsertSettings(ctx context.Context, settings *OrphanSc
 
 // CreateRun creates a new orphan scan run.
 func (s *OrphanScanStore) CreateRun(ctx context.Context, instanceID int, triggeredBy string) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO orphan_scan_runs (instance_id, status, triggered_by)
-		VALUES (?, 'pending', ?)
-	`, instanceID, triggeredBy)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from instance
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM instances WHERE id = ?`, instanceID).Scan(&ownerID); err != nil {
+		return 0, fmt.Errorf("failed to get owner: %w", err)
+	}
+
+	// Intern status and triggered_by
+	ids, err := dbinterface.InternStrings(ctx, tx, "pending", triggeredBy)
+	if err != nil {
+		return 0, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO orphan_scan_runs (owner_id, instance_id, status_id, triggered_by_id)
+		VALUES (?, ?, ?, ?)
+	`, ownerID, instanceID, ids[0], ids[1])
 	if err != nil {
 		return 0, fmt.Errorf("insert orphan scan run: %w", err)
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
 		return 0, fmt.Errorf("get last insert id: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	return id, nil
 }
@@ -176,16 +231,34 @@ var ErrRunAlreadyActive = errors.New("an active run already exists for this inst
 // CreateRunIfNoActive atomically checks for active runs and creates a new one if none exist.
 // This prevents race conditions between HasActiveRun and CreateRun.
 func (s *OrphanScanStore) CreateRunIfNoActive(ctx context.Context, instanceID int, triggeredBy string) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO orphan_scan_runs (instance_id, status, triggered_by)
-		SELECT ?, 'pending', ?
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from instance
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM instances WHERE id = ?`, instanceID).Scan(&ownerID); err != nil {
+		return 0, fmt.Errorf("failed to get owner: %w", err)
+	}
+
+	// Intern status and triggered_by
+	ids, err := dbinterface.InternStrings(ctx, tx, "pending", triggeredBy)
+	if err != nil {
+		return 0, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO orphan_scan_runs (owner_id, instance_id, status_id, triggered_by_id)
+		SELECT ?, ?, ?, ?
 		WHERE NOT EXISTS (
-			SELECT 1 FROM orphan_scan_runs
+			SELECT 1 FROM orphan_scan_runs_view
 			WHERE instance_id = ?
 			  AND (status IN ('pending', 'scanning', 'deleting')
 			       OR (status = 'preview_ready' AND files_found > 0))
 		)
-	`, instanceID, triggeredBy, instanceID)
+	`, ownerID, instanceID, ids[0], ids[1], instanceID)
 	if err != nil {
 		return 0, fmt.Errorf("insert orphan scan run: %w", err)
 	}
@@ -202,16 +275,20 @@ func (s *OrphanScanStore) CreateRunIfNoActive(ctx context.Context, instanceID in
 	if err != nil {
 		return 0, fmt.Errorf("get last insert id: %w", err)
 	}
+
+	if err = tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
+	}
 	return id, nil
 }
 
 // GetRun retrieves an orphan scan run by ID.
 func (s *OrphanScanStore) GetRun(ctx context.Context, runID int64) (*OrphanScanRun, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, instance_id, status, triggered_by, scan_paths, files_found,
+		SELECT id, owner_id, instance_id, status, triggered_by, scan_paths, files_found,
 		       files_deleted, folders_deleted, bytes_reclaimed, truncated,
 		       error_message, started_at, completed_at
-		FROM orphan_scan_runs
+		FROM orphan_scan_runs_view
 		WHERE id = ?
 	`, runID)
 
@@ -221,10 +298,10 @@ func (s *OrphanScanStore) GetRun(ctx context.Context, runID int64) (*OrphanScanR
 // GetRunByInstance retrieves a specific run for an instance.
 func (s *OrphanScanStore) GetRunByInstance(ctx context.Context, instanceID int, runID int64) (*OrphanScanRun, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, instance_id, status, triggered_by, scan_paths, files_found,
+		SELECT id, owner_id, instance_id, status, triggered_by, scan_paths, files_found,
 		       files_deleted, folders_deleted, bytes_reclaimed, truncated,
 		       error_message, started_at, completed_at
-		FROM orphan_scan_runs
+		FROM orphan_scan_runs_view
 		WHERE id = ? AND instance_id = ?
 	`, runID, instanceID)
 
@@ -239,6 +316,7 @@ func (s *OrphanScanStore) scanRun(row *sql.Row) (*OrphanScanRun, error) {
 
 	err := row.Scan(
 		&run.ID,
+		&run.OwnerID,
 		&run.InstanceID,
 		&run.Status,
 		&run.TriggeredBy,
@@ -293,6 +371,7 @@ func (s *OrphanScanStore) scanRunsFromRows(rows *sql.Rows) ([]*OrphanScanRun, er
 
 		if err := rows.Scan(
 			&run.ID,
+			&run.OwnerID,
 			&run.InstanceID,
 			&run.Status,
 			&run.TriggeredBy,
@@ -341,10 +420,10 @@ func (s *OrphanScanStore) ListRuns(ctx context.Context, instanceID, limit int) (
 
 func (s *OrphanScanStore) listRunsRecent(ctx context.Context, instanceID, limit int) ([]*OrphanScanRun, error) {
 	query := `
-		SELECT id, instance_id, status, triggered_by, scan_paths, files_found,
+		SELECT id, owner_id, instance_id, status, triggered_by, scan_paths, files_found,
 		       files_deleted, folders_deleted, bytes_reclaimed, truncated,
 		       error_message, started_at, completed_at
-		FROM orphan_scan_runs
+		FROM orphan_scan_runs_view
 		WHERE instance_id = ?
 		ORDER BY started_at DESC
 		LIMIT ?
@@ -354,10 +433,10 @@ func (s *OrphanScanStore) listRunsRecent(ctx context.Context, instanceID, limit 
 
 func (s *OrphanScanStore) listRunsActive(ctx context.Context, instanceID int) ([]*OrphanScanRun, error) {
 	query := `
-		SELECT id, instance_id, status, triggered_by, scan_paths, files_found,
+		SELECT id, owner_id, instance_id, status, triggered_by, scan_paths, files_found,
 		       files_deleted, folders_deleted, bytes_reclaimed, truncated,
 		       error_message, started_at, completed_at
-		FROM orphan_scan_runs
+		FROM orphan_scan_runs_view
 		WHERE instance_id = ?
 		  AND (status IN ('pending', 'scanning', 'deleting')
 		       OR (status = 'preview_ready' AND files_found > 0))
@@ -430,10 +509,10 @@ func limitNonActive(runs []*OrphanScanRun, activeIDs map[int64]struct{}, limit i
 // GetLastCompletedRun returns the last completed run for an instance.
 func (s *OrphanScanStore) GetLastCompletedRun(ctx context.Context, instanceID int) (*OrphanScanRun, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, instance_id, status, triggered_by, scan_paths, files_found,
+		SELECT id, owner_id, instance_id, status, triggered_by, scan_paths, files_found,
 		       files_deleted, folders_deleted, bytes_reclaimed, truncated,
 		       error_message, started_at, completed_at
-		FROM orphan_scan_runs
+		FROM orphan_scan_runs_view
 		WHERE instance_id = ? AND status = 'completed'
 		ORDER BY completed_at DESC
 		LIMIT 1
@@ -447,7 +526,7 @@ func (s *OrphanScanStore) GetLastCompletedRun(ctx context.Context, instanceID in
 func (s *OrphanScanStore) HasActiveRun(ctx context.Context, instanceID int) (bool, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT COUNT(*)
-		FROM orphan_scan_runs
+		FROM orphan_scan_runs_view
 		WHERE instance_id = ?
 		  AND (status IN ('pending', 'scanning', 'deleting')
 		       OR (status = 'preview_ready' AND files_found > 0))
@@ -464,10 +543,10 @@ func (s *OrphanScanStore) HasActiveRun(ctx context.Context, instanceID int) (boo
 // "Active" matches the same definition used by CreateRunIfNoActive.
 func (s *OrphanScanStore) GetMostRecentActiveRun(ctx context.Context, instanceID int) (*OrphanScanRun, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, instance_id, status, triggered_by, scan_paths, files_found,
+		SELECT id, owner_id, instance_id, status, triggered_by, scan_paths, files_found,
 		       files_deleted, folders_deleted, bytes_reclaimed, truncated,
 		       error_message, started_at, completed_at
-		FROM orphan_scan_runs
+		FROM orphan_scan_runs_view
 		WHERE instance_id = ?
 		  AND (status IN ('pending', 'scanning', 'deleting')
 		       OR (status = 'preview_ready' AND files_found > 0))
@@ -480,10 +559,25 @@ func (s *OrphanScanStore) GetMostRecentActiveRun(ctx context.Context, instanceID
 
 // UpdateRunStatus updates the status of a run.
 func (s *OrphanScanStore) UpdateRunStatus(ctx context.Context, runID int64, status string) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE orphan_scan_runs SET status = ? WHERE id = ?
-	`, status, runID)
-	return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, status)
+	if err != nil {
+		return fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE orphan_scan_runs SET status_id = ? WHERE id = ?
+	`, ids[0], runID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // UpdateRunScanPaths updates the scan paths for a run.
@@ -492,10 +586,27 @@ func (s *OrphanScanStore) UpdateRunScanPaths(ctx context.Context, runID int64, s
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `
-		UPDATE orphan_scan_runs SET scan_paths = ? WHERE id = ?
-	`, string(pathsJSON), runID)
-	return err
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	pathsStr := string(pathsJSON)
+	nullableIDs, err := dbinterface.InternStringNullable(ctx, tx, &pathsStr)
+	if err != nil {
+		return fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE orphan_scan_runs SET scan_paths_id = ? WHERE id = ?
+	`, nullableIDs[0], runID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // UpdateRunFilesFound updates the files found count and truncated flag.
@@ -519,42 +630,113 @@ func (s *OrphanScanStore) UpdateRunFoundStats(ctx context.Context, runID int64, 
 
 // UpdateRunCompleted marks a run as completed with stats.
 func (s *OrphanScanStore) UpdateRunCompleted(ctx context.Context, runID int64, filesDeleted, foldersDeleted int, bytesReclaimed int64) error {
-	_, err := s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, "completed")
+	if err != nil {
+		return fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
 		UPDATE orphan_scan_runs
-		SET status = 'completed', files_deleted = ?, folders_deleted = ?, bytes_reclaimed = ?, completed_at = CURRENT_TIMESTAMP
+		SET status_id = ?, files_deleted = ?, folders_deleted = ?, bytes_reclaimed = ?, completed_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, filesDeleted, foldersDeleted, bytesReclaimed, runID)
-	return err
+	`, ids[0], filesDeleted, foldersDeleted, bytesReclaimed, runID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // UpdateRunFailed marks a run as failed with an error message.
 func (s *OrphanScanStore) UpdateRunFailed(ctx context.Context, runID int64, errorMessage string) error {
-	_, err := s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, "failed")
+	if err != nil {
+		return fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	errMsgIDs, err := dbinterface.InternStringNullable(ctx, tx, &errorMessage)
+	if err != nil {
+		return fmt.Errorf("failed to intern error message: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
 		UPDATE orphan_scan_runs
-		SET status = 'failed', error_message = ?, completed_at = CURRENT_TIMESTAMP
+		SET status_id = ?, error_message_id = ?, completed_at = CURRENT_TIMESTAMP
 		WHERE id = ?
-	`, errorMessage, runID)
-	return err
+	`, ids[0], errMsgIDs[0], runID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // UpdateRunWarning sets a warning message on a run without changing its status.
 func (s *OrphanScanStore) UpdateRunWarning(ctx context.Context, runID int64, warningMessage string) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE orphan_scan_runs SET error_message = ? WHERE id = ?
-	`, warningMessage, runID)
-	return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	nullableIDs, err := dbinterface.InternStringNullable(ctx, tx, &warningMessage)
+	if err != nil {
+		return fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE orphan_scan_runs SET error_message_id = ? WHERE id = ?
+	`, nullableIDs[0], runID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // MarkDeletingRunsFailed marks any runs currently in "deleting" as failed.
 // This is intended to run at service startup so interrupted deletions don't
 // remain stuck in a non-terminal state after a restart.
 func (s *OrphanScanStore) MarkDeletingRunsFailed(ctx context.Context, errorMessage string) error {
-	_, err := s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern 'failed' for SET and 'deleting' for WHERE
+	ids, err := dbinterface.InternStrings(ctx, tx, "failed", "deleting")
+	if err != nil {
+		return fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	errMsgIDs, err := dbinterface.InternStringNullable(ctx, tx, &errorMessage)
+	if err != nil {
+		return fmt.Errorf("failed to intern error message: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
 		UPDATE orphan_scan_runs
-		SET status = 'failed', error_message = ?, completed_at = CURRENT_TIMESTAMP
-		WHERE status = 'deleting'
-	`, errorMessage)
-	return err
+		SET status_id = ?, error_message_id = ?, completed_at = CURRENT_TIMESTAMP
+		WHERE status_id = ?
+	`, ids[0], errMsgIDs[0], ids[1])
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // MarkStuckRunsFailed marks old pending/scanning runs as failed.
@@ -565,24 +747,44 @@ func (s *OrphanScanStore) MarkStuckRunsFailed(ctx context.Context, threshold tim
 	// Use the same UTC format as SQLite to ensure correct cutoff behavior.
 	cutoff := time.Now().Add(-threshold).UTC().Format(time.DateTime)
 
-	// Build placeholders for status list
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern 'failed' and 'Marked failed after restart' for SET, plus all status strings for WHERE
+	allStrings := make([]string, 0, 2+len(statuses))
+	allStrings = append(allStrings, "failed", "Marked failed after restart")
+	allStrings = append(allStrings, statuses...)
+
+	ids, err := dbinterface.InternStrings(ctx, tx, allStrings...)
+	if err != nil {
+		return fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	// Build placeholders for status_id list
 	placeholders := ""
-	args := make([]interface{}, 0, len(statuses)+1)
-	args = append(args, cutoff)
-	for i, status := range statuses {
+	args := make([]any, 0, 3+len(statuses))
+	args = append(args, ids[0], ids[1], cutoff) // failed_id, error_msg_id, cutoff
+	for i, statusID := range ids[2:] {
 		if i > 0 {
 			placeholders += ", "
 		}
 		placeholders += "?"
-		args = append(args, status)
+		args = append(args, statusID)
 	}
 
-	_, err := s.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		UPDATE orphan_scan_runs
-		SET status = 'failed', error_message = 'Marked failed after restart', completed_at = CURRENT_TIMESTAMP
-		WHERE started_at < ? AND status IN (`+placeholders+`)
+		SET status_id = ?, error_message_id = ?, completed_at = CURRENT_TIMESTAMP
+		WHERE started_at < ? AND status_id IN (`+placeholders+`)
 	`, args...)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // DeleteRun deletes a run and its files (cascade).
@@ -597,6 +799,12 @@ func (s *OrphanScanStore) InsertFiles(ctx context.Context, runID int64, files []
 		return nil
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	// Insert in batches of 100
 	const batchSize = 100
 	for i := 0; i < len(files); i += batchSize {
@@ -606,26 +814,45 @@ func (s *OrphanScanStore) InsertFiles(ctx context.Context, runID int64, files []
 		}
 		batch := files[i:end]
 
-		query := `INSERT INTO orphan_scan_files (run_id, file_path, file_size, modified_at, status) VALUES `
-		args := make([]interface{}, 0, len(batch)*5)
+		// Collect strings to intern for this batch
+		filePaths := make([]string, len(batch))
+		statuses := make([]string, len(batch))
+		for j, f := range batch {
+			filePaths[j] = f.FilePath
+			statuses[j] = f.Status
+		}
+
+		// Intern file_path and status strings
+		filePathIDs, err := dbinterface.InternStrings(ctx, tx, filePaths...)
+		if err != nil {
+			return fmt.Errorf("failed to intern file paths: %w", err)
+		}
+
+		statusIDs, err := dbinterface.InternStrings(ctx, tx, statuses...)
+		if err != nil {
+			return fmt.Errorf("failed to intern statuses: %w", err)
+		}
+
+		query := `INSERT INTO orphan_scan_files (run_id, file_path_id, file_size, modified_at, status_id) VALUES `
+		args := make([]any, 0, len(batch)*5)
 		for j, f := range batch {
 			if j > 0 {
 				query += ", "
 			}
 			query += "(?, ?, ?, ?, ?)"
-			var modifiedAt interface{}
+			var modifiedAt any
 			if f.ModifiedAt != nil {
 				modifiedAt = *f.ModifiedAt
 			}
-			args = append(args, runID, f.FilePath, f.FileSize, modifiedAt, f.Status)
+			args = append(args, runID, filePathIDs[j], f.FileSize, modifiedAt, statusIDs[j])
 		}
 
-		if _, err := s.db.ExecContext(ctx, query, args...); err != nil {
+		if _, err := tx.ExecContext(ctx, query, args...); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 // ListFiles lists orphan files for a run with pagination.
@@ -668,7 +895,7 @@ func collectOrphanScanFiles(rows *sql.Rows) ([]*OrphanScanFile, error) {
 func (s *OrphanScanStore) listFilesDirectorySorted(ctx context.Context, runID int64, limit, offset int) ([]*OrphanScanFile, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, run_id, file_path, file_size, modified_at, status, error_message
-		FROM orphan_scan_files
+		FROM orphan_scan_files_view
 		WHERE run_id = ?
 	`, runID)
 	if err != nil {
@@ -711,7 +938,7 @@ func (s *OrphanScanStore) listFilesDirectorySorted(ctx context.Context, runID in
 func (s *OrphanScanStore) listFilesSizeSorted(ctx context.Context, runID int64, limit, offset int) ([]*OrphanScanFile, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, run_id, file_path, file_size, modified_at, status, error_message
-		FROM orphan_scan_files
+		FROM orphan_scan_files_view
 		WHERE run_id = ?
 		ORDER BY file_size DESC, file_path ASC
 		LIMIT ? OFFSET ?
@@ -743,7 +970,7 @@ func (s *OrphanScanStore) ListFiles(ctx context.Context, runID int64, limit, off
 func (s *OrphanScanStore) GetFilesForDeletion(ctx context.Context, runID int64) ([]*OrphanScanFile, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, run_id, file_path, file_size, modified_at, status, error_message
-		FROM orphan_scan_files
+		FROM orphan_scan_files_view
 		WHERE run_id = ? AND status = 'pending'
 		ORDER BY file_path
 	`, runID)
@@ -785,14 +1012,34 @@ func (s *OrphanScanStore) GetFilesForDeletion(ctx context.Context, runID int64) 
 
 // UpdateFileStatus updates the status of a single file.
 func (s *OrphanScanStore) UpdateFileStatus(ctx context.Context, fileID int64, status string, errorMessage string) error {
-	var errMsg interface{}
-	if errorMessage != "" {
-		errMsg = errorMessage
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE orphan_scan_files SET status = ?, error_message = ? WHERE id = ?
-	`, status, errMsg, fileID)
-	return err
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, status)
+	if err != nil {
+		return fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	var errMsgPtr *string
+	if errorMessage != "" {
+		errMsgPtr = &errorMessage
+	}
+	errMsgIDs, err := dbinterface.InternStringNullable(ctx, tx, errMsgPtr)
+	if err != nil {
+		return fmt.Errorf("failed to intern error message: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+		UPDATE orphan_scan_files SET status_id = ?, error_message_id = ? WHERE id = ?
+	`, ids[0], errMsgIDs[0], fileID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // CountFiles returns the total number of files for a run.

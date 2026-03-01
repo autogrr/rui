@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -9,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/autogrr/rui/internal/dbinterface"
@@ -16,6 +16,7 @@ import (
 
 type LogExclusions struct {
 	ID        int       `json:"id"`
+	OwnerID   int       `json:"ownerId"`
 	Patterns  []string  `json:"patterns"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -36,15 +37,15 @@ func NewLogExclusionsStore(db dbinterface.Querier) *LogExclusionsStore {
 // Get returns log exclusions, creating defaults if none exist
 func (s *LogExclusionsStore) Get(ctx context.Context) (*LogExclusions, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, patterns, created_at, updated_at
-		FROM log_exclusions
+		SELECT id, owner_id, patterns, created_at, updated_at
+		FROM log_exclusions_view
 		LIMIT 1
 	`)
 
 	var le LogExclusions
 	var patternsJSON string
 
-	err := row.Scan(&le.ID, &patternsJSON, &le.CreatedAt, &le.UpdatedAt)
+	err := row.Scan(&le.ID, &le.OwnerID, &patternsJSON, &le.CreatedAt, &le.UpdatedAt)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return s.createDefault(ctx)
@@ -89,14 +90,30 @@ func (s *LogExclusionsStore) Update(ctx context.Context, input *LogExclusionsInp
 		return nil, err
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern the patterns JSON string
+	ids, err := dbinterface.InternStrings(ctx, tx, string(patternsJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern patterns: %w", err)
+	}
+
 	// Update in database
-	_, err = s.db.ExecContext(ctx, `
+	_, err = tx.ExecContext(ctx, `
 		UPDATE log_exclusions
-		SET patterns = ?
+		SET patterns_id = ?
 		WHERE id = ?
-	`, string(patternsJSON), existing.ID)
+	`, ids[0], existing.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return s.Get(ctx)
@@ -104,10 +121,28 @@ func (s *LogExclusionsStore) Update(ctx context.Context, input *LogExclusionsInp
 
 // createDefault creates empty log exclusions
 func (s *LogExclusionsStore) createDefault(ctx context.Context) (*LogExclusions, error) {
-	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO log_exclusions (patterns)
-		VALUES ('[]')
-	`)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from first user
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get owner: %w", err)
+	}
+
+	// Intern the empty JSON array literal
+	ids, err := dbinterface.InternStrings(ctx, tx, "[]")
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern patterns: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO log_exclusions (owner_id, patterns_id)
+		VALUES (?, ?)
+	`, ownerID, ids[0])
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +152,13 @@ func (s *LogExclusionsStore) createDefault(ctx context.Context) (*LogExclusions,
 		return nil, err
 	}
 
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	return &LogExclusions{
 		ID:        int(id),
+		OwnerID:   ownerID,
 		Patterns:  []string{},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),

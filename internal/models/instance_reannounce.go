@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -27,6 +26,7 @@ const (
 // InstanceReannounceSettings stores per-instance tracker reannounce configuration.
 type InstanceReannounceSettings struct {
 	InstanceID                int       `json:"instanceId"`
+	OwnerID                   int       `json:"ownerId"`
 	Enabled                   bool      `json:"enabled"`
 	InitialWaitSeconds        int       `json:"initialWaitSeconds"`
 	ReannounceIntervalSeconds int       `json:"reannounceIntervalSeconds"`
@@ -75,10 +75,10 @@ func DefaultInstanceReannounceSettings(instanceID int) *InstanceReannounceSettin
 
 // Get returns settings for an instance, falling back to defaults if missing.
 func (s *InstanceReannounceStore) Get(ctx context.Context, instanceID int) (*InstanceReannounceSettings, error) {
-	const query = `SELECT instance_id, enabled, initial_wait_seconds, reannounce_interval_seconds,
+	const query = `SELECT instance_id, owner_id, enabled, initial_wait_seconds, reannounce_interval_seconds,
 		max_age_seconds, max_retries, aggressive, monitor_all, categories_json, tags_json, trackers_json, updated_at,
 		exclude_categories, exclude_tags, exclude_trackers
-		FROM instance_reannounce_settings WHERE instance_id = ?`
+		FROM instance_reannounce_settings_view WHERE instance_id = ?`
 
 	row := s.db.QueryRowContext(ctx, query, instanceID)
 	settings, err := scanInstanceReannounceSettings(row)
@@ -93,10 +93,10 @@ func (s *InstanceReannounceStore) Get(ctx context.Context, instanceID int) (*Ins
 
 // List returns settings for all instances that have overrides. Instances without overrides are omitted.
 func (s *InstanceReannounceStore) List(ctx context.Context) ([]*InstanceReannounceSettings, error) {
-	const query = `SELECT instance_id, enabled, initial_wait_seconds, reannounce_interval_seconds,
+	const query = `SELECT instance_id, owner_id, enabled, initial_wait_seconds, reannounce_interval_seconds,
 		max_age_seconds, max_retries, aggressive, monitor_all, categories_json, tags_json, trackers_json, updated_at,
 		exclude_categories, exclude_tags, exclude_trackers
-		FROM instance_reannounce_settings`
+		FROM instance_reannounce_settings_view`
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -140,12 +140,31 @@ func (s *InstanceReannounceStore) Upsert(ctx context.Context, settings *Instance
 		return nil, err
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from the instance
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM instances WHERE id = ?`, coerced.InstanceID).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get instance owner: %w", err)
+	}
+
+	// Intern JSON strings
+	ids, err := dbinterface.InternStrings(ctx, tx, catJSON, tagJSON, trackerJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
 	const stmt = `INSERT INTO instance_reannounce_settings (
-		instance_id, enabled, initial_wait_seconds, reannounce_interval_seconds,
-		max_age_seconds, max_retries, aggressive, monitor_all, categories_json, tags_json, trackers_json,
+		instance_id, owner_id, enabled, initial_wait_seconds, reannounce_interval_seconds,
+		max_age_seconds, max_retries, aggressive, monitor_all, categories_json_id, tags_json_id, trackers_json_id,
 		exclude_categories, exclude_tags, exclude_trackers)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(instance_id) DO UPDATE SET
+		owner_id = excluded.owner_id,
 		enabled = excluded.enabled,
 		initial_wait_seconds = excluded.initial_wait_seconds,
 		reannounce_interval_seconds = excluded.reannounce_interval_seconds,
@@ -153,15 +172,16 @@ func (s *InstanceReannounceStore) Upsert(ctx context.Context, settings *Instance
 		max_retries = excluded.max_retries,
 		aggressive = excluded.aggressive,
 		monitor_all = excluded.monitor_all,
-		categories_json = excluded.categories_json,
-		tags_json = excluded.tags_json,
-		trackers_json = excluded.trackers_json,
+		categories_json_id = excluded.categories_json_id,
+		tags_json_id = excluded.tags_json_id,
+		trackers_json_id = excluded.trackers_json_id,
 		exclude_categories = excluded.exclude_categories,
 		exclude_tags = excluded.exclude_tags,
 		exclude_trackers = excluded.exclude_trackers`
 
-	_, err = s.db.ExecContext(ctx, stmt,
+	_, err = tx.ExecContext(ctx, stmt,
 		coerced.InstanceID,
+		ownerID,
 		BoolToSQLite(coerced.Enabled),
 		coerced.InitialWaitSeconds,
 		coerced.ReannounceIntervalSeconds,
@@ -169,15 +189,19 @@ func (s *InstanceReannounceStore) Upsert(ctx context.Context, settings *Instance
 		coerced.MaxRetries,
 		BoolToSQLite(coerced.Aggressive),
 		BoolToSQLite(coerced.MonitorAll),
-		catJSON,
-		tagJSON,
-		trackerJSON,
+		ids[0],
+		ids[1],
+		ids[2],
 		BoolToSQLite(coerced.ExcludeCategories),
 		BoolToSQLite(coerced.ExcludeTags),
 		BoolToSQLite(coerced.ExcludeTrackers),
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return s.Get(ctx, coerced.InstanceID)
@@ -218,6 +242,7 @@ func scanInstanceReannounceSettings(scanner interface {
 }) (*InstanceReannounceSettings, error) {
 	var (
 		instanceID           int
+		ownerID              int
 		enabledInt           int
 		initialWait          int
 		reannounceInterval   int
@@ -236,6 +261,7 @@ func scanInstanceReannounceSettings(scanner interface {
 
 	if err := scanner.Scan(
 		&instanceID,
+		&ownerID,
 		&enabledInt,
 		&initialWait,
 		&reannounceInterval,
@@ -269,6 +295,7 @@ func scanInstanceReannounceSettings(scanner interface {
 
 	settings := &InstanceReannounceSettings{
 		InstanceID:                instanceID,
+		OwnerID:                   ownerID,
 		Enabled:                   enabledInt == 1,
 		InitialWaitSeconds:        initialWait,
 		ReannounceIntervalSeconds: reannounceInterval,

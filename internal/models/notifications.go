@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -21,6 +20,7 @@ var ErrNotificationTargetNotFound = errors.New("notification target not found")
 // NotificationTarget represents a configured notification destination.
 type NotificationTarget struct {
 	ID         int       `json:"id"`
+	OwnerID    int       `json:"ownerId"`
 	Name       string    `json:"name"`
 	URL        string    `json:"url"`
 	Enabled    bool      `json:"enabled"`
@@ -56,8 +56,8 @@ func NewNotificationTargetStore(db dbinterface.Querier) *NotificationTargetStore
 
 func (s *NotificationTargetStore) List(ctx context.Context) ([]*NotificationTarget, error) {
 	query := `
-		SELECT id, name, url, enabled, event_types, created_at, updated_at
-		FROM notification_targets
+		SELECT id, owner_id, name, url, enabled, event_types, created_at, updated_at
+		FROM notification_targets_view
 		ORDER BY name ASC
 	`
 
@@ -74,6 +74,7 @@ func (s *NotificationTargetStore) List(ctx context.Context) ([]*NotificationTarg
 		var eventTypesJSON string
 		if err := rows.Scan(
 			&target.ID,
+			&target.OwnerID,
 			&target.Name,
 			&target.URL,
 			&enabled,
@@ -99,8 +100,8 @@ func (s *NotificationTargetStore) List(ctx context.Context) ([]*NotificationTarg
 
 func (s *NotificationTargetStore) ListEnabled(ctx context.Context) ([]*NotificationTarget, error) {
 	query := `
-		SELECT id, name, url, enabled, event_types, created_at, updated_at
-		FROM notification_targets
+		SELECT id, owner_id, name, url, enabled, event_types, created_at, updated_at
+		FROM notification_targets_view
 		WHERE enabled = 1
 		ORDER BY name ASC
 	`
@@ -118,6 +119,7 @@ func (s *NotificationTargetStore) ListEnabled(ctx context.Context) ([]*Notificat
 		var eventTypesJSON string
 		if err := rows.Scan(
 			&target.ID,
+			&target.OwnerID,
 			&target.Name,
 			&target.URL,
 			&enabled,
@@ -143,8 +145,8 @@ func (s *NotificationTargetStore) ListEnabled(ctx context.Context) ([]*Notificat
 
 func (s *NotificationTargetStore) GetByID(ctx context.Context, id int) (*NotificationTarget, error) {
 	query := `
-		SELECT id, name, url, enabled, event_types, created_at, updated_at
-		FROM notification_targets
+		SELECT id, owner_id, name, url, enabled, event_types, created_at, updated_at
+		FROM notification_targets_view
 		WHERE id = ?
 	`
 
@@ -162,19 +164,47 @@ func (s *NotificationTargetStore) Create(ctx context.Context, create *Notificati
 		return nil, fmt.Errorf("marshal event types: %w", err)
 	}
 
-	query := `
-		INSERT INTO notification_targets (name, url, enabled, event_types, created_at, updated_at)
-		VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		RETURNING id, name, url, enabled, event_types, created_at, updated_at
-	`
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from first user
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get owner: %w", err)
+	}
+
+	// Intern name, url, and event_types
+	ids, err := dbinterface.InternStrings(ctx, tx, strings.TrimSpace(create.Name), strings.TrimSpace(create.URL), string(eventTypesJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
 
 	enabledInt := 0
 	if create.Enabled {
 		enabledInt = 1
 	}
 
-	row := s.db.QueryRowContext(ctx, query, strings.TrimSpace(create.Name), strings.TrimSpace(create.URL), enabledInt, string(eventTypesJSON))
-	return scanNotificationTarget(row)
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO notification_targets (owner_id, name_id, url_id, enabled, event_types_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	`, ownerID, ids[0], ids[1], enabledInt, ids[2])
+	if err != nil {
+		return nil, fmt.Errorf("insert notification target: %w", err)
+	}
+
+	insertedID, err := res.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("last insert id: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return s.GetByID(ctx, int(insertedID))
 }
 
 func (s *NotificationTargetStore) Update(ctx context.Context, id int, update *NotificationTargetUpdate) (*NotificationTarget, error) {
@@ -187,18 +217,28 @@ func (s *NotificationTargetStore) Update(ctx context.Context, id int, update *No
 		return nil, fmt.Errorf("marshal event types: %w", err)
 	}
 
-	query := `
-		UPDATE notification_targets
-		SET name = ?, url = ?, enabled = ?, event_types = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern name, url, and event_types
+	ids, err := dbinterface.InternStrings(ctx, tx, strings.TrimSpace(update.Name), strings.TrimSpace(update.URL), string(eventTypesJSON))
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
 
 	enabledInt := 0
 	if update.Enabled {
 		enabledInt = 1
 	}
 
-	result, err := s.db.ExecContext(ctx, query, strings.TrimSpace(update.Name), strings.TrimSpace(update.URL), enabledInt, string(eventTypesJSON), id)
+	result, err := tx.ExecContext(ctx, `
+		UPDATE notification_targets
+		SET name_id = ?, url_id = ?, enabled = ?, event_types_id = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`, ids[0], ids[1], enabledInt, ids[2], id)
 	if err != nil {
 		return nil, fmt.Errorf("update notification target: %w", err)
 	}
@@ -209,6 +249,10 @@ func (s *NotificationTargetStore) Update(ctx context.Context, id int, update *No
 	}
 	if rows == 0 {
 		return nil, ErrNotificationTargetNotFound
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return s.GetByID(ctx, id)
@@ -240,6 +284,7 @@ func scanNotificationTarget(scanner interface{ Scan(dest ...any) error }) (*Noti
 
 	if err := scanner.Scan(
 		&target.ID,
+		&target.OwnerID,
 		&target.Name,
 		&target.URL,
 		&enabled,

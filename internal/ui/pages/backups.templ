@@ -307,6 +307,45 @@ templ BackupSettingsPartial(p BackupsProps) {
 					/>
 				</div>
 
+				<!-- Torrent Filter (expr-lang) -->
+				<div class="flex flex-col gap-1.5">
+					<label class="text-xs font-medium">Torrent filter <span class="text-xs font-normal text-muted-foreground">(optional)</span></label>
+					<p class="text-xs text-muted-foreground">Only torrents matching this expression will be included in backups. Leave blank to back up all torrents.</p>
+					<input
+						type="hidden"
+						name="expr_filter"
+						id="bkp-ef-out"
+						if p.Settings != nil {
+							value={ p.Settings.ExprFilter }
+						}
+					/>
+					<input
+						type="text"
+						id="bkp-ef-text"
+						if p.Settings != nil {
+							value={ p.Settings.ExprFilter }
+						}
+						placeholder="e.g. Category == &quot;movies&quot; and Size > 1073741824"
+						oninput="document.getElementById('bkp-ef-out').value = this.value"
+						class="h-8 rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+					/>
+					<details>
+						<summary class="cursor-pointer text-xs text-muted-foreground hover:text-foreground transition-colors select-none">&#9656; Visual filter builder</summary>
+						<div id="bkp-ef-builder" class="mt-2 bg-muted/20 rounded-md p-2"></div>
+					</details>
+					<script>
+						(function () {
+							var c = document.getElementById('bkp-ef-builder');
+							if (!c) return;
+							function boot() {
+								if (typeof RuiExprBuilder === 'undefined') { setTimeout(boot, 50); return; }
+								new RuiExprBuilder({ container: 'bkp-ef-builder', outputEl: 'bkp-ef-out', onApply: function(e) { document.getElementById('bkp-ef-text').value = e; } }).init();
+							}
+							boot();
+						})();
+					</script>
+				</div>
+
 				<!-- Actions row -->
 				<div class="flex justify-between items-center pt-2">
 					<div class="flex items-center gap-2">

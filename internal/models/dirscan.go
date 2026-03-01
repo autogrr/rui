@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -58,6 +57,7 @@ const (
 // DirScanSettings represents global directory scanner settings.
 type DirScanSettings struct {
 	ID                           int       `json:"id"`
+	OwnerID                      int       `json:"ownerId"`
 	Enabled                      bool      `json:"enabled"`
 	MatchMode                    MatchMode `json:"matchMode"`
 	SizeTolerancePercent         float64   `json:"sizeTolerancePercent"`
@@ -76,6 +76,7 @@ type DirScanSettings struct {
 // DirScanDirectory represents a configured scan directory.
 type DirScanDirectory struct {
 	ID                  int        `json:"id"`
+	OwnerID             int        `json:"ownerId"`
 	Path                string     `json:"path"`
 	QbitPathPrefix      string     `json:"qbitPathPrefix,omitempty"`
 	Category            string     `json:"category,omitempty"`
@@ -92,6 +93,7 @@ type DirScanDirectory struct {
 // DirScanRun represents a scan run history entry.
 type DirScanRun struct {
 	ID            int64            `json:"id"`
+	OwnerID       int              `json:"ownerId"`
 	DirectoryID   int              `json:"directoryId"`
 	Status        DirScanRunStatus `json:"status"`
 	TriggeredBy   string           `json:"triggeredBy"`
@@ -157,18 +159,32 @@ func NewDirScanStore(db dbinterface.Querier) *DirScanStore {
 	return &DirScanStore{db: db}
 }
 
+// dirScanScanner abstracts *sql.Row and *sql.Rows for shared scan helpers.
+type dirScanScanner interface {
+	Scan(dest ...any) error
+}
+
+// dirScanStringPtrOrNil returns nil for empty strings, or a pointer otherwise.
+// Used to map Go string fields to nullable string_pool columns.
+func dirScanStringPtrOrNil(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 // --- Settings Operations ---
 
-// GetSettings retrieves the global directory scanner settings.
-func (s *DirScanStore) GetSettings(ctx context.Context) (*DirScanSettings, error) {
+// GetSettings retrieves directory scanner settings for an owner.
+func (s *DirScanStore) GetSettings(ctx context.Context, ownerID int) (*DirScanSettings, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, enabled, match_mode, size_tolerance_percent, min_piece_ratio, max_searchees_per_run,
-		       max_searchee_age_days,
-		       allow_partial, skip_piece_boundary_safety_check, start_paused,
-		       category, tags, created_at, updated_at
-		FROM dir_scan_settings
-		WHERE id = 1
-	`)
+SELECT id, owner_id, enabled, match_mode, size_tolerance_percent, min_piece_ratio,
+       max_searchees_per_run, max_searchee_age_days,
+       allow_partial, skip_piece_boundary_safety_check, start_paused,
+       category, tags, created_at, updated_at
+FROM dir_scan_settings_view
+WHERE owner_id = ?
+`, ownerID)
 
 	var settings DirScanSettings
 	var category sql.NullString
@@ -176,6 +192,7 @@ func (s *DirScanStore) GetSettings(ctx context.Context) (*DirScanSettings, error
 
 	err := row.Scan(
 		&settings.ID,
+		&settings.OwnerID,
 		&settings.Enabled,
 		&settings.MatchMode,
 		&settings.SizeTolerancePercent,
@@ -215,12 +232,14 @@ func (s *DirScanStore) GetSettings(ctx context.Context) (*DirScanSettings, error
 	return &settings, nil
 }
 
-// UpdateSettings updates the global directory scanner settings.
-func (s *DirScanStore) UpdateSettings(ctx context.Context, settings *DirScanSettings) (*DirScanSettings, error) {
+// UpdateSettings creates or updates directory scanner settings for an owner.
+func (s *DirScanStore) UpdateSettings(ctx context.Context, ownerID int, settings *DirScanSettings) (*DirScanSettings, error) {
 	if settings == nil {
 		return nil, errors.New("settings is nil")
 	}
-
+	if ownerID <= 0 {
+		return nil, errors.New("ownerID must be > 0")
+	}
 	if settings.MaxSearcheesPerRun < 0 {
 		return nil, errors.New("maxSearcheesPerRun must be >= 0")
 	}
@@ -233,33 +252,51 @@ func (s *DirScanStore) UpdateSettings(ctx context.Context, settings *DirScanSett
 		return nil, fmt.Errorf("marshal tags: %w", err)
 	}
 
-	var category any
-	if settings.Category != "" {
-		category = settings.Category
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern required: match_mode
+	ids, err := dbinterface.InternStrings(ctx, tx, string(settings.MatchMode))
+	if err != nil {
+		return nil, fmt.Errorf("intern match_mode: %w", err)
+	}
+	matchModeID := ids[0]
+
+	// Intern nullable: category, tags JSON
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx,
+		dirScanStringPtrOrNil(settings.Category),
+		dirScanStringPtrOrNil(string(tagsJSON)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("intern nullable strings: %w", err)
 	}
 
-	_, err = s.db.ExecContext(ctx, `
-		INSERT INTO dir_scan_settings (
-			id, enabled, match_mode, size_tolerance_percent, min_piece_ratio,
-			max_searchees_per_run, max_searchee_age_days,
-			allow_partial, skip_piece_boundary_safety_check, start_paused,
-			category, tags
-		) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET
-			enabled = excluded.enabled,
-			match_mode = excluded.match_mode,
-			size_tolerance_percent = excluded.size_tolerance_percent,
-			min_piece_ratio = excluded.min_piece_ratio,
-			max_searchees_per_run = excluded.max_searchees_per_run,
-			max_searchee_age_days = excluded.max_searchee_age_days,
-			allow_partial = excluded.allow_partial,
-			skip_piece_boundary_safety_check = excluded.skip_piece_boundary_safety_check,
-			start_paused = excluded.start_paused,
-			category = excluded.category,
-			tags = excluded.tags
-	`,
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO dir_scan_settings (
+owner_id, enabled, match_mode_id, size_tolerance_percent, min_piece_ratio,
+max_searchees_per_run, max_searchee_age_days,
+allow_partial, skip_piece_boundary_safety_check, start_paused,
+category_id, tags_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(owner_id) DO UPDATE SET
+enabled = excluded.enabled,
+match_mode_id = excluded.match_mode_id,
+size_tolerance_percent = excluded.size_tolerance_percent,
+min_piece_ratio = excluded.min_piece_ratio,
+max_searchees_per_run = excluded.max_searchees_per_run,
+max_searchee_age_days = excluded.max_searchee_age_days,
+allow_partial = excluded.allow_partial,
+skip_piece_boundary_safety_check = excluded.skip_piece_boundary_safety_check,
+start_paused = excluded.start_paused,
+category_id = excluded.category_id,
+tags_id = excluded.tags_id
+`,
+		ownerID,
 		boolToInt(settings.Enabled),
-		settings.MatchMode,
+		matchModeID,
 		settings.SizeTolerancePercent,
 		minPieceRatioToDB(settings.MinPieceRatio),
 		settings.MaxSearcheesPerRun,
@@ -267,14 +304,18 @@ func (s *DirScanStore) UpdateSettings(ctx context.Context, settings *DirScanSett
 		boolToInt(settings.AllowPartial),
 		boolToInt(settings.SkipPieceBoundarySafetyCheck),
 		boolToInt(settings.StartPaused),
-		category,
-		string(tagsJSON),
+		nullIDs[0],
+		nullIDs[1],
 	)
 	if err != nil {
-		return nil, fmt.Errorf("update settings: %w", err)
+		return nil, fmt.Errorf("upsert settings: %w", err)
 	}
 
-	return s.GetSettings(ctx)
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+
+	return s.GetSettings(ctx, ownerID)
 }
 
 func minPieceRatioToPercent(value float64) float64 {
@@ -304,16 +345,6 @@ func (s *DirScanStore) CreateDirectory(ctx context.Context, dir *DirScanDirector
 		return nil, errors.New("directory is nil")
 	}
 
-	var qbitPathPrefix any
-	if dir.QbitPathPrefix != "" {
-		qbitPathPrefix = dir.QbitPathPrefix
-	}
-
-	var category any
-	if dir.Category != "" {
-		category = dir.Category
-	}
-
 	if dir.Tags == nil {
 		dir.Tags = []string{}
 	}
@@ -322,12 +353,42 @@ func (s *DirScanStore) CreateDirectory(ctx context.Context, dir *DirScanDirector
 		return nil, fmt.Errorf("marshal tags: %w", err)
 	}
 
-	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO dir_scan_directories
-			(path, qbit_path_prefix, category, tags, enabled, arr_instance_id, target_instance_id, scan_interval_minutes)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, dir.Path, qbitPathPrefix, category, string(tagsJSON), boolToInt(dir.Enabled), dir.ArrInstanceID,
-		dir.TargetInstanceID, dir.ScanIntervalMinutes)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from instance
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM instances WHERE id = ?`, dir.TargetInstanceID).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("get owner from instance: %w", err)
+	}
+
+	// Intern required: path
+	ids, err := dbinterface.InternStrings(ctx, tx, dir.Path)
+	if err != nil {
+		return nil, fmt.Errorf("intern strings: %w", err)
+	}
+	pathID := ids[0]
+
+	// Intern nullable: qbit_path_prefix, category, tags JSON
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx,
+		dirScanStringPtrOrNil(dir.QbitPathPrefix),
+		dirScanStringPtrOrNil(dir.Category),
+		dirScanStringPtrOrNil(string(tagsJSON)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("intern nullable strings: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+INSERT INTO dir_scan_directories
+(owner_id, path_id, qbit_path_prefix_id, category_id, tags_id, enabled,
+ arr_instance_id, target_instance_id, scan_interval_minutes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, ownerID, pathID, nullIDs[0], nullIDs[1], nullIDs[2],
+		boolToInt(dir.Enabled), dir.ArrInstanceID, dir.TargetInstanceID, dir.ScanIntervalMinutes)
 	if err != nil {
 		return nil, fmt.Errorf("insert directory: %w", err)
 	}
@@ -337,34 +398,34 @@ func (s *DirScanStore) CreateDirectory(ctx context.Context, dir *DirScanDirector
 		return nil, fmt.Errorf("get last insert id: %w", err)
 	}
 
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
+	}
+
 	return s.GetDirectory(ctx, int(id))
 }
 
 // GetDirectory retrieves a directory by ID.
 func (s *DirScanStore) GetDirectory(ctx context.Context, id int) (*DirScanDirectory, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, path, qbit_path_prefix, category, tags, enabled, arr_instance_id, target_instance_id,
-		       scan_interval_minutes, last_scan_at, created_at, updated_at
-		FROM dir_scan_directories
-		WHERE id = ?
-	`, id)
+SELECT id, owner_id, path, qbit_path_prefix, enabled, arr_instance_id, target_instance_id,
+       scan_interval_minutes, last_scan_at, category, tags, created_at, updated_at
+FROM dir_scan_directories_view
+WHERE id = ?
+`, id)
 
 	return s.scanDirectory(row)
 }
 
-type sqlScanner interface {
-	Scan(dest ...any) error
-}
-
 func (s *DirScanStore) scanDirectory(row *sql.Row) (*DirScanDirectory, error) {
-	dir, err := s.scanDirectoryFromScanner(row)
+	dir, err := dirScanDirectoryFromScanner(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrDirectoryNotFound
 	}
 	return dir, err
 }
 
-func (s *DirScanStore) scanDirectoryFromScanner(scanner sqlScanner) (*DirScanDirectory, error) {
+func dirScanDirectoryFromScanner(scanner dirScanScanner) (*DirScanDirectory, error) {
 	var dir DirScanDirectory
 	var qbitPathPrefix sql.NullString
 	var category sql.NullString
@@ -374,15 +435,16 @@ func (s *DirScanStore) scanDirectoryFromScanner(scanner sqlScanner) (*DirScanDir
 
 	if err := scanner.Scan(
 		&dir.ID,
+		&dir.OwnerID,
 		&dir.Path,
 		&qbitPathPrefix,
-		&category,
-		&tagsJSON,
 		&dir.Enabled,
 		&arrInstanceID,
 		&dir.TargetInstanceID,
 		&dir.ScanIntervalMinutes,
 		&lastScanAt,
+		&category,
+		&tagsJSON,
 		&dir.CreatedAt,
 		&dir.UpdatedAt,
 	); err != nil {
@@ -414,11 +476,10 @@ func (s *DirScanStore) scanDirectoryFromScanner(scanner sqlScanner) (*DirScanDir
 	return &dir, nil
 }
 
-// scanDirectoriesFromRows scans directory rows and returns a slice of directories.
-func (s *DirScanStore) scanDirectoriesFromRows(rows *sql.Rows) ([]*DirScanDirectory, error) {
+func dirScanDirectoriesFromRows(rows *sql.Rows) ([]*DirScanDirectory, error) {
 	var directories []*DirScanDirectory
 	for rows.Next() {
-		dir, err := s.scanDirectoryFromScanner(rows)
+		dir, err := dirScanDirectoryFromScanner(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -427,24 +488,23 @@ func (s *DirScanStore) scanDirectoriesFromRows(rows *sql.Rows) ([]*DirScanDirect
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate directories: %w", err)
 	}
-
 	return directories, nil
 }
 
 // ListDirectories retrieves all scan directories.
 func (s *DirScanStore) ListDirectories(ctx context.Context) ([]*DirScanDirectory, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, path, qbit_path_prefix, category, tags, enabled, arr_instance_id, target_instance_id,
-		       scan_interval_minutes, last_scan_at, created_at, updated_at
-		FROM dir_scan_directories
-		ORDER BY id
-	`)
+SELECT id, owner_id, path, qbit_path_prefix, enabled, arr_instance_id, target_instance_id,
+       scan_interval_minutes, last_scan_at, category, tags, created_at, updated_at
+FROM dir_scan_directories_view
+ORDER BY id
+`)
 	if err != nil {
 		return nil, fmt.Errorf("query directories: %w", err)
 	}
 	defer rows.Close()
 
-	return s.scanDirectoriesFromRows(rows)
+	return dirScanDirectoriesFromRows(rows)
 }
 
 // DirScanDirectoryUpdateParams holds optional fields for updating a directory.
@@ -472,36 +532,57 @@ func (s *DirScanStore) UpdateDirectory(ctx context.Context, id int, params *DirS
 
 	applyDirectoryUpdateParams(existing, params)
 
-	var qbitPathPrefix any
-	if existing.QbitPathPrefix != "" {
-		qbitPathPrefix = existing.QbitPathPrefix
+	if existing.Tags == nil {
+		existing.Tags = []string{}
 	}
-
-	var category any
-	if existing.Category != "" {
-		category = existing.Category
-	}
-
 	tagsJSON, err := json.Marshal(existing.Tags)
 	if err != nil {
 		return nil, fmt.Errorf("marshal tags: %w", err)
 	}
 
-	_, err = s.db.ExecContext(ctx, `
-		UPDATE dir_scan_directories
-		SET path = ?,
-		    qbit_path_prefix = ?,
-		    category = ?,
-		    tags = ?,
-		    enabled = ?,
-		    arr_instance_id = ?,
-		    target_instance_id = ?,
-		    scan_interval_minutes = ?
-		WHERE id = ?
-	`, existing.Path, qbitPathPrefix, category, string(tagsJSON), boolToInt(existing.Enabled),
-		existing.ArrInstanceID, existing.TargetInstanceID, existing.ScanIntervalMinutes, id)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern required: path
+	ids, err := dbinterface.InternStrings(ctx, tx, existing.Path)
+	if err != nil {
+		return nil, fmt.Errorf("intern strings: %w", err)
+	}
+	pathID := ids[0]
+
+	// Intern nullable: qbit_path_prefix, category, tags JSON
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx,
+		dirScanStringPtrOrNil(existing.QbitPathPrefix),
+		dirScanStringPtrOrNil(existing.Category),
+		dirScanStringPtrOrNil(string(tagsJSON)),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("intern nullable strings: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+UPDATE dir_scan_directories
+SET path_id = ?,
+    qbit_path_prefix_id = ?,
+    category_id = ?,
+    tags_id = ?,
+    enabled = ?,
+    arr_instance_id = ?,
+    target_instance_id = ?,
+    scan_interval_minutes = ?
+WHERE id = ?
+`, pathID, nullIDs[0], nullIDs[1], nullIDs[2],
+		boolToInt(existing.Enabled), existing.ArrInstanceID,
+		existing.TargetInstanceID, existing.ScanIntervalMinutes, id)
 	if err != nil {
 		return nil, fmt.Errorf("update directory: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit: %w", err)
 	}
 
 	return s.GetDirectory(ctx, id)
@@ -563,8 +644,8 @@ func (s *DirScanStore) DeleteDirectory(ctx context.Context, id int) error {
 // UpdateDirectoryLastScan updates the last scan timestamp.
 func (s *DirScanStore) UpdateDirectoryLastScan(ctx context.Context, id int) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE dir_scan_directories SET last_scan_at = CURRENT_TIMESTAMP WHERE id = ?
-	`, id)
+UPDATE dir_scan_directories SET last_scan_at = CURRENT_TIMESTAMP WHERE id = ?
+`, id)
 	if err != nil {
 		return fmt.Errorf("update directory last scan: %w", err)
 	}
@@ -574,18 +655,18 @@ func (s *DirScanStore) UpdateDirectoryLastScan(ctx context.Context, id int) erro
 // ListEnabledDirectories returns all enabled directories.
 func (s *DirScanStore) ListEnabledDirectories(ctx context.Context) ([]*DirScanDirectory, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, path, qbit_path_prefix, category, tags, enabled, arr_instance_id, target_instance_id,
-		       scan_interval_minutes, last_scan_at, created_at, updated_at
-		FROM dir_scan_directories
-		WHERE enabled = 1
-		ORDER BY id
-	`)
+SELECT id, owner_id, path, qbit_path_prefix, enabled, arr_instance_id, target_instance_id,
+       scan_interval_minutes, last_scan_at, category, tags, created_at, updated_at
+FROM dir_scan_directories_view
+WHERE enabled = 1
+ORDER BY id
+`)
 	if err != nil {
 		return nil, fmt.Errorf("query enabled directories: %w", err)
 	}
 	defer rows.Close()
 
-	return s.scanDirectoriesFromRows(rows)
+	return dirScanDirectoriesFromRows(rows)
 }
 
 // --- Run Operations ---
@@ -593,12 +674,30 @@ func (s *DirScanStore) ListEnabledDirectories(ctx context.Context) ([]*DirScanDi
 // ErrDirScanRunAlreadyActive is returned when attempting to create a run while one is active.
 var ErrDirScanRunAlreadyActive = errors.New("an active scan run already exists for this directory")
 
-// CreateRun creates a new scan run.
+// CreateRun creates a new scan run. The owner_id is inherited from the directory.
 func (s *DirScanStore) CreateRun(ctx context.Context, directoryID int, triggeredBy string) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO dir_scan_runs (directory_id, status, triggered_by)
-		VALUES (?, ?, ?)
-	`, directoryID, DirScanRunStatusQueued, triggeredBy)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id from directory
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM dir_scan_directories WHERE id = ?`, directoryID).Scan(&ownerID); err != nil {
+		return 0, fmt.Errorf("get directory owner: %w", err)
+	}
+
+	// Intern status and triggered_by
+	ids, err := dbinterface.InternStrings(ctx, tx, string(DirScanRunStatusQueued), triggeredBy)
+	if err != nil {
+		return 0, fmt.Errorf("intern strings: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+INSERT INTO dir_scan_runs (owner_id, directory_id, status_id, triggered_by_id)
+VALUES (?, ?, ?, ?)
+`, ownerID, directoryID, ids[0], ids[1])
 	if err != nil {
 		return 0, fmt.Errorf("insert run: %w", err)
 	}
@@ -608,20 +707,41 @@ func (s *DirScanStore) CreateRun(ctx context.Context, directoryID int, triggered
 		return 0, fmt.Errorf("get last insert id: %w", err)
 	}
 
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
+	}
+
 	return id, nil
 }
 
 // CreateRunIfNoActive atomically checks for active runs and creates a new one if none exist.
+// The owner_id is inherited from the directory.
 func (s *DirScanStore) CreateRunIfNoActive(ctx context.Context, directoryID int, triggeredBy string) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO dir_scan_runs (directory_id, status, triggered_by)
-		SELECT ?, ?, ?
-		WHERE NOT EXISTS (
-			SELECT 1 FROM dir_scan_runs
-			WHERE directory_id = ?
-			  AND status IN ('queued', 'scanning', 'searching', 'injecting')
-		)
-	`, directoryID, DirScanRunStatusQueued, triggeredBy, directoryID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM dir_scan_directories WHERE id = ?`, directoryID).Scan(&ownerID); err != nil {
+		return 0, fmt.Errorf("get directory owner: %w", err)
+	}
+
+	ids, err := dbinterface.InternStrings(ctx, tx, string(DirScanRunStatusQueued), triggeredBy)
+	if err != nil {
+		return 0, fmt.Errorf("intern strings: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+INSERT INTO dir_scan_runs (owner_id, directory_id, status_id, triggered_by_id)
+SELECT ?, ?, ?, ?
+WHERE NOT EXISTS (
+SELECT 1 FROM dir_scan_runs_view
+WHERE directory_id = ?
+  AND status IN ('queued', 'scanning', 'searching', 'injecting')
+)
+`, ownerID, directoryID, ids[0], ids[1], directoryID)
 	if err != nil {
 		return 0, fmt.Errorf("insert run: %w", err)
 	}
@@ -639,36 +759,41 @@ func (s *DirScanStore) CreateRunIfNoActive(ctx context.Context, directoryID int,
 		return 0, fmt.Errorf("get last insert id: %w", err)
 	}
 
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
+	}
+
 	return id, nil
 }
 
 // GetRun retrieves a run by ID.
 func (s *DirScanStore) GetRun(ctx context.Context, runID int64) (*DirScanRun, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, directory_id, status, triggered_by, files_found, files_skipped,
-		       matches_found, torrents_added, error_message, started_at, completed_at
-		FROM dir_scan_runs
-		WHERE id = ?
-	`, runID)
+SELECT id, owner_id, directory_id, status, triggered_by, files_found, files_skipped,
+       matches_found, torrents_added, error_message, started_at, completed_at
+FROM dir_scan_runs_view
+WHERE id = ?
+`, runID)
 
 	return s.scanRun(row)
 }
 
 func (s *DirScanStore) scanRun(row *sql.Row) (*DirScanRun, error) {
-	run, err := scanRunFromScanner(row)
+	run, err := dirScanRunFromScanner(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return run, err
 }
 
-func scanRunFromScanner(scanner sqlScanner) (*DirScanRun, error) {
+func dirScanRunFromScanner(scanner dirScanScanner) (*DirScanRun, error) {
 	var run DirScanRun
 	var errorMessage sql.NullString
 	var completedAt sql.NullTime
 
 	if err := scanner.Scan(
 		&run.ID,
+		&run.OwnerID,
 		&run.DirectoryID,
 		&run.Status,
 		&run.TriggeredBy,
@@ -700,25 +825,25 @@ func (s *DirScanStore) ListRuns(ctx context.Context, directoryID, limit int) ([]
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, directory_id, status, triggered_by, files_found, files_skipped,
-		       matches_found, torrents_added, error_message, started_at, completed_at
-		FROM dir_scan_runs
-		WHERE directory_id = ?
-		ORDER BY started_at DESC
-		LIMIT ?
-	`, directoryID, limit)
+SELECT id, owner_id, directory_id, status, triggered_by, files_found, files_skipped,
+       matches_found, torrents_added, error_message, started_at, completed_at
+FROM dir_scan_runs_view
+WHERE directory_id = ?
+ORDER BY started_at DESC
+LIMIT ?
+`, directoryID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("query runs: %w", err)
 	}
 	defer rows.Close()
 
-	return scanRunsFromRows(rows)
+	return dirScanRunsFromRows(rows)
 }
 
-func scanRunsFromRows(rows *sql.Rows) ([]*DirScanRun, error) {
+func dirScanRunsFromRows(rows *sql.Rows) ([]*DirScanRun, error) {
 	var runs []*DirScanRun
 	for rows.Next() {
-		run, err := scanRunFromScanner(rows)
+		run, err := dirScanRunFromScanner(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -733,11 +858,11 @@ func scanRunsFromRows(rows *sql.Rows) ([]*DirScanRun, error) {
 // HasActiveRun checks if there's an active run for a directory.
 func (s *DirScanStore) HasActiveRun(ctx context.Context, directoryID int) (bool, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT COUNT(*)
-		FROM dir_scan_runs
-		WHERE directory_id = ?
-		  AND status IN ('queued', 'scanning', 'searching', 'injecting')
-	`, directoryID)
+SELECT COUNT(*)
+FROM dir_scan_runs_view
+WHERE directory_id = ?
+  AND status IN ('queued', 'scanning', 'searching', 'injecting')
+`, directoryID)
 
 	var count int
 	if err := row.Scan(&count); err != nil {
@@ -749,36 +874,46 @@ func (s *DirScanStore) HasActiveRun(ctx context.Context, directoryID int) (bool,
 // GetActiveRun returns the active run for a directory, if any.
 func (s *DirScanStore) GetActiveRun(ctx context.Context, directoryID int) (*DirScanRun, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, directory_id, status, triggered_by, files_found, files_skipped,
-		       matches_found, torrents_added, error_message, started_at, completed_at
-		FROM dir_scan_runs
-		WHERE directory_id = ?
-		  AND status IN ('queued', 'scanning', 'searching', 'injecting')
-		ORDER BY started_at DESC
-		LIMIT 1
-	`, directoryID)
+SELECT id, owner_id, directory_id, status, triggered_by, files_found, files_skipped,
+       matches_found, torrents_added, error_message, started_at, completed_at
+FROM dir_scan_runs_view
+WHERE directory_id = ?
+  AND status IN ('queued', 'scanning', 'searching', 'injecting')
+ORDER BY started_at DESC
+LIMIT 1
+`, directoryID)
 
 	return s.scanRun(row)
 }
 
 // UpdateRunStatus updates the status of a run.
 func (s *DirScanStore) UpdateRunStatus(ctx context.Context, runID int64, status DirScanRunStatus) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE dir_scan_runs SET status = ? WHERE id = ?
-	`, status, runID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, string(status))
+	if err != nil {
+		return fmt.Errorf("intern status: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `UPDATE dir_scan_runs SET status_id = ? WHERE id = ?`, ids[0], runID)
 	if err != nil {
 		return fmt.Errorf("update run status: %w", err)
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 // UpdateRunStats updates the stats of a run.
 func (s *DirScanStore) UpdateRunStats(ctx context.Context, runID int64, filesFound, filesSkipped, matchesFound, torrentsAdded int) error {
 	_, err := s.db.ExecContext(ctx, `
-		UPDATE dir_scan_runs
-		SET files_found = ?, files_skipped = ?, matches_found = ?, torrents_added = ?
-		WHERE id = ?
-	`, filesFound, filesSkipped, matchesFound, torrentsAdded, runID)
+UPDATE dir_scan_runs
+SET files_found = ?, files_skipped = ?, matches_found = ?, torrents_added = ?
+WHERE id = ?
+`, filesFound, filesSkipped, matchesFound, torrentsAdded, runID)
 	if err != nil {
 		return fmt.Errorf("update run stats: %w", err)
 	}
@@ -787,50 +922,110 @@ func (s *DirScanStore) UpdateRunStats(ctx context.Context, runID int64, filesFou
 
 // UpdateRunCompleted marks a run as completed successfully.
 func (s *DirScanStore) UpdateRunCompleted(ctx context.Context, runID int64, matchesFound, torrentsAdded int) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE dir_scan_runs
-		SET status = ?, matches_found = ?, torrents_added = ?, completed_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`, DirScanRunStatusSuccess, matchesFound, torrentsAdded, runID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, string(DirScanRunStatusSuccess))
+	if err != nil {
+		return fmt.Errorf("intern status: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+UPDATE dir_scan_runs
+SET status_id = ?, matches_found = ?, torrents_added = ?, completed_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, ids[0], matchesFound, torrentsAdded, runID)
 	if err != nil {
 		return fmt.Errorf("update run completed: %w", err)
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 // UpdateRunFailed marks a run as failed.
 func (s *DirScanStore) UpdateRunFailed(ctx context.Context, runID int64, errorMessage string) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE dir_scan_runs
-		SET status = ?, error_message = ?, completed_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`, DirScanRunStatusFailed, errorMessage, runID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, string(DirScanRunStatusFailed))
+	if err != nil {
+		return fmt.Errorf("intern status: %w", err)
+	}
+
+	errIDs, err := dbinterface.InternStringNullable(ctx, tx, &errorMessage)
+	if err != nil {
+		return fmt.Errorf("intern error message: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+UPDATE dir_scan_runs
+SET status_id = ?, error_message_id = ?, completed_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, ids[0], errIDs[0], runID)
 	if err != nil {
 		return fmt.Errorf("update run failed: %w", err)
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 // UpdateRunCanceled marks a run as canceled.
 func (s *DirScanStore) UpdateRunCanceled(ctx context.Context, runID int64) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE dir_scan_runs
-		SET status = ?, completed_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`, DirScanRunStatusCanceled, runID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, string(DirScanRunStatusCanceled))
+	if err != nil {
+		return fmt.Errorf("intern status: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+UPDATE dir_scan_runs
+SET status_id = ?, completed_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, ids[0], runID)
 	if err != nil {
 		return fmt.Errorf("update run canceled: %w", err)
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 // MarkActiveRunsFailed marks any in-progress runs as failed (typically after a restart).
 func (s *DirScanStore) MarkActiveRunsFailed(ctx context.Context, errorMessage string) (int64, error) {
-	res, err := s.db.ExecContext(ctx, `
-		UPDATE dir_scan_runs
-		SET status = ?, error_message = ?, completed_at = CURRENT_TIMESTAMP
-		WHERE status IN ('queued', 'scanning', 'searching', 'injecting')
-	`, DirScanRunStatusFailed, errorMessage)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, string(DirScanRunStatusFailed))
+	if err != nil {
+		return 0, fmt.Errorf("intern status: %w", err)
+	}
+
+	errIDs, err := dbinterface.InternStringNullable(ctx, tx, &errorMessage)
+	if err != nil {
+		return 0, fmt.Errorf("intern error message: %w", err)
+	}
+
+	res, err := tx.ExecContext(ctx, `
+UPDATE dir_scan_runs
+SET status_id = ?, error_message_id = ?, completed_at = CURRENT_TIMESTAMP
+WHERE id IN (
+SELECT id FROM dir_scan_runs_view
+WHERE status IN ('queued', 'scanning', 'searching', 'injecting')
+)
+`, ids[0], errIDs[0])
 	if err != nil {
 		return 0, fmt.Errorf("mark active runs failed: %w", err)
 	}
@@ -838,6 +1033,10 @@ func (s *DirScanStore) MarkActiveRunsFailed(ctx context.Context, errorMessage st
 	rows, err := res.RowsAffected()
 	if err != nil {
 		return 0, fmt.Errorf("rows affected: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("commit: %w", err)
 	}
 
 	return rows, nil
@@ -858,8 +1057,52 @@ func (s *DirScanStore) CreateRunInjection(ctx context.Context, injection *DirSca
 		return err
 	}
 
-	if err := s.insertRunInjection(ctx, injection, tagsJSON); err != nil {
-		return err
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern required: status, searchee_name, torrent_name, info_hash, content_type
+	ids, err := dbinterface.InternStrings(ctx, tx,
+		string(injection.Status), injection.SearcheeName, injection.TorrentName,
+		injection.InfoHash, injection.ContentType)
+	if err != nil {
+		return fmt.Errorf("intern strings: %w", err)
+	}
+	statusID, searcheeNameID, torrentNameID, infoHashID, contentTypeID := ids[0], ids[1], ids[2], ids[3], ids[4]
+
+	// Intern nullable: indexer_name, tracker_domain, tracker_display_name, link_mode,
+	// save_path, category, tags, error_message
+	nullIDs, err := dbinterface.InternStringNullable(ctx, tx,
+		dirScanStringPtrOrNil(injection.IndexerName),
+		dirScanStringPtrOrNil(injection.TrackerDomain),
+		dirScanStringPtrOrNil(injection.TrackerDisplayName),
+		dirScanStringPtrOrNil(injection.LinkMode),
+		dirScanStringPtrOrNil(injection.SavePath),
+		dirScanStringPtrOrNil(injection.Category),
+		dirScanStringPtrOrNil(tagsJSON),
+		dirScanStringPtrOrNil(injection.ErrorMessage),
+	)
+	if err != nil {
+		return fmt.Errorf("intern nullable strings: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO dir_scan_run_injections
+(run_id, directory_id, status_id, searchee_name_id, torrent_name_id, info_hash_id,
+ content_type_id, indexer_name_id, tracker_domain_id, tracker_display_name_id,
+ link_mode_id, save_path_id, category_id, tags_id, error_message_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, injection.RunID, injection.DirectoryID, statusID, searcheeNameID, torrentNameID, infoHashID,
+		contentTypeID, nullIDs[0], nullIDs[1], nullIDs[2],
+		nullIDs[3], nullIDs[4], nullIDs[5], nullIDs[6], nullIDs[7])
+	if err != nil {
+		return fmt.Errorf("insert run injection: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit: %w", err)
 	}
 
 	s.trimRunInjectionsBestEffort(ctx, injection.RunID)
@@ -907,49 +1150,19 @@ func marshalDirScanTagsJSON(tags []string) (string, error) {
 	return string(data), nil
 }
 
-func optionalString(value string) any {
-	if value == "" {
-		return nil
-	}
-	return value
-}
-
-func (s *DirScanStore) insertRunInjection(ctx context.Context, injection *DirScanRunInjection, tagsJSON string) error {
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO dir_scan_run_injections
-			(run_id, directory_id, status, searchee_name, torrent_name, info_hash, content_type,
-			 indexer_name, tracker_domain, tracker_display_name, link_mode, save_path, category, tags, error_message)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, injection.RunID, injection.DirectoryID, injection.Status, injection.SearcheeName, injection.TorrentName,
-		injection.InfoHash, injection.ContentType,
-		optionalString(injection.IndexerName),
-		optionalString(injection.TrackerDomain),
-		optionalString(injection.TrackerDisplayName),
-		optionalString(injection.LinkMode),
-		optionalString(injection.SavePath),
-		optionalString(injection.Category),
-		tagsJSON,
-		optionalString(injection.ErrorMessage),
-	)
-	if err != nil {
-		return fmt.Errorf("insert run injection: %w", err)
-	}
-	return nil
-}
-
 func (s *DirScanStore) trimRunInjectionsBestEffort(ctx context.Context, runID int64) {
 	// Keep a bounded number of entries per run to avoid unbounded DB growth.
 	if _, err := s.db.ExecContext(ctx, `
-		DELETE FROM dir_scan_run_injections
-		WHERE run_id = ?
-		  AND id NOT IN (
-			  SELECT id FROM dir_scan_run_injections
-			  WHERE run_id = ?
-			  ORDER BY id DESC
-			  LIMIT ?
-		  )
-	`, runID, runID, dirScanRunInjectionMaxPerRun); err != nil {
-		_ = err
+DELETE FROM dir_scan_run_injections
+WHERE run_id = ?
+  AND id NOT IN (
+  SELECT id FROM dir_scan_run_injections
+  WHERE run_id = ?
+  ORDER BY id DESC
+  LIMIT ?
+  )
+`, runID, runID, dirScanRunInjectionMaxPerRun); err != nil {
+		_ = err // best-effort trim; no logger in store layer
 	}
 }
 
@@ -961,20 +1174,20 @@ func (s *DirScanStore) ListRunInjections(ctx context.Context, directoryID int, r
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, run_id, directory_id, status, searchee_name, torrent_name, info_hash, content_type,
-		       indexer_name, tracker_domain, tracker_display_name, link_mode, save_path, category, tags,
-		       error_message, created_at
-		FROM dir_scan_run_injections
-		WHERE directory_id = ? AND run_id = ?
-		ORDER BY created_at DESC, id DESC
-		LIMIT ? OFFSET ?
-		`, directoryID, runID, limit, offset)
+SELECT id, run_id, directory_id, status, searchee_name, torrent_name, info_hash, content_type,
+       indexer_name, tracker_domain, tracker_display_name, link_mode, save_path, category, tags,
+       error_message, created_at
+FROM dir_scan_run_injections_view
+WHERE directory_id = ? AND run_id = ?
+ORDER BY created_at DESC, id DESC
+LIMIT ? OFFSET ?
+`, directoryID, runID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("query run injections: %w", err)
 	}
 	defer rows.Close()
 
-	return s.scanRunInjectionsFromRows(rows)
+	return dirScanRunInjectionsFromRows(rows)
 }
 
 func normalizePaginationArgs(directoryID int, runID int64, limit, offset int) (normalizedLimit, normalizedOffset int, err error) {
@@ -993,10 +1206,10 @@ func normalizePaginationArgs(directoryID int, runID int64, limit, offset int) (n
 	return limit, offset, nil
 }
 
-func (s *DirScanStore) scanRunInjectionsFromRows(rows *sql.Rows) ([]*DirScanRunInjection, error) {
+func dirScanRunInjectionsFromRows(rows *sql.Rows) ([]*DirScanRunInjection, error) {
 	injections := make([]*DirScanRunInjection, 0)
 	for rows.Next() {
-		inj, err := scanRunInjectionFromScanner(rows)
+		inj, err := dirScanRunInjectionFromScanner(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -1008,7 +1221,7 @@ func (s *DirScanStore) scanRunInjectionsFromRows(rows *sql.Rows) ([]*DirScanRunI
 	return injections, nil
 }
 
-func scanRunInjectionFromScanner(scanner sqlScanner) (*DirScanRunInjection, error) {
+func dirScanRunInjectionFromScanner(scanner dirScanScanner) (*DirScanRunInjection, error) {
 	var inj DirScanRunInjection
 	var indexerName sql.NullString
 	var trackerDomain sql.NullString
@@ -1077,15 +1290,15 @@ func scanRunInjectionFromScanner(scanner sqlScanner) (*DirScanRunInjection, erro
 
 // --- File Operations ---
 
-func (s *DirScanStore) deleteDuplicateFileIDRows(ctx context.Context, directoryID int, fileID []byte, keepPath string) error {
-	if s == nil || s.db == nil || directoryID <= 0 || len(fileID) == 0 || keepPath == "" {
+func (s *DirScanStore) deleteDuplicateFileIDRows(ctx context.Context, tx dbinterface.TxQuerier, directoryID int, fileID []byte, keepFilePathID int64) error {
+	if directoryID <= 0 || len(fileID) == 0 || keepFilePathID <= 0 {
 		return nil
 	}
 
-	_, err := s.db.ExecContext(ctx, `
-		DELETE FROM dir_scan_files
-		WHERE directory_id = ? AND file_id = ? AND file_path <> ?
-	`, directoryID, fileID, keepPath)
+	_, err := tx.ExecContext(ctx, `
+DELETE FROM dir_scan_files
+WHERE directory_id = ? AND file_id = ? AND file_path_id <> ?
+`, directoryID, fileID, keepFilePathID)
 	if err != nil {
 		return fmt.Errorf("dedupe file_id rows: %w", err)
 	}
@@ -1098,37 +1311,53 @@ func (s *DirScanStore) UpsertFile(ctx context.Context, file *DirScanFile) error 
 		return errors.New("file is nil")
 	}
 
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern required: file_path, status
+	ids, err := dbinterface.InternStrings(ctx, tx, file.FilePath, string(file.Status))
+	if err != nil {
+		return fmt.Errorf("intern strings: %w", err)
+	}
+	filePathID, statusID := ids[0], ids[1]
+
+	// Intern nullable: matched_torrent_hash
+	var matchedTorrentHashID sql.NullInt64
+	if file.MatchedTorrentHash != "" {
+		nullIDs, internErr := dbinterface.InternStringNullable(ctx, tx, &file.MatchedTorrentHash)
+		if internErr != nil {
+			return fmt.Errorf("intern matched_torrent_hash: %w", internErr)
+		}
+		matchedTorrentHashID = nullIDs[0]
+	}
+
 	var matchedIndexerID any
 	if file.MatchedIndexerID != nil {
 		matchedIndexerID = *file.MatchedIndexerID
 	}
 
-	var matchedTorrentHash any
-	if file.MatchedTorrentHash != "" {
-		matchedTorrentHash = file.MatchedTorrentHash
-	}
-
-	// Handle renames via FileID where possible: if we have a platform-neutral FileID
-	// and a tracked row exists for it, update its file_path instead of creating a new row.
+	// Handle renames via FileID where possible.
 	if len(file.FileID) > 0 {
-		res, err := s.db.ExecContext(ctx, `
-			UPDATE dir_scan_files
-			SET file_path = ?,
-			    file_size = ?,
-			    file_mod_time = ?,
-			    file_id = ?,
-			    status = ?,
-			    matched_torrent_hash = ?,
-			    matched_indexer_id = ?,
-			    last_processed_at = CURRENT_TIMESTAMP
-			WHERE directory_id = ? AND file_id = ?
-		`, file.FilePath, file.FileSize, file.FileModTime, file.FileID, file.Status,
-			matchedTorrentHash, matchedIndexerID, file.DirectoryID, file.FileID)
-		if err != nil {
-			// If the target path is already tracked, fall back to the path-upsert which will merge state.
+		res, updateErr := tx.ExecContext(ctx, `
+UPDATE dir_scan_files
+SET file_path_id = ?,
+    file_size = ?,
+    file_mod_time = ?,
+    file_id = ?,
+    status_id = ?,
+    matched_torrent_hash_id = ?,
+    matched_indexer_id = ?,
+    last_processed_at = CURRENT_TIMESTAMP
+WHERE directory_id = ? AND file_id = ?
+`, filePathID, file.FileSize, file.FileModTime, file.FileID, statusID,
+			matchedTorrentHashID, matchedIndexerID, file.DirectoryID, file.FileID)
+		if updateErr != nil {
 			var sqlErr *sqlite.Error
-			if !errors.As(err, &sqlErr) || sqlErr.Code() != sqlite3.SQLITE_CONSTRAINT_UNIQUE {
-				return fmt.Errorf("update by file_id: %w", err)
+			if !errors.As(updateErr, &sqlErr) || sqlErr.Code() != sqlite3.SQLITE_CONSTRAINT_UNIQUE {
+				return fmt.Errorf("update by file_id: %w", updateErr)
 			}
 		} else {
 			rows, rowsErr := res.RowsAffected()
@@ -1136,48 +1365,48 @@ func (s *DirScanStore) UpsertFile(ctx context.Context, file *DirScanFile) error 
 				return fmt.Errorf("rows affected: %w", rowsErr)
 			}
 			if rows > 0 {
-				if err := s.deleteDuplicateFileIDRows(ctx, file.DirectoryID, file.FileID, file.FilePath); err != nil {
-					return err
+				if dedupeErr := s.deleteDuplicateFileIDRows(ctx, tx, file.DirectoryID, file.FileID, filePathID); dedupeErr != nil {
+					return dedupeErr
 				}
-				return nil
+				return tx.Commit()
 			}
 		}
 	}
 
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO dir_scan_files
-			(directory_id, file_path, file_size, file_mod_time, file_id, status,
-			 matched_torrent_hash, matched_indexer_id, last_processed_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-		ON CONFLICT(directory_id, file_path) DO UPDATE SET
-			file_size = excluded.file_size,
-			file_mod_time = excluded.file_mod_time,
-			file_id = excluded.file_id,
-			status = excluded.status,
-			matched_torrent_hash = excluded.matched_torrent_hash,
-			matched_indexer_id = excluded.matched_indexer_id,
-			last_processed_at = CURRENT_TIMESTAMP
-	`, file.DirectoryID, file.FilePath, file.FileSize, file.FileModTime, file.FileID,
-		file.Status, matchedTorrentHash, matchedIndexerID)
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO dir_scan_files
+(directory_id, file_path_id, file_size, file_mod_time, file_id, status_id,
+ matched_torrent_hash_id, matched_indexer_id, last_processed_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+ON CONFLICT(directory_id, file_path_id) DO UPDATE SET
+file_size = excluded.file_size,
+file_mod_time = excluded.file_mod_time,
+file_id = excluded.file_id,
+status_id = excluded.status_id,
+matched_torrent_hash_id = excluded.matched_torrent_hash_id,
+matched_indexer_id = excluded.matched_indexer_id,
+last_processed_at = CURRENT_TIMESTAMP
+`, file.DirectoryID, filePathID, file.FileSize, file.FileModTime, file.FileID,
+		statusID, matchedTorrentHashID, matchedIndexerID)
 	if err != nil {
 		return fmt.Errorf("upsert file: %w", err)
 	}
 
-	if err := s.deleteDuplicateFileIDRows(ctx, file.DirectoryID, file.FileID, file.FilePath); err != nil {
-		return err
+	if dedupeErr := s.deleteDuplicateFileIDRows(ctx, tx, file.DirectoryID, file.FileID, filePathID); dedupeErr != nil {
+		return dedupeErr
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 // GetFileByPath retrieves a file by its path within a directory.
 func (s *DirScanStore) GetFileByPath(ctx context.Context, directoryID int, filePath string) (*DirScanFile, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, directory_id, file_path, file_size, file_mod_time, file_id, status,
-		       matched_torrent_hash, matched_indexer_id, last_processed_at
-		FROM dir_scan_files
-		WHERE directory_id = ? AND file_path = ?
-	`, directoryID, filePath)
+SELECT id, directory_id, file_path, file_size, file_mod_time, file_id, status,
+       matched_torrent_hash, matched_indexer_id, last_processed_at
+FROM dir_scan_files_view
+WHERE directory_id = ? AND file_path = ?
+`, directoryID, filePath)
 
 	return s.scanFile(row)
 }
@@ -1189,24 +1418,24 @@ func (s *DirScanStore) GetFileByFileID(ctx context.Context, directoryID int, fil
 	}
 
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, directory_id, file_path, file_size, file_mod_time, file_id, status,
-		       matched_torrent_hash, matched_indexer_id, last_processed_at
-		FROM dir_scan_files
-		WHERE directory_id = ? AND file_id = ?
-	`, directoryID, fileID)
+SELECT id, directory_id, file_path, file_size, file_mod_time, file_id, status,
+       matched_torrent_hash, matched_indexer_id, last_processed_at
+FROM dir_scan_files_view
+WHERE directory_id = ? AND file_id = ?
+`, directoryID, fileID)
 
 	return s.scanFile(row)
 }
 
 func (s *DirScanStore) scanFile(row *sql.Row) (*DirScanFile, error) {
-	file, err := scanFileFromScanner(row)
+	file, err := dirScanFileFromScanner(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
 	return file, err
 }
 
-func scanFileFromScanner(scanner sqlScanner) (*DirScanFile, error) {
+func dirScanFileFromScanner(scanner dirScanScanner) (*DirScanFile, error) {
 	var file DirScanFile
 	var fileID []byte
 	var matchedTorrentHash sql.NullString
@@ -1254,23 +1483,23 @@ func (s *DirScanStore) ListFiles(ctx context.Context, directoryID int, status *D
 
 	if status != nil {
 		query = `
-			SELECT id, directory_id, file_path, file_size, file_mod_time, file_id, status,
-			       matched_torrent_hash, matched_indexer_id, last_processed_at
-			FROM dir_scan_files
-			WHERE directory_id = ? AND status = ?
-			ORDER BY file_path
-			LIMIT ? OFFSET ?
-		`
+SELECT id, directory_id, file_path, file_size, file_mod_time, file_id, status,
+       matched_torrent_hash, matched_indexer_id, last_processed_at
+FROM dir_scan_files_view
+WHERE directory_id = ? AND status = ?
+ORDER BY file_path
+LIMIT ? OFFSET ?
+`
 		args = []any{directoryID, *status, limit, offset}
 	} else {
 		query = `
-			SELECT id, directory_id, file_path, file_size, file_mod_time, file_id, status,
-			       matched_torrent_hash, matched_indexer_id, last_processed_at
-			FROM dir_scan_files
-			WHERE directory_id = ?
-			ORDER BY file_path
-			LIMIT ? OFFSET ?
-		`
+SELECT id, directory_id, file_path, file_size, file_mod_time, file_id, status,
+       matched_torrent_hash, matched_indexer_id, last_processed_at
+FROM dir_scan_files_view
+WHERE directory_id = ?
+ORDER BY file_path
+LIMIT ? OFFSET ?
+`
 		args = []any{directoryID, limit, offset}
 	}
 
@@ -1280,13 +1509,13 @@ func (s *DirScanStore) ListFiles(ctx context.Context, directoryID int, status *D
 	}
 	defer rows.Close()
 
-	return scanFilesFromRows(rows)
+	return dirScanFilesFromRows(rows)
 }
 
-func scanFilesFromRows(rows *sql.Rows) ([]*DirScanFile, error) {
+func dirScanFilesFromRows(rows *sql.Rows) ([]*DirScanFile, error) {
 	var files []*DirScanFile
 	for rows.Next() {
-		file, err := scanFileFromScanner(rows)
+		file, err := dirScanFileFromScanner(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -1300,26 +1529,50 @@ func scanFilesFromRows(rows *sql.Rows) ([]*DirScanFile, error) {
 
 // UpdateFileStatus updates the status of a file.
 func (s *DirScanStore) UpdateFileStatus(ctx context.Context, fileID int64, status DirScanFileStatus) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE dir_scan_files SET status = ?, last_processed_at = CURRENT_TIMESTAMP WHERE id = ?
-	`, status, fileID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, string(status))
+	if err != nil {
+		return fmt.Errorf("intern status: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+UPDATE dir_scan_files SET status_id = ?, last_processed_at = CURRENT_TIMESTAMP WHERE id = ?
+`, ids[0], fileID)
 	if err != nil {
 		return fmt.Errorf("update file status: %w", err)
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 // UpdateFileMatch updates the match info for a file.
 func (s *DirScanStore) UpdateFileMatch(ctx context.Context, fileID int64, torrentHash string, indexerID int) error {
-	_, err := s.db.ExecContext(ctx, `
-		UPDATE dir_scan_files
-		SET status = ?, matched_torrent_hash = ?, matched_indexer_id = ?, last_processed_at = CURRENT_TIMESTAMP
-		WHERE id = ?
-	`, DirScanFileStatusMatched, torrentHash, indexerID, fileID)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	ids, err := dbinterface.InternStrings(ctx, tx, string(DirScanFileStatusMatched), torrentHash)
+	if err != nil {
+		return fmt.Errorf("intern strings: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, `
+UPDATE dir_scan_files
+SET status_id = ?, matched_torrent_hash_id = ?, matched_indexer_id = ?, last_processed_at = CURRENT_TIMESTAMP
+WHERE id = ?
+`, ids[0], ids[1], indexerID, fileID)
 	if err != nil {
 		return fmt.Errorf("update file match: %w", err)
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 // DeleteFilesForDirectory deletes all tracked files for a directory.
@@ -1334,11 +1587,11 @@ func (s *DirScanStore) DeleteFilesForDirectory(ctx context.Context, directoryID 
 // CountFilesByStatus returns counts of files by status for a directory.
 func (s *DirScanStore) CountFilesByStatus(ctx context.Context, directoryID int) (map[DirScanFileStatus]int, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT status, COUNT(*)
-		FROM dir_scan_files
-		WHERE directory_id = ?
-		GROUP BY status
-	`, directoryID)
+SELECT status, COUNT(*)
+FROM dir_scan_files_view
+WHERE directory_id = ?
+GROUP BY status
+`, directoryID)
 	if err != nil {
 		return nil, fmt.Errorf("query file counts: %w", err)
 	}

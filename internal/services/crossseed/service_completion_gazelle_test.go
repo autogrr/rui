@@ -260,7 +260,7 @@ func TestExecuteCompletionSearch_GazelleSourceSkipsTorznab(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new cross-seed store: %v", err)
 	}
-	_, err = store.UpsertSettings(context.Background(), &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(context.Background(), 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		OrpheusAPIKey:  "ops-key",
 	})
@@ -352,7 +352,7 @@ func TestExecuteCompletionSearch_GazelleSourceFallsBackToTorznabWhenTargetKeyUnd
 	if err != nil {
 		t.Fatalf("new cross-seed store: %v", err)
 	}
-	_, err = goodStore.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = goodStore.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		OrpheusAPIKey:  "ops-key",
 	})
@@ -368,7 +368,7 @@ func TestExecuteCompletionSearch_GazelleSourceFallsBackToTorznabWhenTargetKeyUnd
 	if err != nil {
 		t.Fatalf("new cross-seed store (bad key): %v", err)
 	}
-	settings, err := badStore.GetSettings(ctx)
+	settings, err := badStore.GetSettings(ctx, 1)
 	if err != nil {
 		t.Fatalf("load settings with bad key: %v", err)
 	}

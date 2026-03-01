@@ -59,7 +59,7 @@ type searchCacheStore interface {
 	InvalidateByIndexerIDs(ctx context.Context, indexerIDs []int) (int64, error)
 	Stats(ctx context.Context) (*models.TorznabSearchCacheStats, error)
 	RecentSearches(ctx context.Context, scope string, limit int) ([]*models.TorznabRecentSearch, error)
-	UpdateSettings(ctx context.Context, ttlMinutes int) (*models.TorznabSearchCacheSettings, error)
+	UpdateSettings(ctx context.Context, ownerID int, ttlMinutes int) (*models.TorznabSearchCacheSettings, error)
 	RebaseTTL(ctx context.Context, ttlMinutes int) (int64, error)
 }
 
@@ -76,6 +76,7 @@ type Service struct {
 	persistedCooldownsMu   sync.RWMutex
 	torrentCache           *models.TorznabTorrentCacheStore
 	searchCache            searchCacheStore
+	ownerID                int
 	searchCacheTTL         time.Duration
 	searchCacheEnabled     bool
 	searchCacheConfigMu    sync.RWMutex
@@ -432,6 +433,13 @@ func (s *Service) searchIndexersWithScheduler(ctx context.Context, indexers []*m
 func WithTorrentCache(cache *models.TorznabTorrentCacheStore) ServiceOption {
 	return func(s *Service) {
 		s.torrentCache = cache
+	}
+}
+
+// WithOwnerID sets the owner ID used for owner-scoped settings.
+func WithOwnerID(ownerID int) ServiceOption {
+	return func(s *Service) {
+		s.ownerID = ownerID
 	}
 }
 
@@ -1637,7 +1645,7 @@ func (s *Service) UpdateSearchCacheSettings(ctx context.Context, ttlMinutes int)
 	currentTTLMinutes := int(s.searchCacheTTL / time.Minute)
 	s.searchCacheConfigMu.RUnlock()
 
-	settings, err := s.searchCache.UpdateSettings(ctx, ttlMinutes)
+	settings, err := s.searchCache.UpdateSettings(ctx, s.ownerID, ttlMinutes)
 	if err != nil {
 		return nil, err
 	}

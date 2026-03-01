@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/autobrr/autobrr/pkg/ttlcache"
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
 )
 
 const defaultNormalizerTTL = 5 * time.Minute

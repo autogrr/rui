@@ -597,8 +597,8 @@ func (h *InstancesHandler) CreateInstance(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Create instance
-	instance, err := h.instanceStore.Create(r.Context(), req.Name, req.Host, req.Username, req.Password, req.BasicUsername, req.BasicPassword, req.TLSSkipVerify, req.HasLocalFilesystemAccess)
+	// Create instance (rui is single-user; owner is always ID 1)
+	instance, err := h.instanceStore.Create(r.Context(), 1, req.Name, req.Host, req.Username, req.Password, req.BasicUsername, req.BasicPassword, req.TLSSkipVerify, req.HasLocalFilesystemAccess)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create instance")
 		RespondError(w, http.StatusInternalServerError, "Failed to create instance")

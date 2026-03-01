@@ -50,7 +50,7 @@ type DirScanSettingsPayload struct {
 
 // GetSettings returns the global directory scanner settings.
 func (h *DirScanHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := h.service.GetSettings(r.Context())
+	settings, err := h.service.GetSettings(r.Context(), 1)
 	if err != nil {
 		log.Error().Err(err).Msg("dirscan: failed to get settings")
 		RespondError(w, http.StatusInternalServerError, "Failed to get settings")
@@ -84,7 +84,7 @@ func (h *DirScanHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get current settings
-	settings, err := h.service.GetSettings(r.Context())
+	settings, err := h.service.GetSettings(r.Context(), 1)
 	if err != nil {
 		log.Error().Err(err).Msg("dirscan: failed to get settings for update")
 		RespondError(w, http.StatusInternalServerError, "Failed to get settings")
@@ -145,7 +145,7 @@ func (h *DirScanHandler) UpdateSettings(w http.ResponseWriter, r *http.Request) 
 		settings.Tags = payload.Tags
 	}
 
-	updated, err := h.service.UpdateSettings(r.Context(), settings)
+	updated, err := h.service.UpdateSettings(r.Context(), 1, settings)
 	if err != nil {
 		log.Error().Err(err).Msg("dirscan: failed to update settings")
 		RespondError(w, http.StatusInternalServerError, "Failed to update settings")

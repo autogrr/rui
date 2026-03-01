@@ -1441,7 +1441,7 @@ func (h *CrossSeedHandler) ListSearchRunHistory(w http.ResponseWriter, r *http.R
 // @Tags cross-seed
 // @Produce json
 // @Param instanceID path int true "Instance ID"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} map[string]any
 // @Failure 400 {object} httphelpers.ErrorResponse
 // @Failure 500 {object} httphelpers.ErrorResponse
 // @Failure 501 {object} httphelpers.ErrorResponse

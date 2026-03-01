@@ -153,7 +153,7 @@ func ValidateNotifiarrAPIKey(ctx context.Context, rawURL string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "qui")
+	req.Header.Set("User-Agent", "rui")
 	req.Header.Set("X-API-Key", config.apiKey)
 
 	client := &http.Client{Timeout: notifiarrAPIValidateTimeout}
@@ -199,7 +199,7 @@ func (s *Service) sendNotifiarrAPI(ctx context.Context, rawURL string, event Eve
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "qui")
+	req.Header.Set("User-Agent", "rui")
 	req.Header.Set("X-API-Key", config.apiKey)
 
 	client := &http.Client{Timeout: notifiarrAPITimeout}

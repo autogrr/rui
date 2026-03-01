@@ -1,6 +1,6 @@
 module github.com/autogrr/rui
 
-go 1.25
+go 1.25.6
 
 require (
 	github.com/CAFxX/httpcompression v0.0.9
@@ -13,6 +13,7 @@ require (
 	github.com/andybalholm/brotli v1.2.0
 	github.com/autobrr/autobrr v1.72.1
 	github.com/autogrr/go-qbittorrent v0.0.4
+	github.com/autogrr/go-ttlcache v0.0.1
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/coreos/go-oidc/v3 v3.17.0
@@ -24,7 +25,6 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/mat/besticon/v3 v3.21.0
 	github.com/moistari/rls v0.6.0
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/cors v1.11.1
 	github.com/rs/zerolog v1.34.0
@@ -52,6 +52,7 @@ require (
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	golang.org/x/arch v0.12.0 // indirect
+	golift.io/starr v1.3.0 // indirect
 )
 
 replace github.com/moistari/rls => github.com/autobrr/rls v0.8.0

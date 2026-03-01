@@ -109,7 +109,8 @@ func (h *Handler) PostIndexer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	_, err = h.indexerStore.CreateWithIndexerID(ctx, name, baseURL, indexerID, apiKey, nil, nil, enabled, priority, timeout, backend)
+	ownerID := h.sessionManager.GetInt(ctx, "user_id")
+	_, err = h.indexerStore.CreateWithIndexerID(ctx, ownerID, name, baseURL, indexerID, apiKey, nil, nil, enabled, priority, timeout, backend)
 	if err != nil {
 		render(w, r, http.StatusUnprocessableEntity, pages.IndexerFormNew(h.baseURL(), "Failed to create indexer: "+err.Error()))
 		return

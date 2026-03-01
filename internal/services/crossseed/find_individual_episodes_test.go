@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autobrr/autobrr/pkg/ttlcache"
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
 	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/require"
 

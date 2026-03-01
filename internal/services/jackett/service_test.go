@@ -473,7 +473,7 @@ func (f *fakeSearchCache) RecentSearches(context.Context, string, int) ([]*model
 	return nil, nil
 }
 
-func (f *fakeSearchCache) UpdateSettings(_ context.Context, ttlMinutes int) (*models.TorznabSearchCacheSettings, error) {
+func (f *fakeSearchCache) UpdateSettings(_ context.Context, _ int, ttlMinutes int) (*models.TorznabSearchCacheSettings, error) {
 	return &models.TorznabSearchCacheSettings{TTLMinutes: ttlMinutes}, nil
 }
 

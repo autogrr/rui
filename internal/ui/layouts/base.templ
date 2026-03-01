@@ -45,7 +45,7 @@ templ Base(p BaseProps) {
 					if (isDark) document.documentElement.classList.add('dark');
 					else document.documentElement.classList.remove('dark');
 					// Pre-set sidebar width so it renders correctly before Alpine.js initializes
-					document.documentElement.dataset.sidebarInit = localStorage.getItem('qui_sidebar') !== 'false' ? 'open' : 'closed';
+					document.documentElement.dataset.sidebarInit = (localStorage.getItem('rui:sidebar') || localStorage.getItem('qui_sidebar')) !== 'false' ? 'open' : 'closed';
 					var colorTheme = localStorage.getItem('rui:color-theme');
 					if (colorTheme === 'custom') {
 						document.documentElement.setAttribute('data-theme', 'custom');
@@ -144,6 +144,8 @@ templ Base(p BaseProps) {
 			<script src={ p.BaseURL + "/ui/static/js/alpine.min.js" } defer></script>
 			<!-- Sortable.js (for drag-and-drop column reorder) -->
 			<script src={ p.BaseURL + "/ui/static/js/sortable.min.js" } defer></script>
+			<!-- Reusable expr-lang filter builder widget -->
+			<script src={ p.BaseURL + "/ui/static/js/expr-builder.js" } defer></script>
 			<!-- templui component scripts -->
 			<script defer src={ p.BaseURL + "/ui/static/js/checkbox.min.js" }></script>
 			<script defer src={ p.BaseURL + "/ui/static/js/collapsible.min.js" }></script>

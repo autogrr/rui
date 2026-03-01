@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -8,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,6 +16,7 @@ import (
 
 type TrackerCustomization struct {
 	ID              int       `json:"id"`
+	OwnerID         int       `json:"ownerId"`
 	DisplayName     string    `json:"displayName"`
 	Domains         []string  `json:"domains"`
 	IncludedInStats []string  `json:"includedInStats,omitempty"`
@@ -33,8 +34,8 @@ func NewTrackerCustomizationStore(db dbinterface.Querier) *TrackerCustomizationS
 
 func (s *TrackerCustomizationStore) List(ctx context.Context) ([]*TrackerCustomization, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, display_name, domains, included_in_stats, created_at, updated_at
-		FROM tracker_customizations
+		SELECT id, owner_id, display_name, domains, included_in_stats, created_at, updated_at
+		FROM tracker_customizations_view
 		ORDER BY display_name ASC
 	`)
 	if err != nil {
@@ -46,14 +47,16 @@ func (s *TrackerCustomizationStore) List(ctx context.Context) ([]*TrackerCustomi
 	for rows.Next() {
 		var c TrackerCustomization
 		var domainsStr string
-		var includedStr string
+		var includedStr sql.NullString
 
-		if err := rows.Scan(&c.ID, &c.DisplayName, &domainsStr, &includedStr, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.OwnerID, &c.DisplayName, &domainsStr, &includedStr, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
 
 		c.Domains = splitDomains(domainsStr)
-		c.IncludedInStats = splitDomains(includedStr)
+		if includedStr.Valid {
+			c.IncludedInStats = splitDomains(includedStr.String)
+		}
 		customizations = append(customizations, &c)
 	}
 
@@ -66,21 +69,23 @@ func (s *TrackerCustomizationStore) List(ctx context.Context) ([]*TrackerCustomi
 
 func (s *TrackerCustomizationStore) Get(ctx context.Context, id int) (*TrackerCustomization, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, display_name, domains, included_in_stats, created_at, updated_at
-		FROM tracker_customizations
+		SELECT id, owner_id, display_name, domains, included_in_stats, created_at, updated_at
+		FROM tracker_customizations_view
 		WHERE id = ?
 	`, id)
 
 	var c TrackerCustomization
 	var domainsStr string
-	var includedStr string
+	var includedStr sql.NullString
 
-	if err := row.Scan(&c.ID, &c.DisplayName, &domainsStr, &includedStr, &c.CreatedAt, &c.UpdatedAt); err != nil {
+	if err := row.Scan(&c.ID, &c.OwnerID, &c.DisplayName, &domainsStr, &includedStr, &c.CreatedAt, &c.UpdatedAt); err != nil {
 		return nil, err
 	}
 
 	c.Domains = splitDomains(domainsStr)
-	c.IncludedInStats = splitDomains(includedStr)
+	if includedStr.Valid {
+		c.IncludedInStats = splitDomains(includedStr.String)
+	}
 	return &c, nil
 }
 
@@ -92,20 +97,52 @@ func (s *TrackerCustomizationStore) Create(ctx context.Context, c *TrackerCustom
 	domainsStr := joinDomains(c.Domains)
 	includedStr := joinDomains(c.IncludedInStats)
 
-	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO tracker_customizations (display_name, domains, included_in_stats)
-		VALUES (?, ?, ?)
-	`, c.DisplayName, domainsStr, includedStr)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Look up owner_id - use the first user since tracker customizations are global
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get owner: %w", err)
+	}
+
+	// Intern required strings
+	ids, err := dbinterface.InternStrings(ctx, tx, c.DisplayName, domainsStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	// Intern optional included_in_stats
+	var includedID sql.NullInt64
+	if includedStr != "" {
+		nullableIDs, err := dbinterface.InternStringNullable(ctx, tx, &includedStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern included_in_stats: %w", err)
+		}
+		includedID = nullableIDs[0]
+	}
+
+	res, err := tx.ExecContext(ctx, `
+		INSERT INTO tracker_customizations (owner_id, display_name_id, domains_id, included_in_stats_id)
+		VALUES (?, ?, ?, ?)
+	`, ownerID, ids[0], ids[1], includedID)
 	if err != nil {
 		return nil, err
 	}
 
-	id, err := res.LastInsertId()
+	insertedID, err := res.LastInsertId()
 	if err != nil {
 		return nil, err
 	}
 
-	return s.Get(ctx, int(id))
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return s.Get(ctx, int(insertedID))
 }
 
 func (s *TrackerCustomizationStore) Update(ctx context.Context, c *TrackerCustomization) (*TrackerCustomization, error) {
@@ -116,11 +153,33 @@ func (s *TrackerCustomizationStore) Update(ctx context.Context, c *TrackerCustom
 	domainsStr := joinDomains(c.Domains)
 	includedStr := joinDomains(c.IncludedInStats)
 
-	res, err := s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Intern required strings
+	ids, err := dbinterface.InternStrings(ctx, tx, c.DisplayName, domainsStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	// Intern optional included_in_stats
+	var includedID sql.NullInt64
+	if includedStr != "" {
+		nullableIDs, err := dbinterface.InternStringNullable(ctx, tx, &includedStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern included_in_stats: %w", err)
+		}
+		includedID = nullableIDs[0]
+	}
+
+	res, err := tx.ExecContext(ctx, `
 		UPDATE tracker_customizations
-		SET display_name = ?, domains = ?, included_in_stats = ?
+		SET display_name_id = ?, domains_id = ?, included_in_stats_id = ?
 		WHERE id = ?
-	`, c.DisplayName, domainsStr, includedStr, c.ID)
+	`, ids[0], ids[1], includedID, c.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +190,10 @@ func (s *TrackerCustomizationStore) Update(ctx context.Context, c *TrackerCustom
 	}
 	if rows == 0 {
 		return nil, sql.ErrNoRows
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return s.Get(ctx, c.ID)

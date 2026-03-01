@@ -6,6 +6,7 @@ package ui
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -112,6 +113,7 @@ func (h *Handler) PostBackupSettings(w http.ResponseWriter, r *http.Request) {
 	if cp := r.FormValue("custom_path"); cp != "" {
 		settings.CustomPath = &cp
 	}
+	settings.ExprFilter = strings.TrimSpace(r.FormValue("expr_filter"))
 
 	p := pages.BackupsProps{
 		BaseURL:    h.baseURL(),

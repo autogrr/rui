@@ -1,21 +1,3 @@
-# Build stage
-FROM node:22.18-alpine AS frontend-builder
-
-# Install git for cloning
-RUN apk add --no-cache git
-
-# Update and enable Corepack
-RUN npm install -g corepack@latest && \
-    corepack enable
-
-WORKDIR /app/web
-
-COPY web/package.json web/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-
-COPY web ./
-RUN pnpm run build
-
 # Go build stage
 # Use BUILDPLATFORM to build on native architecture (fast)
 FROM --platform=$BUILDPLATFORM golang:1.25-alpine3.22 AS go-builder
@@ -36,7 +18,6 @@ RUN go mod download
 
 # Copy source code
 COPY . .
-COPY --from=frontend-builder /app/web/dist ./web/dist
 
 # Build arguments
 ARG VERSION=dev

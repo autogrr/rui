@@ -1,189 +1,251 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
 package arr
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"strings"
-	"time"
+"context"
+"fmt"
+"net/url"
+"strings"
+"time"
 
-	"github.com/autogrr/rui/internal/models"
-	"github.com/autogrr/rui/pkg/httphelpers"
+"golift.io/starr"
+"golift.io/starr/lidarr"
+"golift.io/starr/radarr"
+"golift.io/starr/readarr"
+"golift.io/starr/sonarr"
+
+"github.com/autogrr/rui/internal/models"
 )
 
-const (
-	defaultTimeout   = 15 * time.Second
-	defaultUserAgent = "qui/1.0"
-)
+const defaultTimeout = 15 * time.Second
 
-// Client is an HTTP client for communicating with Sonarr/Radarr v3 API
+// Client wraps golift/starr sub-clients for interacting with *arr applications.
+// Sonarr and Whisparr use the Sonarr v3 API surface; Radarr, Lidarr, Readarr
+// each use their own typed sub-client.
 type Client struct {
-	instanceType models.ArrInstanceType
-	baseURL      string
-	apiKey       string
-	basicUser    string
-	basicPass    string
-	httpClient   *http.Client
-	timeout      time.Duration
+instanceType models.ArrInstanceType
+cfg          *starr.Config
 }
 
-// NewClient creates a new ARR API client
-func NewClient(baseURL, apiKey string, basicUsername, basicPassword *string, instanceType models.ArrInstanceType, timeoutSeconds int) *Client {
-	timeout := defaultTimeout
-	if timeoutSeconds > 0 {
-		timeout = time.Duration(timeoutSeconds) * time.Second
-	}
-
-	return &Client{
-		instanceType: instanceType,
-		baseURL:      strings.TrimRight(baseURL, "/"),
-		apiKey:       apiKey,
-		basicUser:    strings.TrimSpace(stringOrEmpty(basicUsername)),
-		basicPass:    strings.TrimSpace(stringOrEmpty(basicPassword)),
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
-		timeout: timeout,
-	}
+// NewClient creates a golift/starr-backed Client for the given instance type.
+func NewClient(baseURL, apiKey string, basicUser, basicPass *string, instanceType models.ArrInstanceType, timeoutSeconds int) *Client {
+timeout := defaultTimeout
+if timeoutSeconds > 0 {
+timeout = time.Duration(timeoutSeconds) * time.Second
 }
 
-// Ping tests connectivity to the ARR instance via GET /api/v3/system/status
+cfg := &starr.Config{
+APIKey:   apiKey,
+URL:      strings.TrimRight(baseURL, "/"),
+Client:   starr.Client(timeout, false),
+HTTPUser: strVal(basicUser),
+HTTPPass: strVal(basicPass),
+}
+
+return &Client{instanceType: instanceType, cfg: cfg}
+}
+
+// Ping tests connectivity by checking /ping and then /api/v3/system/status.
 func (c *Client) Ping(ctx context.Context) error {
-	endpoint := c.baseURL + "/api/v3/system/status"
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	c.setHeaders(req)
-
-	resp, err := c.httpClient.Do(req) //nolint:bodyclose // closed by DrainAndClose
-	if err != nil {
-		return fmt.Errorf("connection failed: %w", err)
-	}
-	defer httphelpers.DrainAndClose(resp)
-
-	if resp.StatusCode == http.StatusUnauthorized {
-		return fmt.Errorf("authentication failed: invalid API key")
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var status SystemStatusResponse
-	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// Validate we got a valid response with app name
-	if status.AppName == "" {
-		return fmt.Errorf("invalid response: missing appName")
-	}
-
-	return nil
+switch {
+case c.instanceType.IsSonarrCompatible():
+return c.pingSonarr(ctx)
+case c.instanceType.IsRadarrCompatible():
+return c.pingRadarr(ctx)
+case c.instanceType == models.ArrInstanceTypeLidarr:
+return c.pingLidarr(ctx)
+case c.instanceType == models.ArrInstanceTypeReadarr:
+return c.pingReadarr(ctx)
+default:
+return fmt.Errorf("unsupported instance type: %s", c.instanceType)
+}
 }
 
-// ParseTitle calls the parse endpoint to resolve a title to external IDs
-// For Sonarr: GET /api/v3/parse?title=<title>
-// For Radarr: GET /api/v3/parse?title=<title>
+func (c *Client) pingSonarr(ctx context.Context) error {
+s := sonarr.New(c.cfg)
+if err := s.PingContext(ctx); err != nil {
+return fmt.Errorf("sonarr ping: %w", err)
+}
+status, err := s.GetSystemStatusContext(ctx)
+if err != nil {
+return fmt.Errorf("sonarr system status: %w", err)
+}
+if status.AppName == "" {
+return fmt.Errorf("sonarr returned empty AppName")
+}
+return nil
+}
+
+func (c *Client) pingRadarr(ctx context.Context) error {
+r := radarr.New(c.cfg)
+if err := r.PingContext(ctx); err != nil {
+return fmt.Errorf("radarr ping: %w", err)
+}
+status, err := r.GetSystemStatusContext(ctx)
+if err != nil {
+return fmt.Errorf("radarr system status: %w", err)
+}
+if status.AppName == "" {
+return fmt.Errorf("radarr returned empty AppName")
+}
+return nil
+}
+
+func (c *Client) pingLidarr(ctx context.Context) error {
+l := lidarr.New(c.cfg)
+if err := l.PingContext(ctx); err != nil {
+return fmt.Errorf("lidarr ping: %w", err)
+}
+return nil
+}
+
+func (c *Client) pingReadarr(ctx context.Context) error {
+r := readarr.New(c.cfg)
+if err := r.PingContext(ctx); err != nil {
+return fmt.Errorf("readarr ping: %w", err)
+}
+return nil
+}
+
+// ParseTitle calls the arr parse endpoint to resolve a release name into
+// external IDs. Returns nil IDs when no match is found (not an error).
 func (c *Client) ParseTitle(ctx context.Context, title string) (*models.ExternalIDs, error) {
-	endpoint := c.baseURL + "/api/v3/parse"
-
-	// Build URL with query parameter
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse endpoint URL: %w", err)
-	}
-	q := u.Query()
-	q.Set("title", title)
-	u.RawQuery = q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	c.setHeaders(req)
-
-	resp, err := c.httpClient.Do(req) //nolint:bodyclose // closed by DrainAndClose
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer httphelpers.DrainAndClose(resp)
-
-	if resp.StatusCode == http.StatusUnauthorized {
-		return nil, fmt.Errorf("authentication failed: invalid API key")
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	// Parse based on instance type
-	switch c.instanceType {
-	case models.ArrInstanceTypeSonarr:
-		return c.parseSonarrResponse(resp.Body)
-	case models.ArrInstanceTypeRadarr:
-		return c.parseRadarrResponse(resp.Body)
-	default:
-		return nil, fmt.Errorf("unsupported instance type: %s", c.instanceType)
-	}
+switch {
+case c.instanceType.IsSonarrCompatible():
+return c.parseSonarr(ctx, title)
+case c.instanceType.IsRadarrCompatible():
+return c.parseRadarr(ctx, title)
+default:
+return nil, nil // lidarr/readarr do not use title→IDs in the same way
+}
 }
 
-// parseSonarrResponse parses a Sonarr parse response and extracts external IDs
-func (c *Client) parseSonarrResponse(body io.Reader) (*models.ExternalIDs, error) {
-	var parseResp SonarrParseResponse
-	if err := json.NewDecoder(body).Decode(&parseResp); err != nil {
-		return nil, fmt.Errorf("failed to decode Sonarr parse response: %w", err)
-	}
-
-	return parseResp.ExtractExternalIDs(), nil
+// parseSonarr uses golift/starr's Sonarr client with a custom response
+// struct that captures the series field (not exposed by sonarr.ParseOutput).
+func (c *Client) parseSonarr(ctx context.Context, title string) (*models.ExternalIDs, error) {
+type sonarrSeriesIDs struct {
+TVDbID   int    `json:"tvdbId"`
+TVMazeID int    `json:"tvMazeId"`
+TMDbID   int    `json:"tmdbId"`
+IMDbID   string `json:"imdbId"`
+}
+var out struct {
+Series *sonarrSeriesIDs `json:"series"`
+}
+req := starr.Request{
+URI:   "v3/parse",
+Query: url.Values{"title": {title}},
+}
+if err := sonarr.New(c.cfg).GetInto(ctx, req, &out); err != nil {
+return nil, fmt.Errorf("sonarr parse %q: %w", title, err)
+}
+if out.Series == nil {
+return nil, nil
+}
+ids := &models.ExternalIDs{}
+if out.Series.TVDbID > 0 {
+ids.TVDbID = out.Series.TVDbID
+}
+if out.Series.TVMazeID > 0 {
+ids.TVMazeID = out.Series.TVMazeID
+}
+if out.Series.TMDbID > 0 {
+ids.TMDbID = out.Series.TMDbID
+}
+if out.Series.IMDbID != "" && out.Series.IMDbID != "0" {
+ids.IMDbID = out.Series.IMDbID
+}
+if ids.IsEmpty() {
+return nil, nil
+}
+return ids, nil
 }
 
-// parseRadarrResponse parses a Radarr parse response and extracts external IDs
-func (c *Client) parseRadarrResponse(body io.Reader) (*models.ExternalIDs, error) {
-	var parseResp RadarrParseResponse
-	if err := json.NewDecoder(body).Decode(&parseResp); err != nil {
-		return nil, fmt.Errorf("failed to decode Radarr parse response: %w", err)
-	}
-
-	return parseResp.ExtractExternalIDs(), nil
+// parseRadarr uses Radarr's Lookup endpoint as a parse fallback (Radarr has
+// no dedicated parse endpoint). The first lookup result is used.
+func (c *Client) parseRadarr(ctx context.Context, title string) (*models.ExternalIDs, error) {
+movies, err := radarr.New(c.cfg).LookupContext(ctx, title)
+if err != nil {
+return nil, fmt.Errorf("radarr lookup %q: %w", title, err)
+}
+if len(movies) == 0 {
+return nil, nil
+}
+m := movies[0]
+ids := &models.ExternalIDs{}
+if m.TmdbID > 0 {
+ids.TMDbID = int(m.TmdbID)
+}
+if m.ImdbID != "" && m.ImdbID != "0" {
+ids.IMDbID = m.ImdbID
+}
+if ids.IsEmpty() {
+return nil, nil
+}
+return ids, nil
 }
 
-// setHeaders sets the required headers for ARR API requests
-func (c *Client) setHeaders(req *http.Request) {
-	req.Header.Set("X-Api-Key", c.apiKey)
-	req.Header.Set("User-Agent", defaultUserAgent)
-	req.Header.Set("Accept", "application/json")
-	if c.basicUser != "" {
-		req.SetBasicAuth(c.basicUser, c.basicPass)
-	}
+// GetAllSeries returns every series known to a Sonarr-compatible instance.
+func (c *Client) GetAllSeries(ctx context.Context) ([]*sonarr.Series, error) {
+if !c.instanceType.IsSonarrCompatible() {
+return nil, fmt.Errorf("GetAllSeries: not supported for %s", c.instanceType)
+}
+series, err := sonarr.New(c.cfg).GetAllSeriesContext(ctx)
+if err != nil {
+return nil, fmt.Errorf("sonarr GetAllSeries: %w", err)
+}
+return series, nil
 }
 
-// InstanceType returns the ARR instance type this client is configured for
-func (c *Client) InstanceType() models.ArrInstanceType {
-	return c.instanceType
+// GetAllMovies returns every movie known to a Radarr instance.
+func (c *Client) GetAllMovies(ctx context.Context) ([]*radarr.Movie, error) {
+if !c.instanceType.IsRadarrCompatible() {
+return nil, fmt.Errorf("GetAllMovies: not supported for %s", c.instanceType)
+}
+movies, err := radarr.New(c.cfg).GetMovieContext(ctx, nil)
+if err != nil {
+return nil, fmt.Errorf("radarr GetAllMovies: %w", err)
+}
+return movies, nil
 }
 
-// BaseURL returns the base URL this client is configured for
-func (c *Client) BaseURL() string {
-	return c.baseURL
+// SearchSeries performs a title-based series lookup on a Sonarr-compatible
+// instance against the upstream metadata provider.
+func (c *Client) SearchSeries(ctx context.Context, term string) ([]*sonarr.Series, error) {
+if !c.instanceType.IsSonarrCompatible() {
+return nil, fmt.Errorf("SearchSeries: not supported for %s", c.instanceType)
+}
+results, err := sonarr.New(c.cfg).GetSeriesLookupContext(ctx, term, 0)
+if err != nil {
+return nil, fmt.Errorf("sonarr series lookup %q: %w", term, err)
+}
+return results, nil
 }
 
-func stringOrEmpty(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
+// SearchMovies performs a title-based movie lookup on a Radarr instance
+// against the upstream metadata provider.
+func (c *Client) SearchMovies(ctx context.Context, term string) ([]*radarr.Movie, error) {
+if !c.instanceType.IsRadarrCompatible() {
+return nil, fmt.Errorf("SearchMovies: not supported for %s", c.instanceType)
+}
+results, err := radarr.New(c.cfg).LookupContext(ctx, term)
+if err != nil {
+return nil, fmt.Errorf("radarr movie lookup %q: %w", term, err)
+}
+return results, nil
+}
+
+// InstanceType returns the configured instance type.
+func (c *Client) InstanceType() models.ArrInstanceType { return c.instanceType }
+
+// BaseURL returns the configured base URL.
+func (c *Client) BaseURL() string { return c.cfg.URL }
+
+func strVal(s *string) string {
+if s == nil {
+return ""
+}
+return *s
 }

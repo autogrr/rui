@@ -74,14 +74,14 @@ func TestCrossSeedStore_SettingsRoundTrip(t *testing.T) {
 
 	ctx := context.Background()
 
-	defaults, err := store.GetSettings(ctx)
+	defaults, err := store.GetSettings(ctx, 1)
 	require.NoError(t, err)
 	assert.False(t, defaults.Enabled)
 	assert.Equal(t, 120, defaults.RunIntervalMinutes)
 
 	category := "TV"
 
-	updated, err := store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	updated, err := store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		Enabled:              true,
 		RunIntervalMinutes:   30,
 		StartPaused:          false,
@@ -109,7 +109,7 @@ func TestCrossSeedStore_SettingsRoundTrip(t *testing.T) {
 	assert.ElementsMatch(t, []int{11, 42}, updated.TargetIndexerIDs)
 	assert.Equal(t, 25, updated.MaxResultsPerRun)
 
-	reloaded, err := store.GetSettings(ctx)
+	reloaded, err := store.GetSettings(ctx, 1)
 	require.NoError(t, err)
 	assert.Equal(t, updated, reloaded)
 }
@@ -125,7 +125,7 @@ func TestCrossSeedStore_RunLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	now := time.Now().UTC()
-	run, err := store.CreateRun(ctx, &models.CrossSeedRun{
+	run, err := store.CreateRun(ctx, 1, &models.CrossSeedRun{
 		TriggeredBy: "test",
 		Mode:        models.CrossSeedRunModeManual,
 		Status:      models.CrossSeedRunStatusRunning,
@@ -153,7 +153,7 @@ func TestCrossSeedStore_RunLifecycle(t *testing.T) {
 	assert.Equal(t, models.CrossSeedRunStatusSuccess, updated.Status)
 	assert.Len(t, updated.Results, 1)
 
-	runs, err := store.ListRuns(ctx, 10, 0)
+	runs, err := store.ListRuns(ctx, 1, 10, 0)
 	require.NoError(t, err)
 	require.Len(t, runs, 1)
 	assert.Equal(t, updated.ID, runs[0].ID)
@@ -169,7 +169,7 @@ func TestCrossSeedStore_FeedItems(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 
-	run, err := store.CreateRun(ctx, &models.CrossSeedRun{
+	run, err := store.CreateRun(ctx, 1, &models.CrossSeedRun{
 		TriggeredBy: "test",
 		Mode:        models.CrossSeedRunModeManual,
 		Status:      models.CrossSeedRunStatusRunning,
@@ -196,7 +196,7 @@ func TestCrossSeedStore_FeedItems(t *testing.T) {
 		LastSeenAt:  time.Now().Add(-48 * time.Hour),
 	}
 
-	require.NoError(t, store.MarkFeedItem(ctx, item))
+	require.NoError(t, store.MarkFeedItem(ctx, 1, item))
 
 	processed, status, err = store.HasProcessedFeedItem(ctx, guid, indexerID)
 	require.NoError(t, err)

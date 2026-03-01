@@ -37,23 +37,17 @@ yarn.lock
 package-lock.json
 
 # Others
-web/build
 bin/
 dist/
 .run/
 .dev/
 tmp/
-web/eslint-sarif-report.sarif
 test/mockindexer/feeds/*
 test/mockindexer/files/*
 cpu.pprof
 
-web/src/themes/premium/
-
 # Preserve files
 !.gitkeep
-
-web/src/themes/premium/*
 docs/*
 !docs/CROSS_SEEDING.md
 .mcp_unused.json

@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -17,6 +16,7 @@ import (
 // InstanceCrossSeedCompletionSettings stores per-instance cross-seed completion configuration.
 type InstanceCrossSeedCompletionSettings struct {
 	InstanceID        int       `json:"instanceId"`
+	OwnerID           int       `json:"ownerId"`
 	Enabled           bool      `json:"enabled"`
 	Categories        []string  `json:"categories"`
 	Tags              []string  `json:"tags"`
@@ -69,9 +69,9 @@ func DefaultInstanceCrossSeedCompletionSettings(instanceID int) *InstanceCrossSe
 
 // Get returns settings for an instance, falling back to defaults if missing.
 func (s *InstanceCrossSeedCompletionStore) Get(ctx context.Context, instanceID int) (*InstanceCrossSeedCompletionSettings, error) {
-	const query = `SELECT instance_id, enabled, categories_json, tags_json,
+	const query = `SELECT instance_id, owner_id, enabled, categories_json, tags_json,
 		exclude_categories_json, exclude_tags_json, indexer_ids_json, updated_at
-		FROM instance_crossseed_completion_settings WHERE instance_id = ?`
+		FROM instance_crossseed_completion_settings_view WHERE instance_id = ?`
 
 	row := s.db.QueryRowContext(ctx, query, instanceID)
 	settings, err := scanInstanceCrossSeedCompletionSettings(row)
@@ -86,9 +86,9 @@ func (s *InstanceCrossSeedCompletionStore) Get(ctx context.Context, instanceID i
 
 // List returns settings for all instances that have overrides. Instances without overrides are omitted.
 func (s *InstanceCrossSeedCompletionStore) List(ctx context.Context) ([]*InstanceCrossSeedCompletionSettings, error) {
-	const query = `SELECT instance_id, enabled, categories_json, tags_json,
+	const query = `SELECT instance_id, owner_id, enabled, categories_json, tags_json,
 		exclude_categories_json, exclude_tags_json, indexer_ids_json, updated_at
-		FROM instance_crossseed_completion_settings`
+		FROM instance_crossseed_completion_settings_view`
 
 	rows, err := s.db.QueryContext(ctx, query)
 	if err != nil {
@@ -140,28 +140,52 @@ func (s *InstanceCrossSeedCompletionStore) Upsert(ctx context.Context, settings 
 		return nil, err
 	}
 
-	const stmt = `INSERT INTO instance_crossseed_completion_settings (
-		instance_id, enabled, categories_json, tags_json, exclude_categories_json, exclude_tags_json, indexer_ids_json)
-	VALUES (?, ?, ?, ?, ?, ?, ?)
-	ON CONFLICT(instance_id) DO UPDATE SET
-		enabled = excluded.enabled,
-		categories_json = excluded.categories_json,
-		tags_json = excluded.tags_json,
-		exclude_categories_json = excluded.exclude_categories_json,
-		exclude_tags_json = excluded.exclude_tags_json,
-		indexer_ids_json = excluded.indexer_ids_json`
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
 
-	_, err = s.db.ExecContext(ctx, stmt,
+	// Look up owner_id from the instance
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT owner_id FROM instances WHERE id = ?`, coerced.InstanceID).Scan(&ownerID); err != nil {
+		return nil, fmt.Errorf("failed to get instance owner: %w", err)
+	}
+
+	// Intern JSON strings
+	ids, err := dbinterface.InternStrings(ctx, tx, catJSON, tagJSON, excludeCatJSON, excludeTagJSON, indexerJSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	const stmt = `INSERT INTO instance_crossseed_completion_settings (
+		instance_id, owner_id, enabled, categories_json_id, tags_json_id, exclude_categories_json_id, exclude_tags_json_id, indexer_ids_json_id)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT(instance_id) DO UPDATE SET
+		owner_id = excluded.owner_id,
+		enabled = excluded.enabled,
+		categories_json_id = excluded.categories_json_id,
+		tags_json_id = excluded.tags_json_id,
+		exclude_categories_json_id = excluded.exclude_categories_json_id,
+		exclude_tags_json_id = excluded.exclude_tags_json_id,
+		indexer_ids_json_id = excluded.indexer_ids_json_id`
+
+	_, err = tx.ExecContext(ctx, stmt,
 		coerced.InstanceID,
+		ownerID,
 		BoolToSQLite(coerced.Enabled),
-		catJSON,
-		tagJSON,
-		excludeCatJSON,
-		excludeTagJSON,
-		indexerJSON,
+		ids[0],
+		ids[1],
+		ids[2],
+		ids[3],
+		ids[4],
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return s.Get(ctx, coerced.InstanceID)
@@ -201,6 +225,7 @@ func scanInstanceCrossSeedCompletionSettings(scanner interface {
 }) (*InstanceCrossSeedCompletionSettings, error) {
 	var (
 		instanceID     int
+		ownerID        int
 		enabledInt     int
 		catJSON        sql.NullString
 		tagJSON        sql.NullString
@@ -212,6 +237,7 @@ func scanInstanceCrossSeedCompletionSettings(scanner interface {
 
 	if err := scanner.Scan(
 		&instanceID,
+		&ownerID,
 		&enabledInt,
 		&catJSON,
 		&tagJSON,
@@ -246,6 +272,7 @@ func scanInstanceCrossSeedCompletionSettings(scanner interface {
 
 	settings := &InstanceCrossSeedCompletionSettings{
 		InstanceID:        instanceID,
+		OwnerID:           ownerID,
 		Enabled:           enabledInt == 1,
 		Categories:        categories,
 		Tags:              tags,

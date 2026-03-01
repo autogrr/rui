@@ -11,6 +11,8 @@ import (
 	"text/template"
 
 	qbt "github.com/autogrr/go-qbittorrent"
+	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/vm"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/models"
@@ -144,8 +146,29 @@ func getOrCreateRuleStats(m map[int]*ruleRunStats, rule *models.Automation) *rul
 	return s
 }
 
+// buildExprPrograms pre-compiles the ExprFilter of each rule into a vm.Program.
+// Rules with an empty filter or a parse error are excluded from the map.
+// The caller should log a warning for missing entries when an ExprFilter is non-empty.
+func buildExprPrograms(rules []*models.Automation) map[int]*vm.Program {
+	programs := make(map[int]*vm.Program, len(rules))
+	for _, rule := range rules {
+		if rule.ExprFilter == "" {
+			continue
+		}
+		prog, err := expr.Compile(rule.ExprFilter, expr.AsBool(), expr.Env(qbt.Torrent{}))
+		if err != nil {
+			log.Warn().Err(err).Int("ruleID", rule.ID).Str("exprFilter", rule.ExprFilter).
+				Msg("automations: invalid expr_filter, rule will match all torrents")
+			continue
+		}
+		programs[rule.ID] = prog
+	}
+	return programs
+}
+
 // selectMatchingRules returns all enabled rules that match the torrent, in sort order.
-func selectMatchingRules(torrent qbt.Torrent, rules []*models.Automation, sm *qbittorrent.SyncManager) []*models.Automation {
+// programs is the pre-compiled expr filter map produced by buildExprPrograms; pass nil to skip all expr filtering.
+func selectMatchingRules(torrent qbt.Torrent, rules []*models.Automation, sm *qbittorrent.SyncManager, programs map[int]*vm.Program) []*models.Automation {
 	trackerDomains := collectTrackerDomains(torrent, sm)
 	var matching []*models.Automation
 
@@ -155,6 +178,19 @@ func selectMatchingRules(torrent qbt.Torrent, rules []*models.Automation, sm *qb
 		}
 		if !matchesTracker(rule.TrackerPattern, trackerDomains) {
 			continue
+		}
+
+		// Apply expr pre-filter when present and successfully compiled.
+		if prog, ok := programs[rule.ID]; ok {
+			out, err := expr.Run(prog, torrent)
+			if err != nil {
+				log.Warn().Err(err).Int("ruleID", rule.ID).Str("hash", qbt.Deref(torrent.Hash)).
+					Msg("automations: expr_filter evaluation error, excluding torrent from rule")
+				continue
+			}
+			if !out.(bool) {
+				continue
+			}
 		}
 
 		matching = append(matching, rule)
@@ -171,6 +207,7 @@ func processTorrents(
 	sm *qbittorrent.SyncManager,
 	skipCheck func(hash string) bool,
 	stats map[int]*ruleRunStats,
+	programs map[int]*vm.Program,
 ) map[string]*torrentDesiredState {
 	states := make(map[string]*torrentDesiredState)
 	crossSeedIndex := buildCrossSeedIndex(torrents)
@@ -191,7 +228,7 @@ func processTorrents(
 			continue
 		}
 
-		matchingRules := selectMatchingRules(torrent, rules, sm)
+		matchingRules := selectMatchingRules(torrent, rules, sm, programs)
 		if len(matchingRules) == 0 {
 			continue
 		}

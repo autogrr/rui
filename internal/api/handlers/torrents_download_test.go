@@ -65,6 +65,7 @@ func createInstanceStoreWithInstance(t *testing.T, hasLocalAccess bool) (*models
 
 	instance, err := instanceStore.Create(
 		t.Context(),
+		1,
 		"test-instance",
 		"http://localhost:8080",
 		"admin",

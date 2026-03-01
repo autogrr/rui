@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/autobrr/autobrr/pkg/ttlcache"
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
 	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
 )
@@ -143,7 +143,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 }
 
 func TestCache_DifferentDataTypes(t *testing.T) {
-	// Create test cache with interface{} to store different types
+	// Create test cache with any to store different types
 	cache := ttlcache.New(ttlcache.Options[string, any]{}.
 		SetDefaultTTL(time.Hour))
 	defer cache.Close()

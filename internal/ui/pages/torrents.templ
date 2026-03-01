@@ -2569,7 +2569,7 @@ function handleDetailAddPeers(hash, instanceID, peers) {
 // ── Column visibility ────────────────────────────────────────────────────────
 var _tblColDefaults = JSON.parse(document.getElementById('col-defaults-json').textContent);
 var _tblCols = (function() {
-  try { var s = JSON.parse(localStorage.getItem('qui_tbl_cols')||'{}'); return Object.assign({},_tblColDefaults,s); }
+  try { var s = JSON.parse(localStorage.getItem('rui:tbl_cols')||localStorage.getItem('qui_tbl_cols')||'{}'); return Object.assign({},_tblColDefaults,s); }
   catch(e) { return Object.assign({},_tblColDefaults); }
 })();
 function applyTblCols() {
@@ -2584,12 +2584,12 @@ function applyTblCols() {
 }
 function toggleTblCol(col) {
   _tblCols[col] = !_tblCols[col];
-  localStorage.setItem('qui_tbl_cols', JSON.stringify(_tblCols));
+  localStorage.setItem('rui:tbl_cols', JSON.stringify(_tblCols));
   applyTblCols();
 }
 function resetTblCols() {
   _tblCols = Object.assign({},_tblColDefaults);
-  localStorage.removeItem('qui_tbl_cols');
+  localStorage.removeItem('rui:tbl_cols');
   applyTblCols();
 }
 

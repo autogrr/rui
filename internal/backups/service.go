@@ -23,6 +23,7 @@ import (
 	"time"
 
 	qbt "github.com/autogrr/go-qbittorrent"
+	"github.com/expr-lang/expr"
 	"github.com/rs/zerolog/log"
 
 	"github.com/autogrr/rui/internal/models"
@@ -582,6 +583,32 @@ func (s *Service) executeBackup(ctx context.Context, j job) (*backupResult, erro
 
 	if len(torrents) == 0 {
 		return &backupResult{torrentCount: 0, totalBytes: 0, categoryCounts: map[string]int{}, items: nil, settings: settings}, nil
+	}
+
+	// Apply expr_filter torrent inclusion filter when configured.
+	if settings.ExprFilter != "" {
+		prog, compileErr := expr.Compile(settings.ExprFilter, expr.AsBool(), expr.Env(qbt.Torrent{}))
+		if compileErr != nil {
+			log.Warn().Err(compileErr).Int("instanceID", j.instanceID).Str("exprFilter", settings.ExprFilter).
+				Msg("backup: invalid expr_filter, backing up all torrents")
+		} else {
+			filtered := torrents[:0]
+			for _, t := range torrents {
+				out, runErr := expr.Run(prog, t)
+				if runErr != nil {
+					log.Warn().Err(runErr).Str("hash", qbt.Deref(t.Hash)).
+						Msg("backup: expr_filter evaluation error, excluding torrent")
+					continue
+				}
+				if out.(bool) {
+					filtered = append(filtered, t)
+				}
+			}
+			torrents = filtered
+		}
+		if len(torrents) == 0 {
+			return &backupResult{torrentCount: 0, totalBytes: 0, categoryCounts: map[string]int{}, items: nil, settings: settings}, nil
+		}
 	}
 
 	baseAbs, baseRel, err := s.resolveBasePaths(ctx, settings, j.instanceID)

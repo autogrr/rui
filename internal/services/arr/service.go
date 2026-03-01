@@ -8,10 +8,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"golift.io/starr/radarr"
+	"golift.io/starr/sonarr"
 
 	"github.com/autogrr/rui/internal/models"
 )
@@ -378,7 +381,7 @@ func (s *Service) DebugResolve(ctx context.Context, title string, contentType Co
 	return result, nil
 }
 
-// getArrTypeForContent maps content type to the appropriate ARR instance type
+// getArrTypeForContent maps content type to the primary ARR instance type.
 func (s *Service) getArrTypeForContent(contentType ContentType) models.ArrInstanceType {
 	switch contentType {
 	case ContentTypeMovie:
@@ -388,6 +391,127 @@ func (s *Service) getArrTypeForContent(contentType ContentType) models.ArrInstan
 	default:
 		return ""
 	}
+}
+
+// newClientForInstance builds a Client for the given stored instance,
+// decrypting credentials as needed.
+func (s *Service) newClientForInstance(ctx context.Context, instance *models.ArrInstance) (*Client, error) {
+	apiKey, err := s.instanceStore.GetDecryptedAPIKey(instance)
+	if err != nil {
+		return nil, fmt.Errorf("decrypt API key: %w", err)
+	}
+	var basicPass string
+	if instance.BasicUsername != nil && *instance.BasicUsername != "" {
+		basicPass, err = s.instanceStore.GetDecryptedBasicPassword(instance)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt basic auth: %w", err)
+		}
+	}
+	var passPtr *string
+	if basicPass != "" {
+		passPtr = &basicPass
+	}
+	return NewClient(instance.BaseURL, apiKey, instance.BasicUsername, passPtr, instance.Type, instance.TimeoutSeconds), nil
+}
+
+// GetAllSeries returns all series from the given Sonarr/Whisparr instance.
+func (s *Service) GetAllSeries(ctx context.Context, instanceID int) ([]*sonarr.Series, error) {
+	instance, err := s.instanceStore.Get(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	client, err := s.newClientForInstance(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
+	return client.GetAllSeries(ctx)
+}
+
+// GetAllMovies returns all movies from the given Radarr instance.
+func (s *Service) GetAllMovies(ctx context.Context, instanceID int) ([]*radarr.Movie, error) {
+	instance, err := s.instanceStore.Get(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	client, err := s.newClientForInstance(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
+	return client.GetAllMovies(ctx)
+}
+
+// SearchSeriesResult is a hit from a series title search across arr instances.
+type SearchSeriesResult struct {
+	InstanceID   int             `json:"instance_id"`
+	InstanceName string          `json:"instance_name"`
+	Series       []*sonarr.Series `json:"series"`
+}
+
+// SearchMoviesResult is a hit from a movie title search across arr instances.
+type SearchMoviesResult struct {
+	InstanceID   int            `json:"instance_id"`
+	InstanceName string         `json:"instance_name"`
+	Movies       []*radarr.Movie `json:"movies"`
+}
+
+// SearchSeries searches all enabled Sonarr/Whisparr instances for the term.
+func (s *Service) SearchSeries(ctx context.Context, term string) ([]SearchSeriesResult, error) {
+	instances, err := s.instanceStore.ListEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var results []SearchSeriesResult
+	for _, inst := range instances {
+		if !inst.Type.IsSonarrCompatible() {
+			continue
+		}
+		client, err := s.newClientForInstance(ctx, inst)
+		if err != nil {
+			log.Warn().Err(err).Int("instanceId", inst.ID).Msg("[ARR-SEARCH] skip instance")
+			continue
+		}
+		series, err := client.SearchSeries(ctx, term)
+		if err != nil {
+			log.Warn().Err(err).Int("instanceId", inst.ID).Str("term", term).Msg("[ARR-SEARCH] series lookup failed")
+			continue
+		}
+		results = append(results, SearchSeriesResult{
+			InstanceID:   inst.ID,
+			InstanceName: inst.Name,
+			Series:       series,
+		})
+	}
+	return results, nil
+}
+
+// SearchMovies searches all enabled Radarr instances for the term.
+func (s *Service) SearchMovies(ctx context.Context, term string) ([]SearchMoviesResult, error) {
+	instances, err := s.instanceStore.ListEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var results []SearchMoviesResult
+	for _, inst := range instances {
+		if !inst.Type.IsRadarrCompatible() {
+			continue
+		}
+		client, err := s.newClientForInstance(ctx, inst)
+		if err != nil {
+			log.Warn().Err(err).Int("instanceId", inst.ID).Msg("[ARR-SEARCH] skip instance")
+			continue
+		}
+		movies, err := client.SearchMovies(ctx, term)
+		if err != nil {
+			log.Warn().Err(err).Int("instanceId", inst.ID).Str("term", term).Msg("[ARR-SEARCH] movie lookup failed")
+			continue
+		}
+		results = append(results, SearchMoviesResult{
+			InstanceID:   inst.ID,
+			InstanceName: inst.Name,
+			Movies:       movies,
+		})
+	}
+	return results, nil
 }
 
 // CleanupExpiredCache removes expired cache entries

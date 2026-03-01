@@ -1,0 +1,224 @@
+// Copyright (c) 2026, the rui contributors.
+// SPDX-License-Identifier: AGPL-1.0-or-later
+
+package pages
+
+import (
+	"fmt"
+	"github.com/autogrr/rui/internal/models"
+	"github.com/autogrr/rui/internal/ui/layouts"
+)
+
+// LibraryProps holds data for the library management page.
+type LibraryProps struct {
+	BaseURL     string
+	Username    string
+	Version     string
+	CurrentPath string
+	Instances   []layouts.Instance
+
+	Titles []*models.LibraryTitle
+	Rules  []*models.LibraryRule
+	Error  string
+}
+
+// libraryActionBadge returns badge CSS for a library action.
+func libraryActionBadge(action string) string {
+	switch action {
+	case "grab":
+		return "bg-green-500/15 text-green-700 dark:text-green-400"
+	case "skip":
+		return "bg-muted text-muted-foreground"
+	case "remove":
+		return "bg-red-500/15 text-red-700 dark:text-red-400"
+	case "upgrade":
+		return "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+	default:
+		return "bg-muted text-muted-foreground"
+	}
+}
+
+// libraryContentTypeBadge returns badge CSS for a content type.
+func libraryContentTypeBadge(ct string) string {
+	switch ct {
+	case "tv":
+		return "bg-purple-500/15 text-purple-700 dark:text-purple-400"
+	case "movie":
+		return "bg-blue-500/15 text-blue-700 dark:text-blue-400"
+	case "anime":
+		return "bg-pink-500/15 text-pink-700 dark:text-pink-400"
+	default:
+		return "bg-muted text-muted-foreground"
+	}
+}
+
+// libraryYearStr converts an optional year int to display string.
+func libraryYearStr(year *int) string {
+	if year == nil || *year == 0 {
+		return "—"
+	}
+	return fmt.Sprintf("%d", *year)
+}
+
+templ Library(p LibraryProps) {
+	@layouts.Authenticated(layouts.AuthProps{
+		BaseURL:     p.BaseURL,
+		Title:       "Library",
+		CurrentPath: p.CurrentPath,
+		Username:    p.Username,
+		AppVersion:  p.Version,
+		Instances:   p.Instances,
+	}) {
+		<div class="flex flex-col gap-6 p-6">
+			<!-- Header -->
+			<div class="flex items-center justify-between">
+				<div>
+					<h1 class="text-2xl font-bold tracking-tight">Library</h1>
+					<p class="text-sm text-muted-foreground mt-1">
+						Native title library synced from *arr instances. Used for release matching and intake rules.
+					</p>
+				</div>
+				<div class="flex items-center gap-2">
+					<button
+						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+						hx-post={ p.BaseURL + "/ui/partials/library/sync" }
+						hx-target="#library-titles-table"
+						hx-swap="outerHTML"
+					>
+						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M21 2v6h-6"/>
+							<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+							<path d="M3 22v-6h6"/>
+							<path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+						</svg>
+						Sync All
+					</button>
+				</div>
+			</div>
+
+			if p.Error != "" {
+				<div class="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+					{ p.Error }
+				</div>
+			}
+
+			<!-- Titles Table -->
+			<div class="rounded-lg border bg-card">
+				<div class="flex items-center justify-between p-4 border-b">
+					<h2 class="font-semibold">Titles <span class="ml-1.5 text-xs text-muted-foreground font-normal">({ fmt.Sprintf("%d", len(p.Titles)) })</span></h2>
+				</div>
+				<div id="library-titles-table">
+					if len(p.Titles) == 0 {
+						<div class="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+							<svg class="h-10 w-10 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+								<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+								<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+							</svg>
+							<p class="text-sm">No titles in library yet.</p>
+							<p class="text-xs">Sync an *arr instance to populate the library.</p>
+						</div>
+					} else {
+						<div class="overflow-x-auto">
+							<table class="w-full text-sm">
+								<thead>
+									<tr class="border-b bg-muted/30">
+										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Title</th>
+										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Year</th>
+										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Type</th>
+										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Status</th>
+										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">IDs</th>
+									</tr>
+								</thead>
+								<tbody class="divide-y">
+									for _, t := range p.Titles {
+										<tr class="hover:bg-muted/20 transition-colors">
+											<td class="px-4 py-2.5">
+												<span class="font-medium">{ t.Title }</span>
+												if t.SortTitle != "" && t.SortTitle != t.Title {
+													<span class="ml-1.5 text-xs text-muted-foreground">({ t.SortTitle })</span>
+												}
+											</td>
+											<td class="px-4 py-2.5 text-muted-foreground">{ libraryYearStr(t.Year) }</td>
+											<td class="px-4 py-2.5">
+												<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryContentTypeBadge(string(t.ContentType)) }>
+													{ string(t.ContentType) }
+												</span>
+											</td>
+											<td class="px-4 py-2.5 text-muted-foreground text-xs">{ t.Status }</td>
+											<td class="px-4 py-2.5 text-xs text-muted-foreground">
+												if t.IMDbID != "" {
+													<span class="mr-1.5">IMDb: { t.IMDbID }</span>
+												}
+												if t.TMDbID != 0 {
+													<span class="mr-1.5">TMDb: { fmt.Sprintf("%d", t.TMDbID) }</span>
+												}
+												if t.TVDbID != 0 {
+													<span>TVDb: { fmt.Sprintf("%d", t.TVDbID) }</span>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					}
+				</div>
+			</div>
+
+			<!-- Rules -->
+			<div class="rounded-lg border bg-card">
+				<div class="flex items-center justify-between p-4 border-b">
+					<h2 class="font-semibold">Library Rules <span class="ml-1.5 text-xs text-muted-foreground font-normal">({ fmt.Sprintf("%d", len(p.Rules)) })</span></h2>
+					<p class="text-xs text-muted-foreground">Evaluated in sort order. First match wins.</p>
+				</div>
+				if len(p.Rules) == 0 {
+					<div class="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
+						<p class="text-sm">No library rules defined.</p>
+						<p class="text-xs">Rules use expr-lang expressions to decide what action to take for matched titles.</p>
+					</div>
+				} else {
+					<div class="overflow-x-auto">
+						<table class="w-full text-sm">
+							<thead>
+								<tr class="border-b bg-muted/30">
+									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground w-6">#</th>
+									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Name</th>
+									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Filter</th>
+									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Action</th>
+									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Enabled</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y">
+								for _, rule := range p.Rules {
+									<tr class="hover:bg-muted/20 transition-colors">
+										<td class="px-4 py-2.5 text-muted-foreground text-xs">{ fmt.Sprintf("%d", rule.SortOrder) }</td>
+										<td class="px-4 py-2.5 font-medium">{ rule.Name }</td>
+										<td class="px-4 py-2.5 font-mono text-xs text-muted-foreground max-w-xs truncate">
+											if rule.ExprFilter == "" {
+												<span class="italic">— match all —</span>
+											} else {
+												{ rule.ExprFilter }
+											}
+										</td>
+										<td class="px-4 py-2.5">
+											<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryActionBadge(string(rule.Action)) }>
+												{ string(rule.Action) }
+											</span>
+										</td>
+										<td class="px-4 py-2.5">
+											if rule.Enabled {
+												<span class="text-green-600 text-xs">✓</span>
+											} else {
+												<span class="text-muted-foreground text-xs">–</span>
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			</div>
+		</div>
+	}
+}

@@ -32,6 +32,8 @@ import (
 	"golang.org/x/sync/singleflight"
 	"golang.org/x/text/transform"
 
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
+
 	"github.com/autogrr/rui/pkg/httphelpers"
 )
 
@@ -70,8 +72,9 @@ type Service struct {
 
 	group singleflight.Group
 
-	failureMu   sync.Mutex
-	lastFailure map[string]time.Time
+	// failureCache tracks hosts in cooldown; presence = still cooling down.
+	// Entries expire automatically after failureCooldown with no manual cleanup.
+	failureCache *ttlcache.Cache[string, struct{}]
 }
 
 // Flow overview:
@@ -103,9 +106,11 @@ func NewService(dataDir, userAgent string) (*Service, error) {
 	}
 
 	svc := &Service{
-		iconDir:     iconDir,
-		client:      &http.Client{Timeout: fetchTimeout},
-		lastFailure: make(map[string]time.Time),
+		iconDir: iconDir,
+		client:  &http.Client{Timeout: fetchTimeout},
+		failureCache: ttlcache.New(
+			ttlcache.Options[string, struct{}]{}.SetDefaultTTL(failureCooldown),
+		),
 	}
 
 	if trimmed := strings.TrimSpace(userAgent); trimmed != "" {
@@ -594,28 +599,16 @@ func (s *Service) buildBaseCandidates(host, trackerURL string) []*url.URL {
 }
 
 func (s *Service) canAttempt(host string) bool {
-	s.failureMu.Lock()
-	defer s.failureMu.Unlock()
-
-	if ts, ok := s.lastFailure[host]; ok {
-		if time.Since(ts) < failureCooldown {
-			return false
-		}
-	}
-
-	return true
+	_, inCooldown := s.failureCache.Get(host)
+	return !inCooldown
 }
 
 func (s *Service) recordFailure(host string) {
-	s.failureMu.Lock()
-	s.lastFailure[host] = time.Now()
-	s.failureMu.Unlock()
+	s.failureCache.Set(host, struct{}{}, ttlcache.DefaultTTL)
 }
 
 func (s *Service) clearFailure(host string) {
-	s.failureMu.Lock()
-	delete(s.lastFailure, host)
-	s.failureMu.Unlock()
+	s.failureCache.Delete(host)
 }
 
 func sanitizeHost(host string) string {

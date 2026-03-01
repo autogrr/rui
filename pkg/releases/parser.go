@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/autobrr/autobrr/pkg/ttlcache"
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
 	"github.com/moistari/rls"
 
 	"github.com/autogrr/rui/pkg/stringutils"

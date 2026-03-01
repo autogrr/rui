@@ -1,4 +1,3 @@
-// Copyright (c) 2025, s0up and the autobrr contributors.
 // Copyright (c) 2026, the rui contributors.
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
@@ -22,6 +21,7 @@ var ErrInvalidAPIKey = errors.New("invalid api key")
 
 type APIKey struct {
 	ID         int        `json:"id"`
+	OwnerID    int        `json:"ownerId"`
 	KeyHash    string     `json:"-"`
 	Name       string     `json:"name"`
 	CreatedAt  time.Time  `json:"createdAt"`
@@ -68,22 +68,27 @@ func (s *APIKeyStore) Create(ctx context.Context, name string) (string, *APIKey,
 	}
 	defer tx.Rollback()
 
-	// Intern the name
-	ids, err := dbinterface.InternStringNullable(ctx, tx, &name)
+	// Intern both key_hash and name
+	ids, err := dbinterface.InternStrings(ctx, tx, keyHash, name)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to intern name: %w", err)
+		return "", nil, fmt.Errorf("failed to intern strings: %w", err)
+	}
+
+	// Get first user as owner (single-user mode)
+	var ownerID int
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&ownerID); err != nil {
+		return "", nil, fmt.Errorf("failed to get owner: %w", err)
 	}
 
 	// Insert the API key
 	apiKey := &APIKey{}
 	var createdAt, lastUsedAt sql.NullTime
 	err = tx.QueryRowContext(ctx, `
-		INSERT INTO api_keys (key_hash, name_id) 
-		VALUES (?, ?)
-		RETURNING id, key_hash, created_at, last_used_at
-	`, keyHash, ids[0]).Scan(
+		INSERT INTO api_keys (owner_id, key_hash_id, name_id) 
+		VALUES (?, ?, ?)
+		RETURNING id, created_at, last_used_at
+	`, ownerID, ids[0], ids[1]).Scan(
 		&apiKey.ID,
-		&apiKey.KeyHash,
 		&createdAt,
 		&lastUsedAt,
 	)
@@ -96,6 +101,8 @@ func (s *APIKeyStore) Create(ctx context.Context, name string) (string, *APIKey,
 		return "", nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
+	apiKey.OwnerID = ownerID
+	apiKey.KeyHash = keyHash
 	apiKey.Name = name
 	apiKey.CreatedAt = createdAt.Time
 	if lastUsedAt.Valid {
@@ -108,18 +115,19 @@ func (s *APIKeyStore) Create(ctx context.Context, name string) (string, *APIKey,
 
 func (s *APIKeyStore) GetByHash(ctx context.Context, keyHash string) (*APIKey, error) {
 	query := `
-		SELECT id, key_hash, name, created_at, last_used_at 
+		SELECT id, owner_id, key_hash, name, created_at, last_used_at 
 		FROM api_keys_view 
 		WHERE key_hash = ?
 	`
 
-	var id int
+	var id, ownerID int
 	var keyHashResult, name string
 	var createdAt sql.NullTime
 	var lastUsedAt sql.NullTime
 
 	err := s.db.QueryRowContext(ctx, query, keyHash).Scan(
 		&id,
+		&ownerID,
 		&keyHashResult,
 		&name,
 		&createdAt,
@@ -136,6 +144,7 @@ func (s *APIKeyStore) GetByHash(ctx context.Context, keyHash string) (*APIKey, e
 
 	apiKey := &APIKey{
 		ID:        id,
+		OwnerID:   ownerID,
 		KeyHash:   keyHashResult,
 		Name:      name,
 		CreatedAt: createdAt.Time,
@@ -150,7 +159,7 @@ func (s *APIKeyStore) GetByHash(ctx context.Context, keyHash string) (*APIKey, e
 
 func (s *APIKeyStore) List(ctx context.Context) ([]*APIKey, error) {
 	query := `
-		SELECT id, key_hash, name, created_at, last_used_at 
+		SELECT id, owner_id, key_hash, name, created_at, last_used_at 
 		FROM api_keys_view 
 		ORDER BY created_at DESC
 	`
@@ -163,13 +172,14 @@ func (s *APIKeyStore) List(ctx context.Context) ([]*APIKey, error) {
 
 	keys := make([]*APIKey, 0)
 	for rows.Next() {
-		var id int
+		var id, ownerID int
 		var keyHash, name string
 		var createdAt sql.NullTime
 		var lastUsedAt sql.NullTime
 
 		err := rows.Scan(
 			&id,
+			&ownerID,
 			&keyHash,
 			&name,
 			&createdAt,
@@ -181,6 +191,7 @@ func (s *APIKeyStore) List(ctx context.Context) ([]*APIKey, error) {
 
 		apiKey := &APIKey{
 			ID:        id,
+			OwnerID:   ownerID,
 			KeyHash:   keyHash,
 			Name:      name,
 			CreatedAt: createdAt.Time,

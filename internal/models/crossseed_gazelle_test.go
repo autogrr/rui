@@ -25,7 +25,7 @@ func TestCrossSeedStore_GazelleKeys_EncryptedAndRedacted(t *testing.T) {
 
 	ctx := context.Background()
 
-	updated, err := store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	updated, err := store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 		OrpheusAPIKey:  "ops-key",
@@ -35,12 +35,12 @@ func TestCrossSeedStore_GazelleKeys_EncryptedAndRedacted(t *testing.T) {
 	require.Equal(t, domain.RedactedStr, updated.RedactedAPIKey)
 	require.Equal(t, domain.RedactedStr, updated.OrpheusAPIKey)
 
-	red, ok, err := store.GetDecryptedGazelleAPIKey(ctx, "redacted.sh")
+	red, ok, err := store.GetDecryptedGazelleAPIKey(ctx, 1, "redacted.sh")
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, "red-key", red)
 
-	ops, ok, err := store.GetDecryptedGazelleAPIKey(ctx, "orpheus.network")
+	ops, ok, err := store.GetDecryptedGazelleAPIKey(ctx, 1, "orpheus.network")
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, "ops-key", ops)
@@ -57,7 +57,7 @@ func TestCrossSeedStore_GazelleKeys_PreserveAndClear(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: "red-key",
 		OrpheusAPIKey:  "ops-key",
@@ -65,7 +65,7 @@ func TestCrossSeedStore_GazelleKeys_PreserveAndClear(t *testing.T) {
 	require.NoError(t, err)
 
 	// Preserve RED (redacted placeholder), clear OPS (empty string).
-	updated, err := store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	updated, err := store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: true,
 		RedactedAPIKey: domain.RedactedStr,
 		OrpheusAPIKey:  "",
@@ -74,12 +74,12 @@ func TestCrossSeedStore_GazelleKeys_PreserveAndClear(t *testing.T) {
 	require.Equal(t, domain.RedactedStr, updated.RedactedAPIKey)
 	require.Empty(t, updated.OrpheusAPIKey)
 
-	red, ok, err := store.GetDecryptedGazelleAPIKey(ctx, "redacted.sh")
+	red, ok, err := store.GetDecryptedGazelleAPIKey(ctx, 1, "redacted.sh")
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, "red-key", red)
 
-	ops, ok, err := store.GetDecryptedGazelleAPIKey(ctx, "orpheus.network")
+	ops, ok, err := store.GetDecryptedGazelleAPIKey(ctx, 1, "orpheus.network")
 	require.NoError(t, err)
 	require.False(t, ok)
 	require.Empty(t, ops)
@@ -96,13 +96,13 @@ func TestCrossSeedStore_GazelleKeys_DisabledGatesDecryption(t *testing.T) {
 
 	ctx := context.Background()
 
-	_, err = store.UpsertSettings(ctx, &models.CrossSeedAutomationSettings{
+	_, err = store.UpsertSettings(ctx, 1, &models.CrossSeedAutomationSettings{
 		GazelleEnabled: false,
 		RedactedAPIKey: "red-key",
 	})
 	require.NoError(t, err)
 
-	got, ok, err := store.GetDecryptedGazelleAPIKey(ctx, "redacted.sh")
+	got, ok, err := store.GetDecryptedGazelleAPIKey(ctx, 1, "redacted.sh")
 	require.NoError(t, err)
 	require.False(t, ok)
 	require.Empty(t, got)

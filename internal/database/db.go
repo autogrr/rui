@@ -62,7 +62,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/autobrr/autobrr/pkg/ttlcache"
+	"github.com/autogrr/go-ttlcache/pkg/ttlcache"
 	"github.com/rs/zerolog/log"
 	"modernc.org/sqlite"
 
@@ -1080,6 +1080,21 @@ func (db *DB) applyAllMigrations(ctx context.Context, migrations []string) error
 	// Migrations that need foreign keys disabled due to table recreation
 	needsForeignKeysOff := map[string]bool{
 		"010_add_files_cache_and_string_interning.sql": true,
+		"064_add_rbac_users_roles.sql":                 true,
+		"065_intern_instances.sql":                     true,
+		"066_intern_api_keys_errors.sql":               true,
+		"067_intern_backups_extprograms.sql":           true,
+		"068_intern_instance_settings.sql":             true,
+		"069_intern_torznab_indexers.sql":              true,
+		"070_intern_torznab_caches.sql":                true,
+		"071_intern_cross_seed_settings.sql":           true,
+		"072_intern_cross_seed_runs.sql":               true,
+		"073_intern_tracker_dashboard.sql":             true,
+		"074_intern_automations.sql":                   true,
+		"075_intern_orphan_scan.sql":                   true,
+		"076_intern_arr_instances.sql":                 true,
+		"077_intern_dir_scan.sql":                      true,
+		"078_intern_notifications_misc.sql":            true,
 	}
 
 	// Begin single transaction for all migrations using BeginTx for proper connection handling
