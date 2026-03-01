@@ -28,22 +28,31 @@ func setupInstanceErrorTestDB(t *testing.T) (*mockQuerier, *InstanceErrorStore) 
 			value TEXT NOT NULL UNIQUE
 		);
 		CREATE INDEX idx_string_pool_value ON string_pool(value);
+		CREATE TABLE users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username_id INTEGER REFERENCES string_pool(id)
+		);
+		INSERT INTO users (id) VALUES (1);
 		CREATE TABLE instances (
 			id INTEGER PRIMARY KEY,
+			owner_id INTEGER NOT NULL DEFAULT 1 REFERENCES users(id) ON DELETE CASCADE,
 			name_id INTEGER NOT NULL,
 			host_id INTEGER NOT NULL,
 			username_id INTEGER NOT NULL,
-			password_encrypted TEXT NOT NULL,
+			password_encrypted_id INTEGER,
 			basic_username_id INTEGER,
-			basic_password_encrypted TEXT,
+			basic_password_encrypted_id INTEGER,
 			tls_skip_verify BOOLEAN NOT NULL DEFAULT 0,
 			FOREIGN KEY (name_id) REFERENCES string_pool(id),
 			FOREIGN KEY (host_id) REFERENCES string_pool(id),
 			FOREIGN KEY (username_id) REFERENCES string_pool(id),
-			FOREIGN KEY (basic_username_id) REFERENCES string_pool(id)
+			FOREIGN KEY (password_encrypted_id) REFERENCES string_pool(id),
+			FOREIGN KEY (basic_username_id) REFERENCES string_pool(id),
+			FOREIGN KEY (basic_password_encrypted_id) REFERENCES string_pool(id)
 		);
 		CREATE TABLE instance_errors (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			owner_id INTEGER NOT NULL DEFAULT 1 REFERENCES users(id) ON DELETE CASCADE,
 			instance_id INTEGER NOT NULL,
 			error_type_id INTEGER NOT NULL,
 			error_message_id INTEGER NOT NULL,
@@ -52,9 +61,19 @@ func setupInstanceErrorTestDB(t *testing.T) (*mockQuerier, *InstanceErrorStore) 
 			FOREIGN KEY(error_type_id) REFERENCES string_pool(id),
 			FOREIGN KEY(error_message_id) REFERENCES string_pool(id)
 		);
+		CREATE TRIGGER IF NOT EXISTS cleanup_old_instance_errors
+		AFTER INSERT ON instance_errors BEGIN
+		    DELETE FROM instance_errors
+		    WHERE instance_id = NEW.instance_id
+		      AND id NOT IN (
+		          SELECT id FROM instance_errors
+		          WHERE instance_id = NEW.instance_id
+		          ORDER BY occurred_at DESC LIMIT 5);
+		END;
 		CREATE VIEW instance_errors_view AS
 		SELECT 
 		    ie.id,
+		    ie.owner_id,
 		    ie.instance_id,
 		    sp_type.value AS error_type,
 		    sp_msg.value AS error_message,
@@ -109,7 +128,7 @@ func TestInstanceErrorStore_RecordError_DeduplicatesWithinOneMinute(t *testing.T
 	err = db.QueryRowContext(ctx, "INSERT INTO string_pool (value) VALUES (?) ON CONFLICT (value) DO UPDATE SET value = value RETURNING id", "user").Scan(&usernameID)
 	require.NoError(t, err)
 
-	_, err = db.Exec("INSERT INTO instances (id, name_id, host_id, username_id, password_encrypted) VALUES (?, ?, ?, ?, 'pass')", 1, nameID, hostID, usernameID)
+	_, err = db.Exec("INSERT INTO instances (id, owner_id, name_id, host_id, username_id, password_encrypted_id) VALUES (?, 1, ?, ?, ?, ?)", 1, nameID, hostID, usernameID, nameID)
 	require.NoError(t, err)
 
 	firstErr := errors.New("connection refused")

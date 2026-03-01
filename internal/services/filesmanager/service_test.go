@@ -25,18 +25,31 @@ func setupFilesManagerDB(t *testing.T) (*database.DB, context.Context) {
 		require.NoError(t, db.Close())
 	})
 
-	// Seed instance row to satisfy foreign key constraints for cache writes
-	var (
-		instanceNameID int64
-		hostID         int64
-		usernameID     int64
-	)
+	// Create a test user (required by instances.owner_id FK)
+	_, err = db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
-	require.NoError(t, db.QueryRowContext(ctx, "INSERT INTO string_pool (value) VALUES (?) RETURNING id", "instance-name").Scan(&instanceNameID))
-	require.NoError(t, db.QueryRowContext(ctx, "INSERT INTO string_pool (value) VALUES (?) RETURNING id", "instance-host").Scan(&hostID))
-	require.NoError(t, db.QueryRowContext(ctx, "INSERT INTO string_pool (value) VALUES (?) RETURNING id", "instance-username").Scan(&usernameID))
+	// Seed instance row to satisfy foreign key constraints for cache writes.
+	// The instances table uses fully interned columns (all TEXT via string_pool).
+	_, err = db.ExecContext(ctx, `INSERT OR IGNORE INTO string_pool (value)
+		VALUES ('instance-name'), ('instance-host'), ('instance-username'), ('enc')`)
+	require.NoError(t, err)
 
-	_, err = db.ExecContext(ctx, "INSERT INTO instances (id, name_id, host_id, username_id, password_encrypted) VALUES (?, ?, ?, ?, ?)", 1, instanceNameID, hostID, usernameID, "enc")
+	// The empty string ('') is already seeded by migrations; use it for hardlink defaults.
+	_, err = db.ExecContext(ctx, `INSERT INTO instances (id, owner_id, name_id, host_id, username_id,
+		password_encrypted_id, hardlink_base_dir_id, hardlink_dir_preset_id)
+		VALUES (1,
+			(SELECT id FROM users LIMIT 1),
+			(SELECT id FROM string_pool WHERE value = 'instance-name'),
+			(SELECT id FROM string_pool WHERE value = 'instance-host'),
+			(SELECT id FROM string_pool WHERE value = 'instance-username'),
+			(SELECT id FROM string_pool WHERE value = 'enc'),
+			(SELECT id FROM string_pool WHERE value = ''),
+			(SELECT id FROM string_pool WHERE value = ''))`)
 	require.NoError(t, err)
 
 	return db, ctx

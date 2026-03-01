@@ -443,36 +443,63 @@ func mustExec(t *testing.T, db *sql.DB, query string, args ...any) {
 func createOrphanScanSchema(t *testing.T, db *sql.DB) {
 	t.Helper()
 
+	mustExec(t, db, `CREATE TABLE IF NOT EXISTS string_pool (
+		id    INTEGER PRIMARY KEY AUTOINCREMENT,
+		value TEXT NOT NULL UNIQUE
+	)`)
+	mustExec(t, db, `CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username_id INTEGER REFERENCES string_pool(id)
+	)`)
+	mustExec(t, db, `INSERT INTO users (id) VALUES (1)`)
 	mustExec(t, db, `CREATE TABLE instances (id INTEGER PRIMARY KEY)`)
 
 	mustExec(t, db, `
 		CREATE TABLE IF NOT EXISTS orphan_scan_runs (
-			id              INTEGER PRIMARY KEY AUTOINCREMENT,
-			instance_id     INTEGER NOT NULL,
-			status          TEXT NOT NULL,
-			triggered_by    TEXT NOT NULL,
-			scan_paths      TEXT,
-			files_found     INTEGER DEFAULT 0,
-			files_deleted   INTEGER DEFAULT 0,
-			folders_deleted INTEGER DEFAULT 0,
-			bytes_reclaimed INTEGER DEFAULT 0,
-			truncated       INTEGER NOT NULL DEFAULT 0,
-			error_message   TEXT,
-			started_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-			completed_at    DATETIME,
-			FOREIGN KEY (instance_id) REFERENCES instances(id) ON DELETE CASCADE
+			id               INTEGER PRIMARY KEY AUTOINCREMENT,
+			owner_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			instance_id      INTEGER NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+			status_id        INTEGER NOT NULL REFERENCES string_pool(id),
+			triggered_by_id  INTEGER NOT NULL REFERENCES string_pool(id),
+			scan_paths_id    INTEGER REFERENCES string_pool(id),
+			files_found      INTEGER DEFAULT 0,
+			files_deleted    INTEGER DEFAULT 0,
+			folders_deleted  INTEGER DEFAULT 0,
+			bytes_reclaimed  INTEGER DEFAULT 0,
+			truncated        INTEGER NOT NULL DEFAULT 0,
+			error_message_id INTEGER REFERENCES string_pool(id),
+			started_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+			completed_at     DATETIME
 		);
 
 		CREATE TABLE IF NOT EXISTS orphan_scan_files (
-			id            INTEGER PRIMARY KEY AUTOINCREMENT,
-			run_id        INTEGER NOT NULL,
-			file_path     TEXT NOT NULL,
-			file_size     INTEGER NOT NULL,
-			modified_at   DATETIME,
-			status        TEXT NOT NULL DEFAULT 'pending',
-			error_message TEXT,
-			FOREIGN KEY (run_id) REFERENCES orphan_scan_runs(id) ON DELETE CASCADE
+			id               INTEGER PRIMARY KEY AUTOINCREMENT,
+			run_id           INTEGER NOT NULL REFERENCES orphan_scan_runs(id) ON DELETE CASCADE,
+			file_path_id     INTEGER NOT NULL REFERENCES string_pool(id),
+			file_size        INTEGER NOT NULL,
+			modified_at      DATETIME,
+			status_id        INTEGER NOT NULL REFERENCES string_pool(id),
+			error_message_id INTEGER REFERENCES string_pool(id)
 		);
+
+		CREATE VIEW IF NOT EXISTS orphan_scan_runs_view AS
+		SELECT osr.id, osr.owner_id, osr.instance_id,
+		       sp_s.value AS status, sp_tb.value AS triggered_by, sp_sp.value AS scan_paths,
+		       osr.files_found, osr.files_deleted, osr.folders_deleted, osr.bytes_reclaimed,
+		       osr.truncated, sp_em.value AS error_message, osr.started_at, osr.completed_at
+		FROM orphan_scan_runs osr
+		JOIN string_pool sp_s  ON osr.status_id = sp_s.id
+		JOIN string_pool sp_tb ON osr.triggered_by_id = sp_tb.id
+		LEFT JOIN string_pool sp_sp ON osr.scan_paths_id = sp_sp.id
+		LEFT JOIN string_pool sp_em ON osr.error_message_id = sp_em.id;
+
+		CREATE VIEW IF NOT EXISTS orphan_scan_files_view AS
+		SELECT osf.id, osf.run_id, sp_fp.value AS file_path, osf.file_size, osf.modified_at,
+		       sp_s.value AS status, sp_em.value AS error_message
+		FROM orphan_scan_files osf
+		JOIN string_pool sp_fp ON osf.file_path_id = sp_fp.id
+		JOIN string_pool sp_s  ON osf.status_id = sp_s.id
+		LEFT JOIN string_pool sp_em ON osf.error_message_id = sp_em.id;
 	`)
 }
 
@@ -490,9 +517,16 @@ func TestOrphanScan_MarkDeletingRunsFailed(t *testing.T) {
 	createOrphanScanSchema(t, sqlDB)
 	mustExec(t, sqlDB, `INSERT INTO instances (id) VALUES (1)`)
 
+	// Intern the status and triggered_by strings first.
+	mustExec(t, sqlDB, `INSERT OR IGNORE INTO string_pool (value) VALUES ('deleting'), ('manual'), ('[]')`)
+
 	res, err := sqlDB.ExecContext(ctx, `
-		INSERT INTO orphan_scan_runs (instance_id, status, triggered_by, scan_paths, files_found)
-		VALUES (1, 'deleting', 'manual', '[]', 2)
+		INSERT INTO orphan_scan_runs (owner_id, instance_id, status_id, triggered_by_id, scan_paths_id, files_found)
+		VALUES (1, 1,
+			(SELECT id FROM string_pool WHERE value = 'deleting'),
+			(SELECT id FROM string_pool WHERE value = 'manual'),
+			(SELECT id FROM string_pool WHERE value = '[]'),
+			2)
 	`)
 	if err != nil {
 		t.Fatalf("insert run: %v", err)
@@ -539,10 +573,17 @@ func TestOrphanScan_RecoverStuckRuns_MarksDeletingFailedImmediately(t *testing.T
 	createOrphanScanSchema(t, sqlDB)
 	mustExec(t, sqlDB, `INSERT INTO instances (id) VALUES (1)`)
 
+	// Intern the status and triggered_by strings first.
+	mustExec(t, sqlDB, `INSERT OR IGNORE INTO string_pool (value) VALUES ('deleting'), ('manual'), ('[]'), ('pending')`)
+
 	// A deleting run should be failed immediately on startup.
 	res, err := sqlDB.ExecContext(ctx, `
-		INSERT INTO orphan_scan_runs (instance_id, status, triggered_by, scan_paths, files_found)
-		VALUES (1, 'deleting', 'manual', '[]', 2)
+		INSERT INTO orphan_scan_runs (owner_id, instance_id, status_id, triggered_by_id, scan_paths_id, files_found)
+		VALUES (1, 1,
+			(SELECT id FROM string_pool WHERE value = 'deleting'),
+			(SELECT id FROM string_pool WHERE value = 'manual'),
+			(SELECT id FROM string_pool WHERE value = '[]'),
+			2)
 	`)
 	if err != nil {
 		t.Fatalf("insert deleting run: %v", err)
@@ -554,8 +595,12 @@ func TestOrphanScan_RecoverStuckRuns_MarksDeletingFailedImmediately(t *testing.T
 
 	// A fresh pending run should not be touched (threshold-based).
 	res, err = sqlDB.ExecContext(ctx, `
-		INSERT INTO orphan_scan_runs (instance_id, status, triggered_by, scan_paths, files_found)
-		VALUES (1, 'pending', 'manual', '[]', 0)
+		INSERT INTO orphan_scan_runs (owner_id, instance_id, status_id, triggered_by_id, scan_paths_id, files_found)
+		VALUES (1, 1,
+			(SELECT id FROM string_pool WHERE value = 'pending'),
+			(SELECT id FROM string_pool WHERE value = 'manual'),
+			(SELECT id FROM string_pool WHERE value = '[]'),
+			0)
 	`)
 	if err != nil {
 		t.Fatalf("insert pending run: %v", err)

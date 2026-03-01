@@ -1224,76 +1224,313 @@ func (db *DB) applyAllMigrations(ctx context.Context, migrations []string) error
 //
 // NOTE: Uses an optimized temp table approach with a single UNION ALL query to minimize
 // transaction time while maintaining data consistency.
+//
+// referencedStringsInsertQuery collects all string_pool IDs referenced by any table.
+// This MUST be kept in sync with all tables that have FK references to string_pool.
+// Generated from: PRAGMA foreign_key_list(<table>) for all tables.
 const referencedStringsInsertQuery = `
-	SELECT torrent_hash_id AS string_id FROM torrent_files_cache WHERE torrent_hash_id IS NOT NULL
-	UNION ALL
-	SELECT name_id AS string_id FROM torrent_files_cache WHERE name_id IS NOT NULL
-	UNION ALL
-	SELECT torrent_hash_id AS string_id FROM torrent_files_sync WHERE torrent_hash_id IS NOT NULL
-	UNION ALL
-	SELECT torrent_hash_id AS string_id FROM instance_backup_items WHERE torrent_hash_id IS NOT NULL
-	UNION ALL
-	SELECT name_id AS string_id FROM instance_backup_items WHERE name_id IS NOT NULL
-	UNION ALL
-	SELECT category_id AS string_id FROM instance_backup_items WHERE category_id IS NOT NULL
-	UNION ALL
-	SELECT tags_id AS string_id FROM instance_backup_items WHERE tags_id IS NOT NULL
-	UNION ALL
-	SELECT archive_rel_path_id AS string_id FROM instance_backup_items WHERE archive_rel_path_id IS NOT NULL
-	UNION ALL
-	SELECT infohash_v1_id AS string_id FROM instance_backup_items WHERE infohash_v1_id IS NOT NULL
-	UNION ALL
-	SELECT infohash_v2_id AS string_id FROM instance_backup_items WHERE infohash_v2_id IS NOT NULL
-	UNION ALL
-	SELECT torrent_blob_path_id AS string_id FROM instance_backup_items WHERE torrent_blob_path_id IS NOT NULL
-	UNION ALL
-	SELECT kind_id AS string_id FROM instance_backup_runs WHERE kind_id IS NOT NULL
-	UNION ALL
-	SELECT status_id AS string_id FROM instance_backup_runs WHERE status_id IS NOT NULL
-	UNION ALL
-	SELECT requested_by_id AS string_id FROM instance_backup_runs WHERE requested_by_id IS NOT NULL
-	UNION ALL
-	SELECT error_message_id AS string_id FROM instance_backup_runs WHERE error_message_id IS NOT NULL
-	UNION ALL
-	SELECT archive_path_id AS string_id FROM instance_backup_runs WHERE archive_path_id IS NOT NULL
-	UNION ALL
-	SELECT manifest_path_id AS string_id FROM instance_backup_runs WHERE manifest_path_id IS NOT NULL
-	UNION ALL
-	SELECT name_id AS string_id FROM instances WHERE name_id IS NOT NULL
-	UNION ALL
-	SELECT host_id AS string_id FROM instances WHERE host_id IS NOT NULL
-	UNION ALL
-	SELECT username_id AS string_id FROM instances WHERE username_id IS NOT NULL
-	UNION ALL
-	SELECT basic_username_id AS string_id FROM instances WHERE basic_username_id IS NOT NULL
-	UNION ALL
+	-- api_keys
 	SELECT name_id AS string_id FROM api_keys WHERE name_id IS NOT NULL
+	UNION ALL SELECT key_hash_id FROM api_keys WHERE key_hash_id IS NOT NULL
 	UNION ALL
-	SELECT client_name_id AS string_id FROM client_api_keys WHERE client_name_id IS NOT NULL
+	-- arr_id_cache
+	SELECT title_hash_id FROM arr_id_cache WHERE title_hash_id IS NOT NULL
+	UNION ALL SELECT content_type_id FROM arr_id_cache WHERE content_type_id IS NOT NULL
+	UNION ALL SELECT imdb_id_sid FROM arr_id_cache WHERE imdb_id_sid IS NOT NULL
 	UNION ALL
-	SELECT error_type_id AS string_id FROM instance_errors WHERE error_type_id IS NOT NULL
+	-- arr_instances
+	SELECT type_id FROM arr_instances WHERE type_id IS NOT NULL
+	UNION ALL SELECT name_id FROM arr_instances WHERE name_id IS NOT NULL
+	UNION ALL SELECT base_url_id FROM arr_instances WHERE base_url_id IS NOT NULL
+	UNION ALL SELECT api_key_encrypted_id FROM arr_instances WHERE api_key_encrypted_id IS NOT NULL
+	UNION ALL SELECT last_test_status_id FROM arr_instances WHERE last_test_status_id IS NOT NULL
+	UNION ALL SELECT last_test_error_id FROM arr_instances WHERE last_test_error_id IS NOT NULL
+	UNION ALL SELECT basic_username_id FROM arr_instances WHERE basic_username_id IS NOT NULL
+	UNION ALL SELECT basic_password_encrypted_id FROM arr_instances WHERE basic_password_encrypted_id IS NOT NULL
 	UNION ALL
-	SELECT error_message_id AS string_id FROM instance_errors WHERE error_message_id IS NOT NULL
+	-- automation_activity
+	SELECT hash_id FROM automation_activity WHERE hash_id IS NOT NULL
+	UNION ALL SELECT torrent_name_id FROM automation_activity WHERE torrent_name_id IS NOT NULL
+	UNION ALL SELECT tracker_domain_id FROM automation_activity WHERE tracker_domain_id IS NOT NULL
+	UNION ALL SELECT action_id FROM automation_activity WHERE action_id IS NOT NULL
+	UNION ALL SELECT rule_name_id FROM automation_activity WHERE rule_name_id IS NOT NULL
+	UNION ALL SELECT outcome_id FROM automation_activity WHERE outcome_id IS NOT NULL
+	UNION ALL SELECT reason_id FROM automation_activity WHERE reason_id IS NOT NULL
+	UNION ALL SELECT details_id FROM automation_activity WHERE details_id IS NOT NULL
 	UNION ALL
-	SELECT name_id AS string_id FROM torznab_indexers WHERE name_id IS NOT NULL
+	-- automations
+	SELECT name_id FROM automations WHERE name_id IS NOT NULL
+	UNION ALL SELECT tracker_pattern_id FROM automations WHERE tracker_pattern_id IS NOT NULL
+	UNION ALL SELECT conditions_id FROM automations WHERE conditions_id IS NOT NULL
+	UNION ALL SELECT free_space_source_id FROM automations WHERE free_space_source_id IS NOT NULL
+	UNION ALL SELECT expr_filter_id FROM automations WHERE expr_filter_id IS NOT NULL
 	UNION ALL
-	SELECT base_url_id AS string_id FROM torznab_indexers WHERE base_url_id IS NOT NULL
+	-- client_api_keys
+	SELECT key_hash_id FROM client_api_keys WHERE key_hash_id IS NOT NULL
+	UNION ALL SELECT client_name_id FROM client_api_keys WHERE client_name_id IS NOT NULL
 	UNION ALL
-	SELECT indexer_id_string_id AS string_id FROM torznab_indexers WHERE indexer_id_string_id IS NOT NULL
+	-- cross_seed_blocklist
+	SELECT infohash_id FROM cross_seed_blocklist WHERE infohash_id IS NOT NULL
+	UNION ALL SELECT note_id FROM cross_seed_blocklist WHERE note_id IS NOT NULL
 	UNION ALL
-	SELECT basic_username_id AS string_id FROM torznab_indexers WHERE basic_username_id IS NOT NULL
+	-- cross_seed_feed_items
+	SELECT guid_id FROM cross_seed_feed_items WHERE guid_id IS NOT NULL
+	UNION ALL SELECT title_id FROM cross_seed_feed_items WHERE title_id IS NOT NULL
+	UNION ALL SELECT last_status_id FROM cross_seed_feed_items WHERE last_status_id IS NOT NULL
+	UNION ALL SELECT info_hash_id FROM cross_seed_feed_items WHERE info_hash_id IS NOT NULL
 	UNION ALL
-	SELECT capability_type_id AS string_id FROM torznab_indexer_capabilities WHERE capability_type_id IS NOT NULL
+	-- cross_seed_runs
+	SELECT triggered_by_id FROM cross_seed_runs WHERE triggered_by_id IS NOT NULL
+	UNION ALL SELECT mode_id FROM cross_seed_runs WHERE mode_id IS NOT NULL
+	UNION ALL SELECT status_id FROM cross_seed_runs WHERE status_id IS NOT NULL
+	UNION ALL SELECT message_id FROM cross_seed_runs WHERE message_id IS NOT NULL
+	UNION ALL SELECT error_message_id FROM cross_seed_runs WHERE error_message_id IS NOT NULL
+	UNION ALL SELECT results_json_id FROM cross_seed_runs WHERE results_json_id IS NOT NULL
 	UNION ALL
-	SELECT category_name_id AS string_id FROM torznab_indexer_categories WHERE category_name_id IS NOT NULL
+	-- cross_seed_search_history
+	SELECT torrent_hash_id FROM cross_seed_search_history WHERE torrent_hash_id IS NOT NULL
 	UNION ALL
-	SELECT error_message_id AS string_id FROM torznab_indexer_errors WHERE error_message_id IS NOT NULL
+	-- cross_seed_search_runs
+	SELECT status_id FROM cross_seed_search_runs WHERE status_id IS NOT NULL
+	UNION ALL SELECT message_id FROM cross_seed_search_runs WHERE message_id IS NOT NULL
+	UNION ALL SELECT error_message_id FROM cross_seed_search_runs WHERE error_message_id IS NOT NULL
+	UNION ALL SELECT filters_json_id FROM cross_seed_search_runs WHERE filters_json_id IS NOT NULL
+	UNION ALL SELECT indexer_ids_json_id FROM cross_seed_search_runs WHERE indexer_ids_json_id IS NOT NULL
+	UNION ALL SELECT results_json_id FROM cross_seed_search_runs WHERE results_json_id IS NOT NULL
 	UNION ALL
-	SELECT name_id AS string_id FROM arr_instances WHERE name_id IS NOT NULL
+	-- cross_seed_search_settings
+	SELECT categories_id FROM cross_seed_search_settings WHERE categories_id IS NOT NULL
+	UNION ALL SELECT tags_id FROM cross_seed_search_settings WHERE tags_id IS NOT NULL
+	UNION ALL SELECT indexer_ids_id FROM cross_seed_search_settings WHERE indexer_ids_id IS NOT NULL
 	UNION ALL
-	SELECT base_url_id AS string_id FROM arr_instances WHERE base_url_id IS NOT NULL
+	-- cross_seed_settings
+	SELECT category_id FROM cross_seed_settings WHERE category_id IS NOT NULL
+	UNION ALL SELECT target_instance_ids_id FROM cross_seed_settings WHERE target_instance_ids_id IS NOT NULL
+	UNION ALL SELECT target_indexer_ids_id FROM cross_seed_settings WHERE target_indexer_ids_id IS NOT NULL
+	UNION ALL SELECT rss_automation_tags_id FROM cross_seed_settings WHERE rss_automation_tags_id IS NOT NULL
+	UNION ALL SELECT seeded_search_tags_id FROM cross_seed_settings WHERE seeded_search_tags_id IS NOT NULL
+	UNION ALL SELECT completion_search_tags_id FROM cross_seed_settings WHERE completion_search_tags_id IS NOT NULL
+	UNION ALL SELECT webhook_tags_id FROM cross_seed_settings WHERE webhook_tags_id IS NOT NULL
+	UNION ALL SELECT rss_source_categories_id FROM cross_seed_settings WHERE rss_source_categories_id IS NOT NULL
+	UNION ALL SELECT rss_source_tags_id FROM cross_seed_settings WHERE rss_source_tags_id IS NOT NULL
+	UNION ALL SELECT rss_source_exclude_categories_id FROM cross_seed_settings WHERE rss_source_exclude_categories_id IS NOT NULL
+	UNION ALL SELECT rss_source_exclude_tags_id FROM cross_seed_settings WHERE rss_source_exclude_tags_id IS NOT NULL
+	UNION ALL SELECT webhook_source_categories_id FROM cross_seed_settings WHERE webhook_source_categories_id IS NOT NULL
+	UNION ALL SELECT webhook_source_tags_id FROM cross_seed_settings WHERE webhook_source_tags_id IS NOT NULL
+	UNION ALL SELECT webhook_source_exclude_categories_id FROM cross_seed_settings WHERE webhook_source_exclude_categories_id IS NOT NULL
+	UNION ALL SELECT webhook_source_exclude_tags_id FROM cross_seed_settings WHERE webhook_source_exclude_tags_id IS NOT NULL
+	UNION ALL SELECT custom_category_id FROM cross_seed_settings WHERE custom_category_id IS NOT NULL
+	UNION ALL SELECT category_affix_mode_id FROM cross_seed_settings WHERE category_affix_mode_id IS NOT NULL
+	UNION ALL SELECT category_affix_id FROM cross_seed_settings WHERE category_affix_id IS NOT NULL
+	UNION ALL SELECT redacted_api_key_encrypted_id FROM cross_seed_settings WHERE redacted_api_key_encrypted_id IS NOT NULL
+	UNION ALL SELECT orpheus_api_key_encrypted_id FROM cross_seed_settings WHERE orpheus_api_key_encrypted_id IS NOT NULL
 	UNION ALL
-	SELECT basic_username_id AS string_id FROM arr_instances WHERE basic_username_id IS NOT NULL
+	-- dashboard_settings
+	SELECT section_visibility_id FROM dashboard_settings WHERE section_visibility_id IS NOT NULL
+	UNION ALL SELECT section_order_id FROM dashboard_settings WHERE section_order_id IS NOT NULL
+	UNION ALL SELECT section_collapsed_id FROM dashboard_settings WHERE section_collapsed_id IS NOT NULL
+	UNION ALL SELECT tracker_breakdown_sort_column_id FROM dashboard_settings WHERE tracker_breakdown_sort_column_id IS NOT NULL
+	UNION ALL SELECT tracker_breakdown_sort_direction_id FROM dashboard_settings WHERE tracker_breakdown_sort_direction_id IS NOT NULL
+	UNION ALL
+	-- dir_scan_directories
+	SELECT path_id FROM dir_scan_directories WHERE path_id IS NOT NULL
+	UNION ALL SELECT qbit_path_prefix_id FROM dir_scan_directories WHERE qbit_path_prefix_id IS NOT NULL
+	UNION ALL SELECT category_id FROM dir_scan_directories WHERE category_id IS NOT NULL
+	UNION ALL SELECT tags_id FROM dir_scan_directories WHERE tags_id IS NOT NULL
+	UNION ALL
+	-- dir_scan_files
+	SELECT file_path_id FROM dir_scan_files WHERE file_path_id IS NOT NULL
+	UNION ALL SELECT status_id FROM dir_scan_files WHERE status_id IS NOT NULL
+	UNION ALL SELECT matched_torrent_hash_id FROM dir_scan_files WHERE matched_torrent_hash_id IS NOT NULL
+	UNION ALL
+	-- dir_scan_run_injections
+	SELECT status_id FROM dir_scan_run_injections WHERE status_id IS NOT NULL
+	UNION ALL SELECT searchee_name_id FROM dir_scan_run_injections WHERE searchee_name_id IS NOT NULL
+	UNION ALL SELECT torrent_name_id FROM dir_scan_run_injections WHERE torrent_name_id IS NOT NULL
+	UNION ALL SELECT info_hash_id FROM dir_scan_run_injections WHERE info_hash_id IS NOT NULL
+	UNION ALL SELECT content_type_id FROM dir_scan_run_injections WHERE content_type_id IS NOT NULL
+	UNION ALL SELECT indexer_name_id FROM dir_scan_run_injections WHERE indexer_name_id IS NOT NULL
+	UNION ALL SELECT tracker_domain_id FROM dir_scan_run_injections WHERE tracker_domain_id IS NOT NULL
+	UNION ALL SELECT tracker_display_name_id FROM dir_scan_run_injections WHERE tracker_display_name_id IS NOT NULL
+	UNION ALL SELECT link_mode_id FROM dir_scan_run_injections WHERE link_mode_id IS NOT NULL
+	UNION ALL SELECT save_path_id FROM dir_scan_run_injections WHERE save_path_id IS NOT NULL
+	UNION ALL SELECT category_id FROM dir_scan_run_injections WHERE category_id IS NOT NULL
+	UNION ALL SELECT tags_id FROM dir_scan_run_injections WHERE tags_id IS NOT NULL
+	UNION ALL SELECT error_message_id FROM dir_scan_run_injections WHERE error_message_id IS NOT NULL
+	UNION ALL
+	-- dir_scan_runs
+	SELECT status_id FROM dir_scan_runs WHERE status_id IS NOT NULL
+	UNION ALL SELECT triggered_by_id FROM dir_scan_runs WHERE triggered_by_id IS NOT NULL
+	UNION ALL SELECT error_message_id FROM dir_scan_runs WHERE error_message_id IS NOT NULL
+	UNION ALL
+	-- dir_scan_settings
+	SELECT match_mode_id FROM dir_scan_settings WHERE match_mode_id IS NOT NULL
+	UNION ALL SELECT category_id FROM dir_scan_settings WHERE category_id IS NOT NULL
+	UNION ALL SELECT tags_id FROM dir_scan_settings WHERE tags_id IS NOT NULL
+	UNION ALL
+	-- external_programs
+	SELECT name_id FROM external_programs WHERE name_id IS NOT NULL
+	UNION ALL SELECT path_id FROM external_programs WHERE path_id IS NOT NULL
+	UNION ALL SELECT args_template_id FROM external_programs WHERE args_template_id IS NOT NULL
+	UNION ALL SELECT path_mappings_id FROM external_programs WHERE path_mappings_id IS NOT NULL
+	UNION ALL
+	-- instance_backup_items
+	SELECT torrent_hash_id FROM instance_backup_items WHERE torrent_hash_id IS NOT NULL
+	UNION ALL SELECT name_id FROM instance_backup_items WHERE name_id IS NOT NULL
+	UNION ALL SELECT category_id FROM instance_backup_items WHERE category_id IS NOT NULL
+	UNION ALL SELECT tags_id FROM instance_backup_items WHERE tags_id IS NOT NULL
+	UNION ALL SELECT archive_rel_path_id FROM instance_backup_items WHERE archive_rel_path_id IS NOT NULL
+	UNION ALL SELECT infohash_v1_id FROM instance_backup_items WHERE infohash_v1_id IS NOT NULL
+	UNION ALL SELECT infohash_v2_id FROM instance_backup_items WHERE infohash_v2_id IS NOT NULL
+	UNION ALL SELECT torrent_blob_path_id FROM instance_backup_items WHERE torrent_blob_path_id IS NOT NULL
+	UNION ALL
+	-- instance_backup_runs
+	SELECT kind_id FROM instance_backup_runs WHERE kind_id IS NOT NULL
+	UNION ALL SELECT status_id FROM instance_backup_runs WHERE status_id IS NOT NULL
+	UNION ALL SELECT requested_by_id FROM instance_backup_runs WHERE requested_by_id IS NOT NULL
+	UNION ALL SELECT error_message_id FROM instance_backup_runs WHERE error_message_id IS NOT NULL
+	UNION ALL SELECT archive_path_id FROM instance_backup_runs WHERE archive_path_id IS NOT NULL
+	UNION ALL SELECT manifest_path_id FROM instance_backup_runs WHERE manifest_path_id IS NOT NULL
+	UNION ALL SELECT category_counts_json_id FROM instance_backup_runs WHERE category_counts_json_id IS NOT NULL
+	UNION ALL SELECT categories_json_id FROM instance_backup_runs WHERE categories_json_id IS NOT NULL
+	UNION ALL SELECT tags_json_id FROM instance_backup_runs WHERE tags_json_id IS NOT NULL
+	UNION ALL
+	-- instance_backup_settings
+	SELECT custom_path_id FROM instance_backup_settings WHERE custom_path_id IS NOT NULL
+	UNION ALL
+	-- instance_crossseed_completion_settings
+	SELECT categories_json_id FROM instance_crossseed_completion_settings WHERE categories_json_id IS NOT NULL
+	UNION ALL SELECT tags_json_id FROM instance_crossseed_completion_settings WHERE tags_json_id IS NOT NULL
+	UNION ALL SELECT exclude_categories_json_id FROM instance_crossseed_completion_settings WHERE exclude_categories_json_id IS NOT NULL
+	UNION ALL SELECT exclude_tags_json_id FROM instance_crossseed_completion_settings WHERE exclude_tags_json_id IS NOT NULL
+	UNION ALL SELECT indexer_ids_json_id FROM instance_crossseed_completion_settings WHERE indexer_ids_json_id IS NOT NULL
+	UNION ALL
+	-- instance_errors
+	SELECT error_type_id FROM instance_errors WHERE error_type_id IS NOT NULL
+	UNION ALL SELECT error_message_id FROM instance_errors WHERE error_message_id IS NOT NULL
+	UNION ALL
+	-- instance_reannounce_settings
+	SELECT categories_json_id FROM instance_reannounce_settings WHERE categories_json_id IS NOT NULL
+	UNION ALL SELECT tags_json_id FROM instance_reannounce_settings WHERE tags_json_id IS NOT NULL
+	UNION ALL SELECT trackers_json_id FROM instance_reannounce_settings WHERE trackers_json_id IS NOT NULL
+	UNION ALL
+	-- instances
+	SELECT name_id FROM instances WHERE name_id IS NOT NULL
+	UNION ALL SELECT host_id FROM instances WHERE host_id IS NOT NULL
+	UNION ALL SELECT username_id FROM instances WHERE username_id IS NOT NULL
+	UNION ALL SELECT password_encrypted_id FROM instances WHERE password_encrypted_id IS NOT NULL
+	UNION ALL SELECT basic_username_id FROM instances WHERE basic_username_id IS NOT NULL
+	UNION ALL SELECT basic_password_encrypted_id FROM instances WHERE basic_password_encrypted_id IS NOT NULL
+	UNION ALL SELECT hardlink_base_dir_id FROM instances WHERE hardlink_base_dir_id IS NOT NULL
+	UNION ALL SELECT hardlink_dir_preset_id FROM instances WHERE hardlink_dir_preset_id IS NOT NULL
+	UNION ALL
+	-- licenses
+	SELECT license_key_id FROM licenses WHERE license_key_id IS NOT NULL
+	UNION ALL SELECT product_name_id FROM licenses WHERE product_name_id IS NOT NULL
+	UNION ALL SELECT status_id FROM licenses WHERE status_id IS NOT NULL
+	UNION ALL SELECT polar_customer_id_sid FROM licenses WHERE polar_customer_id_sid IS NOT NULL
+	UNION ALL SELECT polar_product_id_sid FROM licenses WHERE polar_product_id_sid IS NOT NULL
+	UNION ALL SELECT polar_activation_id_sid FROM licenses WHERE polar_activation_id_sid IS NOT NULL
+	UNION ALL SELECT username_id FROM licenses WHERE username_id IS NOT NULL
+	UNION ALL SELECT provider_id FROM licenses WHERE provider_id IS NOT NULL
+	UNION ALL SELECT dodo_instance_id_sid FROM licenses WHERE dodo_instance_id_sid IS NOT NULL
+	UNION ALL
+	-- log_exclusions
+	SELECT patterns_id FROM log_exclusions WHERE patterns_id IS NOT NULL
+	UNION ALL
+	-- notification_targets
+	SELECT name_id FROM notification_targets WHERE name_id IS NOT NULL
+	UNION ALL SELECT url_id FROM notification_targets WHERE url_id IS NOT NULL
+	UNION ALL SELECT event_types_id FROM notification_targets WHERE event_types_id IS NOT NULL
+	UNION ALL
+	-- orphan_scan_files
+	SELECT file_path_id FROM orphan_scan_files WHERE file_path_id IS NOT NULL
+	UNION ALL SELECT status_id FROM orphan_scan_files WHERE status_id IS NOT NULL
+	UNION ALL SELECT error_message_id FROM orphan_scan_files WHERE error_message_id IS NOT NULL
+	UNION ALL
+	-- orphan_scan_runs
+	SELECT status_id FROM orphan_scan_runs WHERE status_id IS NOT NULL
+	UNION ALL SELECT triggered_by_id FROM orphan_scan_runs WHERE triggered_by_id IS NOT NULL
+	UNION ALL SELECT scan_paths_id FROM orphan_scan_runs WHERE scan_paths_id IS NOT NULL
+	UNION ALL SELECT error_message_id FROM orphan_scan_runs WHERE error_message_id IS NOT NULL
+	UNION ALL
+	-- orphan_scan_settings
+	SELECT ignore_paths_id FROM orphan_scan_settings WHERE ignore_paths_id IS NOT NULL
+	UNION ALL SELECT preview_sort_id FROM orphan_scan_settings WHERE preview_sort_id IS NOT NULL
+	UNION ALL
+	-- permissions
+	SELECT name_id FROM permissions WHERE name_id IS NOT NULL
+	UNION ALL SELECT description_id FROM permissions WHERE description_id IS NOT NULL
+	UNION ALL
+	-- resource_shares
+	SELECT resource_type_id FROM resource_shares WHERE resource_type_id IS NOT NULL
+	UNION ALL SELECT permission_id FROM resource_shares WHERE permission_id IS NOT NULL
+	UNION ALL
+	-- roles
+	SELECT name_id FROM roles WHERE name_id IS NOT NULL
+	UNION ALL SELECT description_id FROM roles WHERE description_id IS NOT NULL
+	UNION ALL
+	-- torrent_files_cache
+	SELECT torrent_hash_id FROM torrent_files_cache WHERE torrent_hash_id IS NOT NULL
+	UNION ALL SELECT name_id FROM torrent_files_cache WHERE name_id IS NOT NULL
+	UNION ALL
+	-- torrent_files_sync
+	SELECT torrent_hash_id FROM torrent_files_sync WHERE torrent_hash_id IS NOT NULL
+	UNION ALL
+	-- torznab_indexer_capabilities
+	SELECT capability_type_id FROM torznab_indexer_capabilities WHERE capability_type_id IS NOT NULL
+	UNION ALL
+	-- torznab_indexer_categories
+	SELECT category_name_id FROM torznab_indexer_categories WHERE category_name_id IS NOT NULL
+	UNION ALL
+	-- torznab_indexer_cooldowns
+	SELECT reason_id FROM torznab_indexer_cooldowns WHERE reason_id IS NOT NULL
+	UNION ALL
+	-- torznab_indexer_errors
+	SELECT error_message_id FROM torznab_indexer_errors WHERE error_message_id IS NOT NULL
+	UNION ALL SELECT error_code_id FROM torznab_indexer_errors WHERE error_code_id IS NOT NULL
+	UNION ALL
+	-- torznab_indexer_latency
+	SELECT operation_type_id FROM torznab_indexer_latency WHERE operation_type_id IS NOT NULL
+	UNION ALL
+	-- torznab_indexers
+	SELECT name_id FROM torznab_indexers WHERE name_id IS NOT NULL
+	UNION ALL SELECT base_url_id FROM torznab_indexers WHERE base_url_id IS NOT NULL
+	UNION ALL SELECT indexer_id_string_id FROM torznab_indexers WHERE indexer_id_string_id IS NOT NULL
+	UNION ALL SELECT api_key_encrypted_id FROM torznab_indexers WHERE api_key_encrypted_id IS NOT NULL
+	UNION ALL SELECT backend_id FROM torznab_indexers WHERE backend_id IS NOT NULL
+	UNION ALL SELECT capabilities_id FROM torznab_indexers WHERE capabilities_id IS NOT NULL
+	UNION ALL SELECT last_test_status_id FROM torznab_indexers WHERE last_test_status_id IS NOT NULL
+	UNION ALL SELECT last_test_error_id FROM torznab_indexers WHERE last_test_error_id IS NOT NULL
+	UNION ALL SELECT basic_username_id FROM torznab_indexers WHERE basic_username_id IS NOT NULL
+	UNION ALL SELECT basic_password_encrypted_id FROM torznab_indexers WHERE basic_password_encrypted_id IS NOT NULL
+	UNION ALL
+	-- torznab_search_cache
+	SELECT cache_key_id FROM torznab_search_cache WHERE cache_key_id IS NOT NULL
+	UNION ALL SELECT scope_id FROM torznab_search_cache WHERE scope_id IS NOT NULL
+	UNION ALL SELECT query_id FROM torznab_search_cache WHERE query_id IS NOT NULL
+	UNION ALL SELECT categories_json_id FROM torznab_search_cache WHERE categories_json_id IS NOT NULL
+	UNION ALL SELECT indexer_ids_json_id FROM torznab_search_cache WHERE indexer_ids_json_id IS NOT NULL
+	UNION ALL SELECT indexer_matcher_id FROM torznab_search_cache WHERE indexer_matcher_id IS NOT NULL
+	UNION ALL SELECT request_fingerprint_id FROM torznab_search_cache WHERE request_fingerprint_id IS NOT NULL
+	UNION ALL
+	-- torznab_torrent_cache
+	SELECT cache_key_id FROM torznab_torrent_cache WHERE cache_key_id IS NOT NULL
+	UNION ALL SELECT guid_id FROM torznab_torrent_cache WHERE guid_id IS NOT NULL
+	UNION ALL SELECT download_url_id FROM torznab_torrent_cache WHERE download_url_id IS NOT NULL
+	UNION ALL SELECT info_hash_id FROM torznab_torrent_cache WHERE info_hash_id IS NOT NULL
+	UNION ALL SELECT title_id FROM torznab_torrent_cache WHERE title_id IS NOT NULL
+	UNION ALL
+	-- tracker_customizations
+	SELECT display_name_id FROM tracker_customizations WHERE display_name_id IS NOT NULL
+	UNION ALL SELECT domains_id FROM tracker_customizations WHERE domains_id IS NOT NULL
+	UNION ALL SELECT included_in_stats_id FROM tracker_customizations WHERE included_in_stats_id IS NOT NULL
+	UNION ALL
+	-- users
+	SELECT username_id FROM users WHERE username_id IS NOT NULL
+	UNION ALL SELECT password_hash_id FROM users WHERE password_hash_id IS NOT NULL
+	UNION ALL SELECT display_name_id FROM users WHERE display_name_id IS NOT NULL
+	UNION ALL SELECT email_id FROM users WHERE email_id IS NOT NULL
 `
 
 func (db *DB) CleanupUnusedStrings(ctx context.Context) (int64, error) {

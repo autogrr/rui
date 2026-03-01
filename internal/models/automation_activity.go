@@ -109,11 +109,29 @@ func (s *AutomationActivityStore) insert(ctx context.Context, activity *Automati
 	}
 
 	// Intern required strings: hash, action, outcome
-	ids, err := dbinterface.InternStrings(ctx, tx, activity.Hash, activity.Action, activity.Outcome)
-	if err != nil {
-		return nil, fmt.Errorf("failed to intern strings: %w", err)
+	// Hash may be empty for batch summary activities (e.g., dry-run summaries).
+	// InternStrings rejects empty strings, so handle hash separately when empty.
+	var hashID, actionID, outcomeID int64
+	if activity.Hash != "" {
+		ids, err := dbinterface.InternStrings(ctx, tx, activity.Hash, activity.Action, activity.Outcome)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern strings: %w", err)
+		}
+		hashID, actionID, outcomeID = ids[0], ids[1], ids[2]
+	} else {
+		// Intern empty string manually for batch activities
+		if _, err := tx.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('')"); err != nil {
+			return nil, fmt.Errorf("failed to intern empty hash: %w", err)
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT id FROM string_pool WHERE value = ''").Scan(&hashID); err != nil {
+			return nil, fmt.Errorf("failed to get empty hash ID: %w", err)
+		}
+		ids, err := dbinterface.InternStrings(ctx, tx, activity.Action, activity.Outcome)
+		if err != nil {
+			return nil, fmt.Errorf("failed to intern strings: %w", err)
+		}
+		actionID, outcomeID = ids[0], ids[1]
 	}
-	hashID, actionID, outcomeID := ids[0], ids[1], ids[2]
 
 	// Intern nullable strings: torrent_name, tracker_domain, rule_name, reason, details
 	var detailsPtr *string

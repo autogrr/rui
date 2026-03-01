@@ -27,6 +27,7 @@ const defaultTimeout = 15 * time.Second
 type Client struct {
 instanceType models.ArrInstanceType
 cfg          *starr.Config
+timeout      time.Duration
 }
 
 // NewClient creates a golift/starr-backed Client for the given instance type.
@@ -44,7 +45,7 @@ HTTPUser: strVal(basicUser),
 HTTPPass: strVal(basicPass),
 }
 
-return &Client{instanceType: instanceType, cfg: cfg}
+return &Client{instanceType: instanceType, cfg: cfg, timeout: timeout}
 }
 
 // Ping tests connectivity by checking /ping and then /api/v3/system/status.

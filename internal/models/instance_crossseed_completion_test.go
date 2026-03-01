@@ -26,6 +26,8 @@ func setupCompletionTestDB(t *testing.T) *database.DB {
 		require.NoError(t, db.Close())
 	})
 
+	createTestUser(t, db)
+
 	return db
 }
 
@@ -35,25 +37,29 @@ func insertTestInstance(t *testing.T, db *database.DB, name string) int {
 	ctx := context.Background()
 
 	// Insert string values into string_pool
-	_, err := db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES (?)", name)
-	require.NoError(t, err)
-	_, err = db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES (?)", "http://localhost:8080")
-	require.NoError(t, err)
-	_, err = db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES (?)", "admin")
-	require.NoError(t, err)
+	for _, v := range []string{name, "http://localhost:8080", "admin", "", "secret"} {
+		_, err := db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES (?)", v)
+		require.NoError(t, err)
+	}
 
-	var nameID, hostID, usernameID int64
-	err = db.QueryRowContext(ctx, "SELECT id FROM string_pool WHERE value = ?", name).Scan(&nameID)
+	var nameID, hostID, usernameID, passwordID, emptyID int64
+	err := db.QueryRowContext(ctx, "SELECT id FROM string_pool WHERE value = ?", name).Scan(&nameID)
 	require.NoError(t, err)
 	err = db.QueryRowContext(ctx, "SELECT id FROM string_pool WHERE value = ?", "http://localhost:8080").Scan(&hostID)
 	require.NoError(t, err)
 	err = db.QueryRowContext(ctx, "SELECT id FROM string_pool WHERE value = ?", "admin").Scan(&usernameID)
 	require.NoError(t, err)
+	err = db.QueryRowContext(ctx, "SELECT id FROM string_pool WHERE value = ?", "secret").Scan(&passwordID)
+	require.NoError(t, err)
+	err = db.QueryRowContext(ctx, "SELECT id FROM string_pool WHERE value = ?", "").Scan(&emptyID)
+	require.NoError(t, err)
 
+	// owner_id=1 is the test user created by createTestUser
 	result, err := db.ExecContext(ctx, `
-		INSERT INTO instances (name_id, host_id, username_id, password_encrypted, tls_skip_verify, sort_order, is_active)
-		VALUES (?, ?, ?, '', 0, 0, 1)
-	`, nameID, hostID, usernameID)
+		INSERT INTO instances (owner_id, name_id, host_id, username_id, password_encrypted_id,
+			tls_skip_verify, sort_order, is_active, hardlink_base_dir_id, hardlink_dir_preset_id)
+		VALUES (1, ?, ?, ?, ?, 0, 0, 1, ?, ?)
+	`, nameID, hostID, usernameID, passwordID, emptyID, emptyID)
 	require.NoError(t, err)
 
 	id, err := result.LastInsertId()

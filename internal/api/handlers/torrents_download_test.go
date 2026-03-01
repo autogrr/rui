@@ -60,6 +60,14 @@ func createInstanceStoreWithInstance(t *testing.T, hasLocalAccess bool) (*models
 		require.NoError(t, db.Close())
 	})
 
+	// Create test user to satisfy FK constraints on instances.owner_id
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
 

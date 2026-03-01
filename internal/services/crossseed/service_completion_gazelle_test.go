@@ -183,27 +183,55 @@ func TestHandleTorrentCompletion_AllowsGazelleWhenJackettMissing(t *testing.T) {
 	q := &testQuerier{DB: db}
 
 	_, err = q.ExecContext(context.Background(), `
-		CREATE TABLE instance_crossseed_completion_settings (
-			instance_id INTEGER PRIMARY KEY,
-			enabled INTEGER NOT NULL,
-			categories_json TEXT NOT NULL,
-			tags_json TEXT NOT NULL,
-			exclude_categories_json TEXT NOT NULL,
-			exclude_tags_json TEXT NOT NULL,
-			indexer_ids_json TEXT NOT NULL,
-			updated_at DATETIME NOT NULL
+		CREATE TABLE IF NOT EXISTS string_pool (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			value TEXT NOT NULL UNIQUE
 		);
+		CREATE TABLE instance_crossseed_completion_settings (
+			instance_id INTEGER NOT NULL,
+			owner_id INTEGER NOT NULL DEFAULT 1,
+			enabled INTEGER NOT NULL,
+			categories_json_id INTEGER NOT NULL REFERENCES string_pool(id),
+			tags_json_id INTEGER NOT NULL REFERENCES string_pool(id),
+			exclude_categories_json_id INTEGER NOT NULL REFERENCES string_pool(id),
+			exclude_tags_json_id INTEGER NOT NULL REFERENCES string_pool(id),
+			indexer_ids_json_id INTEGER NOT NULL REFERENCES string_pool(id),
+			updated_at DATETIME NOT NULL,
+			PRIMARY KEY (instance_id, owner_id)
+		);
+		CREATE VIEW instance_crossseed_completion_settings_view AS
+		SELECT cs.instance_id, cs.owner_id, cs.enabled,
+		       sp_cj.value AS categories_json, sp_tj.value AS tags_json,
+		       sp_ecj.value AS exclude_categories_json, sp_etj.value AS exclude_tags_json,
+		       sp_ij.value AS indexer_ids_json, cs.updated_at
+		FROM instance_crossseed_completion_settings cs
+		JOIN string_pool sp_cj  ON cs.categories_json_id = sp_cj.id
+		JOIN string_pool sp_tj  ON cs.tags_json_id = sp_tj.id
+		JOIN string_pool sp_ecj ON cs.exclude_categories_json_id = sp_ecj.id
+		JOIN string_pool sp_etj ON cs.exclude_tags_json_id = sp_etj.id
+		JOIN string_pool sp_ij  ON cs.indexer_ids_json_id = sp_ij.id;
 	`)
 	if err != nil {
-		t.Fatalf("create completion settings table: %v", err)
+		t.Fatalf("create schema: %v", err)
+	}
+
+	// Insert string_pool values for the JSON fields
+	_, err = q.ExecContext(context.Background(), `INSERT INTO string_pool (value) VALUES ('[]')`)
+	if err != nil {
+		t.Fatalf("insert string pool: %v", err)
+	}
+	var emptyArrayID int64
+	err = q.QueryRowContext(context.Background(), `SELECT id FROM string_pool WHERE value = '[]'`).Scan(&emptyArrayID)
+	if err != nil {
+		t.Fatalf("get string pool id: %v", err)
 	}
 
 	_, err = q.ExecContext(context.Background(), `
 		INSERT INTO instance_crossseed_completion_settings (
-			instance_id, enabled, categories_json, tags_json,
-			exclude_categories_json, exclude_tags_json, indexer_ids_json, updated_at
-		) VALUES (1, 1, '[]', '[]', '[]', '[]', '[]', ?);
-	`, time.Now().UTC())
+			instance_id, owner_id, enabled, categories_json_id, tags_json_id,
+			exclude_categories_json_id, exclude_tags_json_id, indexer_ids_json_id, updated_at
+		) VALUES (1, 1, 1, ?, ?, ?, ?, ?, ?);
+	`, emptyArrayID, emptyArrayID, emptyArrayID, emptyArrayID, emptyArrayID, time.Now().UTC())
 	if err != nil {
 		t.Fatalf("insert completion settings: %v", err)
 	}
@@ -251,6 +279,18 @@ func TestExecuteCompletionSearch_GazelleSourceSkipsTorznab(t *testing.T) {
 		t.Fatalf("open db: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
+
+	ctx := context.Background()
+	_, err = db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	if err != nil {
+		t.Fatalf("insert string pool: %v", err)
+	}
+	_, err = db.ExecContext(ctx, `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	if err != nil {
+		t.Fatalf("insert test user: %v", err)
+	}
 
 	key := make([]byte, 32)
 	for i := range key {
@@ -343,6 +383,17 @@ func TestExecuteCompletionSearch_GazelleSourceFallsBackToTorznabWhenTargetKeyUnd
 		t.Fatalf("open db: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
+
+	_, err = db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	if err != nil {
+		t.Fatalf("insert string pool: %v", err)
+	}
+	_, err = db.ExecContext(ctx, `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	if err != nil {
+		t.Fatalf("insert test user: %v", err)
+	}
 
 	key := make([]byte, 32)
 	for i := range key {

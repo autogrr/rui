@@ -25,15 +25,22 @@ func insertTestInstance(t *testing.T, db *database.DB, name string) int {
 	ctx := context.Background()
 
 	// Intern strings
-	var nameID, hostID, usernameID int64
-	err := db.QueryRowContext(ctx, "INSERT INTO string_pool (value) VALUES (?) ON CONFLICT (value) DO UPDATE SET value = value RETURNING id", name).Scan(&nameID)
+	upsertSQL := "INSERT INTO string_pool (value) VALUES (?) ON CONFLICT (value) DO UPDATE SET value = value RETURNING id"
+	var nameID, hostID, usernameID, passID, emptyID int64
+	err := db.QueryRowContext(ctx, upsertSQL, name).Scan(&nameID)
 	require.NoError(t, err)
-	err = db.QueryRowContext(ctx, "INSERT INTO string_pool (value) VALUES (?) ON CONFLICT (value) DO UPDATE SET value = value RETURNING id", "http://localhost").Scan(&hostID)
+	err = db.QueryRowContext(ctx, upsertSQL, "http://localhost").Scan(&hostID)
 	require.NoError(t, err)
-	err = db.QueryRowContext(ctx, "INSERT INTO string_pool (value) VALUES (?) ON CONFLICT (value) DO UPDATE SET value = value RETURNING id", "user").Scan(&usernameID)
+	err = db.QueryRowContext(ctx, upsertSQL, "user").Scan(&usernameID)
+	require.NoError(t, err)
+	err = db.QueryRowContext(ctx, upsertSQL, "pass").Scan(&passID)
+	require.NoError(t, err)
+	err = db.QueryRowContext(ctx, upsertSQL, "").Scan(&emptyID)
 	require.NoError(t, err)
 
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (?, ?, ?, 'pass')", nameID, hostID, usernameID)
+	result, err := db.ExecContext(ctx, `INSERT INTO instances
+		(owner_id, name_id, host_id, username_id, password_encrypted_id, hardlink_base_dir_id, hardlink_dir_preset_id)
+		VALUES (1, ?, ?, ?, ?, ?, ?)`, nameID, hostID, usernameID, passID, emptyID, emptyID)
 	require.NoError(t, err)
 	instanceID64, err := result.LastInsertId()
 	require.NoError(t, err)
@@ -47,6 +54,15 @@ func setupTestBackupDB(t *testing.T) *database.DB {
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	db, err := database.New(dbPath)
 	require.NoError(t, err, "Failed to initialize test database with migrations")
+
+	// Create a test user so instances can reference owner_id
+	ctx := context.Background()
+	_, err = db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
 	// Allow multiple connections for tests that need concurrent access
 	db.Conn().SetMaxOpenConns(5)

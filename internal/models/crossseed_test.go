@@ -27,7 +27,24 @@ func setupCrossSeedTestDB(t *testing.T) *database.DB {
 		require.NoError(t, db.Close())
 	})
 
+	createTestUser(t, db)
+
 	return db
+}
+
+func createTestUser(t *testing.T, db *database.DB) int {
+	t.Helper()
+
+	ctx := context.Background()
+	_, err := db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	result, err := db.ExecContext(ctx, `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+	id, err := result.LastInsertId()
+	require.NoError(t, err)
+	return int(id)
 }
 
 func ensureStringPoolValue(t *testing.T, db *database.DB, value string) int64 {
@@ -49,12 +66,19 @@ func insertTestTorznabIndexer(t *testing.T, db *database.DB, name, baseURL strin
 
 	nameID := ensureStringPoolValue(t, db, name)
 	baseURLID := ensureStringPoolValue(t, db, baseURL)
+	apiKeyID := ensureStringPoolValue(t, db, "encrypted-key")
+	backendID := ensureStringPoolValue(t, db, "jackett")
+
+	// Get the test user's owner_id (assume first user)
+	var ownerID int
+	err := db.QueryRowContext(context.Background(), `SELECT id FROM users LIMIT 1`).Scan(&ownerID)
+	require.NoError(t, err)
 
 	ctx := context.Background()
 	result, err := db.ExecContext(ctx, `
-		INSERT INTO torznab_indexers (name_id, base_url_id, api_key_encrypted, backend)
-		VALUES (?, ?, ?, ?)
-	`, nameID, baseURLID, "encrypted-key", "jackett")
+		INSERT INTO torznab_indexers (owner_id, name_id, base_url_id, api_key_encrypted_id, backend_id)
+		VALUES (?, ?, ?, ?, ?)
+	`, ownerID, nameID, baseURLID, apiKeyID, backendID)
 	require.NoError(t, err)
 
 	indexerID, err := result.LastInsertId()

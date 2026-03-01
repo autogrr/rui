@@ -6,8 +6,7 @@
 -- Intern the empty string so all existing rows get a valid default FK.
 INSERT OR IGNORE INTO string_pool (value) VALUES ('');
 
-ALTER TABLE automations ADD COLUMN expr_filter_id INTEGER REFERENCES string_pool(id)
-    DEFAULT (SELECT id FROM string_pool WHERE value = '');
+ALTER TABLE automations ADD COLUMN expr_filter_id INTEGER REFERENCES string_pool(id);
 
 -- Populate existing rows with the empty string ID.
 UPDATE automations SET expr_filter_id = (SELECT id FROM string_pool WHERE value = '')

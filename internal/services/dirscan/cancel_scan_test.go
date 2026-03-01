@@ -26,6 +26,14 @@ func setupDirScanServiceTestDB(t *testing.T) *database.DB {
 		require.NoError(t, db.Close())
 	})
 
+	ctx := context.Background()
+	_, err = db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	return db
 }
 
@@ -39,7 +47,7 @@ func TestService_CancelScan_QueuedRunBumpsLastScanAt(t *testing.T) {
 	require.NoError(t, err)
 
 	localFS := true
-	instance, err := instanceStore.Create(ctx, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, &localFS)
+	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, &localFS)
 	require.NoError(t, err)
 
 	store := models.NewDirScanStore(db)

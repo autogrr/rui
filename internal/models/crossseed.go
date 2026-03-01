@@ -428,7 +428,7 @@ func (s *CrossSeedStore) GetSettings(ctx context.Context, ownerID int) (*CrossSe
 
 	var settings CrossSeedAutomationSettings
 	settings.OwnerID = ownerID
-	var category sql.NullString
+	var category, customCategory sql.NullString
 	var instancesJSON, indexersJSON sql.NullString
 	var rssSourceCategories, rssSourceTags, rssSourceExcludeCategories, rssSourceExcludeTags sql.NullString
 	var webhookSourceCategories, webhookSourceTags, webhookSourceExcludeCategories, webhookSourceExcludeTags sql.NullString
@@ -467,7 +467,7 @@ func (s *CrossSeedStore) GetSettings(ctx context.Context, ownerID int) (*CrossSe
 		&settings.CategoryAffixMode,
 		&settings.CategoryAffix,
 		&settings.UseCustomCategory,
-		&settings.CustomCategory,
+		&customCategory,
 		&settings.SkipAutoResumeRSS,
 		&settings.SkipAutoResumeSeededSearch,
 		&settings.SkipAutoResumeCompletion,
@@ -489,6 +489,10 @@ func (s *CrossSeedStore) GetSettings(ctx context.Context, ownerID int) (*CrossSe
 
 	if category.Valid {
 		settings.Category = &category.String
+	}
+
+	if customCategory.Valid {
+		settings.CustomCategory = customCategory.String
 	}
 
 	if runExternalProgramID.Valid {

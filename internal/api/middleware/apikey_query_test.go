@@ -5,6 +5,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -26,6 +27,13 @@ func TestAPIKeyFromQuery_AllowsQueryParam(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
 	authService := auth.NewService(db)
 	sessionManager := scs.New()

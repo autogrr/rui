@@ -35,38 +35,49 @@ func TestClient_Ping(t *testing.T) {
 			responseCode:   http.StatusUnauthorized,
 			responseBody:   `{"error":"Unauthorized"}`,
 			wantErr:        true,
-			wantErrContain: "authentication failed",
+			wantErrContain: "invalid status code, 401",
 		},
 		{
 			name:           "server error",
 			responseCode:   http.StatusInternalServerError,
 			responseBody:   `Internal Server Error`,
 			wantErr:        true,
-			wantErrContain: "unexpected status 500",
+			wantErrContain: "invalid status code, 500",
 		},
 		{
 			name:           "empty appName",
 			responseCode:   http.StatusOK,
 			responseBody:   `{"appName":"","version":"4.0.0"}`,
 			wantErr:        true,
-			wantErrContain: "missing appName",
+			wantErrContain: "empty AppName",
 		},
 		{
 			name:           "invalid JSON",
 			responseCode:   http.StatusOK,
 			responseBody:   `not json`,
 			wantErr:        true,
-			wantErrContain: "failed to decode",
+			wantErrContain: "decoding Starr JSON",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, "/api/v3/system/status", r.URL.Path)
 				assert.Equal(t, "test-api-key", r.Header.Get("X-Api-Key"))
-				w.WriteHeader(tt.responseCode)
-				_, _ = w.Write([]byte(tt.responseBody))
+				switch r.URL.Path {
+				case "/ping":
+					// starr PingContext hits /ping first; return OK for non-error cases
+					if tt.responseCode == http.StatusUnauthorized {
+						w.WriteHeader(http.StatusUnauthorized)
+						_, _ = w.Write([]byte(tt.responseBody))
+						return
+					}
+					w.WriteHeader(http.StatusOK)
+					_, _ = w.Write([]byte("OK"))
+				default:
+					w.WriteHeader(tt.responseCode)
+					_, _ = w.Write([]byte(tt.responseBody))
+				}
 			}))
 			defer server.Close()
 
@@ -219,80 +230,67 @@ func TestClient_ParseTitle_Radarr(t *testing.T) {
 		wantIDs      *models.ExternalIDs
 	}{
 		{
-			name: "full IDs from movie",
-			responseBody: `{
-				"title": "Inception (2010)",
-				"parsedMovieInfo": {"movieTitle": "Inception", "year": 2010},
-				"movie": {
-					"id": 456,
-					"title": "Inception",
-					"tmdbId": 27205,
-					"imdbId": "tt1375666"
-				}
-			}`,
+			name: "full IDs from first movie",
+			responseBody: `[{
+				"id": 456,
+				"title": "Inception",
+				"tmdbId": 27205,
+				"imdbId": "tt1375666"
+			}]`,
 			wantIDs: &models.ExternalIDs{
 				TMDbID: 27205,
 				IMDbID: "tt1375666",
 			},
 		},
 		{
-			name: "IDs from parsedMovieInfo when movie is nil",
-			responseBody: `{
-				"title": "Movie.2020.tt1234567.1080p",
-				"parsedMovieInfo": {
-					"movieTitle": "Movie",
-					"year": 2020,
-					"imdbId": "tt1234567",
-					"tmdbId": 99999
-				},
-				"movie": null
-			}`,
-			wantIDs: &models.ExternalIDs{
-				TMDbID: 99999,
-				IMDbID: "tt1234567",
-			},
+			name:         "empty array returns nil",
+			responseBody: `[]`,
+			wantIDs:      nil,
 		},
 		{
-			name: "movie IDs take precedence over parsedMovieInfo",
-			responseBody: `{
+			name: "only tmdbId present",
+			responseBody: `[{
+				"id": 1,
 				"title": "Film",
-				"parsedMovieInfo": {"imdbId": "tt0000001", "tmdbId": 1},
-				"movie": {"tmdbId": 2, "imdbId": "tt0000002"}
-			}`,
-			wantIDs: &models.ExternalIDs{
-				TMDbID: 2,
-				IMDbID: "tt0000002",
-			},
-		},
-		{
-			name: "fallback to parsedMovieInfo for missing movie fields",
-			responseBody: `{
-				"title": "Film",
-				"parsedMovieInfo": {"imdbId": "tt1111111", "tmdbId": 111},
-				"movie": {"tmdbId": 222, "imdbId": ""}
-			}`,
+				"tmdbId": 222,
+				"imdbId": ""
+			}]`,
 			wantIDs: &models.ExternalIDs{
 				TMDbID: 222,
+			},
+		},
+		{
+			name: "only imdbId present",
+			responseBody: `[{
+				"id": 1,
+				"title": "Film",
+				"tmdbId": 0,
+				"imdbId": "tt1111111"
+			}]`,
+			wantIDs: &models.ExternalIDs{
 				IMDbID: "tt1111111",
 			},
 		},
 		{
-			name: "nil movie and empty parsedMovieInfo returns nil",
-			responseBody: `{
-				"title": "Unknown",
-				"parsedMovieInfo": {"movieTitle": "Unknown"},
-				"movie": null
-			}`,
+			name: "zero tmdbId and imdbId '0' returns nil",
+			responseBody: `[{
+				"id": 1,
+				"title": "Zero",
+				"tmdbId": 0,
+				"imdbId": "0"
+			}]`,
 			wantIDs: nil,
 		},
 		{
-			name: "zero values ignored in parsedMovieInfo",
-			responseBody: `{
-				"title": "Zero",
-				"parsedMovieInfo": {"imdbId": "0", "tmdbId": 0},
-				"movie": null
-			}`,
-			wantIDs: nil,
+			name: "first movie used from multiple results",
+			responseBody: `[
+				{"id": 1, "title": "First", "tmdbId": 111, "imdbId": "tt0000001"},
+				{"id": 2, "title": "Second", "tmdbId": 222, "imdbId": "tt0000002"}
+			]`,
+			wantIDs: &models.ExternalIDs{
+				TMDbID: 111,
+				IMDbID: "tt0000001",
+			},
 		},
 	}
 

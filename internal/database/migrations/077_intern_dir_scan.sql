@@ -49,7 +49,8 @@ SELECT
     (SELECT sp.id FROM string_pool sp WHERE sp.value = s.tags),
     s.max_searchees_per_run, s.max_searchee_age_days,
     s.created_at, s.updated_at
-FROM dir_scan_settings s;
+FROM dir_scan_settings s
+WHERE EXISTS (SELECT 1 FROM users);
 
 DROP TRIGGER IF EXISTS trg_dir_scan_settings_updated;
 DROP TABLE dir_scan_settings;

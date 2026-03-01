@@ -24,17 +24,9 @@ func setupDirScanTestDB(t *testing.T) *database.DB {
 		require.NoError(t, db.Close())
 	})
 
+	createTestUser(t, db)
+
 	return db
-}
-
-// createTestUser inserts a minimal user row and returns its id.
-func createTestUser(t *testing.T, db *database.DB) int {
-	t.Helper()
-
-	userStore := models.NewUserStore(db)
-	user, err := userStore.Create(context.Background(), "testuser", "$argon2id$v=19$m=65536$p=1$salt$hash")
-	require.NoError(t, err)
-	return user.ID
 }
 
 func TestDirScanStore_CreateRunIfNoActive_CreatesQueuedRun(t *testing.T) {

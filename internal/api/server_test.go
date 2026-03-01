@@ -66,6 +66,30 @@ var undocumentedRoutes = map[routeKey]struct{}{
 	{Method: http.MethodDelete, Path: "/api/tracker-customizations/{id}"}:                           {},
 	{Method: http.MethodGet, Path: "/api/dashboard-settings"}:                                       {},
 	{Method: http.MethodPut, Path: "/api/dashboard-settings"}:                                       {},
+	// Intake pipeline endpoints (pending OpenAPI documentation)
+	{Method: http.MethodGet, Path: "/api/intake/events"}:                                      {},
+	{Method: http.MethodGet, Path: "/api/intake/pipelines"}:                                   {},
+	{Method: http.MethodPost, Path: "/api/intake/pipelines"}:                                  {},
+	{Method: http.MethodDelete, Path: "/api/intake/pipelines/{id}"}:                           {},
+	{Method: http.MethodGet, Path: "/api/intake/pipelines/{id}"}:                              {},
+	{Method: http.MethodPut, Path: "/api/intake/pipelines/{id}"}:                              {},
+	{Method: http.MethodGet, Path: "/api/intake/pipelines/{pipelineId}/rules"}:                {},
+	{Method: http.MethodPost, Path: "/api/intake/pipelines/{pipelineId}/rules"}:               {},
+	{Method: http.MethodDelete, Path: "/api/intake/pipelines/{pipelineId}/rules/{ruleId}"}:    {},
+	{Method: http.MethodPut, Path: "/api/intake/pipelines/{pipelineId}/rules/{ruleId}"}:       {},
+	{Method: http.MethodPost, Path: "/api/intake/process"}:                                    {},
+	// Library endpoints (pending OpenAPI documentation)
+	{Method: http.MethodPost, Path: "/api/library/match"}:              {},
+	{Method: http.MethodGet, Path: "/api/library/rules"}:               {},
+	{Method: http.MethodPost, Path: "/api/library/rules"}:              {},
+	{Method: http.MethodDelete, Path: "/api/library/rules/{id}"}:       {},
+	{Method: http.MethodGet, Path: "/api/library/rules/{id}"}:          {},
+	{Method: http.MethodPut, Path: "/api/library/rules/{id}"}:          {},
+	{Method: http.MethodPost, Path: "/api/library/sync/{instanceId}"}:  {},
+	{Method: http.MethodGet, Path: "/api/library/titles"}:              {},
+	{Method: http.MethodGet, Path: "/api/library/titles/search"}:       {},
+	{Method: http.MethodDelete, Path: "/api/library/titles/{id}"}:      {},
+	{Method: http.MethodGet, Path: "/api/library/titles/{id}"}:         {},
 }
 
 func TestAllEndpointsDocumented(t *testing.T) {

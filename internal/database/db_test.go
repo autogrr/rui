@@ -151,64 +151,99 @@ type columnSpec struct {
 	PrimaryKey bool
 }
 
+// expectedSchema is a representative subset of the full post-migration schema.
+// It covers the core tables that existed pre-RBAC/interning (now updated to
+// reflect the new column names) plus key new tables from migs 064-082.
 var expectedSchema = map[string][]columnSpec{
 	"migrations": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
 		{Name: "filename", Type: "TEXT"},
 		{Name: "applied_at", Type: "TIMESTAMP"},
 	},
-	"user": {
+	"string_pool": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
-		{Name: "username", Type: "TEXT"},
-		{Name: "password_hash", Type: "TEXT"},
+		{Name: "value", Type: "TEXT"},
+		{Name: "created_at", Type: "TIMESTAMP"},
+	},
+	"users": {
+		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "username_id", Type: "INTEGER"},
+		{Name: "password_hash_id", Type: "INTEGER"},
+		{Name: "display_name_id", Type: "INTEGER"},
+		{Name: "email_id", Type: "INTEGER"},
+		{Name: "is_active", Type: "BOOLEAN"},
 		{Name: "created_at", Type: "TIMESTAMP"},
 		{Name: "updated_at", Type: "TIMESTAMP"},
 	},
+	"roles": {
+		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "name_id", Type: "INTEGER"},
+		{Name: "description_id", Type: "INTEGER"},
+		{Name: "is_system", Type: "BOOLEAN"},
+		{Name: "created_at", Type: "TIMESTAMP"},
+	},
+	"permissions": {
+		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "name_id", Type: "INTEGER"},
+		{Name: "description_id", Type: "INTEGER"},
+	},
+	"user_roles": {
+		{Name: "user_id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "role_id", Type: "INTEGER", PrimaryKey: true},
+	},
+	"role_permissions": {
+		{Name: "role_id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "permission_id", Type: "INTEGER", PrimaryKey: true},
+	},
 	"api_keys": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
-		{Name: "key_hash", Type: "TEXT"},
+		{Name: "owner_id", Type: "INTEGER"},
+		{Name: "key_hash_id", Type: "INTEGER"},
 		{Name: "name_id", Type: "INTEGER"},
 		{Name: "created_at", Type: "TIMESTAMP"},
 		{Name: "last_used_at", Type: "TIMESTAMP"},
 	},
 	"instances": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "owner_id", Type: "INTEGER"},
 		{Name: "name_id", Type: "INTEGER"},
 		{Name: "host_id", Type: "INTEGER"},
 		{Name: "username_id", Type: "INTEGER"},
-		{Name: "password_encrypted", Type: "TEXT"},
+		{Name: "password_encrypted_id", Type: "INTEGER"},
 		{Name: "basic_username_id", Type: "INTEGER"},
-		{Name: "basic_password_encrypted", Type: "TEXT"},
+		{Name: "basic_password_encrypted_id", Type: "INTEGER"},
 		{Name: "tls_skip_verify", Type: "BOOLEAN"},
 		{Name: "sort_order", Type: "INTEGER"},
 		{Name: "is_active", Type: "BOOLEAN"},
 		{Name: "has_local_filesystem_access", Type: "BOOLEAN"},
 		{Name: "use_hardlinks", Type: "BOOLEAN"},
-		{Name: "hardlink_base_dir", Type: "TEXT"},
-		{Name: "hardlink_dir_preset", Type: "TEXT"},
+		{Name: "hardlink_base_dir_id", Type: "INTEGER"},
+		{Name: "hardlink_dir_preset_id", Type: "INTEGER"},
 		{Name: "use_reflinks", Type: "BOOLEAN"},
 		{Name: "fallback_to_regular_mode", Type: "BOOLEAN"},
 	},
 	"licenses": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
-		{Name: "license_key", Type: "TEXT"},
-		{Name: "product_name", Type: "TEXT"},
-		{Name: "status", Type: "TEXT"},
+		{Name: "owner_id", Type: "INTEGER"},
+		{Name: "license_key_id", Type: "INTEGER"},
+		{Name: "product_name_id", Type: "INTEGER"},
+		{Name: "status_id", Type: "INTEGER"},
 		{Name: "activated_at", Type: "DATETIME"},
 		{Name: "expires_at", Type: "DATETIME"},
 		{Name: "last_validated", Type: "DATETIME"},
-		{Name: "provider", Type: "TEXT"},
-		{Name: "dodo_instance_id", Type: "TEXT"},
-		{Name: "polar_customer_id", Type: "TEXT"},
-		{Name: "polar_product_id", Type: "TEXT"},
-		{Name: "polar_activation_id", Type: "TEXT"},
-		{Name: "username", Type: "TEXT"},
+		{Name: "polar_customer_id_sid", Type: "INTEGER"},
+		{Name: "polar_product_id_sid", Type: "INTEGER"},
+		{Name: "polar_activation_id_sid", Type: "INTEGER"},
+		{Name: "username_id", Type: "INTEGER"},
+		{Name: "provider_id", Type: "INTEGER"},
+		{Name: "dodo_instance_id_sid", Type: "INTEGER"},
 		{Name: "created_at", Type: "DATETIME"},
 		{Name: "updated_at", Type: "DATETIME"},
 	},
 	"client_api_keys": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
-		{Name: "key_hash", Type: "TEXT"},
+		{Name: "owner_id", Type: "INTEGER"},
+		{Name: "key_hash_id", Type: "INTEGER"},
 		{Name: "client_name_id", Type: "INTEGER"},
 		{Name: "instance_id", Type: "INTEGER"},
 		{Name: "created_at", Type: "TIMESTAMP"},
@@ -216,15 +251,11 @@ var expectedSchema = map[string][]columnSpec{
 	},
 	"instance_errors": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "owner_id", Type: "INTEGER"},
 		{Name: "instance_id", Type: "INTEGER"},
 		{Name: "error_type_id", Type: "INTEGER"},
 		{Name: "error_message_id", Type: "INTEGER"},
 		{Name: "occurred_at", Type: "TIMESTAMP"},
-	},
-	"sessions": {
-		{Name: "token", Type: "TEXT", PrimaryKey: true},
-		{Name: "data", Type: "BLOB"},
-		{Name: "expiry", Type: "REAL"},
 	},
 	"torrent_files_cache": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
@@ -250,50 +281,114 @@ var expectedSchema = map[string][]columnSpec{
 	},
 	"automations": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "owner_id", Type: "INTEGER"},
 		{Name: "instance_id", Type: "INTEGER"},
-		{Name: "name", Type: "TEXT"},
-		{Name: "tracker_pattern", Type: "TEXT"},
-		{Name: "conditions", Type: "TEXT"},
+		{Name: "name_id", Type: "INTEGER"},
+		{Name: "tracker_pattern_id", Type: "INTEGER"},
+		{Name: "conditions_id", Type: "INTEGER"},
 		{Name: "enabled", Type: "INTEGER"},
-		{Name: "dry_run", Type: "INTEGER"},
 		{Name: "sort_order", Type: "INTEGER"},
 		{Name: "interval_seconds", Type: "INTEGER"},
-		{Name: "free_space_source", Type: "TEXT"},
+		{Name: "free_space_source_id", Type: "INTEGER"},
+		{Name: "dry_run", Type: "INTEGER"},
 		{Name: "created_at", Type: "DATETIME"},
 		{Name: "updated_at", Type: "DATETIME"},
+		{Name: "expr_filter_id", Type: "INTEGER"},
 	},
 	"automation_activity": {
 		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "owner_id", Type: "INTEGER"},
 		{Name: "instance_id", Type: "INTEGER"},
-		{Name: "hash", Type: "TEXT"},
-		{Name: "torrent_name", Type: "TEXT"},
-		{Name: "tracker_domain", Type: "TEXT"},
-		{Name: "action", Type: "TEXT"},
+		{Name: "hash_id", Type: "INTEGER"},
+		{Name: "torrent_name_id", Type: "INTEGER"},
+		{Name: "tracker_domain_id", Type: "INTEGER"},
+		{Name: "action_id", Type: "INTEGER"},
 		{Name: "rule_id", Type: "INTEGER"},
-		{Name: "rule_name", Type: "TEXT"},
-		{Name: "outcome", Type: "TEXT"},
-		{Name: "reason", Type: "TEXT"},
-		{Name: "details", Type: "TEXT"},
+		{Name: "rule_name_id", Type: "INTEGER"},
+		{Name: "outcome_id", Type: "INTEGER"},
+		{Name: "reason_id", Type: "INTEGER"},
+		{Name: "details_id", Type: "INTEGER"},
 		{Name: "created_at", Type: "DATETIME"},
+	},
+	// New tables from migrations 081-082
+	"library_titles": {
+		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "owner_id", Type: "INTEGER"},
+		{Name: "content_type", Type: "TEXT"},
+		{Name: "title", Type: "TEXT"},
+		{Name: "sort_title", Type: "TEXT"},
+		{Name: "year", Type: "INTEGER"},
+		{Name: "imdb_id", Type: "TEXT"},
+		{Name: "tmdb_id", Type: "INTEGER"},
+		{Name: "tvdb_id", Type: "INTEGER"},
+		{Name: "tvmaze_id", Type: "INTEGER"},
+		{Name: "arr_instance_id", Type: "INTEGER"},
+		{Name: "arr_item_id", Type: "INTEGER"},
+		{Name: "overview", Type: "TEXT"},
+		{Name: "status", Type: "TEXT"},
+		{Name: "path", Type: "TEXT"},
+		{Name: "has_file", Type: "BOOLEAN"},
+		{Name: "created_at", Type: "TIMESTAMP"},
+		{Name: "updated_at", Type: "TIMESTAMP"},
+	},
+	"intake_pipelines": {
+		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "owner_id", Type: "INTEGER"},
+		{Name: "name", Type: "TEXT"},
+		{Name: "enabled", Type: "BOOLEAN"},
+		{Name: "sort_order", Type: "INTEGER"},
+		{Name: "content_types", Type: "TEXT"},
+		{Name: "description", Type: "TEXT"},
+		{Name: "created_at", Type: "TIMESTAMP"},
+		{Name: "updated_at", Type: "TIMESTAMP"},
+	},
+	"intake_events": {
+		{Name: "id", Type: "INTEGER", PrimaryKey: true},
+		{Name: "owner_id", Type: "INTEGER"},
+		{Name: "pipeline_id", Type: "INTEGER"},
+		{Name: "release_name", Type: "TEXT"},
+		{Name: "content_type", Type: "TEXT"},
+		{Name: "parsed_title", Type: "TEXT"},
+		{Name: "parsed_year", Type: "INTEGER"},
+		{Name: "matched_library_id", Type: "INTEGER"},
+		{Name: "matched_title", Type: "TEXT"},
+		{Name: "arr_instance_id", Type: "INTEGER"},
+		{Name: "imdb_id", Type: "TEXT"},
+		{Name: "tmdb_id", Type: "INTEGER"},
+		{Name: "tvdb_id", Type: "INTEGER"},
+		{Name: "matched_rule_id", Type: "INTEGER"},
+		{Name: "matched_rule_name", Type: "TEXT"},
+		{Name: "action", Type: "TEXT"},
+		{Name: "status", Type: "TEXT"},
+		{Name: "error", Type: "TEXT"},
+		{Name: "created_at", Type: "TIMESTAMP"},
+		{Name: "processed_at", Type: "TIMESTAMP"},
 	},
 }
 
 var expectedIndexes = map[string][]string{
-	"instances":           {"idx_instances_sort_order", "idx_instances_is_active"},
-	"licenses":            {"idx_licenses_status", "idx_licenses_theme", "idx_licenses_key"},
-	"client_api_keys":     {"idx_client_api_keys_instance_id"},
-	"instance_errors":     {"idx_instance_errors_lookup"},
-	"sessions":            {"sessions_expiry_idx"},
+	"users":               {"idx_users_username", "idx_users_active"},
+	"user_roles":          {"idx_user_roles_user", "idx_user_roles_role"},
+	"instances":           {"idx_instances_owner", "idx_instances_sort", "idx_instances_active"},
+	"licenses":            {"idx_licenses_status", "idx_licenses_key", "idx_licenses_owner", "idx_licenses_product"},
+	"client_api_keys":     {"idx_client_api_keys_instance", "idx_client_api_keys_owner", "idx_client_api_keys_hash"},
+	"instance_errors":     {"idx_instance_errors_lookup", "idx_instance_errors_owner"},
 	"torrent_files_cache": {"idx_torrent_files_cache_lookup", "idx_torrent_files_cache_cached_at"},
 	"torrent_files_sync":  {"idx_torrent_files_sync_last_synced"},
-	"automations":         {"idx_automations_instance"},
-	"automation_activity": {"idx_automation_activity_instance_created"},
+	"automations":         {"idx_automations_instance", "idx_automations_owner"},
+	"automation_activity": {"idx_automation_activity_instance", "idx_automation_activity_owner"},
+	"library_titles":      {"idx_library_titles_owner", "idx_library_titles_type"},
+	"intake_pipelines":    {"idx_intake_pipelines_owner"},
+	"intake_events":       {"idx_intake_events_owner", "idx_intake_events_pipeline"},
 }
 
 var expectedTriggers = []string{
-	"update_user_updated_at",
+	"trg_users_updated_at",
 	"cleanup_old_instance_errors",
 	"trg_automations_updated",
+	"trg_library_titles_updated",
+	"trg_intake_pipelines_updated",
+	"trg_intake_rules_updated",
 }
 
 func listMigrationFiles(t *testing.T) []string {
@@ -454,8 +549,16 @@ func TestCleanupUnusedStrings(t *testing.T) {
 	require.NoError(t, conn.QueryRowContext(ctx, "INSERT INTO string_pool (value) VALUES (?) RETURNING id", "orphaned_string").Scan(&id2))
 	require.NoError(t, conn.QueryRowContext(ctx, "INSERT INTO string_pool (value) VALUES (?) RETURNING id", "another_orphaned").Scan(&id3))
 
+	// Reference id1 in api_keys table (which has a name_id column referencing string_pool)
+	// First create a user for owner_id references
+	var userID int64
+	require.NoError(t, conn.QueryRowContext(ctx, "INSERT INTO users (username_id, password_hash_id) VALUES (?, ?) RETURNING id", id1, id1).Scan(&userID))
+
 	// Reference id1 in instances table (create a minimal instance)
-	_, err := conn.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (?, ?, ?, ?)", id1, id1, id1, "dummy_password")
+	emptyStrID := int64(0)
+	require.NoError(t, conn.QueryRowContext(ctx, "SELECT id FROM string_pool WHERE value = ''").Scan(&emptyStrID))
+	_, err := conn.ExecContext(ctx, "INSERT INTO instances (owner_id, name_id, host_id, username_id, password_encrypted_id, hardlink_base_dir_id, hardlink_dir_preset_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		userID, id1, id1, id1, emptyStrID, emptyStrID, emptyStrID)
 	require.NoError(t, err)
 
 	// Verify 3 more strings exist
@@ -499,21 +602,31 @@ func TestCleanupUnusedStrings_BasicAuthStringRefs(t *testing.T) {
 	arrNameID := insertString("arr_name")
 	arrBaseURLID := insertString("http://arr.local")
 	arrBasicUserID := insertString("arr_basic_user")
+	arrTypeID := insertString("sonarr")
+	arrEncBasicID := insertString("enc-basic")
+	arrEncAPIID := insertString("enc-api")
 	torNameID := insertString("tor_name")
 	torBaseURLID := insertString("http://tor.local")
 	torBasicUserID := insertString("tor_basic_user")
+	torBackendID := insertString("jackett")
+	torEncBasicID := insertString("enc-basic-tor")
+	torEncAPIID := insertString("enc-api-tor")
 	orphanID := insertString("orphan_to_cleanup")
 
+	// Create a user for owner_id
+	var userID int64
+	require.NoError(t, conn.QueryRowContext(ctx, "INSERT INTO users (username_id, password_hash_id) VALUES (?, ?) RETURNING id", arrNameID, arrNameID).Scan(&userID))
+
 	_, err := conn.ExecContext(ctx, `
-		INSERT INTO arr_instances (type, name_id, base_url_id, basic_username_id, basic_password_encrypted, api_key_encrypted, enabled, priority, timeout_seconds)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, "sonarr", arrNameID, arrBaseURLID, arrBasicUserID, "enc-basic", "enc-api", true, 0, 15)
+		INSERT INTO arr_instances (owner_id, type_id, name_id, base_url_id, basic_username_id, basic_password_encrypted_id, api_key_encrypted_id, enabled, priority, timeout_seconds)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, userID, arrTypeID, arrNameID, arrBaseURLID, arrBasicUserID, arrEncBasicID, arrEncAPIID, true, 0, 15)
 	require.NoError(t, err)
 
 	_, err = conn.ExecContext(ctx, `
-		INSERT INTO torznab_indexers (name_id, base_url_id, basic_username_id, basic_password_encrypted, backend, api_key_encrypted, enabled, priority, timeout_seconds, limit_default, limit_max)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, torNameID, torBaseURLID, torBasicUserID, "enc-basic", "jackett", "enc-api", true, 0, 30, 100, 100)
+		INSERT INTO torznab_indexers (owner_id, name_id, base_url_id, basic_username_id, basic_password_encrypted_id, backend_id, api_key_encrypted_id, enabled, priority, timeout_seconds, limit_default, limit_max)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, userID, torNameID, torBaseURLID, torBasicUserID, torEncBasicID, torBackendID, torEncAPIID, true, 0, 30, 100, 100)
 	require.NoError(t, err)
 
 	deleted, err := db.CleanupUnusedStrings(ctx)

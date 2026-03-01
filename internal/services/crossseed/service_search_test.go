@@ -270,6 +270,14 @@ func TestResolveTorznabIndexerIDs_ExcludesOPSREDForSearchWhenGazelleConfigured(t
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	key := make([]byte, 32)
 	for i := range key {
 		key[i] = byte(i)
@@ -305,6 +313,14 @@ func TestResolveTorznabIndexerIDs_DoesNotExcludeOPSREDForPartialGazelleConfig(t 
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	key := make([]byte, 32)
 	for i := range key {
 		key[i] = byte(i)
@@ -376,6 +392,13 @@ func TestRefreshSearchQueueCountsCooldownEligibleTorrents(t *testing.T) {
 		require.NoError(t, db.Close())
 	})
 
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	key := make([]byte, 32)
 	for i := range key {
 		key[i] = byte(i)
@@ -441,6 +464,13 @@ func TestRefreshSearchQueue_TorznabDisabledCountsAllSources(t *testing.T) {
 		require.NoError(t, db.Close())
 	})
 
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	key := make([]byte, 32)
 	for i := range key {
 		key[i] = byte(i)
@@ -502,6 +532,13 @@ func TestRefreshSearchQueue_TorznabDisabledSkipsAlreadyCrossSeeded(t *testing.T)
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
 	key := make([]byte, 32)
 	for i := range key {
@@ -597,6 +634,13 @@ func TestPropagateDuplicateSearchHistory(t *testing.T) {
 		require.NoError(t, db.Close())
 	})
 
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	key := make([]byte, 32)
 	for i := range key {
 		key[i] = byte(i)
@@ -642,6 +686,13 @@ func TestStartSearchRun_AllowsGazelleOnlyWhenTorznabUnavailable(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
 	key := make([]byte, 32)
 	for i := range key {
@@ -699,6 +750,13 @@ func TestStartSearchRun_DisableTorznabRequiresGazelle(t *testing.T) {
 		require.NoError(t, db.Close())
 	})
 
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	key := make([]byte, 32)
 	for i := range key {
 		key[i] = byte(i)
@@ -735,6 +793,14 @@ func TestStartSearchRun_DisableTorznabRequiresDecryptableGazelleKey(t *testing.T
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	key := make([]byte, 32)
 	for i := range key {
 		key[i] = byte(i)
@@ -779,6 +845,13 @@ func TestStartSearchRun_DisableTorznabSkipsJackettProbe(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
 	key := make([]byte, 32)
 	for i := range key {
@@ -837,6 +910,13 @@ func TestStartSearchRun_FallsBackToGazelleWhenJackettProbeFails(t *testing.T) {
 		require.NoError(t, db.Close())
 	})
 
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	key := make([]byte, 32)
 	for i := range key {
 		key[i] = byte(i)
@@ -893,6 +973,13 @@ func TestStartSearchRun_JackettProbeFailureRequiresGazelle(t *testing.T) {
 		require.NoError(t, db.Close())
 	})
 
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	key := make([]byte, 32)
 	for i := range key {
 		key[i] = byte(i)
@@ -929,6 +1016,13 @@ func TestStartSearchRun_DisableTorznabUsesGazelleIntervalFloor(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
 	key := make([]byte, 32)
 	for i := range key {
@@ -987,6 +1081,13 @@ func TestStartSearchRun_TorznabKeepsConservativeIntervalFloor(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
 	key := make([]byte, 32)
 	for i := range key {
@@ -1215,6 +1316,13 @@ func TestSearchTorrentMatches_GazelleSourceWithoutBackendsReturnsError(t *testin
 		require.NoError(t, db.Close())
 	})
 
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
 	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
@@ -1259,6 +1367,13 @@ func TestSearchTorrentMatches_DisableTorznabWithoutGazelleReturnsError(t *testin
 		require.NoError(t, db.Close())
 	})
 
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	instanceStore, err := models.NewInstanceStore(db, []byte("01234567890123456789012345678901"))
 	require.NoError(t, err)
 	instance, err := instanceStore.Create(ctx, 1, "Test", "http://localhost:8080", "user", "pass", nil, nil, false, nil)
@@ -1302,6 +1417,13 @@ func TestSearchTorrentMatches_DisableTorznab_AllowsPartialGazelleConfig(t *testi
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
 	key := make([]byte, 32)
 	for i := range key {
@@ -1363,6 +1485,13 @@ func TestSearchTorrentMatches_GazelleSkipsWhenTargetHashExistsLocally(t *testing
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
+
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
 
 	key := make([]byte, 32)
 	for i := range key {

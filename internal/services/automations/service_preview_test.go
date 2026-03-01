@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"testing"
-	"time"
 
 	_ "modernc.org/sqlite"
 
@@ -49,22 +48,44 @@ func TestSetupPreviewTrackerDisplayNames_LoadsWhenTrackerFieldUsed(t *testing.T)
 
 	q := &testDBQuerier{db: sqlDB}
 	_, err = q.ExecContext(ctx, `
+		CREATE TABLE string_pool (
+			id    INTEGER PRIMARY KEY AUTOINCREMENT,
+			value TEXT NOT NULL UNIQUE
+		);
+		CREATE TABLE users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username_id INTEGER REFERENCES string_pool(id)
+		);
+		INSERT INTO users (id) VALUES (1);
 		CREATE TABLE tracker_customizations (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			display_name TEXT NOT NULL,
-			domains TEXT NOT NULL DEFAULT '',
-			included_in_stats TEXT NOT NULL DEFAULT '',
-			created_at DATETIME NOT NULL,
-			updated_at DATETIME NOT NULL
-		)
+			owner_id INTEGER NOT NULL DEFAULT 1 REFERENCES users(id) ON DELETE CASCADE,
+			display_name_id INTEGER NOT NULL REFERENCES string_pool(id),
+			domains_id INTEGER NOT NULL REFERENCES string_pool(id),
+			included_in_stats_id INTEGER REFERENCES string_pool(id),
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE VIEW tracker_customizations_view AS
+		SELECT tc.id, tc.owner_id, sp_dn.value AS display_name, sp_d.value AS domains,
+		       sp_is.value AS included_in_stats, tc.created_at, tc.updated_at
+		FROM tracker_customizations tc
+		JOIN string_pool sp_dn ON tc.display_name_id = sp_dn.id
+		JOIN string_pool sp_d  ON tc.domains_id = sp_d.id
+		LEFT JOIN string_pool sp_is ON tc.included_in_stats_id = sp_is.id
 	`)
 	require.NoError(t, err)
 
-	now := time.Now().UTC()
+	_, err = q.ExecContext(ctx, `INSERT OR IGNORE INTO string_pool (value) VALUES ('BHD'), ('bhd.example'), ('')`)
+	require.NoError(t, err)
+
 	_, err = q.ExecContext(ctx, `
-		INSERT INTO tracker_customizations (display_name, domains, included_in_stats, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, "BHD", "bhd.example", "", now, now)
+		INSERT INTO tracker_customizations (display_name_id, domains_id, included_in_stats_id)
+		VALUES (
+			(SELECT id FROM string_pool WHERE value = 'BHD'),
+			(SELECT id FROM string_pool WHERE value = 'bhd.example'),
+			NULL)
+	`)
 	require.NoError(t, err)
 
 	store := models.NewTrackerCustomizationStore(q)
@@ -88,8 +109,13 @@ func TestSetupPreviewTrackerDisplayNames_LoadsWhenTrackerFieldUsed(t *testing.T)
 func TestSetupPreviewTrackerDisplayNames_SkipsWhenTrackerFieldNotUsed(t *testing.T) {
 	ctx := context.Background()
 
+	// Use a dummy real DB querier — no DB calls are expected when tracker field is not used.
+	dummyDB, err := sql.Open("sqlite", ":memory:")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = dummyDB.Close() })
+
 	s := &Service{
-		trackerCustomizationStore: models.NewTrackerCustomizationStore(&mockQuerier{}),
+		trackerCustomizationStore: models.NewTrackerCustomizationStore(&testDBQuerier{db: dummyDB}),
 	}
 
 	evalCtx := &EvalContext{}

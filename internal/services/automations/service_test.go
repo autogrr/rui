@@ -8,9 +8,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
+
+	_ "modernc.org/sqlite"
 
 	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/stretchr/testify/assert"
@@ -1557,12 +1558,10 @@ func TestExecuteExternalProgramsFromAutomation_NilExternalProgramService(_ *test
 
 func TestExecuteExternalProgramsFromAutomation_NilServiceWithActivityStore(t *testing.T) {
 	// Test that nil externalProgramService logs activities when activityStore is available
-	// Uses a mock querier to capture activity writes
+	// Uses a real in-memory SQLite database with interned schema
 
-	mockDB := &mockQuerier{
-		activities: make([]*models.AutomationActivity, 0),
-	}
-	activityStore := models.NewAutomationActivityStore(mockDB)
+	testDB := setupActivityTestDB(t)
+	activityStore := models.NewAutomationActivityStore(testDB)
 
 	s := &Service{
 		externalProgramService: nil,
@@ -1589,26 +1588,25 @@ func TestExecuteExternalProgramsFromAutomation_NilServiceWithActivityStore(t *te
 	// Should not panic and should log activities
 	s.executeExternalProgramsFromAutomation(context.Background(), 1, executions)
 
-	// Verify activities were logged
-	require.Len(t, mockDB.activities, 2, "Expected 2 activity entries for 2 executions")
+	// Verify activities were logged via the view
+	activities := readActivities(t, testDB)
+	require.Len(t, activities, 2, "Expected 2 activity entries for 2 executions")
 
 	// Verify first activity
-	assert.Equal(t, "abc123", mockDB.activities[0].Hash)
-	assert.Equal(t, "Test Torrent 1", mockDB.activities[0].TorrentName)
-	assert.Equal(t, "external_program", mockDB.activities[0].Action)
-	assert.Equal(t, models.ActivityOutcomeFailed, mockDB.activities[0].Outcome)
-	assert.Contains(t, mockDB.activities[0].Reason, "not configured")
+	assert.Equal(t, "abc123", activities[0].Hash)
+	assert.Equal(t, "Test Torrent 1", activities[0].TorrentName)
+	assert.Equal(t, "external_program", activities[0].Action)
+	assert.Equal(t, models.ActivityOutcomeFailed, activities[0].Outcome)
+	assert.Contains(t, activities[0].Reason, "not configured")
 
 	// Verify second activity
-	assert.Equal(t, "def456", mockDB.activities[1].Hash)
-	assert.Equal(t, "Test Torrent 2", mockDB.activities[1].TorrentName)
+	assert.Equal(t, "def456", activities[1].Hash)
+	assert.Equal(t, "Test Torrent 2", activities[1].TorrentName)
 }
 
 func TestRecordDryRunActivities_Deletes(t *testing.T) {
-	mockDB := &mockQuerier{
-		activities: make([]*models.AutomationActivity, 0),
-	}
-	activityStore := models.NewAutomationActivityStore(mockDB)
+	testDB := setupActivityTestDB(t)
+	activityStore := models.NewAutomationActivityStore(testDB)
 
 	sm := qbittorrent.NewSyncManager(nil, nil)
 	s := &Service{
@@ -1653,17 +1651,16 @@ func TestRecordDryRunActivities_Deletes(t *testing.T) {
 		true,
 	)
 
-	require.Len(t, mockDB.activities, 1)
-	assert.Empty(t, mockDB.activities[0].Hash)
-	assert.Equal(t, models.ActivityActionDeletedCondition, mockDB.activities[0].Action)
-	assert.Equal(t, models.ActivityOutcomeDryRun, mockDB.activities[0].Outcome)
+	dbActivities := readActivities(t, testDB)
+	require.Len(t, dbActivities, 1)
+	assert.Empty(t, dbActivities[0].Hash)
+	assert.Equal(t, models.ActivityActionDeletedCondition, dbActivities[0].Action)
+	assert.Equal(t, models.ActivityOutcomeDryRun, dbActivities[0].Outcome)
 }
 
 func TestRecordDryRunActivities_Resumes(t *testing.T) {
-	mockDB := &mockQuerier{
-		activities: make([]*models.AutomationActivity, 0),
-	}
-	activityStore := models.NewAutomationActivityStore(mockDB)
+	testDB := setupActivityTestDB(t)
+	activityStore := models.NewAutomationActivityStore(testDB)
 
 	sm := qbittorrent.NewSyncManager(nil, nil)
 	s := &Service{
@@ -1701,17 +1698,16 @@ func TestRecordDryRunActivities_Resumes(t *testing.T) {
 		true,
 	)
 
-	require.Len(t, mockDB.activities, 1)
-	assert.Empty(t, mockDB.activities[0].Hash)
-	assert.Equal(t, models.ActivityActionResumed, mockDB.activities[0].Action)
-	assert.Equal(t, models.ActivityOutcomeDryRun, mockDB.activities[0].Outcome)
+	dbActivities := readActivities(t, testDB)
+	require.Len(t, dbActivities, 1)
+	assert.Empty(t, dbActivities[0].Hash)
+	assert.Equal(t, models.ActivityActionResumed, dbActivities[0].Action)
+	assert.Equal(t, models.ActivityOutcomeDryRun, dbActivities[0].Outcome)
 }
 
 func TestRecordDryRunActivities_Categories_IncludeCrossSeeds_DoesNotRequireConditionForAllMembers(t *testing.T) {
-	mockDB := &mockQuerier{
-		activities: make([]*models.AutomationActivity, 0),
-	}
-	activityStore := models.NewAutomationActivityStore(mockDB)
+	testDB := setupActivityTestDB(t)
+	activityStore := models.NewAutomationActivityStore(testDB)
 
 	sm := qbittorrent.NewSyncManager(nil, nil)
 	s := &Service{
@@ -1794,22 +1790,21 @@ func TestRecordDryRunActivities_Categories_IncludeCrossSeeds_DoesNotRequireCondi
 		true,
 	)
 
-	require.Len(t, mockDB.activities, 1)
-	assert.Equal(t, models.ActivityActionCategoryChanged, mockDB.activities[0].Action)
-	assert.Equal(t, models.ActivityOutcomeDryRun, mockDB.activities[0].Outcome)
+	dbActivities := readActivities(t, testDB)
+	require.Len(t, dbActivities, 1)
+	assert.Equal(t, models.ActivityActionCategoryChanged, dbActivities[0].Action)
+	assert.Equal(t, models.ActivityOutcomeDryRun, dbActivities[0].Outcome)
 
 	var details struct {
 		Categories map[string]int `json:"categories"`
 	}
-	require.NoError(t, json.Unmarshal(mockDB.activities[0].Details, &details))
+	require.NoError(t, json.Unmarshal(dbActivities[0].Details, &details))
 	assert.Equal(t, 2, details.Categories["new-category"])
 }
 
 func TestRecordDryRunActivities_NoMatches_LogsSummary(t *testing.T) {
-	mockDB := &mockQuerier{
-		activities: make([]*models.AutomationActivity, 0),
-	}
-	activityStore := models.NewAutomationActivityStore(mockDB)
+	testDB := setupActivityTestDB(t)
+	activityStore := models.NewAutomationActivityStore(testDB)
 
 	sm := qbittorrent.NewSyncManager(nil, nil)
 	s := &Service{
@@ -1842,16 +1837,15 @@ func TestRecordDryRunActivities_NoMatches_LogsSummary(t *testing.T) {
 	)
 
 	require.Len(t, activities, 1)
-	require.Len(t, mockDB.activities, 1)
-	assert.Equal(t, models.ActivityActionDryRunNoMatch, mockDB.activities[0].Action)
-	assert.Equal(t, models.ActivityOutcomeDryRun, mockDB.activities[0].Outcome)
+	dbActivities := readActivities(t, testDB)
+	require.Len(t, dbActivities, 1)
+	assert.Equal(t, models.ActivityActionDryRunNoMatch, dbActivities[0].Action)
+	assert.Equal(t, models.ActivityOutcomeDryRun, dbActivities[0].Outcome)
 }
 
 func TestRecordDryRunActivities_CategoryUnknownGroupID_DoesNotPanicAndSkips(t *testing.T) {
-	mockDB := &mockQuerier{
-		activities: make([]*models.AutomationActivity, 0),
-	}
-	activityStore := models.NewAutomationActivityStore(mockDB)
+	testDB := setupActivityTestDB(t)
+	activityStore := models.NewAutomationActivityStore(testDB)
 
 	sm := qbittorrent.NewSyncManager(nil, nil)
 	s := &Service{
@@ -1909,15 +1903,14 @@ func TestRecordDryRunActivities_CategoryUnknownGroupID_DoesNotPanicAndSkips(t *t
 		)
 	})
 
-	require.Len(t, mockDB.activities, 1)
-	require.Equal(t, models.ActivityActionDryRunNoMatch, mockDB.activities[0].Action)
+	dbActivities := readActivities(t, testDB)
+	require.Len(t, dbActivities, 1)
+	require.Equal(t, models.ActivityActionDryRunNoMatch, dbActivities[0].Action)
 }
 
 func TestRecordDryRunActivities_MoveGroupRequiresAllMembersMatchCondition(t *testing.T) {
-	mockDB := &mockQuerier{
-		activities: make([]*models.AutomationActivity, 0),
-	}
-	activityStore := models.NewAutomationActivityStore(mockDB)
+	testDB := setupActivityTestDB(t)
+	activityStore := models.NewAutomationActivityStore(testDB)
 
 	sm := qbittorrent.NewSyncManager(nil, nil)
 	s := &Service{
@@ -2008,15 +2001,14 @@ func TestRecordDryRunActivities_MoveGroupRequiresAllMembersMatchCondition(t *tes
 		true,
 	)
 
-	require.Len(t, mockDB.activities, 1)
-	require.Equal(t, models.ActivityActionDryRunNoMatch, mockDB.activities[0].Action)
+	dbActivities := readActivities(t, testDB)
+	require.Len(t, dbActivities, 1)
+	require.Equal(t, models.ActivityActionDryRunNoMatch, dbActivities[0].Action)
 }
 
 func TestRecordDryRunActivities_NoMatches_DoesNotLogSummaryWhenDisabled(t *testing.T) {
-	mockDB := &mockQuerier{
-		activities: make([]*models.AutomationActivity, 0),
-	}
-	activityStore := models.NewAutomationActivityStore(mockDB)
+	testDB := setupActivityTestDB(t)
+	activityStore := models.NewAutomationActivityStore(testDB)
 
 	sm := qbittorrent.NewSyncManager(nil, nil)
 	s := &Service{
@@ -2049,48 +2041,140 @@ func TestRecordDryRunActivities_NoMatches_DoesNotLogSummaryWhenDisabled(t *testi
 	)
 
 	require.Empty(t, activities)
-	require.Empty(t, mockDB.activities)
+	dbActivities := readActivities(t, testDB)
+	require.Empty(t, dbActivities)
 }
 
-// mockQuerier implements dbinterface.Querier for testing activity logging
-type mockQuerier struct {
-	activities []*models.AutomationActivity
+// realTestQuerier wraps a real sql.DB for tests.
+type realTestQuerier struct {
+	db *sql.DB
 }
 
-func (m *mockQuerier) QueryRowContext(_ context.Context, _ string, _ ...any) *sql.Row {
-	return nil
+func (q *realTestQuerier) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return q.db.ExecContext(ctx, query, args...)
 }
 
-func (m *mockQuerier) ExecContext(_ context.Context, query string, args ...any) (sql.Result, error) {
-	// Capture activity insertions
-	if len(args) >= 10 && strings.Contains(query, "automation_activity") {
-		activity := &models.AutomationActivity{
-			InstanceID:  args[0].(int),
-			Hash:        args[1].(string),
-			TorrentName: args[2].(string),
-			Action:      args[4].(string),
-			RuleName:    args[6].(string),
-			Outcome:     args[7].(string),
-			Reason:      args[8].(string),
-		}
-		if details, ok := args[9].(sql.NullString); ok && details.Valid {
-			activity.Details = json.RawMessage(details.String)
-		}
-		m.activities = append(m.activities, activity)
+func (q *realTestQuerier) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return q.db.QueryContext(ctx, query, args...)
+}
+
+func (q *realTestQuerier) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return q.db.QueryRowContext(ctx, query, args...)
+}
+
+type realTestTx struct {
+	*sql.Tx
+}
+
+func (t *realTestTx) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	return t.Tx.ExecContext(ctx, query, args...)
+}
+
+func (t *realTestTx) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+	return t.Tx.QueryContext(ctx, query, args...)
+}
+
+func (t *realTestTx) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
+	return t.Tx.QueryRowContext(ctx, query, args...)
+}
+
+func (t *realTestTx) Commit() error   { return t.Tx.Commit() }
+func (t *realTestTx) Rollback() error { return t.Tx.Rollback() }
+
+func (q *realTestQuerier) BeginTx(ctx context.Context, opts *sql.TxOptions) (dbinterface.TxQuerier, error) {
+	tx, err := q.db.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
 	}
-	return mockResult{}, nil
+	return &realTestTx{Tx: tx}, nil
 }
 
-func (m *mockQuerier) QueryContext(_ context.Context, _ string, _ ...any) (*sql.Rows, error) {
-	return nil, nil
+func setupActivityTestDB(t *testing.T) *realTestQuerier {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", ":memory:")
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+
+	_, err = sqlDB.Exec(`
+		CREATE TABLE string_pool (id INTEGER PRIMARY KEY AUTOINCREMENT, value TEXT NOT NULL UNIQUE);
+		CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username_id INTEGER REFERENCES string_pool(id));
+		INSERT INTO users (id) VALUES (1);
+		CREATE TABLE instances (id INTEGER PRIMARY KEY, owner_id INTEGER NOT NULL DEFAULT 1 REFERENCES users(id));
+		INSERT INTO instances (id, owner_id) VALUES (1, 1);
+		CREATE TABLE automation_activity (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			owner_id INTEGER NOT NULL REFERENCES users(id),
+			instance_id INTEGER NOT NULL REFERENCES instances(id),
+			hash_id INTEGER NOT NULL REFERENCES string_pool(id),
+			torrent_name_id INTEGER REFERENCES string_pool(id),
+			tracker_domain_id INTEGER REFERENCES string_pool(id),
+			action_id INTEGER NOT NULL REFERENCES string_pool(id),
+			rule_id INTEGER,
+			rule_name_id INTEGER REFERENCES string_pool(id),
+			outcome_id INTEGER NOT NULL REFERENCES string_pool(id),
+			reason_id INTEGER REFERENCES string_pool(id),
+			details_id INTEGER REFERENCES string_pool(id),
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		);
+		CREATE VIEW automation_activity_view AS
+		SELECT aa.id, aa.owner_id, aa.instance_id,
+		       sp_h.value AS hash, sp_tn.value AS torrent_name,
+		       sp_td.value AS tracker_domain, sp_a.value AS action,
+		       aa.rule_id, sp_rn.value AS rule_name,
+		       sp_o.value AS outcome, sp_r.value AS reason,
+		       sp_d.value AS details, aa.created_at
+		FROM automation_activity aa
+		JOIN string_pool sp_h ON aa.hash_id = sp_h.id
+		LEFT JOIN string_pool sp_tn ON aa.torrent_name_id = sp_tn.id
+		LEFT JOIN string_pool sp_td ON aa.tracker_domain_id = sp_td.id
+		JOIN string_pool sp_a ON aa.action_id = sp_a.id
+		LEFT JOIN string_pool sp_rn ON aa.rule_name_id = sp_rn.id
+		JOIN string_pool sp_o ON aa.outcome_id = sp_o.id
+		LEFT JOIN string_pool sp_r ON aa.reason_id = sp_r.id
+		LEFT JOIN string_pool sp_d ON aa.details_id = sp_d.id;
+	`)
+	require.NoError(t, err)
+
+	return &realTestQuerier{db: sqlDB}
 }
 
-func (m *mockQuerier) BeginTx(_ context.Context, _ *sql.TxOptions) (dbinterface.TxQuerier, error) {
-	return nil, nil
+func readActivities(t *testing.T, db *realTestQuerier) []*models.AutomationActivity {
+	t.Helper()
+	rows, err := db.db.QueryContext(context.Background(),
+		`SELECT id, owner_id, instance_id, hash, torrent_name, tracker_domain, action, rule_id, rule_name, outcome, reason, details, created_at
+		FROM automation_activity_view ORDER BY id`)
+	require.NoError(t, err)
+	defer rows.Close()
+
+	var activities []*models.AutomationActivity
+	for rows.Next() {
+		var a models.AutomationActivity
+		var torrentName, trackerDomain, ruleName, reason sql.NullString
+		var details sql.NullString
+		var ruleID sql.NullInt64
+		require.NoError(t, rows.Scan(&a.ID, &a.OwnerID, &a.InstanceID, &a.Hash, &torrentName, &trackerDomain, &a.Action, &ruleID, &ruleName, &a.Outcome, &reason, &details, &a.CreatedAt))
+		if torrentName.Valid {
+			a.TorrentName = torrentName.String
+		}
+		if trackerDomain.Valid {
+			a.TrackerDomain = trackerDomain.String
+		}
+		if ruleName.Valid {
+			a.RuleName = ruleName.String
+		}
+		if reason.Valid {
+			a.Reason = reason.String
+		}
+		if details.Valid {
+			a.Details = json.RawMessage(details.String)
+		}
+		if ruleID.Valid {
+			id := int(ruleID.Int64)
+			a.RuleID = &id
+		}
+		activities = append(activities, &a)
+	}
+	require.NoError(t, rows.Err())
+	return activities
 }
-
-// mockResult implements sql.Result for the mock
-type mockResult struct{}
-
-func (m mockResult) LastInsertId() (int64, error) { return 0, nil }
-func (m mockResult) RowsAffected() (int64, error) { return 1, nil }

@@ -63,6 +63,14 @@ func setupTestBackupHandler(t *testing.T) (*BackupsHandler, *database.DB, string
 	db, err := database.New(dbPath)
 	require.NoError(t, err)
 
+	// Create test user to satisfy FK constraints on instances.owner_id
+	_, err = db.ExecContext(context.Background(), "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-user'), ('test-hash')")
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `INSERT INTO users (username_id, password_hash_id) VALUES (
+		(SELECT id FROM string_pool WHERE value = 'test-user'),
+		(SELECT id FROM string_pool WHERE value = 'test-hash'))`)
+	require.NoError(t, err)
+
 	// Create test data directory
 	dataDir := t.TempDir()
 
@@ -188,6 +196,32 @@ func createTestTorrentFiles(t *testing.T, dataDir string) {
 	require.NoError(t, os.WriteFile(file2, testData, 0644))
 }
 
+// createTestInstance inserts string_pool entries and an instance row using the
+// interned schema (owner_id, password_encrypted_id, etc.) and returns the new
+// instance ID.  The owner_id references the user created in setupTestBackupHandler.
+func createTestInstance(t *testing.T, db *database.DB) int {
+	t.Helper()
+	ctx := context.Background()
+
+	_, err := db.ExecContext(ctx, "INSERT OR IGNORE INTO string_pool (value) VALUES ('test-instance'), ('http://localhost'), ('admin'), ('pass')")
+	require.NoError(t, err)
+
+	result, err := db.ExecContext(ctx, `INSERT INTO instances (owner_id, name_id, host_id, username_id, password_encrypted_id, hardlink_base_dir_id, hardlink_dir_preset_id) VALUES (
+		1,
+		(SELECT id FROM string_pool WHERE value = 'test-instance'),
+		(SELECT id FROM string_pool WHERE value = 'http://localhost'),
+		(SELECT id FROM string_pool WHERE value = 'admin'),
+		(SELECT id FROM string_pool WHERE value = 'pass'),
+		(SELECT id FROM string_pool WHERE value = ''),
+		(SELECT id FROM string_pool WHERE value = ''))`)
+	require.NoError(t, err)
+
+	id, err := result.LastInsertId()
+	require.NoError(t, err)
+
+	return int(id)
+}
+
 func TestDownloadRun_InvalidInstanceID(t *testing.T) {
 	handler, _, _, cleanup := setupTestBackupHandler(t)
 	defer cleanup()
@@ -241,14 +275,10 @@ func TestDownloadRun_BackupNotAvailable(t *testing.T) {
 	defer cleanup()
 
 	// Create a test instance
-	ctx := context.Background()
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (1, 1, 1, 'pass')")
-	require.NoError(t, err)
-	instanceID64, err := result.LastInsertId()
-	require.NoError(t, err)
-	instanceID := int(instanceID64)
+	instanceID := createTestInstance(t, db)
 
 	// Create a backup run with pending status
+	ctx := context.Background()
 	run := &models.BackupRun{
 		InstanceID:   instanceID,
 		Kind:         models.BackupRunKindManual,
@@ -259,7 +289,7 @@ func TestDownloadRun_BackupNotAvailable(t *testing.T) {
 	}
 
 	store := models.NewBackupStore(db)
-	err = store.CreateRun(ctx, run)
+	err := store.CreateRun(ctx, run)
 	require.NoError(t, err)
 
 	req := newRequestWithParams(http.MethodGet, fmt.Sprintf("/api/instances/%d/backups/runs/%d/download", instanceID, run.ID), map[string]string{
@@ -279,12 +309,7 @@ func TestDownloadRun_UnsupportedFormat(t *testing.T) {
 	defer cleanup()
 
 	// Create a test instance and successful backup run
-	ctx := context.Background()
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (1, 1, 1, 'pass')")
-	require.NoError(t, err)
-	instanceID64, err := result.LastInsertId()
-	require.NoError(t, err)
-	instanceID := int(instanceID64)
+	instanceID := createTestInstance(t, db)
 
 	run := createTestBackupRun(t, db, dataDir, instanceID)
 
@@ -307,12 +332,7 @@ func TestDownloadRun_ZIPFormat(t *testing.T) {
 	defer cleanup()
 
 	// Create a test instance and successful backup run
-	ctx := context.Background()
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (1, 1, 1, 'pass')")
-	require.NoError(t, err)
-	instanceID64, err := result.LastInsertId()
-	require.NoError(t, err)
-	instanceID := int(instanceID64)
+	instanceID := createTestInstance(t, db)
 
 	run := createTestBackupRun(t, db, dataDir, instanceID)
 	createTestTorrentFiles(t, dataDir)
@@ -352,12 +372,7 @@ func TestDownloadRun_TarGzFormat(t *testing.T) {
 	defer cleanup()
 
 	// Create a test instance and successful backup run
-	ctx := context.Background()
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (1, 1, 1, 'pass')")
-	require.NoError(t, err)
-	instanceID64, err := result.LastInsertId()
-	require.NoError(t, err)
-	instanceID := int(instanceID64)
+	instanceID := createTestInstance(t, db)
 
 	run := createTestBackupRun(t, db, dataDir, instanceID)
 	createTestTorrentFiles(t, dataDir)
@@ -403,12 +418,7 @@ func TestDownloadRun_TarZstFormat(t *testing.T) {
 	defer cleanup()
 
 	// Create a test instance and successful backup run
-	ctx := context.Background()
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (1, 1, 1, 'pass')")
-	require.NoError(t, err)
-	instanceID64, err := result.LastInsertId()
-	require.NoError(t, err)
-	instanceID := int(instanceID64)
+	instanceID := createTestInstance(t, db)
 
 	run := createTestBackupRun(t, db, dataDir, instanceID)
 	createTestTorrentFiles(t, dataDir)
@@ -454,12 +464,7 @@ func TestDownloadRun_TarBrFormat(t *testing.T) {
 	defer cleanup()
 
 	// Create a test instance and successful backup run
-	ctx := context.Background()
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (1, 1, 1, 'pass')")
-	require.NoError(t, err)
-	instanceID64, err := result.LastInsertId()
-	require.NoError(t, err)
-	instanceID := int(instanceID64)
+	instanceID := createTestInstance(t, db)
 
 	run := createTestBackupRun(t, db, dataDir, instanceID)
 	createTestTorrentFiles(t, dataDir)
@@ -502,12 +507,7 @@ func TestDownloadRun_TarXzFormat(t *testing.T) {
 	defer cleanup()
 
 	// Create a test instance and successful backup run
-	ctx := context.Background()
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (1, 1, 1, 'pass')")
-	require.NoError(t, err)
-	instanceID64, err := result.LastInsertId()
-	require.NoError(t, err)
-	instanceID := int(instanceID64)
+	instanceID := createTestInstance(t, db)
 
 	run := createTestBackupRun(t, db, dataDir, instanceID)
 	createTestTorrentFiles(t, dataDir)
@@ -552,12 +552,7 @@ func TestDownloadRun_TarFormat(t *testing.T) {
 	defer cleanup()
 
 	// Create a test instance and successful backup run
-	ctx := context.Background()
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (1, 1, 1, 'pass')")
-	require.NoError(t, err)
-	instanceID64, err := result.LastInsertId()
-	require.NoError(t, err)
-	instanceID := int(instanceID64)
+	instanceID := createTestInstance(t, db)
 
 	run := createTestBackupRun(t, db, dataDir, instanceID)
 	createTestTorrentFiles(t, dataDir)
@@ -599,12 +594,7 @@ func TestDownloadRun_DefaultFormat(t *testing.T) {
 	defer cleanup()
 
 	// Create a test instance and successful backup run
-	ctx := context.Background()
-	result, err := db.ExecContext(ctx, "INSERT INTO instances (name_id, host_id, username_id, password_encrypted) VALUES (1, 1, 1, 'pass')")
-	require.NoError(t, err)
-	instanceID64, err := result.LastInsertId()
-	require.NoError(t, err)
-	instanceID := int(instanceID64)
+	instanceID := createTestInstance(t, db)
 
 	run := createTestBackupRun(t, db, dataDir, instanceID)
 	createTestTorrentFiles(t, dataDir)
