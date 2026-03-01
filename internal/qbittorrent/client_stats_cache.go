@@ -14,6 +14,7 @@ package qbittorrent
 import (
 	"fmt"
 	"hash/fnv"
+	"sort"
 	"sync/atomic"
 
 	qbt "github.com/autogrr/go-qbittorrent"
@@ -142,20 +143,28 @@ func (c *Client) updateCachedStats(data *qbt.MainData) {
 
 	c.statsCache.counts.Store(counts)
 
-	// Compute a cheap torrent-list fingerprint (count + first 20 entries).
+	// Compute a stable torrent-list fingerprint using sorted hashes so the FP
+	// only changes when actual data changes (state, speed bucket), not due to
+	// random map iteration order.
 	h64 := fnv.New64a()
 	fmt.Fprintf(h64, "%d", counts.Total) //nolint:errcheck
-	i := 0
 	const fpSpeedBucket = 100 * 1024 // 100 KiB/s buckets to suppress noise
-	for hash, t := range data.Torrents {
-		if i >= 20 {
-			break
+	if len(data.Torrents) > 0 {
+		hashes := make([]string, 0, len(data.Torrents))
+		for h := range data.Torrents {
+			hashes = append(hashes, h)
 		}
-		fmt.Fprintf(h64, "%s%s%d%d", hash, ptrTorrentState(t.State), //nolint:errcheck
-			uint64(ptrInt64(t.DlSpeed))/fpSpeedBucket,
-			uint64(ptrInt64(t.UpSpeed))/fpSpeedBucket,
-		)
-		i++
+		sort.Strings(hashes)
+		if len(hashes) > 20 {
+			hashes = hashes[:20]
+		}
+		for _, hash := range hashes {
+			t := data.Torrents[hash]
+			fmt.Fprintf(h64, "%s%s%d%d", hash, ptrTorrentState(t.State), //nolint:errcheck
+				uint64(ptrInt64(t.DlSpeed))/fpSpeedBucket,
+				uint64(ptrInt64(t.UpSpeed))/fpSpeedBucket,
+			)
+		}
 	}
 	c.statsCache.torrentFP.Store(h64.Sum64())
 
@@ -164,6 +173,10 @@ func (c *Client) updateCachedStats(data *qbt.MainData) {
 		for _, r := range trackerAgg {
 			rows = append(rows, *r)
 		}
+		// Sort by domain so the stored slice has a deterministic order.
+		// This ensures the dashboard SSE fingerprint only changes when actual
+		// tracker data changes, not due to random map iteration.
+		sort.Slice(rows, func(i, j int) bool { return rows[i].Domain < rows[j].Domain })
 		c.statsCache.trackers.Store(&rows)
 	}
 }

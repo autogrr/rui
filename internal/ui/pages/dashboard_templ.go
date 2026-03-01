@@ -185,7 +185,7 @@ func Dashboard(p DashboardProps) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" hx-trigger=\"load, sse:dashboard-update, every 30s\" hx-swap=\"innerHTML\" class=\"space-y-4\"><!-- Skeletons shown until first HTMX response -->")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" hx-trigger=\"load, sse:dashboard-update, every 5s\" hx-swap=\"innerHTML\" class=\"space-y-4\"><!-- Skeletons shown until first HTMX response -->")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -214,7 +214,7 @@ func Dashboard(p DashboardProps) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" hx-trigger=\"load, sse:dashboard-update, every 60s\" hx-swap=\"innerHTML\" class=\"mt-6\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\" hx-trigger=\"load, sse:dashboard-update, every 15s\" hx-swap=\"innerHTML\" class=\"mt-6\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

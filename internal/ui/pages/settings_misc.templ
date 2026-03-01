@@ -314,14 +314,17 @@ templ SettingsThemesSection(p SettingsProps) {
 				selectColor(v) {
 					this.colorTheme = v;
 					this._clearCustom();
+					this._cancelPendingSwitch();
 					if (v) {
 						localStorage.setItem('rui:color-theme', v);
-						document.documentElement.setAttribute('data-theme', v);
-						document.getElementById('theme-css').href = '/ui/static/themes/' + v + '.css';
+						// Preload new theme CSS, then flip data-theme atomically
+						this._switchTheme('/ui/static/themes/' + v + '.css', v);
 					} else {
+						// Revert to default — output.css `:root` fallback takes over immediately
 						localStorage.removeItem('rui:color-theme');
 						document.documentElement.removeAttribute('data-theme');
-						document.getElementById('theme-css').removeAttribute('href');
+						var link = document.getElementById('theme-css');
+						if (link) link.href = 'data:text/css,';
 					}
 				},
 				applyCustomColor(c) {
@@ -330,7 +333,10 @@ templ SettingsThemesSection(p SettingsProps) {
 					this.customName = c.name;
 					localStorage.setItem('rui:color-theme', 'custom');
 					localStorage.setItem('rui:custom-theme', JSON.stringify(c));
-					document.getElementById('theme-css').removeAttribute('href');
+					this._cancelPendingSwitch();
+					// Custom theme uses injected <style>, reset theme link to no-op
+					var link = document.getElementById('theme-css');
+					if (link) link.href = 'data:text/css,';
 					document.documentElement.setAttribute('data-theme', 'custom');
 					this._injectCSS(c);
 				},
@@ -381,6 +387,40 @@ templ SettingsThemesSection(p SettingsProps) {
 					s.id='custom-theme-css';
 					s.textContent=lt+dk;
 					document.head.appendChild(s);
+				},
+				// Cancel any in-flight theme preload to prevent race conditions
+				// from rapid theme switching (leaked links, duplicate ids).
+				_cancelPendingSwitch() {
+					var pending = document.head.querySelectorAll('link[data-theme-pending]');
+					for (var i = 0; i < pending.length; i++) pending[i].remove();
+				},
+				// Load a theme CSS file into the CSSOM, then flip data-theme
+				// atomically so the old theme → new theme transition has no gap.
+				// The old #theme-css link stays in place (keeping the current theme
+				// visible) until the new CSS is fully loaded.
+				_switchTheme(href, dataTheme) {
+					var themeLink = document.getElementById('theme-css');
+					// Create a new link with a marker attribute so _cancelPendingSwitch
+					// can find it. Its [data-theme] scoped rules won't match yet.
+					var newLink = document.createElement('link');
+					newLink.rel = 'stylesheet';
+					newLink.href = href;
+					newLink.setAttribute('data-theme-pending', dataTheme);
+					var finish = function() {
+						// If this link was cancelled while loading, bail out.
+						if (!newLink.hasAttribute('data-theme-pending')) return;
+						newLink.removeAttribute('data-theme-pending');
+						// Atomic swap: set data-theme so new rules match, then
+						// update #theme-css href to keep a single link element.
+						document.documentElement.setAttribute('data-theme', dataTheme);
+						if (themeLink) themeLink.href = href;
+						// Remove the preload link (its job is done; #theme-css
+						// now points to the same href and serves the rules).
+						newLink.remove();
+					};
+					newLink.onload = finish;
+					newLink.onerror = finish;
+					document.head.appendChild(newLink);
 				},
 			};
 		}

@@ -101,7 +101,7 @@ templ Dashboard(p DashboardProps) {
 					<div
 						id="dashboard-stats"
 						hx-get={ p.BaseURL + "/ui/partials/dashboard" }
-						hx-trigger="load, sse:dashboard-update, every 30s"
+						hx-trigger="load, sse:dashboard-update, every 5s"
 						hx-swap="innerHTML"
 						class="space-y-4"
 					>
@@ -115,7 +115,7 @@ templ Dashboard(p DashboardProps) {
 					<div
 						id="tracker-breakdown"
 						hx-get={ p.BaseURL + "/ui/partials/dashboard/tracker-breakdown" }
-						hx-trigger="load, sse:dashboard-update, every 60s"
+						hx-trigger="load, sse:dashboard-update, every 15s"
 						hx-swap="innerHTML"
 						class="mt-6"
 					>

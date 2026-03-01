@@ -613,7 +613,7 @@ func SettingsThemesSection(p SettingsProps) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<script>\n\t\tfunction themePrefs() {\n\t\t\treturn {\n\t\t\t\tscheme: 'system',\n\t\t\t\tcolorTheme: '',\n\t\t\t\tcustomHue: null,\n\t\t\t\tcustomName: '',\n\t\t\t\tcolorSwatches: [\n\t\t\t\t\t{name:'Red',     l:0.55, c:0.22, h:25},\n\t\t\t\t\t{name:'Orange',  l:0.68, c:0.19, h:50},\n\t\t\t\t\t{name:'Yellow',  l:0.87, c:0.17, h:90},\n\t\t\t\t\t{name:'Green',   l:0.58, c:0.17, h:148},\n\t\t\t\t\t{name:'Teal',    l:0.56, c:0.12, h:195},\n\t\t\t\t\t{name:'Cyan',    l:0.56, c:0.12, h:225},\n\t\t\t\t\t{name:'Blue',    l:0.48, c:0.20, h:264},\n\t\t\t\t\t{name:'Violet',  l:0.46, c:0.23, h:300},\n\t\t\t\t\t{name:'Fuchsia', l:0.55, c:0.20, h:330},\n\t\t\t\t\t{name:'Magenta', l:0.575,c:0.198,h:349},\n\t\t\t\t\t{name:'Rose',    l:0.70, c:0.14, h:10},\n\t\t\t\t\t{name:'Cocoa',   l:0.48, c:0.06, h:55},\n\t\t\t\t\t{name:'Gray',    l:0.58, c:0.005,h:260},\n\t\t\t\t\t{name:'Slate',   l:0.38, c:0.02, h:260},\n\t\t\t\t],\n\t\t\t\tinit() {\n\t\t\t\t\tthis.scheme = localStorage.getItem('rui:theme') || 'system';\n\t\t\t\t\tthis.colorTheme = localStorage.getItem('rui:color-theme') || '';\n\t\t\t\t\tif (this.colorTheme === 'custom') {\n\t\t\t\t\t\tvar s = localStorage.getItem('rui:custom-theme');\n\t\t\t\t\t\tif (s) {\n\t\t\t\t\t\t\ttry {\n\t\t\t\t\t\t\t\tvar d = JSON.parse(s);\n\t\t\t\t\t\t\t\tthis.customHue = d.h;\n\t\t\t\t\t\t\t\tthis.customName = d.name || '';\n\t\t\t\t\t\t\t\tthis._injectCSS(d);\n\t\t\t\t\t\t\t} catch(e) {}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tselect(v) {\n\t\t\t\t\tthis.scheme = v;\n\t\t\t\t\tlocalStorage.setItem('rui:theme', v);\n\t\t\t\t\t_applyScheme(v);\n\t\t\t\t},\n\t\t\t\tselectColor(v) {\n\t\t\t\t\tthis.colorTheme = v;\n\t\t\t\t\tthis._clearCustom();\n\t\t\t\t\tif (v) {\n\t\t\t\t\t\tlocalStorage.setItem('rui:color-theme', v);\n\t\t\t\t\t\tdocument.documentElement.setAttribute('data-theme', v);\n\t\t\t\t\t\tdocument.getElementById('theme-css').href = '/ui/static/themes/' + v + '.css';\n\t\t\t\t\t} else {\n\t\t\t\t\t\tlocalStorage.removeItem('rui:color-theme');\n\t\t\t\t\t\tdocument.documentElement.removeAttribute('data-theme');\n\t\t\t\t\t\tdocument.getElementById('theme-css').removeAttribute('href');\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tapplyCustomColor(c) {\n\t\t\t\t\tthis.colorTheme = 'custom';\n\t\t\t\t\tthis.customHue = c.h;\n\t\t\t\t\tthis.customName = c.name;\n\t\t\t\t\tlocalStorage.setItem('rui:color-theme', 'custom');\n\t\t\t\t\tlocalStorage.setItem('rui:custom-theme', JSON.stringify(c));\n\t\t\t\t\tdocument.getElementById('theme-css').removeAttribute('href');\n\t\t\t\t\tdocument.documentElement.setAttribute('data-theme', 'custom');\n\t\t\t\t\tthis._injectCSS(c);\n\t\t\t\t},\n\t\t\t\t_clearCustom() {\n\t\t\t\t\tvar el = document.getElementById('custom-theme-css');\n\t\t\t\t\tif (el) el.remove();\n\t\t\t\t\tthis.customHue = null;\n\t\t\t\t\tthis.customName = '';\n\t\t\t\t\tlocalStorage.removeItem('rui:custom-theme');\n\t\t\t\t},\n\t\t\t\t_injectCSS(c) {\n\t\t\t\t\tvar el = document.getElementById('custom-theme-css');\n\t\t\t\t\tif (el) el.remove();\n\t\t\t\t\tvar L=c.l, C=c.c, h=c.h;\n\t\t\t\t\tvar dL=Math.min(L+0.15,0.80), dC=C*0.88;\n\t\t\t\t\tfunction v(lightness,chroma){return 'oklch('+lightness+' '+chroma.toFixed(4)+' '+h+')';}\n\t\t\t\t\tvar lt=':root[data-theme=\"custom\"]{'+\n\t\t\t\t\t\t'--background:'+v(0.995,C*0.015)+';--foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--card:oklch(1 0 0);--card-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--popover:oklch(1 0 0);--popover-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--primary:oklch('+L+' '+C+' '+h+');--primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--secondary:'+v(0.96,C*0.04)+';--secondary-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--muted:'+v(0.96,C*0.04)+';--muted-foreground:'+v(0.55,C*0.09)+';'+\n\t\t\t\t\t\t'--accent:'+v(0.958,C*0.07)+';--accent-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--destructive:oklch(0.577 0.215 27.3);--destructive-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--border:'+v(0.92,C*0.05)+';--input:'+v(0.96,C*0.03)+';'+\n\t\t\t\t\t\t'--ring:oklch('+L+' '+C+' '+h+');'+\n\t\t\t\t\t\t'--sidebar:'+v(0.98,C*0.02)+';--sidebar-foreground:'+v(0.37,C*0.08)+';'+\n\t\t\t\t\t\t'--sidebar-primary:oklch('+L+' '+C+' '+h+');--sidebar-primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-accent:oklch('+L+' '+C+' '+h+');--sidebar-accent-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-border:'+v(0.92,C*0.05)+';--sidebar-ring:oklch('+L+' '+C+' '+h+');}';\n\t\t\t\t\tvar dk='.dark[data-theme=\"custom\"]{'+\n\t\t\t\t\t\t'--background:'+v(0.18,C*0.07)+';--foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--card:'+v(0.24,C*0.08)+';--card-foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--popover:'+v(0.24,C*0.08)+';--popover-foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--primary:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--secondary:'+v(0.34,C*0.09)+';--secondary-foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--muted:'+v(0.26,C*0.07)+';--muted-foreground:'+v(0.70,C*0.07)+';'+\n\t\t\t\t\t\t'--accent:'+v(0.35,C*0.16)+';--accent-foreground:'+v(0.98,C*0.02)+';'+\n\t\t\t\t\t\t'--destructive:oklch(0.637 0.208 25.3);--destructive-foreground:oklch(0.98 0 0);'+\n\t\t\t\t\t\t'--border:'+v(0.30,C*0.07)+';--input:'+v(0.34,C*0.09)+';'+\n\t\t\t\t\t\t'--ring:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');'+\n\t\t\t\t\t\t'--sidebar:'+v(0.16,C*0.06)+';--sidebar-foreground:'+v(0.70,C*0.07)+';'+\n\t\t\t\t\t\t'--sidebar-primary:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--sidebar-primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-accent:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--sidebar-accent-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-border:'+v(0.30,C*0.07)+';--sidebar-ring:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');}';\n\t\t\t\t\tvar s=document.createElement('style');\n\t\t\t\t\ts.id='custom-theme-css';\n\t\t\t\t\ts.textContent=lt+dk;\n\t\t\t\t\tdocument.head.appendChild(s);\n\t\t\t\t},\n\t\t\t};\n\t\t}\n\n\t\tfunction _applyScheme(scheme) {\n\t\t\tvar prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n\t\t\tvar dark = scheme === 'dark' || (scheme === 'system' && prefersDark);\n\t\t\tdocument.documentElement.classList.toggle('dark', dark);\n\t\t}\n\n\t\t(function() {\n\t\t\t_applyScheme(localStorage.getItem('rui:theme') || 'system');\n\t\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<script>\n\t\tfunction themePrefs() {\n\t\t\treturn {\n\t\t\t\tscheme: 'system',\n\t\t\t\tcolorTheme: '',\n\t\t\t\tcustomHue: null,\n\t\t\t\tcustomName: '',\n\t\t\t\tcolorSwatches: [\n\t\t\t\t\t{name:'Red',     l:0.55, c:0.22, h:25},\n\t\t\t\t\t{name:'Orange',  l:0.68, c:0.19, h:50},\n\t\t\t\t\t{name:'Yellow',  l:0.87, c:0.17, h:90},\n\t\t\t\t\t{name:'Green',   l:0.58, c:0.17, h:148},\n\t\t\t\t\t{name:'Teal',    l:0.56, c:0.12, h:195},\n\t\t\t\t\t{name:'Cyan',    l:0.56, c:0.12, h:225},\n\t\t\t\t\t{name:'Blue',    l:0.48, c:0.20, h:264},\n\t\t\t\t\t{name:'Violet',  l:0.46, c:0.23, h:300},\n\t\t\t\t\t{name:'Fuchsia', l:0.55, c:0.20, h:330},\n\t\t\t\t\t{name:'Magenta', l:0.575,c:0.198,h:349},\n\t\t\t\t\t{name:'Rose',    l:0.70, c:0.14, h:10},\n\t\t\t\t\t{name:'Cocoa',   l:0.48, c:0.06, h:55},\n\t\t\t\t\t{name:'Gray',    l:0.58, c:0.005,h:260},\n\t\t\t\t\t{name:'Slate',   l:0.38, c:0.02, h:260},\n\t\t\t\t],\n\t\t\t\tinit() {\n\t\t\t\t\tthis.scheme = localStorage.getItem('rui:theme') || 'system';\n\t\t\t\t\tthis.colorTheme = localStorage.getItem('rui:color-theme') || '';\n\t\t\t\t\tif (this.colorTheme === 'custom') {\n\t\t\t\t\t\tvar s = localStorage.getItem('rui:custom-theme');\n\t\t\t\t\t\tif (s) {\n\t\t\t\t\t\t\ttry {\n\t\t\t\t\t\t\t\tvar d = JSON.parse(s);\n\t\t\t\t\t\t\t\tthis.customHue = d.h;\n\t\t\t\t\t\t\t\tthis.customName = d.name || '';\n\t\t\t\t\t\t\t\tthis._injectCSS(d);\n\t\t\t\t\t\t\t} catch(e) {}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tselect(v) {\n\t\t\t\t\tthis.scheme = v;\n\t\t\t\t\tlocalStorage.setItem('rui:theme', v);\n\t\t\t\t\t_applyScheme(v);\n\t\t\t\t},\n\t\t\t\tselectColor(v) {\n\t\t\t\t\tthis.colorTheme = v;\n\t\t\t\t\tthis._clearCustom();\n\t\t\t\t\tif (v) {\n\t\t\t\t\t\tlocalStorage.setItem('rui:color-theme', v);\n\t\t\t\t\t\t// Preload new theme CSS, then flip data-theme atomically\n\t\t\t\t\t\tthis._switchTheme('/ui/static/themes/' + v + '.css', v);\n\t\t\t\t\t} else {\n\t\t\t\t\t\t// Revert to default — output.css fallback takes over immediately\n\t\t\t\t\t\tlocalStorage.removeItem('rui:color-theme');\n\t\t\t\t\t\tdocument.documentElement.removeAttribute('data-theme');\n\t\t\t\t\t\tvar link = document.getElementById('theme-css');\n\t\t\t\t\t\tif (link) link.removeAttribute('href');\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\tapplyCustomColor(c) {\n\t\t\t\t\tthis.colorTheme = 'custom';\n\t\t\t\t\tthis.customHue = c.h;\n\t\t\t\t\tthis.customName = c.name;\n\t\t\t\t\tlocalStorage.setItem('rui:color-theme', 'custom');\n\t\t\t\t\tlocalStorage.setItem('rui:custom-theme', JSON.stringify(c));\n\t\t\t\t\t// Custom theme uses injected <style>, clear the theme link\n\t\t\t\t\tvar link = document.getElementById('theme-css');\n\t\t\t\t\tif (link) link.removeAttribute('href');\n\t\t\t\t\tdocument.documentElement.setAttribute('data-theme', 'custom');\n\t\t\t\t\tthis._injectCSS(c);\n\t\t\t\t},\n\t\t\t\t_clearCustom() {\n\t\t\t\t\tvar el = document.getElementById('custom-theme-css');\n\t\t\t\t\tif (el) el.remove();\n\t\t\t\t\tthis.customHue = null;\n\t\t\t\t\tthis.customName = '';\n\t\t\t\t\tlocalStorage.removeItem('rui:custom-theme');\n\t\t\t\t},\n\t\t\t\t_injectCSS(c) {\n\t\t\t\t\tvar el = document.getElementById('custom-theme-css');\n\t\t\t\t\tif (el) el.remove();\n\t\t\t\t\tvar L=c.l, C=c.c, h=c.h;\n\t\t\t\t\tvar dL=Math.min(L+0.15,0.80), dC=C*0.88;\n\t\t\t\t\tfunction v(lightness,chroma){return 'oklch('+lightness+' '+chroma.toFixed(4)+' '+h+')';}\n\t\t\t\t\tvar lt=':root[data-theme=\"custom\"]{'+\n\t\t\t\t\t\t'--background:'+v(0.995,C*0.015)+';--foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--card:oklch(1 0 0);--card-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--popover:oklch(1 0 0);--popover-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--primary:oklch('+L+' '+C+' '+h+');--primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--secondary:'+v(0.96,C*0.04)+';--secondary-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--muted:'+v(0.96,C*0.04)+';--muted-foreground:'+v(0.55,C*0.09)+';'+\n\t\t\t\t\t\t'--accent:'+v(0.958,C*0.07)+';--accent-foreground:'+v(0.21,C*0.06)+';'+\n\t\t\t\t\t\t'--destructive:oklch(0.577 0.215 27.3);--destructive-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--border:'+v(0.92,C*0.05)+';--input:'+v(0.96,C*0.03)+';'+\n\t\t\t\t\t\t'--ring:oklch('+L+' '+C+' '+h+');'+\n\t\t\t\t\t\t'--sidebar:'+v(0.98,C*0.02)+';--sidebar-foreground:'+v(0.37,C*0.08)+';'+\n\t\t\t\t\t\t'--sidebar-primary:oklch('+L+' '+C+' '+h+');--sidebar-primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-accent:oklch('+L+' '+C+' '+h+');--sidebar-accent-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-border:'+v(0.92,C*0.05)+';--sidebar-ring:oklch('+L+' '+C+' '+h+');}';\n\t\t\t\t\tvar dk='.dark[data-theme=\"custom\"]{'+\n\t\t\t\t\t\t'--background:'+v(0.18,C*0.07)+';--foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--card:'+v(0.24,C*0.08)+';--card-foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--popover:'+v(0.24,C*0.08)+';--popover-foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--primary:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--secondary:'+v(0.34,C*0.09)+';--secondary-foreground:'+v(0.92,C*0.04)+';'+\n\t\t\t\t\t\t'--muted:'+v(0.26,C*0.07)+';--muted-foreground:'+v(0.70,C*0.07)+';'+\n\t\t\t\t\t\t'--accent:'+v(0.35,C*0.16)+';--accent-foreground:'+v(0.98,C*0.02)+';'+\n\t\t\t\t\t\t'--destructive:oklch(0.637 0.208 25.3);--destructive-foreground:oklch(0.98 0 0);'+\n\t\t\t\t\t\t'--border:'+v(0.30,C*0.07)+';--input:'+v(0.34,C*0.09)+';'+\n\t\t\t\t\t\t'--ring:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');'+\n\t\t\t\t\t\t'--sidebar:'+v(0.16,C*0.06)+';--sidebar-foreground:'+v(0.70,C*0.07)+';'+\n\t\t\t\t\t\t'--sidebar-primary:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--sidebar-primary-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-accent:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');--sidebar-accent-foreground:oklch(1 0 0);'+\n\t\t\t\t\t\t'--sidebar-border:'+v(0.30,C*0.07)+';--sidebar-ring:oklch('+dL.toFixed(3)+' '+dC.toFixed(4)+' '+h+');}';\n\t\t\t\t\tvar s=document.createElement('style');\n\t\t\t\t\ts.id='custom-theme-css';\n\t\t\t\t\ts.textContent=lt+dk;\n\t\t\t\t\tdocument.head.appendChild(s);\n\t\t\t\t},\n\t\t\t\t// Load a theme CSS file into the CSSOM, then flip data-theme\n\t\t\t\t// atomically so the old theme → new theme transition has no gap.\n\t\t\t\t_switchTheme(href, dataTheme) {\n\t\t\t\t\tvar oldLink = document.getElementById('theme-css');\n\t\t\t\t\t// Create a new stylesheet link — the browser loads it in the\n\t\t\t\t\t// background. Its [data-theme] scoped rules won't match yet\n\t\t\t\t\t// because data-theme still points to the old value.\n\t\t\t\t\tvar newLink = document.createElement('link');\n\t\t\t\t\tnewLink.rel = 'stylesheet';\n\t\t\t\t\tnewLink.href = href;\n\t\t\t\t\tnewLink.onload = function() {\n\t\t\t\t\t\t// CSS is now parsed and in the CSSOM. Flipping data-theme\n\t\t\t\t\t\t// makes the new rules match and old rules un-match in the\n\t\t\t\t\t\t// same style recalc — zero-gap transition.\n\t\t\t\t\t\tdocument.documentElement.setAttribute('data-theme', dataTheme);\n\t\t\t\t\t\tif (oldLink) oldLink.remove();\n\t\t\t\t\t\tnewLink.id = 'theme-css';\n\t\t\t\t\t\tnewLink.setAttribute('hx-preserve', 'true');\n\t\t\t\t\t};\n\t\t\t\t\t// Fallback: if load fails, swap anyway so UI isn't stuck.\n\t\t\t\t\tnewLink.onerror = function() {\n\t\t\t\t\t\tdocument.documentElement.setAttribute('data-theme', dataTheme);\n\t\t\t\t\t\tif (oldLink) oldLink.remove();\n\t\t\t\t\t\tnewLink.id = 'theme-css';\n\t\t\t\t\t\tnewLink.setAttribute('hx-preserve', 'true');\n\t\t\t\t\t};\n\t\t\t\t\tdocument.head.appendChild(newLink);\n\t\t\t\t},\n\t\t\t};\n\t\t}\n\n\t\tfunction _applyScheme(scheme) {\n\t\t\tvar prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;\n\t\t\tvar dark = scheme === 'dark' || (scheme === 'system' && prefersDark);\n\t\t\tdocument.documentElement.classList.toggle('dark', dark);\n\t\t}\n\n\t\t(function() {\n\t\t\t_applyScheme(localStorage.getItem('rui:theme') || 'system');\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -649,7 +649,7 @@ func dateFormatOption(value, example string) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs("{'border-primary bg-primary/5': dateFormat === '" + value + "', 'border-input': dateFormat !== '" + value + "'}")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 403, Col: 124}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 435, Col: 124}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 		if templ_7745c5c3_Err != nil {
@@ -662,7 +662,7 @@ func dateFormatOption(value, example string) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(value)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 405, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 437, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
@@ -675,7 +675,7 @@ func dateFormatOption(value, example string) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(example)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 406, Col: 11}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 438, Col: 11}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -717,7 +717,7 @@ func schemeCard(value, label, iconSVG string) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs("{'border-primary bg-primary/5 font-medium': scheme === '" + value + "', 'border-input': scheme !== '" + value + "'}")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 414, Col: 128}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 446, Col: 128}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -730,7 +730,7 @@ func schemeCard(value, label, iconSVG string) templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs("select('" + value + "')")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 415, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 447, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -747,7 +747,7 @@ func schemeCard(value, label, iconSVG string) templ.Component {
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 418, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 450, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {
@@ -789,7 +789,7 @@ func themeCard(value, label, primaryColor string) templ.Component {
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs("{'border-primary bg-primary/5 font-medium': colorTheme === '" + value + "', 'border-input': colorTheme !== '" + value + "'}")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 426, Col: 136}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 458, Col: 136}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
@@ -802,7 +802,7 @@ func themeCard(value, label, primaryColor string) templ.Component {
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs("selectColor('" + value + "')")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 427, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 459, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 		if templ_7745c5c3_Err != nil {
@@ -815,7 +815,7 @@ func themeCard(value, label, primaryColor string) templ.Component {
 		var templ_7745c5c3_Var25 string
 		templ_7745c5c3_Var25, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background-color: " + primaryColor + ";")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 429, Col: 124}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 461, Col: 124}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 		if templ_7745c5c3_Err != nil {
@@ -828,7 +828,7 @@ func themeCard(value, label, primaryColor string) templ.Component {
 		var templ_7745c5c3_Var26 string
 		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 430, Col: 9}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 462, Col: 9}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 		if templ_7745c5c3_Err != nil {
@@ -870,7 +870,7 @@ func cotyCard(value, label, year, primaryColor string) templ.Component {
 		var templ_7745c5c3_Var28 string
 		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs("{'border-primary bg-primary/5 font-medium': colorTheme === '" + value + "', 'border-input': colorTheme !== '" + value + "'}")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 438, Col: 136}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 470, Col: 136}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 		if templ_7745c5c3_Err != nil {
@@ -883,7 +883,7 @@ func cotyCard(value, label, year, primaryColor string) templ.Component {
 		var templ_7745c5c3_Var29 string
 		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs("selectColor('" + value + "')")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 439, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 471, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 		if templ_7745c5c3_Err != nil {
@@ -896,7 +896,7 @@ func cotyCard(value, label, year, primaryColor string) templ.Component {
 		var templ_7745c5c3_Var30 string
 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background-color: " + primaryColor + ";")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 441, Col: 124}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 473, Col: 124}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 		if templ_7745c5c3_Err != nil {
@@ -909,7 +909,7 @@ func cotyCard(value, label, year, primaryColor string) templ.Component {
 		var templ_7745c5c3_Var31 string
 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 442, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 474, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
@@ -922,7 +922,7 @@ func cotyCard(value, label, year, primaryColor string) templ.Component {
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(year)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 443, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 475, Col: 57}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -1101,7 +1101,7 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 				var templ_7745c5c3_Var40 string
 				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/settings/logs")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 475, Col: 55}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 507, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 				if templ_7745c5c3_Err != nil {
@@ -1119,7 +1119,7 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 					var templ_7745c5c3_Var41 string
 					templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(lvl)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 486, Col: 28}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 518, Col: 28}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 					if templ_7745c5c3_Err != nil {
@@ -1132,7 +1132,7 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 					var templ_7745c5c3_Var42 string
 					templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(lvl)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 486, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 518, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 					if templ_7745c5c3_Err != nil {
@@ -1268,7 +1268,7 @@ func settingsLogsContent(p SettingsProps) templ.Component {
 				var templ_7745c5c3_Var48 string
 				templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(p.BaseURL + "/ui/partials/settings/logs/stream")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 537, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 569, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 				if templ_7745c5c3_Err != nil {
@@ -1328,7 +1328,7 @@ func LogSettingsResultPartial(ok bool, msg string) templ.Component {
 			var templ_7745c5c3_Var50 string
 			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 594, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 626, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 			if templ_7745c5c3_Err != nil {
@@ -1346,7 +1346,7 @@ func LogSettingsResultPartial(ok bool, msg string) templ.Component {
 			var templ_7745c5c3_Var51 string
 			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 596, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/pages/settings_misc.templ`, Line: 628, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 			if templ_7745c5c3_Err != nil {

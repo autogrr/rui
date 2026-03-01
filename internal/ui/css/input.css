@@ -5,8 +5,13 @@
 @source '../**/*.go';
 
 /* ============================================================
-   rui default theme — Magenta (light + dark)
-   Neutral backgrounds with magenta accent on primary/ring only
+   Default theme — always-present fallback variables
+   ============================================================
+   These provide a safe baseline so CSS custom properties are NEVER
+   undefined. Named theme CSS files use higher-specificity selectors
+   like [data-theme="xxx"] which always win when active. This block
+   is invisible during normal use but prevents broken rendering
+   during async theme transitions.
    ============================================================ */
 :root {
   --background: oklch(1.000 0 0);
@@ -99,13 +104,6 @@
   --shadow-xl: 0px 2px 4px 0px hsl(0 0% 0% / 0.10), 0px 8px 10px -1px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0px 2px 4px 0px hsl(0 0% 0% / 0.25);
 }
-
-/* ============================================================
-   Themes are now served as individual static CSS files under
-   internal/ui/static/themes/ and loaded dynamically via a
-   <link id="theme-css"> tag in base.templ. This keeps the
-   Tailwind build fast and output.css small.
-   ============================================================ */
 
 /* ============================================================
    Tailwind v4 CSS variable → color token mapping

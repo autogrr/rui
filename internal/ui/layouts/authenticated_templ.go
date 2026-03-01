@@ -92,20 +92,20 @@ func Authenticated(p AuthProps) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex h-screen overflow-hidden bg-background\" x-data=\"{\n\t\t\t\tsidebarOpen: localStorage.getItem('qui_sidebar') !== 'false',\n\t\t\t\ttoggleSidebar() {\n\t\t\t\t\tthis.sidebarOpen = !this.sidebarOpen;\n\t\t\t\t\tlocalStorage.setItem('qui_sidebar', this.sidebarOpen);\n\t\t\t\t}\n\t\t\t}\"><!-- =========================================================\n\t\t\t     Sidebar\n\t\t\t     ========================================================= --><aside class=\"hidden md:flex flex-col bg-sidebar border-r border-sidebar-border\n\t\t\t\t       transition-all duration-200 ease-in-out shrink-0\" :class=\"sidebarOpen ? 'w-56' : 'w-14'\"><!-- Sidebar header: logo + toggle --><div class=\"flex items-center px-3 py-4 h-14 shrink-0 border-b border-sidebar-border\"><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex h-screen overflow-hidden bg-background\" x-data=\"{\n\t\t\t\tsidebarOpen: localStorage.getItem('qui_sidebar') !== 'false',\n\t\t\t\ttoggleSidebar() {\n\t\t\t\t\tthis.sidebarOpen = !this.sidebarOpen;\n\t\t\t\t\tlocalStorage.setItem('qui_sidebar', this.sidebarOpen);\n\t\t\t\t},\n\t\t\t\tinit() {\n\t\t\t\t\t// Remove the pre-Alpine sidebar-width attribute once Alpine has applied\n\t\t\t\t\t// its own :class binding, so the CSS pre-set no longer interferes.\n\t\t\t\t\tthis.$nextTick(() => delete document.documentElement.dataset.sidebarInit);\n\t\t\t\t}\n\t\t\t}\"><!-- =========================================================\n\t\t\t     Sidebar\n\t\t\t     ========================================================= --><aside class=\"hidden md:flex flex-col bg-sidebar border-r border-sidebar-border\n\t\t\t\t       transition-all duration-200 ease-in-out shrink-0\" :class=\"sidebarOpen ? 'w-56' : 'w-14'\"><!-- Sidebar header: logo + toggle --><div class=\"flex items-center px-3 py-4 h-14 shrink-0 border-b border-sidebar-border\"><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var3 templ.SafeURL
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(p.BaseURL + "/ui/dashboard"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 75, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 80, Col: 57}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"flex items-center gap-2.5 min-w-0\"><!-- App icon / logo (SVG inline) --><svg class=\"shrink-0 h-7 w-7 text-sidebar-primary\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"></path> <polyline points=\"7 10 12 15 17 10\"></polyline> <line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\"></line></svg> <span class=\"font-semibold text-sidebar-foreground text-sm truncate\" x-show=\"sidebarOpen\" x-transition:enter=\"transition-opacity duration-150\" x-transition:enter-start=\"opacity-0\" x-transition:enter-end=\"opacity-100\">rui</span></a></div><!-- Nav items --><nav class=\"flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-0.5\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"flex items-center gap-2.5 min-w-0\"><!-- App icon / logo (SVG inline) --><svg class=\"shrink-0 h-7 w-7 text-sidebar-primary\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\"></path> <polyline points=\"7 10 12 15 17 10\"></polyline> <line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\"></line></svg> <span class=\"sidebar-label font-semibold text-sidebar-foreground text-sm truncate\" x-show=\"sidebarOpen\" x-transition:enter=\"transition-opacity duration-150\" x-transition:enter-start=\"opacity-0\" x-transition:enter-end=\"opacity-100\">rui</span></a></div><!-- Nav items --><nav class=\"flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-0.5\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -139,7 +139,7 @@ func Authenticated(p AuthProps) templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<svg class=\"h-4 w-4 shrink-0\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"></rect> <path d=\"M9 3v18\"></path></svg> <span class=\"ml-2 text-xs truncate\" x-show=\"sidebarOpen\">Collapse</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<svg class=\"h-4 w-4 shrink-0\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\"></rect> <path d=\"M9 3v18\"></path></svg> <span class=\"sidebar-label ml-2 text-xs truncate\" x-show=\"sidebarOpen\">Collapse</span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -206,7 +206,7 @@ func Authenticated(p AuthProps) templ.Component {
 				var templ_7745c5c3_Var6 templ.SafeURL
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(p.BaseURL + item.Href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 169, Col: 51}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 174, Col: 51}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -236,7 +236,7 @@ func Authenticated(p AuthProps) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 177, Col: 20}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 182, Col: 20}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -323,7 +323,7 @@ func sidebarNavItem(item NavItem, currentPath string, activeInstance *Instance) 
 				var templ_7745c5c3_Var13 templ.SafeURL
 				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(item.Href))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 193, Col: 35}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 198, Col: 35}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
@@ -350,14 +350,14 @@ func sidebarNavItem(item NavItem, currentPath string, activeInstance *Instance) 
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<span class=\"truncate\" x-show=\"sidebarOpen\" x-transition:enter=\"transition-opacity duration-150\" x-transition:enter-start=\"opacity-0\" x-transition:enter-end=\"opacity-100\" x-cloak>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<span class=\"sidebar-label truncate\" x-show=\"sidebarOpen\" x-transition:enter=\"transition-opacity duration-150\" x-transition:enter-start=\"opacity-0\" x-transition:enter-end=\"opacity-100\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 209, Col: 17}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 213, Col: 17}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -392,7 +392,7 @@ func sidebarNavItem(item NavItem, currentPath string, activeInstance *Instance) 
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 214, Col: 15}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 218, Col: 15}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 				if templ_7745c5c3_Err != nil {
@@ -477,7 +477,7 @@ func instanceSelector(instances []Instance, active *Instance, baseURL string) te
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(inst.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 235, Col: 46}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 239, Col: 46}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -521,7 +521,7 @@ func instanceSelector(instances []Instance, active *Instance, baseURL string) te
 				var templ_7745c5c3_Var24 string
 				templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(active.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 252, Col: 41}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 256, Col: 41}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 				if templ_7745c5c3_Err != nil {
@@ -557,7 +557,7 @@ func instanceSelector(instances []Instance, active *Instance, baseURL string) te
 				var templ_7745c5c3_Var26 templ.SafeURL
 				templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(baseURL + "/ui/torrents?instance_id=" + itoa(inst.ID)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 267, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 271, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 				if templ_7745c5c3_Err != nil {
@@ -608,7 +608,7 @@ func instanceSelector(instances []Instance, active *Instance, baseURL string) te
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(inst.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 281, Col: 40}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 285, Col: 40}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 				if templ_7745c5c3_Err != nil {
@@ -626,7 +626,7 @@ func instanceSelector(instances []Instance, active *Instance, baseURL string) te
 			var templ_7745c5c3_Var31 templ.SafeURL
 			templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(baseURL + "/ui/settings/instances"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 286, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 290, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 			if templ_7745c5c3_Err != nil {
@@ -700,7 +700,7 @@ func userMenu(username, baseURL string) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 351, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 355, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
@@ -713,7 +713,7 @@ func userMenu(username, baseURL string) templ.Component {
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(username)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 360, Col: 54}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 364, Col: 54}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
@@ -726,7 +726,7 @@ func userMenu(username, baseURL string) templ.Component {
 		var templ_7745c5c3_Var36 templ.SafeURL
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(baseURL + "/ui/auth/logout"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 362, Col: 74}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/ui/layouts/authenticated.templ`, Line: 366, Col: 74}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {

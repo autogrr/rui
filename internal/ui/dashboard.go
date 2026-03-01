@@ -89,13 +89,12 @@ func (h *Handler) buildDashboardInstances(r *http.Request) []pages.DashboardInst
 					di.AlltimeUl = qbt.Deref(ss.AllTimeUpload)
 				}
 				// Torrent counts: atomic pointer load, zero allocation.
+				// Never override IsConnected from counts — stale post-disconnect
+				// counts would incorrectly show the instance as online.
 				if counts := client.GetCachedTorrentCounts(); counts != nil {
 					di.Total = counts.Total
 					di.Downloading = counts.Downloading
 					di.Seeding = counts.Seeding
-					if counts.Total > 0 {
-						di.IsConnected = true
-					}
 				}
 			}
 			// Tracker-down count from health cache (non-blocking).

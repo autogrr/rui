@@ -20,7 +20,9 @@ templ Base(p BaseProps) {
 			<!-- HTMX config: swap 422 responses so validation errors are rendered inline -->
 			<meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true}]}'/>
 			<!-- Prevent Alpine.js x-cloak elements from flashing before init -->
-			<style>[x-cloak]{display:none !important}</style>
+			<!-- Pre-Alpine sidebar state: data-sidebar-init is set synchronously so the sidebar renders
+			     at the correct width and label visibility before Alpine.js initializes. -->
+			<style>[x-cloak]{display:none !important}[data-sidebar-init] aside{width:3.5rem}[data-sidebar-init="open"] aside{width:14rem}[data-sidebar-init="closed"] .sidebar-label{display:none !important}</style>
 			<title>
 				if p.Title != "" {
 					{ p.Title } — rui
@@ -30,17 +32,20 @@ templ Base(p BaseProps) {
 			</title>
 			<!-- Favicon -->
 			<link rel="icon" type="image/svg+xml" href={ p.BaseURL + "/ui/static/favicon.svg" }/>
-			<!-- CSS (Tailwind-compiled, base theme only — theme overrides loaded dynamically) -->
+			<!-- CSS (Tailwind-compiled, includes default theme fallback variables) -->
 			<link rel="stylesheet" href={ p.BaseURL + "/ui/static/output.css" }/>
-			<!-- Dynamic theme stylesheet — populated by the init script below -->
-			<link id="theme-css" rel="stylesheet" href=""/>
-			<!-- Theme initializer: apply dark class + load theme CSS before first paint to prevent FOUC -->
+			<!-- Theme override stylesheet. Uses data:text/css, as a valid no-op when no
+			     theme is active. hx-preserve prevents HTMX head-merge from touching it. -->
+			<link id="theme-css" rel="stylesheet" href="data:text/css," hx-preserve="true"/>
+			<!-- Theme initializer: runs synchronously during head parse, before first paint. -->
 			<script>
 				(function () {
 					var theme = localStorage.getItem('rui:theme') || localStorage.getItem('qui_theme') || 'system';
 					var isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 					if (isDark) document.documentElement.classList.add('dark');
 					else document.documentElement.classList.remove('dark');
+					// Pre-set sidebar width so it renders correctly before Alpine.js initializes
+					document.documentElement.dataset.sidebarInit = localStorage.getItem('qui_sidebar') !== 'false' ? 'open' : 'closed';
 					var colorTheme = localStorage.getItem('rui:color-theme');
 					if (colorTheme === 'custom') {
 						document.documentElement.setAttribute('data-theme', 'custom');
@@ -90,10 +95,8 @@ templ Base(p BaseProps) {
 					} else if (colorTheme) {
 						document.documentElement.setAttribute('data-theme', colorTheme);
 						document.getElementById('theme-css').href = '/ui/static/themes/' + colorTheme + '.css';
-					} else {
-						document.documentElement.removeAttribute('data-theme');
-						document.getElementById('theme-css').removeAttribute('href');
 					}
+					// No colorTheme → output.css default fallback is already correct, nothing to load
 				})();
 			</script>
 		</head>
@@ -157,6 +160,26 @@ templ Base(p BaseProps) {
 			<script defer src={ p.BaseURL + "/ui/static/js/tagsinput.min.js" }></script>
 			<script defer src={ p.BaseURL + "/ui/static/js/textarea.min.js" }></script>
 			<script defer src={ p.BaseURL + "/ui/static/js/toast.min.js" }></script>
+			<!-- Re-apply theme after HTMX history restore (back/forward navigation) -->
+			<!-- HTMX restores cached <head> which overwrites the theme-css link; -->
+			<!-- this listener re-runs the same theme logic from localStorage. -->
+			<script>
+				document.body.addEventListener('htmx:historyRestore', function() {
+					var colorTheme = localStorage.getItem('rui:color-theme');
+					var linkEl = document.getElementById('theme-css');
+					if (!linkEl) return;
+					if (colorTheme && colorTheme !== 'custom') {
+						document.documentElement.setAttribute('data-theme', colorTheme);
+						linkEl.href = '/ui/static/themes/' + colorTheme + '.css';
+					} else if (colorTheme === 'custom') {
+						document.documentElement.setAttribute('data-theme', 'custom');
+						linkEl.href = 'data:text/css,';
+					} else {
+						document.documentElement.removeAttribute('data-theme');
+						linkEl.href = 'data:text/css,';
+					}
+				});
+			</script>
 			<!-- Service Worker registration + SPA helpers -->
 			<script>
 				(function () {

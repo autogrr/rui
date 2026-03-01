@@ -564,7 +564,7 @@ id="vt-data-slot"
 style="display:none"
 hx-ext="sse"
 sse-connect={ p.BaseURL + "/ui/sse/torrents?instance_id=" + itoa(p.InstanceID) }
-hx-trigger="sse:torrent-update throttle:2s"
+hx-trigger="sse:torrent-update throttle:2s, every 5s"
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
 hx-swap="innerHTML"
 hx-push-url="false"
