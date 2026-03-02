@@ -102,8 +102,13 @@ type LibraryTitle struct {
 	// InfoHash is the torrent infohash for torrent_client-sourced entries.
 	InfoHash string `json:"info_hash,omitempty"`
 	// TorrentCount tracks how many torrents back this title (torrent_client source).
-	TorrentCount int       `json:"torrent_count,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
+	TorrentCount int `json:"torrent_count,omitempty"`
+	// EpisodeCount is the number of episode-style torrents seen for TV titles.
+	EpisodeCount int `json:"episode_count,omitempty"`
+	// Qualities is a comma-separated sorted list of unique quality labels observed
+	// for this title, e.g. "1080p WEBDL HEVC, 4K REMUX HEVC DV".
+	Qualities string    `json:"qualities,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	// Seasons is populated on demand; empty for movies.
 	Seasons []LibrarySeason `json:"seasons,omitempty"`
@@ -163,6 +168,10 @@ type LibraryTitleUpsertParams struct {
 	InfoHash string
 	// TorrentCount is the number of torrents backing this title.
 	TorrentCount int
+	// EpisodeCount is the number of episode-style torrents seen for TV titles.
+	EpisodeCount int
+	// Qualities is a comma-separated sorted list of unique quality labels.
+	Qualities string
 }
 
 // LibraryTitleStore manages library titles and seasons in SQLite.
@@ -194,8 +203,8 @@ INSERT INTO library_titles
     (owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id, tvmaze_id,
      arr_instance_id, arr_item_id, overview, status, path, has_file,
      imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-     genres, source, info_hash, torrent_count)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     genres, source, info_hash, torrent_count, episode_count, qualities)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(owner_id, arr_instance_id, arr_item_id) DO UPDATE SET
     content_type          = excluded.content_type,
     title                 = excluded.title,
@@ -219,14 +228,14 @@ ON CONFLICT(owner_id, arr_instance_id, arr_item_id) DO UPDATE SET
 RETURNING id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
           tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
           imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-          genres, source, info_hash, torrent_count, created_at, updated_at`
+          genres, source, info_hash, torrent_count, episode_count, qualities, created_at, updated_at`
 
 	return scanTitle(s.db.QueryRowContext(ctx, q,
 		p.OwnerID, string(p.ContentType), p.Title, p.SortTitle, p.Year,
 		p.IMDbID, p.TMDbID, p.TVDbID, p.TVMazeID,
 		p.ArrInstanceID, p.ArrItemID, p.Overview, p.Status, p.Path, p.HasFile,
 		p.IMDbRating, p.TMDbRating, p.MetacriticRating, p.RottenTomatoesRating, p.AudienceRating,
-		p.Genres, src, p.InfoHash, p.TorrentCount,
+		p.Genres, src, p.InfoHash, p.TorrentCount, 0, "",
 	))
 }
 
@@ -240,8 +249,8 @@ INSERT INTO library_titles
     (owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id, tvmaze_id,
      arr_instance_id, arr_item_id, overview, status, path, has_file,
      imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-     genres, source, info_hash, torrent_count)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     genres, source, info_hash, torrent_count, episode_count, qualities)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(owner_id, info_hash) WHERE info_hash != '' DO UPDATE SET
     content_type          = excluded.content_type,
     title                 = excluded.title,
@@ -266,14 +275,14 @@ ON CONFLICT(owner_id, info_hash) WHERE info_hash != '' DO UPDATE SET
 RETURNING id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
           tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
           imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-          genres, source, info_hash, torrent_count, created_at, updated_at`
+          genres, source, info_hash, torrent_count, episode_count, qualities, created_at, updated_at`
 
 	return scanTitle(s.db.QueryRowContext(ctx, q,
 		p.OwnerID, string(p.ContentType), p.Title, p.SortTitle, p.Year,
 		p.IMDbID, p.TMDbID, p.TVDbID, p.TVMazeID,
 		p.ArrInstanceID, p.ArrItemID, p.Overview, p.Status, p.Path, p.HasFile,
 		p.IMDbRating, p.TMDbRating, p.MetacriticRating, p.RottenTomatoesRating, p.AudienceRating,
-		p.Genres, "torrent_client", p.InfoHash, p.TorrentCount,
+		p.Genres, "torrent_client", p.InfoHash, p.TorrentCount, 0, "",
 	))
 }
 
@@ -288,8 +297,8 @@ INSERT INTO library_titles
     (owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id, tvmaze_id,
      arr_instance_id, arr_item_id, overview, status, path, has_file,
      imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-     genres, source, info_hash, torrent_count)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+     genres, source, info_hash, torrent_count, episode_count, qualities)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(owner_id, sort_title, content_type) WHERE source = 'torrent_client' DO UPDATE SET
     title                 = excluded.title,
     year                  = CASE WHEN excluded.year IS NOT NULL AND excluded.year > 0 THEN excluded.year ELSE library_titles.year END,
@@ -308,18 +317,20 @@ ON CONFLICT(owner_id, sort_title, content_type) WHERE source = 'torrent_client' 
     audience_rating       = CASE WHEN excluded.audience_rating > 0 THEN excluded.audience_rating ELSE library_titles.audience_rating END,
     genres                = CASE WHEN excluded.genres != '' THEN excluded.genres ELSE library_titles.genres END,
     source                = excluded.source,
-    torrent_count         = excluded.torrent_count
+    torrent_count         = excluded.torrent_count,
+    episode_count         = excluded.episode_count,
+    qualities             = excluded.qualities
 RETURNING id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
           tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
           imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-          genres, source, info_hash, torrent_count, created_at, updated_at`
+          genres, source, info_hash, torrent_count, episode_count, qualities, created_at, updated_at`
 
 	return scanTitle(s.db.QueryRowContext(ctx, q,
 		p.OwnerID, string(p.ContentType), p.Title, p.SortTitle, p.Year,
 		p.IMDbID, p.TMDbID, p.TVDbID, p.TVMazeID,
 		p.ArrInstanceID, p.ArrItemID, p.Overview, p.Status, p.Path, p.HasFile,
 		p.IMDbRating, p.TMDbRating, p.MetacriticRating, p.RottenTomatoesRating, p.AudienceRating,
-		p.Genres, "torrent_client", p.InfoHash, p.TorrentCount,
+		p.Genres, "torrent_client", p.InfoHash, p.TorrentCount, p.EpisodeCount, p.Qualities,
 	))
 }
 
@@ -329,7 +340,7 @@ func (s *LibraryTitleStore) Get(ctx context.Context, id int) (*LibraryTitle, err
 SELECT id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
        tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
        imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-       genres, source, info_hash, torrent_count, created_at, updated_at
+       genres, source, info_hash, torrent_count, episode_count, qualities, created_at, updated_at
 FROM library_titles WHERE id = ?`
 	t, err := scanTitle(s.db.QueryRowContext(ctx, q, id))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -344,7 +355,7 @@ func (s *LibraryTitleStore) List(ctx context.Context, ownerID int) ([]*LibraryTi
 SELECT id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
        tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
        imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-       genres, source, info_hash, torrent_count, created_at, updated_at
+       genres, source, info_hash, torrent_count, episode_count, qualities, created_at, updated_at
 FROM library_titles WHERE owner_id = ? ORDER BY sort_title, title`
 	rows, err := s.db.QueryContext(ctx, q, ownerID)
 	if err != nil {
@@ -360,7 +371,7 @@ func (s *LibraryTitleStore) ListByContentType(ctx context.Context, ownerID int, 
 SELECT id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
        tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
        imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-       genres, source, info_hash, torrent_count, created_at, updated_at
+       genres, source, info_hash, torrent_count, episode_count, qualities, created_at, updated_at
 FROM library_titles WHERE owner_id = ? AND content_type = ? ORDER BY sort_title, title`
 	rows, err := s.db.QueryContext(ctx, q, ownerID, string(ct))
 	if err != nil {
@@ -376,7 +387,7 @@ func (s *LibraryTitleStore) Search(ctx context.Context, ownerID int, pattern str
 SELECT id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
        tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
        imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
-       genres, source, info_hash, torrent_count, created_at, updated_at
+       genres, source, info_hash, torrent_count, episode_count, qualities, created_at, updated_at
 FROM library_titles
 WHERE owner_id = ? AND (title LIKE ? ESCAPE '\' OR sort_title LIKE ? ESCAPE '\')
 ORDER BY sort_title, title LIMIT 100`
@@ -528,7 +539,7 @@ func scanTitle(row *sql.Row) (*LibraryTitle, error) {
 		&t.ArrInstanceID, &t.ArrItemID, &t.Overview, &t.Status, &t.Path,
 		&t.HasFile,
 		&t.IMDbRating, &t.TMDbRating, &t.MetacriticRating, &t.RottenTomatoesRating, &t.AudienceRating,
-		&t.Genres, &t.Source, &t.InfoHash, &t.TorrentCount,
+		&t.Genres, &t.Source, &t.InfoHash, &t.TorrentCount, &t.EpisodeCount, &t.Qualities,
 		&t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
@@ -549,7 +560,7 @@ func scanTitles(rows *sql.Rows) ([]*LibraryTitle, error) {
 			&t.ArrInstanceID, &t.ArrItemID, &t.Overview, &t.Status, &t.Path,
 			&t.HasFile,
 			&t.IMDbRating, &t.TMDbRating, &t.MetacriticRating, &t.RottenTomatoesRating, &t.AudienceRating,
-			&t.Genres, &t.Source, &t.InfoHash, &t.TorrentCount,
+			&t.Genres, &t.Source, &t.InfoHash, &t.TorrentCount, &t.EpisodeCount, &t.Qualities,
 			&t.CreatedAt, &t.UpdatedAt,
 		)
 		if err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/moistari/rls"
 	"github.com/stretchr/testify/require"
 
+	"github.com/autogrr/rui/pkg/releases"
 	"github.com/autogrr/rui/pkg/stringutils"
 )
 
@@ -41,7 +42,7 @@ func TestNormalizeSource(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := normalizeSource(tt.input)
+			result := releases.NormalizeSource(tt.input)
 			require.Equal(t, tt.expected, result)
 		})
 	}
@@ -84,7 +85,7 @@ func TestSourcesCompatible(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := sourcesCompatible(tt.source, tt.candidate)
+			result := releases.SourcesCompatible(tt.source, tt.candidate)
 			require.Equal(t, tt.compatible, result)
 		})
 	}

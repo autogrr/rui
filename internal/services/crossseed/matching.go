@@ -7,7 +7,6 @@ package crossseed
 import (
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	qbt "github.com/autogrr/go-qbittorrent"
@@ -15,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 
+	"github.com/autogrr/rui/pkg/releases"
 	"github.com/autogrr/rui/pkg/stringutils"
 )
 
@@ -253,9 +253,9 @@ func (s *Service) releasesMatch(source, candidate *rls.Release, findIndividualEp
 	// WEB is ambiguous and matches both WEB-DL and WEBRip.
 	// WEB-DL and WEBRip are explicitly different and do not match.
 	// Other sources (BluRay, HDTV, etc.) must match exactly.
-	sourceSource := normalizeSource(source.Source)
-	candidateSource := normalizeSource(candidate.Source)
-	if !sourcesCompatible(sourceSource, candidateSource) {
+	sourceSource := releases.NormalizeSource(source.Source)
+	candidateSource := releases.NormalizeSource(candidate.Source)
+	if !releases.SourcesCompatible(sourceSource, candidateSource) {
 		return false
 	}
 
@@ -292,8 +292,8 @@ func (s *Service) releasesMatch(source, candidate *rls.Release, findIndividualEp
 	// Codec must match if both are present (AVC vs HEVC produce different files).
 	// Uses codec aliasing so x264/H.264/H264/AVC are treated as equivalent.
 	if len(source.Codec) > 0 && len(candidate.Codec) > 0 {
-		sourceCodec := joinNormalizedCodecSlice(source.Codec)
-		candidateCodec := joinNormalizedCodecSlice(candidate.Codec)
+		sourceCodec := releases.JoinNormalizedCodecSlice(source.Codec)
+		candidateCodec := releases.JoinNormalizedCodecSlice(candidate.Codec)
 		if sourceCodec != candidateCodec {
 			return false
 		}
@@ -301,8 +301,8 @@ func (s *Service) releasesMatch(source, candidate *rls.Release, findIndividualEp
 
 	// HDR must match if either is present (HDR vs SDR are different encodes)
 	// If one release has HDR metadata and the other doesn't, they cannot match
-	sourceHDR := joinNormalizedSlice(source.HDR)
-	candidateHDR := joinNormalizedSlice(candidate.HDR)
+	sourceHDR := releases.JoinNormalizedSlice(source.HDR)
+	candidateHDR := releases.JoinNormalizedSlice(candidate.HDR)
 	if sourceHDR != candidateHDR {
 		return false
 	}
@@ -323,8 +323,8 @@ func (s *Service) releasesMatch(source, candidate *rls.Release, findIndividualEp
 
 	// Cut must match if both are present (Theatrical vs Extended are different versions)
 	if len(source.Cut) > 0 && len(candidate.Cut) > 0 {
-		sourceCut := joinNormalizedSlice(source.Cut)
-		candidateCut := joinNormalizedSlice(candidate.Cut)
+		sourceCut := releases.JoinNormalizedSlice(source.Cut)
+		candidateCut := releases.JoinNormalizedSlice(candidate.Cut)
 		if sourceCut != candidateCut {
 			return false
 		}
@@ -332,8 +332,8 @@ func (s *Service) releasesMatch(source, candidate *rls.Release, findIndividualEp
 
 	// Edition must match if both are present (Remastered vs Original are different)
 	if len(source.Edition) > 0 && len(candidate.Edition) > 0 {
-		sourceEdition := joinNormalizedSlice(source.Edition)
-		candidateEdition := joinNormalizedSlice(candidate.Edition)
+		sourceEdition := releases.JoinNormalizedSlice(source.Edition)
+		candidateEdition := releases.JoinNormalizedSlice(candidate.Edition)
 		if sourceEdition != candidateEdition {
 			return false
 		}
@@ -342,8 +342,8 @@ func (s *Service) releasesMatch(source, candidate *rls.Release, findIndividualEp
 	// Language must match (FRENCH vs ENGLISH are different audio/subs).
 	// Exception: empty language is treated as equivalent to ENGLISH since most
 	// English releases omit the language tag entirely.
-	sourceLanguage := joinNormalizedSlice(source.Language)
-	candidateLanguage := joinNormalizedSlice(candidate.Language)
+	sourceLanguage := releases.JoinNormalizedSlice(source.Language)
+	candidateLanguage := releases.JoinNormalizedSlice(candidate.Language)
 	if sourceLanguage != candidateLanguage {
 		// Allow empty-vs-ENGLISH since unlabeled releases are typically English.
 		isEnglishOrEmpty := func(lang string) bool {
@@ -391,116 +391,6 @@ func (s *Service) releasesMatch(source, candidate *rls.Release, findIndividualEp
 	}
 
 	return true
-}
-
-// joinNormalizedSlice converts a string slice to a normalized uppercase string for comparison.
-// Uppercases and joins elements to ensure consistent comparison regardless of case or order.
-func joinNormalizedSlice(slice []string) string {
-	if len(slice) == 0 {
-		return ""
-	}
-	normalized := make([]string, len(slice))
-	for i, s := range slice {
-		normalized[i] = normalizeVariant(s)
-	}
-	sort.Strings(normalized)
-	return strings.Join(normalized, " ")
-}
-
-// videoCodecAliases maps equivalent video codec names to a canonical form.
-// x264, H.264, H264, and AVC all refer to the same underlying codec (AVC/H.264).
-// x265, H.265, H265, and HEVC all refer to the same underlying codec (HEVC/H.265).
-var videoCodecAliases = map[string]string{
-	"X264":  "AVC",
-	"H.264": "AVC",
-	"H264":  "AVC",
-	"AVC":   "AVC",
-	"X265":  "HEVC",
-	"H.265": "HEVC",
-	"H265":  "HEVC",
-	"HEVC":  "HEVC",
-}
-
-// normalizeVideoCodec converts a video codec string to its canonical form.
-// Returns the original (uppercased) string if no alias mapping exists.
-func normalizeVideoCodec(codec string) string {
-	upper := normalizeVariant(codec)
-	if canonical, ok := videoCodecAliases[upper]; ok {
-		return canonical
-	}
-	return upper
-}
-
-// sourceAliases maps source names to a canonical form for comparison.
-// WEB-DL variants normalize to WEBDL, WEBRip variants to WEBRIP.
-// Plain "WEB" stays as "WEB" and is treated as ambiguous (matches both).
-var sourceAliases = map[string]string{
-	"WEB-DL": "WEBDL",
-	"WEBDL":  "WEBDL",
-	"WEBRIP": "WEBRIP",
-	"WEB":    "WEB",
-}
-
-// normalizeSource converts a source string to its canonical form.
-// Returns the original (uppercased) string if no alias mapping exists.
-func normalizeSource(source string) string {
-	upper := normalizeVariant(source)
-	if canonical, ok := sourceAliases[upper]; ok {
-		return canonical
-	}
-	return upper
-}
-
-// sourcesCompatible checks if two sources are compatible for cross-seed precheck.
-// Plain "WEB" is ambiguous and matches both WEBDL and WEBRIP.
-// WEBDL and WEBRIP are explicitly different and do not match each other.
-// The final apply stage trusts file verification, so this is just for precheck gating.
-func sourcesCompatible(source, candidate string) bool {
-	if source == "" || candidate == "" {
-		return true
-	}
-	if source == candidate {
-		return true
-	}
-
-	// WEB is ambiguous: treat it as compatible with both WEBDL and WEBRIP.
-	// It must not match non-web sources (BLURAY, HDTV, etc.).
-	isWebSource := func(s string) bool {
-		switch s {
-		case "WEB", "WEBDL", "WEBRIP":
-			return true
-		default:
-			return false
-		}
-	}
-
-	if !isWebSource(source) || !isWebSource(candidate) {
-		return false
-	}
-
-	// At this point both are web sources, but they differ.
-	// WEBDL and WEBRIP are explicitly different and do not match each other.
-	return source == "WEB" || candidate == "WEB"
-}
-
-// joinNormalizedCodecSlice converts a codec slice to a normalized string for comparison.
-// Applies codec aliasing so that x264, H.264, H264, and AVC are treated as equivalent.
-func joinNormalizedCodecSlice(slice []string) string {
-	if len(slice) == 0 {
-		return ""
-	}
-	seen := make(map[string]struct{}, len(slice))
-	normalized := make([]string, 0, len(slice))
-	for _, codec := range slice {
-		n := normalizeVideoCodec(codec)
-		if _, ok := seen[n]; ok {
-			continue
-		}
-		seen[n] = struct{}{}
-		normalized = append(normalized, n)
-	}
-	sort.Strings(normalized)
-	return strings.Join(normalized, " ")
 }
 
 // getMatchTypeFromTitle checks if a candidate torrent has files matching what we want based on parsed title.

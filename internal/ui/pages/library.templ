@@ -6,6 +6,8 @@ package pages
 import (
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/ui/layouts"
 )
@@ -71,6 +73,55 @@ func libraryYearStr(year *int) string {
 	return fmt.Sprintf("%d", *year)
 }
 
+// libraryAgeStr formats a time.Time as a human-friendly "age" string relative to now.
+// e.g. "3h", "2d", "1mo", "2yr".
+func libraryAgeStr(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 48*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	case d < 30*24*time.Hour:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	case d < 365*24*time.Hour:
+		return fmt.Sprintf("%dmo", int(d.Hours()/(24*30)))
+	default:
+		return fmt.Sprintf("%dyr", int(d.Hours()/(24*365)))
+	}
+}
+
+// libraryQualityChips splits a qualities string (", "-separated) into individual chip labels.
+func libraryQualityChips(q string) []string {
+	if q == "" {
+		return nil
+	}
+	parts := strings.Split(q, ", ")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// libraryTorrentCountStr returns the torrent count string for display.
+func libraryTorrentCountStr(t *models.LibraryTitle) string {
+	if t.Source != "torrent_client" || t.TorrentCount == 0 {
+		return "—"
+	}
+	return fmt.Sprintf("%d", t.TorrentCount)
+}
+
+// libraryEpisodeCountStr returns the episode count string for TV titles.
+func libraryEpisodeCountStr(t *models.LibraryTitle) string {
+	if t.Source != "torrent_client" || t.EpisodeCount == 0 {
+		return "—"
+	}
+	return fmt.Sprintf("%d", t.EpisodeCount)
+}
+
 // LibraryTitlesTablePartial renders only the #library-titles-table div (used after
 // a sync to swap in the updated list via HTMX outerHTML).
 templ LibraryTitlesTablePartial(titles []*models.LibraryTitle) {
@@ -90,39 +141,39 @@ templ LibraryTitlesTablePartial(titles []*models.LibraryTitle) {
 					<thead>
 						<tr class="border-b bg-muted/30">
 							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Title</th>
-							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Year</th>
 							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Type</th>
-							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Status</th>
-							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">IDs</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Year</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Qualities</th>
+							<th class="px-4 py-2.5 text-right font-medium text-muted-foreground">Torrents</th>
+							<th class="px-4 py-2.5 text-right font-medium text-muted-foreground">Episodes</th>
+							<th class="px-4 py-2.5 text-right font-medium text-muted-foreground">Added</th>
 						</tr>
 					</thead>
 					<tbody class="divide-y">
 						for _, t := range titles {
 							<tr class="hover:bg-muted/20 transition-colors">
-								<td class="px-4 py-2.5">
-									<span class="font-medium">{ t.Title }</span>
+								<td class="px-4 py-2.5 max-w-xs">
+									<span class="font-medium truncate block">{ t.Title }</span>
 									if t.SortTitle != "" && t.SortTitle != t.Title {
-										<span class="ml-1.5 text-xs text-muted-foreground">({ t.SortTitle })</span>
+										<span class="text-xs text-muted-foreground truncate block">{ t.SortTitle }</span>
 									}
 								</td>
-								<td class="px-4 py-2.5 text-muted-foreground">{ libraryYearStr(t.Year) }</td>
-								<td class="px-4 py-2.5">
+								<td class="px-4 py-2.5 whitespace-nowrap">
 									<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryContentTypeBadge(string(t.ContentType)) }>
 										{ string(t.ContentType) }
 									</span>
 								</td>
-								<td class="px-4 py-2.5 text-muted-foreground text-xs">{ t.Status }</td>
-								<td class="px-4 py-2.5 text-xs text-muted-foreground">
-									if t.IMDbID != "" {
-										<span class="mr-1.5">IMDb: { t.IMDbID }</span>
-									}
-									if t.TMDbID != 0 {
-										<span class="mr-1.5">TMDb: { fmt.Sprintf("%d", t.TMDbID) }</span>
-									}
-									if t.TVDbID != 0 {
-										<span>TVDb: { fmt.Sprintf("%d", t.TVDbID) }</span>
-									}
+								<td class="px-4 py-2.5 text-muted-foreground whitespace-nowrap">{ libraryYearStr(t.Year) }</td>
+								<td class="px-4 py-2.5">
+									<div class="flex flex-wrap gap-1">
+										for _, chip := range libraryQualityChips(t.Qualities) {
+											<span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-sky-500/15 text-sky-700 dark:text-sky-400">{ chip }</span>
+										}
+									</div>
 								</td>
+								<td class="px-4 py-2.5 text-right text-muted-foreground tabular-nums">{ libraryTorrentCountStr(t) }</td>
+								<td class="px-4 py-2.5 text-right text-muted-foreground tabular-nums">{ libraryEpisodeCountStr(t) }</td>
+								<td class="px-4 py-2.5 text-right text-muted-foreground whitespace-nowrap tabular-nums" title={ t.CreatedAt.Format("2006-01-02 15:04:05") }>{ libraryAgeStr(t.CreatedAt) }</td>
 							</tr>
 						}
 					</tbody>

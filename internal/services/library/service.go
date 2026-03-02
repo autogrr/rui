@@ -239,12 +239,14 @@ func (s *Service) syncSeasons(ctx context.Context, titleID int, seasons []*sonar
 // titleGroup accumulates torrents that belong to the same parsed title so they
 // can be upserted as a single library entry with a torrent count.
 type titleGroup struct {
-	title       string // display title (first-seen casing)
-	sortTitle   string // lower-cased for dedup key
-	contentType models.LibraryContentType
-	year        int         // best guess (non-zero wins)
-	count       int         // number of torrent hashes in this group
-	seasons     map[int]int // season → max episode count seen
+	title        string // display title (first-seen casing)
+	sortTitle    string // lower-cased for dedup key
+	contentType  models.LibraryContentType
+	year         int            // best guess (non-zero wins)
+	count        int            // total torrent count in this group
+	episodeCount int            // count of episode-type torrents (Series > 0)
+	seasons      map[int]int    // season → max episode number seen
+	qualities    map[string]struct{} // unique quality labels (e.g. "1080p WEBDL HEVC")
 }
 
 // ScanTorrentClients reads all torrents from a qBittorrent instance, parses
@@ -317,6 +319,7 @@ func (s *Service) groupTorrentsByTitle(instanceID int, torrents []qbt.Torrent) m
 				sortTitle:   sortTitle,
 				contentType: ct,
 				seasons:     make(map[int]int),
+				qualities:   make(map[string]struct{}),
 			}
 			groups[key] = g
 		}
@@ -325,8 +328,16 @@ func (s *Service) groupTorrentsByTitle(instanceID int, torrents []qbt.Torrent) m
 		if parsed.Year > 0 && g.year == 0 {
 			g.year = parsed.Year
 		}
-		if parsed.Series > 0 && parsed.Episode > g.seasons[parsed.Series] {
-			g.seasons[parsed.Series] = parsed.Episode
+		if parsed.Series > 0 {
+			g.episodeCount++
+			if parsed.Episode > g.seasons[parsed.Series] {
+				g.seasons[parsed.Series] = parsed.Episode
+			}
+		}
+
+		// Track quality label for display in the library UI.
+		if ql := releases.ExtractQuality(parsed).Label(); ql != "" {
+			g.qualities[ql] = struct{}{}
 		}
 	}
 
@@ -344,6 +355,12 @@ func (s *Service) groupTorrentsByTitle(instanceID int, torrents []qbt.Torrent) m
 // season info for TV content.
 func (s *Service) upsertTitleGroups(ctx context.Context, ownerID int, groups map[string]*titleGroup, result *SyncResult) {
 	for _, g := range groups {
+		// Convert quality set to sorted comma-sep string.
+		qlabels := make([]string, 0, len(g.qualities))
+		for ql := range g.qualities {
+			qlabels = append(qlabels, ql)
+		}
+
 		p := models.LibraryTitleUpsertParams{
 			OwnerID:      ownerID,
 			ContentType:  g.contentType,
@@ -351,6 +368,8 @@ func (s *Service) upsertTitleGroups(ctx context.Context, ownerID int, groups map
 			SortTitle:    g.sortTitle,
 			Source:       "torrent_client",
 			TorrentCount: g.count,
+			EpisodeCount: g.episodeCount,
+			Qualities:    releases.JoinQualityLabels(qlabels),
 		}
 		if g.year > 0 {
 			y := g.year

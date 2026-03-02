@@ -73,3 +73,44 @@ func NormalizeSource(source string) string {
 	}
 	return upper
 }
+
+// JoinNormalizedSlice converts a string slice to an uppercase, sorted,
+// space-joined string. Useful for HDR tags, audio tracks, language lists, etc.
+func JoinNormalizedSlice(slice []string) string {
+	if len(slice) == 0 {
+		return ""
+	}
+	normalized := make([]string, len(slice))
+	for i, s := range slice {
+		normalized[i] = strings.ToUpper(strings.TrimSpace(s))
+	}
+	sort.Strings(normalized)
+	return strings.Join(normalized, " ")
+}
+
+// SourcesCompatible reports whether two normalised source strings are compatible
+// for cross-seed matching. Plain "WEB" is ambiguous and matches both "WEBDL" and
+// "WEBRIP"; "WEBDL" and "WEBRIP" do not match each other. Empty strings are
+// treated as always compatible (unknown source cannot be ruled out).
+func SourcesCompatible(source, candidate string) bool {
+	if source == "" || candidate == "" {
+		return true
+	}
+	if source == candidate {
+		return true
+	}
+	isWebSource := func(s string) bool {
+		switch s {
+		case "WEB", "WEBDL", "WEBRIP":
+			return true
+		default:
+			return false
+		}
+	}
+	if !isWebSource(source) || !isWebSource(candidate) {
+		return false
+	}
+	// Both are web sources but different — only allow if one side is the
+	// ambiguous "WEB" (which can be either WEB-DL or WEBRip).
+	return source == "WEB" || candidate == "WEB"
+}
