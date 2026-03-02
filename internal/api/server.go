@@ -47,10 +47,11 @@ import (
 )
 
 type Server struct {
-	server  *http.Server
-	logger  zerolog.Logger
-	config  *config.AppConfig
-	version string
+	server       *http.Server
+	serverCancel context.CancelFunc
+	logger       zerolog.Logger
+	config       *config.AppConfig
+	version      string
 
 	authService                      *auth.Service
 	sessionManager                   *scs.SessionManager
@@ -136,12 +137,17 @@ type Dependencies struct {
 }
 
 func NewServer(deps *Dependencies) *Server {
+	serverCtx, serverCancel := context.WithCancel(context.Background())
 	s := Server{
+		serverCancel: serverCancel,
 		server: &http.Server{
 			ReadHeaderTimeout: time.Second * 15,
 			ReadTimeout:       60 * time.Second,
 			WriteTimeout:      120 * time.Second,
 			IdleTimeout:       180 * time.Second,
+			BaseContext: func(_ net.Listener) context.Context {
+				return serverCtx
+			},
 		},
 		logger:                           log.Logger.With().Str("module", "api").Logger(),
 		config:                           deps.Config,
@@ -262,6 +268,10 @@ func (s *Server) tryToServe(addr, protocol string, ready chan<- struct{}) error 
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
+	// Cancel the base context first so all long-lived in-flight handlers
+	// (SSE streams, etc.) unblock their ctx.Done() immediately instead of
+	// waiting for the full shutdown timeout to expire.
+	s.serverCancel()
 	return s.server.Shutdown(ctx)
 }
 

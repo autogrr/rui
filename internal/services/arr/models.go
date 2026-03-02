@@ -8,6 +8,11 @@ package arr
 
 import "github.com/autogrr/rui/internal/models"
 
+// MediaMetadata is an alias for models.MediaMetadata kept for package-level
+// convenience. arr.Client methods return this type; use models.MediaMetadata
+// in shared interfaces outside this package.
+type MediaMetadata = models.MediaMetadata
+
 // SonarrSeries contains the series-level external IDs returned by Sonarr's
 // parse endpoint.
 type SonarrSeries struct {

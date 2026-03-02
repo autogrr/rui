@@ -567,13 +567,15 @@ func (app *Application) runServer() {
 	// Initialize library service (native rls+expr title matching)
 	libraryTitleStore := models.NewLibraryTitleStore(db)
 	libraryRuleStore := models.NewLibraryRuleStore(db)
-	libraryService := library.New(libraryTitleStore, libraryRuleStore, arrService)
+	libraryService := library.New(libraryTitleStore, libraryRuleStore, arrService).
+		WithMetadataProvider(arrService)
 	log.Info().Msg("Library service initialized")
 
 	// Initialize intake pipeline service
 	intakePipelineStore := models.NewIntakePipelineStore(db)
 	intakeEventStore := models.NewIntakeEventStore(db)
-	intakeService := intake.New(intakePipelineStore, intakeEventStore, libraryService, arrService)
+	intakeService := intake.New(intakePipelineStore, intakeEventStore, libraryService, arrService).
+		WithMetadataEnricher(arrService)
 	log.Info().Msg("Intake pipeline service initialized")
 
 	// Initialize automation activity store and external programs service
@@ -640,6 +642,9 @@ func (app *Application) runServer() {
 	automationsCtx, automationsCancel := context.WithCancel(context.Background())
 	defer automationsCancel()
 	automationService.Start(automationsCtx)
+
+	libraryScanCtx, libraryScanCancel := context.WithCancel(context.Background())
+	defer libraryScanCancel()
 
 	orphanScanCtx, orphanScanCancel := context.WithCancel(context.Background())
 	defer orphanScanCancel()
@@ -773,6 +778,21 @@ func (app *Application) runServer() {
 	select {
 	case <-serverReady:
 		crossSeedService.StartAutomation(automationCtx)
+		// Start periodic library scan from qBittorrent (every 30 min by default).
+		// This keeps "torrent_client" library entries in sync without manual button clicks.
+		libraryService.StartPeriodicScan(libraryScanCtx, 1, 0, func(ctx context.Context) ([]int, error) {
+			instances, err := instanceStore.List(ctx)
+			if err != nil {
+				return nil, err
+			}
+			ids := make([]int, 0, len(instances))
+			for _, inst := range instances {
+				if inst.IsActive {
+					ids = append(ids, inst.ID)
+				}
+			}
+			return ids, nil
+		}, syncManager)
 	case err := <-errorChannel:
 		log.Fatal().Err(err).Msg("failed to start HTTP server")
 	}

@@ -43,6 +43,8 @@ var defaultNavItems = []NavItem{
 	{ID: "search", Title: "Search", Href: "/ui/search", Icon: "search"},
 	{ID: "cross-seed", Title: "Cross-seed", Href: "/ui/cross-seed", Icon: "git-branch"},
 	{ID: "dir-scan", Title: "Dir Scan", Href: "/ui/dir-scan", Icon: "folder-search"},
+	{ID: "library", Title: "Library", Href: "/ui/library", Icon: "library"},
+	{ID: "intake", Title: "Intake", Href: "/ui/intake", Icon: "funnel"},
 	{ID: "automations", Title: "Automations", Href: "/ui/automations", Icon: "zap"},
 	{ID: "backups", Title: "Backups", Href: "/ui/backups", Icon: "archive"},
 	{ID: "rss", Title: "RSS", Href: "/ui/rss", Icon: "rss"},
@@ -413,6 +415,19 @@ templ inlineSVGIcon(name string, class string) {
 	case "server":
 		<svg class={ class } viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 			<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/><rect width="20" height="8" x="2" y="14" rx="2" ry="2"/><line x1="6" x2="6" y1="6" y2="6"/><line x1="6" x2="6" y1="18" y2="18"/>
+		</svg>
+	case "folder-search":
+		<svg class={ class } viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<path d="M10 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2v3"/>
+			<circle cx="17" cy="17" r="3"/><path d="m21 21-1.5-1.5"/>
+		</svg>
+	case "library":
+		<svg class={ class } viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>
+		</svg>
+	case "funnel":
+		<svg class={ class } viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
 		</svg>
 	default:
 		<svg class={ class } viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

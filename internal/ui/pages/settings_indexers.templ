@@ -52,15 +52,26 @@ templ SettingsIndexersSection(p SettingsProps) {
 						Connect Jackett, Prowlarr, or native Torznab endpoints used for search and cross-seed.
 					}
 				</div>
-				<button
-					class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
-					hx-get={ p.BaseURL + "/ui/partials/settings/indexers/form" }
-					hx-target="#indexer-form-slot"
-					hx-swap="innerHTML"
-				>
-					<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-					Add Indexer
-				</button>
+				<div class="flex items-center gap-2 shrink-0">
+					<button
+						class="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
+						hx-get={ p.BaseURL + "/ui/partials/settings/indexers/discover" }
+						hx-target="#indexer-form-slot"
+						hx-swap="innerHTML"
+					>
+						<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6M8 11h6"/></svg>
+						Discover
+					</button>
+					<button
+						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+						hx-get={ p.BaseURL + "/ui/partials/settings/indexers/form" }
+						hx-target="#indexer-form-slot"
+						hx-swap="innerHTML"
+					>
+						<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+						Add Indexer
+					</button>
+				</div>
 			</div>
 		}
 		@card.Content(card.ContentProps{}) {
@@ -276,6 +287,210 @@ templ indexerFormCard(idx models.TorznabIndexer, baseURL, action, method, errMsg
 // IndexerFormSuccess is returned after create/edit — clears form + OOB-updates list.
 templ IndexerFormSuccess(indexers []*models.TorznabIndexer, baseURL string) {
 	<!-- Primary target: clear the form slot -->
+	<div id="indexer-list" hx-swap-oob="innerHTML">
+		if len(indexers) == 0 {
+			<p class="text-sm text-muted-foreground py-4 text-center">No indexers configured.</p>
+		} else {
+			<div class="space-y-2">
+				for _, idx := range indexers {
+					@indexerRow(idx, baseURL)
+				}
+			</div>
+		}
+	</div>
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Discovery section (Jackett / Prowlarr remote indexer discovery)
+// ──────────────────────────────────────────────────────────────────
+
+// DiscoveredIndexer holds a single indexer returned from a remote Jackett or
+// Prowlarr instance before it has been imported into rui.
+type DiscoveredIndexer struct {
+	// ID is the indexer slug (Jackett) or numeric string (Prowlarr).
+	ID          string
+	Name        string
+	Description string
+	Protocol    string // "torrent", "usenet", etc. (Prowlarr)
+	Type        string // indexer type from Jackett caps
+	Configured  bool   // Jackett: whether it is fully configured on Jackett's side
+	Enabled     bool   // Prowlarr: whether it is enabled in Prowlarr
+	AlreadyAdded bool  // true when rui already has an indexer with this ID+backend
+}
+
+// IndexerDiscoverForm renders the first-step form for discovering indexers from a
+// remote Jackett or Prowlarr instance.
+templ IndexerDiscoverForm(baseURL, errMsg string) {
+	<div class="rounded-lg border bg-muted/40 p-4 space-y-4 mb-4">
+		<div class="flex items-center justify-between">
+			<p class="text-sm font-medium">Discover Indexers</p>
+			<button
+				class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html,"
+				hx-target="#indexer-form-slot"
+				hx-swap="innerHTML"
+			>✕</button>
+		</div>
+		<p class="text-xs text-muted-foreground">
+			Connect to a Jackett or Prowlarr instance to automatically discover and import all configured indexers.
+		</p>
+		if errMsg != "" {
+			<p class="text-xs text-destructive">{ errMsg }</p>
+		}
+		<form
+			hx-post={ baseURL + "/ui/partials/settings/indexers/discover" }
+			hx-target="#indexer-form-slot"
+			hx-swap="innerHTML"
+			hx-indicator="#discover-spinner"
+			class="space-y-3"
+		>
+			<div class="grid gap-3 sm:grid-cols-3">
+				<div class="space-y-1.5">
+					<label class="text-xs font-medium text-muted-foreground">Backend</label>
+					<select name="backend" class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+						<option value="jackett">Jackett</option>
+						<option value="prowlarr">Prowlarr</option>
+					</select>
+				</div>
+				<div class="space-y-1.5 sm:col-span-2">
+					<label class="text-xs font-medium text-muted-foreground">Base URL</label>
+					<input name="base_url" type="url" required
+						class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+						placeholder="e.g., http://localhost:9117"/>
+				</div>
+			</div>
+			<div class="space-y-1.5">
+				<label class="text-xs font-medium text-muted-foreground">API Key</label>
+				<input name="api_key" type="password" autocomplete="off" required
+					class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+					placeholder="Admin API key"/>
+			</div>
+			<div class="flex items-center gap-2 pt-1">
+				@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+					<span id="discover-spinner" class="htmx-indicator">
+						<svg class="animate-spin h-3 w-3 mr-1" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+					</span>
+					Fetch Indexers
+				}
+				@button.Button(button.Props{
+					Type:    button.TypeButton,
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Attributes: templ.Attributes{
+						"hx-get":    "data:text/html,",
+						"hx-target": "#indexer-form-slot",
+						"hx-swap":   "innerHTML",
+					},
+				}) {
+					Cancel
+				}
+			</div>
+		</form>
+	</div>
+}
+
+// IndexerDiscoverListPartial renders the list of discovered indexers with checkboxes.
+// fetchBaseURL, fetchAPIKey, fetchBackend are echoed back into hidden fields so the
+// import form can be submitted independently.
+templ IndexerDiscoverListPartial(items []DiscoveredIndexer, baseURL, fetchBaseURL, fetchAPIKey, fetchBackend string) {
+	<div class="rounded-lg border bg-muted/40 p-4 space-y-4 mb-4">
+		<div class="flex items-center justify-between">
+			<p class="text-sm font-medium">
+				Discovered Indexers
+				<span class="ml-1.5 text-xs text-muted-foreground font-normal">({ strconv.Itoa(len(items)) } found)</span>
+			</p>
+			<button
+				class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html,"
+				hx-target="#indexer-form-slot"
+				hx-swap="innerHTML"
+			>✕</button>
+		</div>
+		if len(items) == 0 {
+			<p class="text-sm text-muted-foreground py-2 text-center">No configured indexers found on this instance.</p>
+		} else {
+			<form
+				hx-post={ baseURL + "/ui/partials/settings/indexers/import" }
+				hx-target="#indexer-form-slot"
+				hx-swap="innerHTML"
+				class="space-y-3"
+			>
+				<input type="hidden" name="base_url" value={ fetchBaseURL }/>
+				<input type="hidden" name="api_key" value={ fetchAPIKey }/>
+				<input type="hidden" name="backend" value={ fetchBackend }/>
+				<!-- Select all toggle -->
+				<div class="flex items-center gap-2 pb-1 border-b">
+					<input id="discover-select-all" type="checkbox" class="h-4 w-4 rounded border-input"
+						onchange="document.querySelectorAll('.discover-item-check:not(:disabled)').forEach(c => c.checked = this.checked)"/>
+					<label for="discover-select-all" class="text-xs font-medium cursor-pointer">Select all importable</label>
+				</div>
+				<div class="space-y-1 max-h-80 overflow-y-auto">
+					for _, item := range items {
+						<label class={ "flex items-start gap-3 rounded-md p-2.5 transition-colors",
+							templ.KV("cursor-pointer hover:bg-background/60", !item.AlreadyAdded),
+							templ.KV("opacity-50 cursor-not-allowed", item.AlreadyAdded),
+						}>
+							<input
+								type="checkbox"
+								name="indexer_id[]"
+								value={ item.ID }
+								disabled?={ item.AlreadyAdded }
+								class="discover-item-check mt-0.5 h-4 w-4 rounded border-input shrink-0"
+							/>
+							<div class="flex-1 min-w-0">
+								<div class="flex items-center gap-2 flex-wrap">
+									<span class="text-sm font-medium">{ item.Name }</span>
+									if item.AlreadyAdded {
+										<span class="inline-flex items-center rounded-full bg-green-500/15 text-green-700 dark:text-green-400 px-2 py-0.5 text-xs font-medium">Already added</span>
+									}
+									if item.Protocol != "" {
+										<span class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">{ item.Protocol }</span>
+									}
+								</div>
+								if item.Description != "" {
+									<p class="text-xs text-muted-foreground mt-0.5 truncate">{ item.Description }</p>
+								}
+								<p class="text-xs text-muted-foreground/70 font-mono mt-0.5">{ item.ID }</p>
+							</div>
+						</label>
+					}
+				</div>
+				<div class="flex items-center gap-2 pt-1 border-t">
+					@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+						Import Selected
+					}
+					@button.Button(button.Props{
+						Type:    button.TypeButton,
+						Variant: button.VariantOutline,
+						Size:    button.SizeSm,
+						Attributes: templ.Attributes{
+							"hx-get":    "data:text/html,",
+							"hx-target": "#indexer-form-slot",
+							"hx-swap":   "innerHTML",
+						},
+					}) {
+						Cancel
+					}
+				</div>
+			</form>
+		}
+	</div>
+}
+
+// IndexerImportResultPartial is returned after a bulk import — shows a summary and
+// refreshes the indexer list via OOB swap.
+templ IndexerImportResultPartial(imported, skipped int, errMsg string, indexers []*models.TorznabIndexer, baseURL string) {
+	if errMsg != "" {
+		<p class="text-sm text-destructive mb-2">{ errMsg }</p>
+	} else {
+		<p class="text-sm text-green-700 dark:text-green-400 mb-2">
+			Imported { strconv.Itoa(imported) } indexer(s)
+			if skipped > 0 {
+				— { strconv.Itoa(skipped) } skipped (already exist or not selected)
+			}
+			.
+		</p>
+	}
 	<div id="indexer-list" hx-swap-oob="innerHTML">
 		if len(indexers) == 0 {
 			<p class="text-sm text-muted-foreground py-4 text-center">No indexers configured.</p>

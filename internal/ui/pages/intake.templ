@@ -5,6 +5,7 @@ package pages
 
 import (
 	"fmt"
+	"strconv"
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/ui/layouts"
 )
@@ -62,6 +63,14 @@ templ Intake(p IntakeProps) {
 				</div>
 				<div class="flex items-center gap-2">
 					<button
+						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+						hx-get={ p.BaseURL + "/ui/partials/intake/pipelines/form" }
+						hx-target="#intake-pipeline-modal"
+						hx-swap="innerHTML"
+					>
+						+ Add Pipeline
+					</button>
+					<button
 						class="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted"
 						hx-get={ p.BaseURL + "/ui/partials/intake/process-form" }
 						hx-target="#intake-process-modal"
@@ -78,8 +87,9 @@ templ Intake(p IntakeProps) {
 				</div>
 			}
 
-			<!-- Modal target -->
+			<!-- Modal targets -->
 			<div id="intake-process-modal"></div>
+			<div id="intake-pipeline-modal" class="empty:hidden"></div>
 
 			<!-- Pipelines -->
 			<div class="rounded-lg border bg-card">
@@ -87,81 +97,7 @@ templ Intake(p IntakeProps) {
 					<h2 class="font-semibold">Pipelines <span class="ml-1.5 text-xs text-muted-foreground font-normal">({ fmt.Sprintf("%d", len(p.Pipelines)) })</span></h2>
 					<p class="text-xs text-muted-foreground">Evaluated in sort order. First pipeline+rule match wins.</p>
 				</div>
-				if len(p.Pipelines) == 0 {
-					<div class="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
-						<svg class="h-10 w-10 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-							<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-						</svg>
-						<p class="text-sm">No intake pipelines configured.</p>
-						<p class="text-xs">Create a pipeline via the REST API (POST /api/intake/pipelines).</p>
-					</div>
-				} else {
-					<div class="divide-y">
-						for _, pipeline := range p.Pipelines {
-							<div class="p-4">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-3">
-										<div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-											{ fmt.Sprintf("%d", pipeline.SortOrder) }
-										</div>
-										<div>
-											<span class="font-medium">{ pipeline.Name }</span>
-											if !pipeline.Enabled {
-												<span class="ml-2 text-xs text-muted-foreground">(disabled)</span>
-											}
-											if pipeline.Description != "" {
-												<p class="text-xs text-muted-foreground mt-0.5">{ pipeline.Description }</p>
-											}
-										</div>
-									</div>
-									<div class="flex items-center gap-2">
-										if len(pipeline.ContentTypes) > 0 {
-											for _, ct := range pipeline.ContentTypes {
-												<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryContentTypeBadge(ct) }>
-													{ ct }
-												</span>
-											}
-										} else {
-											<span class="text-xs text-muted-foreground">all types</span>
-										}
-									</div>
-								</div>
-								if len(pipeline.Rules) > 0 {
-									<div class="mt-3 ml-11">
-										<table class="w-full text-xs">
-											<thead>
-												<tr class="text-muted-foreground">
-													<th class="text-left pb-1 font-medium pr-4">Rule</th>
-													<th class="text-left pb-1 font-medium pr-4">Filter</th>
-													<th class="text-left pb-1 font-medium">Action</th>
-												</tr>
-											</thead>
-											<tbody class="divide-y divide-border/50">
-												for _, rule := range pipeline.Rules {
-													<tr>
-														<td class="py-1 pr-4">{ rule.Name }</td>
-														<td class="py-1 pr-4 font-mono text-muted-foreground max-w-xs truncate">
-															if rule.ExprFilter == "" {
-																<span class="italic">— match all —</span>
-															} else {
-																{ rule.ExprFilter }
-															}
-														</td>
-														<td class="py-1">
-															<span class={ "inline-flex rounded-full px-2 py-0.5 font-medium " + libraryActionBadge(string(rule.Action)) }>
-																{ string(rule.Action) }
-															</span>
-														</td>
-													</tr>
-												}
-											</tbody>
-										</table>
-									</div>
-								}
-							</div>
-						}
-					</div>
-				}
+				@IntakePipelinesListPartial(p.Pipelines, p.BaseURL)
 			</div>
 
 			<!-- Recent Events -->
@@ -225,4 +161,367 @@ templ Intake(p IntakeProps) {
 			</div>
 		</div>
 	}
+}
+
+// IntakePipelinesListPartial renders the full pipelines list (swapped after CRUD).
+templ IntakePipelinesListPartial(pipelines []*models.IntakePipeline, baseURL string) {
+	<div id="intake-pipelines-list">
+		if len(pipelines) == 0 {
+			<div class="flex flex-col items-center gap-2 py-10 text-center text-muted-foreground">
+				<p class="text-sm">No intake pipelines configured.</p>
+				<p class="text-xs">Use the Add Pipeline button above to create one.</p>
+			</div>
+		}
+		if len(pipelines) > 0 {
+			<div class="divide-y" id="intake-rule-modal-container">
+				<div id="intake-rule-modal"></div>
+				for _, pipeline := range pipelines {
+					<div class="p-4" id={ "pipeline-" + strconv.Itoa(pipeline.ID) }>
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-3">
+								<div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+									{ fmt.Sprintf("%d", pipeline.SortOrder) }
+								</div>
+								<div>
+									<span class="font-medium">{ pipeline.Name }</span>
+									if !pipeline.Enabled {
+										<span class="ml-2 text-xs text-muted-foreground">(disabled)</span>
+									}
+									if pipeline.Description != "" {
+										<p class="text-xs text-muted-foreground mt-0.5">{ pipeline.Description }</p>
+									}
+								</div>
+							</div>
+							<div class="flex items-center gap-2">
+								if len(pipeline.ContentTypes) > 0 {
+									for _, ct := range pipeline.ContentTypes {
+										<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryContentTypeBadge(ct) }>
+											{ ct }
+										</span>
+									}
+								} else {
+									<span class="text-xs text-muted-foreground">all types</span>
+								}
+								<button class="text-xs text-muted-foreground hover:text-foreground ml-2"
+									hx-post={ baseURL + "/ui/partials/intake/pipelines/" + strconv.Itoa(pipeline.ID) + "/toggle" }
+									hx-target="#intake-pipelines-list"
+									hx-swap="outerHTML">
+									if pipeline.Enabled {
+										{ "on" }
+									} else {
+										{ "off" }
+									}
+								</button>
+								<button class="text-xs hover:text-foreground text-muted-foreground"
+									hx-get={ baseURL + "/ui/partials/intake/pipelines/" + strconv.Itoa(pipeline.ID) + "/form" }
+									hx-target="#intake-pipeline-modal"
+									hx-swap="innerHTML">Edit</button>
+								<button class="text-xs text-destructive hover:text-destructive/80"
+									hx-delete={ baseURL + "/ui/partials/intake/pipelines/" + strconv.Itoa(pipeline.ID) }
+									hx-target="#intake-pipelines-list"
+									hx-swap="outerHTML"
+									hx-confirm="Delete this pipeline and all its rules?">Delete</button>
+								<button class="text-xs text-muted-foreground hover:text-foreground border border-input rounded px-2 py-0.5"
+									hx-get={ baseURL + "/ui/partials/intake/pipelines/" + strconv.Itoa(pipeline.ID) + "/rules/form" }
+									hx-target="#intake-rule-modal"
+									hx-swap="innerHTML">+ Rule</button>
+							</div>
+						</div>
+						if len(pipeline.Rules) > 0 {
+							<div class="mt-3 ml-11">
+								<table class="w-full text-xs">
+									<thead>
+										<tr class="text-muted-foreground">
+											<th class="text-left pb-1 font-medium pr-2 w-6">#</th>
+											<th class="text-left pb-1 font-medium pr-4">Rule</th>
+											<th class="text-left pb-1 font-medium pr-4">Filter</th>
+											<th class="text-left pb-1 font-medium pr-4">Action</th>
+											<th class="text-left pb-1 font-medium">Ops</th>
+										</tr>
+									</thead>
+									<tbody class="divide-y divide-border/50">
+										for _, rule := range pipeline.Rules {
+											<tr>
+												<td class="py-1 pr-2 text-muted-foreground">{ fmt.Sprintf("%d", rule.SortOrder) }</td>
+												<td class="py-1 pr-4">{ rule.Name }</td>
+												<td class="py-1 pr-4 font-mono text-muted-foreground max-w-xs truncate">
+													if rule.ExprFilter == "" {
+														<span class="italic">— match all —</span>
+													} else {
+														{ rule.ExprFilter }
+													}
+												</td>
+												<td class="py-1 pr-4">
+													<span class={ "inline-flex rounded-full px-2 py-0.5 font-medium " + libraryActionBadge(string(rule.Action)) }>
+														{ string(rule.Action) }
+													</span>
+												</td>
+												<td class="py-1 flex items-center gap-2">
+													<button class="text-muted-foreground hover:text-foreground"
+														hx-post={ baseURL + "/ui/partials/intake/rules/" + strconv.Itoa(rule.ID) + "/toggle" }
+														hx-target="#intake-pipelines-list"
+														hx-swap="outerHTML">
+														if rule.Enabled {
+															{ "✓" }
+														} else {
+															{ "–" }
+														}
+													</button>
+													<button class="hover:text-foreground text-muted-foreground"
+														hx-get={ baseURL + "/ui/partials/intake/rules/" + strconv.Itoa(rule.ID) + "/form" }
+														hx-target="#intake-rule-modal"
+														hx-swap="innerHTML">edit</button>
+													<button class="text-destructive hover:text-destructive/80"
+														hx-delete={ baseURL + "/ui/partials/intake/rules/" + strconv.Itoa(rule.ID) }
+														hx-target="#intake-pipelines-list"
+														hx-swap="outerHTML"
+														hx-confirm="Delete this rule?">del</button>
+												</td>
+											</tr>
+										}
+									</tbody>
+								</table>
+							</div>
+						}
+					</div>
+				}
+			</div>
+		}
+	</div>
+}
+
+// IntakePipelineFormPartial renders the inline create/edit form for a pipeline.
+templ IntakePipelineFormPartial(pipeline *models.IntakePipeline, baseURL string, isEdit bool) {
+	<div class="rounded-lg border bg-muted/30 p-4 my-2 space-y-3">
+		<div class="flex items-center justify-between">
+			if isEdit {
+				<p class="text-sm font-medium">Edit Pipeline</p>
+			} else {
+				<p class="text-sm font-medium">New Pipeline</p>
+			}
+			<button class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html," hx-target="#intake-pipeline-modal" hx-swap="innerHTML">✕</button>
+		</div>
+		if isEdit {
+			<form
+				hx-put={ baseURL + "/ui/partials/intake/pipelines/" + strconv.Itoa(pipeline.ID) }
+				hx-target="#intake-pipelines-list"
+				hx-swap="outerHTML"
+				hx-on::after-request="if(event.detail.successful) document.getElementById('intake-pipeline-modal').innerHTML=''"
+				class="space-y-3"
+			>
+				@intakePipelineFormFields(pipeline)
+			</form>
+		} else {
+			<form
+				hx-post={ baseURL + "/ui/partials/intake/pipelines" }
+				hx-target="#intake-pipelines-list"
+				hx-swap="outerHTML"
+				hx-on::after-request="if(event.detail.successful) document.getElementById('intake-pipeline-modal').innerHTML=''"
+				class="space-y-3"
+			>
+				@intakePipelineFormFields(pipeline)
+			</form>
+		}
+	</div>
+}
+
+// intakePipelineFormFields renders shared fields for pipeline create/edit.
+templ intakePipelineFormFields(pipeline *models.IntakePipeline) {
+	<div class="grid grid-cols-2 gap-3">
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Name</label>
+			<input name="name" type="text" required value={ pipeline.Name }
+				class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+				placeholder="My Pipeline"/>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Sort Order</label>
+			<input name="sort_order" type="number" value={ fmt.Sprintf("%d", pipeline.SortOrder) }
+				class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+				placeholder="10"/>
+		</div>
+	</div>
+	<div class="space-y-1">
+		<label class="text-xs font-medium text-muted-foreground">Description</label>
+		<input name="description" type="text" value={ pipeline.Description }
+			class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			placeholder="Optional description"/>
+	</div>
+	<div class="space-y-1">
+		<label class="text-xs font-medium text-muted-foreground">Content Types <span class="text-muted-foreground/60">(leave blank for all)</span></label>
+		<div class="flex items-center gap-3 h-8">
+			<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+				<input type="checkbox" name="content_types" value="movie" checked?={ libraryHasContentType(pipeline.ContentTypes, "movie") }/> movie
+			</label>
+			<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+				<input type="checkbox" name="content_types" value="tv" checked?={ libraryHasContentType(pipeline.ContentTypes, "tv") }/> tv
+			</label>
+			<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+				<input type="checkbox" name="content_types" value="anime" checked?={ libraryHasContentType(pipeline.ContentTypes, "anime") }/> anime
+			</label>
+		</div>
+	</div>
+	<div class="flex items-center gap-4">
+		<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+			<input type="checkbox" name="enabled" value="on" checked?={ pipeline.Enabled }/> Enabled
+		</label>
+		<div class="flex items-center gap-2 ml-auto">
+			<button type="submit"
+				class="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+				Save
+			</button>
+			<button type="button"
+				class="inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+				hx-get="data:text/html," hx-target="#intake-pipeline-modal" hx-swap="innerHTML">
+				Cancel
+			</button>
+		</div>
+	</div>
+}
+
+// IntakeRuleFormPartial renders the inline create/edit form for a pipeline rule.
+templ IntakeRuleFormPartial(rule *models.IntakeRule, baseURL string, isEdit bool) {
+	<div class="rounded-lg border bg-muted/30 p-4 my-2 space-y-3" id="intake-rule-form">
+		<div class="flex items-center justify-between">
+			if isEdit {
+				<p class="text-sm font-medium">Edit Rule</p>
+			} else {
+				<p class="text-sm font-medium">New Rule</p>
+			}
+			<button class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html," hx-target="#intake-rule-modal" hx-swap="innerHTML">✕</button>
+		</div>
+
+		<!-- Available expression variables hint -->
+		<details class="text-xs text-muted-foreground">
+			<summary class="cursor-pointer hover:text-foreground">Available expression variables</summary>
+			<div class="mt-1.5 font-mono text-xs space-y-0.5 ml-2">
+				<div>Title, Year, ContentType, Group, Source, Resolution, Season, Episode</div>
+				<div>IMDbRating, TMDbRating, MetacriticRating, RottenTomatoesRating, AudienceRating</div>
+				<div>Genres, LibraryTitle, HasFile, MatchScore, IMDbID, TMDbID, TVDbID</div>
+				<div class="mt-1 text-muted-foreground/70">Example: <span class="text-foreground">RottenTomatoesRating &gt;= 80</span></div>
+			</div>
+		</details>
+
+		if isEdit {
+			<form
+				hx-put={ baseURL + "/ui/partials/intake/rules/" + strconv.Itoa(rule.ID) }
+				hx-target="#intake-pipelines-list"
+				hx-swap="outerHTML"
+				hx-on::after-request="if(event.detail.successful) document.getElementById('intake-rule-modal').innerHTML=''"
+				class="space-y-3"
+			>
+				@intakeRuleFormFields(rule)
+			</form>
+		} else {
+			<form
+				hx-post={ baseURL + "/ui/partials/intake/pipelines/" + strconv.Itoa(rule.PipelineID) + "/rules" }
+				hx-target="#intake-pipelines-list"
+				hx-swap="outerHTML"
+				hx-on::after-request="if(event.detail.successful) document.getElementById('intake-rule-modal').innerHTML=''"
+				class="space-y-3"
+			>
+				@intakeRuleFormFields(rule)
+			</form>
+		}
+	</div>
+}
+
+// intakeRuleFormFields renders shared fields for intake rule create/edit.
+templ intakeRuleFormFields(rule *models.IntakeRule) {
+	<div class="grid grid-cols-2 gap-3">
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Name</label>
+			<input name="name" type="text" required value={ rule.Name }
+				class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+				placeholder="My Rule"/>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Sort Order</label>
+			<input name="sort_order" type="number" value={ fmt.Sprintf("%d", rule.SortOrder) }
+				class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+				placeholder="10"/>
+		</div>
+	</div>
+	<div class="space-y-1">
+		<label class="text-xs font-medium text-muted-foreground">Expression Filter <span class="text-muted-foreground/60">(leave blank to match all)</span></label>
+		<input type="hidden" name="expr_filter" id="intake-ef-out" value={ rule.ExprFilter }/>
+		<input type="text" id="intake-ef-text" value={ rule.ExprFilter }
+			placeholder="RottenTomatoesRating >= 80"
+			oninput="document.getElementById('intake-ef-out').value = this.value"
+			class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"/>
+		<details class="mt-1">
+			<summary class="cursor-pointer text-xs text-muted-foreground hover:text-foreground">Visual builder</summary>
+			<div id="intake-ef-builder" class="mt-2 bg-muted/20 rounded-md p-2"></div>
+		</details>
+		<script>
+			(function () {
+				var c = document.getElementById('intake-ef-builder');
+				if (!c) return;
+				function boot() {
+					if (typeof RuiExprBuilder === 'undefined') { setTimeout(boot, 50); return; }
+					new RuiExprBuilder({
+						container: 'intake-ef-builder',
+						outputEl: 'intake-ef-out',
+						fields: [
+							{ id: 'Title',                label: 'Title',              type: 'text' },
+							{ id: 'Year',                 label: 'Year',               type: 'number' },
+							{ id: 'Season',               label: 'Season',             type: 'number' },
+							{ id: 'Episode',              label: 'Episode',            type: 'number' },
+							{ id: 'Group',                label: 'Release Group',      type: 'text' },
+							{ id: 'Source',               label: 'Source',             type: 'text' },
+							{ id: 'Resolution',           label: 'Resolution',         type: 'text' },
+							{ id: 'ContentType',          label: 'Content Type',       type: 'enum', values: ['movie','tv','anime','music','book','unknown'] },
+							{ id: 'IMDbID',               label: 'IMDb ID',            type: 'text' },
+							{ id: 'TMDbID',               label: 'TMDb ID',            type: 'number' },
+							{ id: 'TVDbID',               label: 'TVDb ID',            type: 'number' },
+							{ id: 'IMDbRating',           label: 'IMDb Rating',        type: 'number' },
+							{ id: 'TMDbRating',           label: 'TMDb Rating',        type: 'number' },
+							{ id: 'MetacriticRating',     label: 'Metacritic',         type: 'number' },
+							{ id: 'RottenTomatoesRating', label: 'Rotten Tomatoes',    type: 'number' },
+							{ id: 'AudienceRating',       label: 'Audience Rating',    type: 'number' },
+							{ id: 'Genres',               label: 'Genres',             type: 'text' },
+							{ id: 'LibraryTitle',         label: 'Library Title',      type: 'text' },
+							{ id: 'LibraryYear',          label: 'Library Year',       type: 'number' },
+							{ id: 'LibraryIMDbID',        label: 'Library IMDb ID',    type: 'text' },
+							{ id: 'LibraryTMDbID',        label: 'Library TMDb ID',    type: 'number' },
+							{ id: 'LibraryTVDbID',        label: 'Library TVDb ID',    type: 'number' },
+							{ id: 'HasFile',              label: 'Has File',           type: 'bool' },
+							{ id: 'MatchScore',           label: 'Match Score',        type: 'number' },
+						],
+						onApply: function(e) { document.getElementById('intake-ef-text').value = document.getElementById('intake-ef-out').value; }
+					}).init();
+				}
+				boot();
+			})();
+		</script>
+	</div>
+	<div class="grid grid-cols-2 gap-3">
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Action</label>
+			<select name="action" class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+				<option value="grab" selected?={ string(rule.Action) == "grab" }>grab</option>
+				<option value="skip" selected?={ string(rule.Action) == "skip" }>skip</option>
+				<option value="upgrade" selected?={ string(rule.Action) == "upgrade" }>upgrade</option>
+				<option value="remove" selected?={ string(rule.Action) == "remove" }>remove</option>
+			</select>
+		</div>
+	</div>
+	<div class="flex items-center gap-4">
+		<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+			<input type="checkbox" name="enabled" value="on" checked?={ rule.Enabled }/> Enabled
+		</label>
+		<div class="flex items-center gap-2 ml-auto">
+			<button type="submit"
+				class="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+				Save
+			</button>
+			<button type="button"
+				class="inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+				hx-get="data:text/html," hx-target="#intake-rule-modal" hx-swap="innerHTML">
+				Cancel
+			</button>
+		</div>
+	</div>
 }

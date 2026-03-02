@@ -5,6 +5,7 @@ package pages
 
 import (
 	"fmt"
+	"strconv"
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/ui/layouts"
 )
@@ -52,12 +53,83 @@ func libraryContentTypeBadge(ct string) string {
 	}
 }
 
+// libraryHasContentType reports whether ct is in the list.
+func libraryHasContentType(cts []string, ct string) bool {
+	for _, c := range cts {
+		if c == ct {
+			return true
+		}
+	}
+	return false
+}
+
 // libraryYearStr converts an optional year int to display string.
 func libraryYearStr(year *int) string {
 	if year == nil || *year == 0 {
 		return "—"
 	}
 	return fmt.Sprintf("%d", *year)
+}
+
+// LibraryTitlesTablePartial renders only the #library-titles-table div (used after
+// a sync to swap in the updated list via HTMX outerHTML).
+templ LibraryTitlesTablePartial(titles []*models.LibraryTitle) {
+	<div id="library-titles-table">
+		if len(titles) == 0 {
+			<div class="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+				<svg class="h-10 w-10 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+					<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+					<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+				</svg>
+				<p class="text-sm">No titles in library yet.</p>
+				<p class="text-xs">Scan Clients to import from qBittorrent, or sync an *arr instance.</p>
+			</div>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b bg-muted/30">
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Title</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Year</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Type</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Status</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">IDs</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y">
+						for _, t := range titles {
+							<tr class="hover:bg-muted/20 transition-colors">
+								<td class="px-4 py-2.5">
+									<span class="font-medium">{ t.Title }</span>
+									if t.SortTitle != "" && t.SortTitle != t.Title {
+										<span class="ml-1.5 text-xs text-muted-foreground">({ t.SortTitle })</span>
+									}
+								</td>
+								<td class="px-4 py-2.5 text-muted-foreground">{ libraryYearStr(t.Year) }</td>
+								<td class="px-4 py-2.5">
+									<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryContentTypeBadge(string(t.ContentType)) }>
+										{ string(t.ContentType) }
+									</span>
+								</td>
+								<td class="px-4 py-2.5 text-muted-foreground text-xs">{ t.Status }</td>
+								<td class="px-4 py-2.5 text-xs text-muted-foreground">
+									if t.IMDbID != "" {
+										<span class="mr-1.5">IMDb: { t.IMDbID }</span>
+									}
+									if t.TMDbID != 0 {
+										<span class="mr-1.5">TMDb: { fmt.Sprintf("%d", t.TMDbID) }</span>
+									}
+									if t.TVDbID != 0 {
+										<span>TVDb: { fmt.Sprintf("%d", t.TVDbID) }</span>
+									}
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
 }
 
 templ Library(p LibraryProps) {
@@ -75,16 +147,36 @@ templ Library(p LibraryProps) {
 				<div>
 					<h1 class="text-2xl font-bold tracking-tight">Library</h1>
 					<p class="text-sm text-muted-foreground mt-1">
-						Native title library synced from *arr instances. Used for release matching and intake rules.
+						Title library populated from qBittorrent clients and/or *arr instances. Used for release matching and intake rules.
 					</p>
 				</div>
 				<div class="flex items-center gap-2">
 					<button
-						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+						id="scan-clients-btn"
+						class="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-60 disabled:cursor-not-allowed"
+						hx-post={ p.BaseURL + "/ui/partials/library/scan-clients" }
+						hx-target="#library-titles-table"
+						hx-swap="outerHTML"
+						hx-indicator="#scan-clients-btn"
+						hx-disabled-elt="this"
+					>
+						<svg class="htmx-indicator h-3 w-3 animate-spin text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+						</svg>
+						Scan Clients
+					</button>
+					<button
+						id="sync-all-btn"
+						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 disabled:cursor-not-allowed"
 						hx-post={ p.BaseURL + "/ui/partials/library/sync" }
 						hx-target="#library-titles-table"
 						hx-swap="outerHTML"
+						hx-indicator="#sync-all-btn"
+						hx-disabled-elt="this"
 					>
+						<svg class="htmx-indicator h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+						</svg>
 						<svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<path d="M21 2v6h-6"/>
 							<path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
@@ -102,123 +194,247 @@ templ Library(p LibraryProps) {
 				</div>
 			}
 
-			<!-- Titles Table -->
 			<div class="rounded-lg border bg-card">
 				<div class="flex items-center justify-between p-4 border-b">
 					<h2 class="font-semibold">Titles <span class="ml-1.5 text-xs text-muted-foreground font-normal">({ fmt.Sprintf("%d", len(p.Titles)) })</span></h2>
 				</div>
-				<div id="library-titles-table">
-					if len(p.Titles) == 0 {
-						<div class="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
-							<svg class="h-10 w-10 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-								<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-								<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-							</svg>
-							<p class="text-sm">No titles in library yet.</p>
-							<p class="text-xs">Sync an *arr instance to populate the library.</p>
-						</div>
-					} else {
-						<div class="overflow-x-auto">
-							<table class="w-full text-sm">
-								<thead>
-									<tr class="border-b bg-muted/30">
-										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Title</th>
-										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Year</th>
-										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Type</th>
-										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Status</th>
-										<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">IDs</th>
-									</tr>
-								</thead>
-								<tbody class="divide-y">
-									for _, t := range p.Titles {
-										<tr class="hover:bg-muted/20 transition-colors">
-											<td class="px-4 py-2.5">
-												<span class="font-medium">{ t.Title }</span>
-												if t.SortTitle != "" && t.SortTitle != t.Title {
-													<span class="ml-1.5 text-xs text-muted-foreground">({ t.SortTitle })</span>
-												}
-											</td>
-											<td class="px-4 py-2.5 text-muted-foreground">{ libraryYearStr(t.Year) }</td>
-											<td class="px-4 py-2.5">
-												<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryContentTypeBadge(string(t.ContentType)) }>
-													{ string(t.ContentType) }
-												</span>
-											</td>
-											<td class="px-4 py-2.5 text-muted-foreground text-xs">{ t.Status }</td>
-											<td class="px-4 py-2.5 text-xs text-muted-foreground">
-												if t.IMDbID != "" {
-													<span class="mr-1.5">IMDb: { t.IMDbID }</span>
-												}
-												if t.TMDbID != 0 {
-													<span class="mr-1.5">TMDb: { fmt.Sprintf("%d", t.TMDbID) }</span>
-												}
-												if t.TVDbID != 0 {
-													<span>TVDb: { fmt.Sprintf("%d", t.TVDbID) }</span>
-												}
-											</td>
-										</tr>
-									}
-								</tbody>
-							</table>
-						</div>
-					}
-				</div>
+				@LibraryTitlesTablePartial(p.Titles)
 			</div>
 
 			<!-- Rules -->
-			<div class="rounded-lg border bg-card">
+			<div class="rounded-lg border bg-card" id="library-rules-section">
 				<div class="flex items-center justify-between p-4 border-b">
 					<h2 class="font-semibold">Library Rules <span class="ml-1.5 text-xs text-muted-foreground font-normal">({ fmt.Sprintf("%d", len(p.Rules)) })</span></h2>
-					<p class="text-xs text-muted-foreground">Evaluated in sort order. First match wins.</p>
+					<button
+						class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90"
+						hx-get={ p.BaseURL + "/ui/partials/library/rules/form" }
+						hx-target="#library-rule-modal"
+						hx-swap="innerHTML"
+					>
+						+ Add Rule
+					</button>
 				</div>
-				if len(p.Rules) == 0 {
-					<div class="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
-						<p class="text-sm">No library rules defined.</p>
-						<p class="text-xs">Rules use expr-lang expressions to decide what action to take for matched titles.</p>
-					</div>
-				} else {
-					<div class="overflow-x-auto">
-						<table class="w-full text-sm">
-							<thead>
-								<tr class="border-b bg-muted/30">
-									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground w-6">#</th>
-									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Name</th>
-									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Filter</th>
-									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Action</th>
-									<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Enabled</th>
-								</tr>
-							</thead>
-							<tbody class="divide-y">
-								for _, rule := range p.Rules {
-									<tr class="hover:bg-muted/20 transition-colors">
-										<td class="px-4 py-2.5 text-muted-foreground text-xs">{ fmt.Sprintf("%d", rule.SortOrder) }</td>
-										<td class="px-4 py-2.5 font-medium">{ rule.Name }</td>
-										<td class="px-4 py-2.5 font-mono text-xs text-muted-foreground max-w-xs truncate">
-											if rule.ExprFilter == "" {
-												<span class="italic">— match all —</span>
-											} else {
-												{ rule.ExprFilter }
-											}
-										</td>
-										<td class="px-4 py-2.5">
-											<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryActionBadge(string(rule.Action)) }>
-												{ string(rule.Action) }
-											</span>
-										</td>
-										<td class="px-4 py-2.5">
-											if rule.Enabled {
-												<span class="text-green-600 text-xs">✓</span>
-											} else {
-												<span class="text-muted-foreground text-xs">–</span>
-											}
-										</td>
-									</tr>
-								}
-							</tbody>
-						</table>
-					</div>
-				}
+				<div id="library-rule-modal" class="px-4"></div>
+				@LibraryRulesListPartial(p.Rules, p.BaseURL)
 			</div>
 		</div>
 	}
+}
+
+// LibraryRulesListPartial renders the rules table (swapped after CRUD operations).
+templ LibraryRulesListPartial(rules []*models.LibraryRule, baseURL string) {
+	<div id="library-rules-list">
+		if len(rules) == 0 {
+			<div class="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
+				<p class="text-sm">No library rules defined.</p>
+				<p class="text-xs">Rules use expr-lang expressions to decide what action to take for matched titles.</p>
+			</div>
+		} else {
+			<div class="overflow-x-auto">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="border-b bg-muted/30">
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground w-6">#</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Name</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Filter</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Action</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Enabled</th>
+							<th class="px-4 py-2.5 text-left font-medium text-muted-foreground">Operations</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y">
+						for _, rule := range rules {
+							<tr class="hover:bg-muted/20 transition-colors">
+								<td class="px-4 py-2.5 text-muted-foreground text-xs">{ fmt.Sprintf("%d", rule.SortOrder) }</td>
+								<td class="px-4 py-2.5 font-medium">{ rule.Name }</td>
+								<td class="px-4 py-2.5 font-mono text-xs text-muted-foreground max-w-xs truncate">
+									if rule.ExprFilter == "" {
+										<span class="italic">— match all —</span>
+									} else {
+										{ rule.ExprFilter }
+									}
+								</td>
+								<td class="px-4 py-2.5">
+									<span class={ "inline-flex rounded-full px-2 py-0.5 text-xs font-medium " + libraryActionBadge(string(rule.Action)) }>
+										{ string(rule.Action) }
+									</span>
+								</td>
+								<td class="px-4 py-2.5">
+									<button
+										class="text-xs text-muted-foreground hover:text-foreground"
+										hx-post={ baseURL + "/ui/partials/library/rules/" + strconv.Itoa(rule.ID) + "/toggle" }
+										hx-target="#library-rules-list"
+										hx-swap="outerHTML"
+									>
+										if rule.Enabled {
+											<span class="text-green-600">✓ on</span>
+										} else {
+											<span>– off</span>
+										}
+									</button>
+								</td>
+								<td class="px-4 py-2.5 flex items-center gap-2">
+									<button
+										class="text-xs text-muted-foreground hover:text-foreground"
+										hx-get={ baseURL + "/ui/partials/library/rules/" + strconv.Itoa(rule.ID) + "/form" }
+										hx-target="#library-rule-modal"
+										hx-swap="innerHTML"
+									>Edit</button>
+									<button
+										class="text-xs text-destructive hover:text-destructive/80"
+										hx-delete={ baseURL + "/ui/partials/library/rules/" + strconv.Itoa(rule.ID) }
+										hx-target="#library-rules-list"
+										hx-swap="outerHTML"
+										hx-confirm="Delete this rule?"
+									>Delete</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		}
+	</div>
+}
+
+// LibraryRuleFormPartial renders the inline create/edit form for a library rule.
+templ LibraryRuleFormPartial(rule *models.LibraryRule, baseURL string, isEdit bool) {
+	<div class="rounded-lg border bg-muted/30 p-4 my-2 space-y-3" id="library-rule-form">
+		<div class="flex items-center justify-between">
+			if isEdit {
+				<p class="text-sm font-medium">Edit Rule</p>
+			} else {
+				<p class="text-sm font-medium">New Rule</p>
+			}
+			<button class="text-xs text-muted-foreground hover:text-foreground"
+				hx-get="data:text/html," hx-target="#library-rule-modal" hx-swap="innerHTML">✕</button>
+		</div>
+
+		<!-- Available expression variables hint - shown inline above the builder -->
+
+		if isEdit {
+			<form
+				hx-put={ baseURL + "/ui/partials/library/rules/" + strconv.Itoa(rule.ID) }
+				hx-target="#library-rules-list"
+				hx-swap="outerHTML"
+				hx-on::after-request="if(event.detail.successful) document.getElementById('library-rule-modal').innerHTML=''"
+				class="space-y-3"
+			>
+				@libraryRuleFormFields(rule)
+			</form>
+		} else {
+			<form
+				hx-post={ baseURL + "/ui/partials/library/rules" }
+				hx-target="#library-rules-list"
+				hx-swap="outerHTML"
+				hx-on::after-request="if(event.detail.successful) document.getElementById('library-rule-modal').innerHTML=''"
+				class="space-y-3"
+			>
+				@libraryRuleFormFields(rule)
+			</form>
+		}
+	</div>
+}
+
+// libraryRuleFormFields renders the shared form fields for library rule create/edit.
+templ libraryRuleFormFields(rule *models.LibraryRule) {
+	<div class="grid grid-cols-2 gap-3">
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Name</label>
+			<input name="name" type="text" required value={ rule.Name }
+				class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+				placeholder="My Rule"/>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Sort Order</label>
+			<input name="sort_order" type="number" value={ fmt.Sprintf("%d", rule.SortOrder) }
+				class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+				placeholder="10"/>
+		</div>
+	</div>
+	<div class="space-y-1">
+		<label class="text-xs font-medium text-muted-foreground">Expression Filter <span class="text-muted-foreground/60">(leave blank to match all)</span></label>
+		<input type="hidden" name="expr_filter" id="lib-ef-out" value={ rule.ExprFilter }/>
+		<input type="text" id="lib-ef-text" value={ rule.ExprFilter }
+			placeholder="RottenTomatoesRating >= 80"
+			oninput="document.getElementById('lib-ef-out').value = this.value"
+			class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"/>
+		<details class="mt-1">
+			<summary class="cursor-pointer text-xs text-muted-foreground hover:text-foreground">Visual builder</summary>
+			<div id="lib-ef-builder" class="mt-2 bg-muted/20 rounded-md p-2"></div>
+		</details>
+		<script>
+			(function () {
+				var c = document.getElementById('lib-ef-builder');
+				if (!c) return;
+				function boot() {
+					if (typeof RuiExprBuilder === 'undefined') { setTimeout(boot, 50); return; }
+					new RuiExprBuilder({
+						container: 'lib-ef-builder',
+						outputEl: 'lib-ef-out',
+						fields: [
+							{ id: 'Title',         label: 'Title',          type: 'text' },
+							{ id: 'Year',          label: 'Year',           type: 'number' },
+							{ id: 'Season',        label: 'Season',         type: 'number' },
+							{ id: 'Episode',       label: 'Episode',        type: 'number' },
+							{ id: 'Group',         label: 'Release Group',  type: 'text' },
+							{ id: 'Source',        label: 'Source',         type: 'text' },
+							{ id: 'Resolution',    label: 'Resolution',     type: 'text' },
+							{ id: 'ContentType',   label: 'Content Type',   type: 'enum', values: ['movie','tv','anime','music','book','unknown'] },
+							{ id: 'LibraryTitle',  label: 'Library Title',  type: 'text' },
+							{ id: 'LibraryYear',   label: 'Library Year',   type: 'number' },
+							{ id: 'LibraryIMDbID', label: 'Library IMDb ID',type: 'text' },
+							{ id: 'LibraryTMDbID', label: 'Library TMDb ID',type: 'number' },
+							{ id: 'LibraryTVDbID', label: 'Library TVDb ID',type: 'number' },
+							{ id: 'HasFile',       label: 'Has File',       type: 'bool' },
+							{ id: 'Score',         label: 'Match Score',    type: 'number' },
+						],
+						onApply: function(e) { document.getElementById('lib-ef-text').value = document.getElementById('lib-ef-out').value; }
+					}).init();
+				}
+				boot();
+			})();
+		</script>
+	</div>
+	<div class="grid grid-cols-2 gap-3">
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Action</label>
+			<select name="action" class="flex h-8 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+				<option value="grab" selected?={ string(rule.Action) == "grab" }>grab</option>
+				<option value="skip" selected?={ string(rule.Action) == "skip" }>skip</option>
+				<option value="upgrade" selected?={ string(rule.Action) == "upgrade" }>upgrade</option>
+				<option value="remove" selected?={ string(rule.Action) == "remove" }>remove</option>
+			</select>
+		</div>
+		<div class="space-y-1">
+			<label class="text-xs font-medium text-muted-foreground">Content Types <span class="text-muted-foreground/60">(leave blank for all)</span></label>
+			<div class="flex items-center gap-3 h-8">
+				<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+					<input type="checkbox" name="content_types" value="movie" checked?={ libraryHasContentType(rule.ContentTypes, "movie") }/> movie
+				</label>
+				<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+					<input type="checkbox" name="content_types" value="tv" checked?={ libraryHasContentType(rule.ContentTypes, "tv") }/> tv
+				</label>
+				<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+					<input type="checkbox" name="content_types" value="anime" checked?={ libraryHasContentType(rule.ContentTypes, "anime") }/> anime
+				</label>
+			</div>
+		</div>
+	</div>
+	<div class="flex items-center gap-4">
+		<label class="flex items-center gap-1.5 text-xs cursor-pointer">
+			<input type="checkbox" name="enabled" value="on" checked?={ rule.Enabled }/> Enabled
+		</label>
+		<div class="flex items-center gap-2 ml-auto">
+			<button type="submit"
+				class="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+				Save
+			</button>
+			<button type="button"
+				class="inline-flex items-center rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+				hx-get="data:text/html," hx-target="#library-rule-modal" hx-swap="innerHTML">
+				Cancel
+			</button>
+		</div>
+	</div>
 }

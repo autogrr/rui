@@ -2,28 +2,35 @@
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
 // dashboard_sse.go implements the dashboard live-update SSE endpoint.
-// It streams "dashboard-update" events whenever aggregate instance stats
-// change (connection state, torrent counts, or transfer speeds shift by a
-// meaningful amount). The dashboard page listens with the HTMX SSE extension
-// and falls back to slow polling when EventSource is unavailable.
+// It streams rendered HTML fragments directly:
+//   - event: dashboard-data     (global stats + instance cards)
+//   - event: dashboard-tracker  (tracker breakdown card)
+// whenever aggregate instance stats change.
 
 package ui
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"hash/fnv"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
+	"github.com/a-h/templ"
 	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/rs/zerolog/log"
+
+	"github.com/autogrr/rui/internal/ui/pages"
 )
 
-// StreamDashboardSSE pushes "dashboard-update" events via Server-Sent Events.
+// StreamDashboardSSE pushes dashboard HTML fragments via Server-Sent Events.
 //
 // The handler:
 //  1. Sends an initial "connected" event.
-//  2. Polls all active instances every 3 s and emits "dashboard-update" when
+//  2. Polls all active instances every 3 s and emits dashboard fragment events when
 //     aggregate stats change (connection count, torrent counts, or speeds shift
 //     by ≥50 KiB/s).
 //  3. Emits a keepalive comment every 15 s so proxies do not close the connection.
@@ -55,6 +62,7 @@ func (h *Handler) StreamDashboardSSE(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var lastFP string
+	baseURL := h.baseURL()
 
 	// fingerprint hashes the aggregate dashboard stats across all active instances.
 	// Speeds are bucketed to 50 KiB/s steps to avoid spurious events from minor
@@ -96,7 +104,12 @@ func (h *Handler) StreamDashboardSSE(w http.ResponseWriter, r *http.Request) {
 				}
 				// Include per-tracker row counts so tracker breakdown
 				// changes also trigger a dashboard-update event.
-				for _, row := range client.GetCachedTrackerRows() {
+				// Sort first so hash input is deterministic across polls.
+				trackerRows := client.GetCachedTrackerRows()
+				sort.Slice(trackerRows, func(i, j int) bool {
+					return trackerRows[i].Domain < trackerRows[j].Domain
+				})
+				for _, row := range trackerRows {
 					fmt.Fprintf(h64, "t|%s|%d|", row.Domain, row.Count) //nolint:errcheck
 				}
 			}
@@ -118,7 +131,22 @@ func (h *Handler) StreamDashboardSSE(w http.ResponseWriter, r *http.Request) {
 			return true
 		}
 		lastFP = fp
-		if _, err := fmt.Fprintf(w, "event: dashboard-update\ndata: {}\n\n"); err != nil {
+
+		dashInsts := h.buildDashboardInstances(r)
+		statsHTML, err := renderComponentHTML(ctx, pages.DashboardStatsPartial(dashInsts, baseURL))
+		if err != nil {
+			return false
+		}
+		trackerRows := h.buildDashboardTrackerBreakdownRows(ctx)
+		trackerHTML, err := renderComponentHTML(ctx, pages.DashboardTrackerBreakdown(trackerRows, baseURL))
+		if err != nil {
+			return false
+		}
+
+		if err := writeSSEEvent(w, "dashboard-data", statsHTML); err != nil {
+			return false
+		}
+		if err := writeSSEEvent(w, "dashboard-tracker", trackerHTML); err != nil {
 			return false
 		}
 		flusher.Flush()
@@ -132,6 +160,10 @@ func (h *Handler) StreamDashboardSSE(w http.ResponseWriter, r *http.Request) {
 
 	log.Debug().Msg("dashboard SSE client connected")
 	defer log.Debug().Msg("dashboard SSE client disconnected")
+
+	if !sendUpdate() {
+		return
+	}
 
 	for {
 		select {
@@ -148,4 +180,34 @@ func (h *Handler) StreamDashboardSSE(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
+}
+
+func renderComponentHTML(ctx context.Context, c templ.Component) (string, error) {
+	if c == nil {
+		return "", nil
+	}
+	var buf bytes.Buffer
+	if err := c.Render(ctx, &buf); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func writeSSEEvent(w http.ResponseWriter, event, data string) error {
+	if _, err := fmt.Fprintf(w, "event: %s\n", event); err != nil {
+		return err
+	}
+	if data == "" {
+		if _, err := fmt.Fprint(w, "data: {}\n\n"); err != nil {
+			return err
+		}
+		return nil
+	}
+	for _, line := range strings.Split(data, "\n") {
+		if _, err := fmt.Fprintf(w, "data: %s\n", line); err != nil {
+			return err
+		}
+	}
+	_, err := fmt.Fprint(w, "\n")
+	return err
 }

@@ -945,7 +945,7 @@ func (sm *SyncManager) GetTorrentsWithFilters(ctx context.Context, instanceID in
 	}
 
 	needsManualCategoryFiltering := false
-	if len(filters.Categories) == 1 && filters.Categories[0] == "" {
+	if len(filters.Categories) > 0 {
 		needsManualCategoryFiltering = true
 	}
 

@@ -6,6 +6,7 @@
 package ui
 
 import (
+	"context"
 	"net/http"
 	"sort"
 	"strconv"
@@ -149,20 +150,12 @@ func max64(a, b int64) int64 {
 	return b
 }
 
-// GetDashboardTrackerBreakdown returns per-tracker aggregated stats across all
-// active instances, lazy-loaded by the dashboard on first paint.
-// Stats are pre-computed by the OnUpdate callback; this handler just reads
-// atomic pointers — no torrent list copy, no lock contention.
-// Route: GET /ui/partials/dashboard/tracker-breakdown
-func (h *Handler) GetDashboardTrackerBreakdown(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
+func (h *Handler) buildDashboardTrackerBreakdownRows(ctx context.Context) []pages.TrackerBreakdownRow {
 	insts, err := h.instanceStore.List(ctx)
 	if err != nil {
 		insts = []*models.Instance{}
 	}
 
-	// Load tracker customizations for display-name resolution.
 	customizations, _ := h.trackerCustomizationStore.List(ctx)
 
 	agg := make(map[string]*qbittorrent.CachedTrackerRow)
@@ -213,5 +206,15 @@ func (h *Handler) GetDashboardTrackerBreakdown(w http.ResponseWriter, r *http.Re
 		return rows[i].TorrentCount > rows[j].TorrentCount
 	})
 
+	return rows
+}
+
+// GetDashboardTrackerBreakdown returns per-tracker aggregated stats across all
+// active instances, lazy-loaded by the dashboard on first paint.
+// Stats are pre-computed by the OnUpdate callback; this handler just reads
+// atomic pointers — no torrent list copy, no lock contention.
+// Route: GET /ui/partials/dashboard/tracker-breakdown
+func (h *Handler) GetDashboardTrackerBreakdown(w http.ResponseWriter, r *http.Request) {
+	rows := h.buildDashboardTrackerBreakdownRows(r.Context())
 	render(w, r, http.StatusOK, pages.DashboardTrackerBreakdown(rows, h.baseURL()))
 }

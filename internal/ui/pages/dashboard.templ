@@ -93,15 +93,14 @@ templ Dashboard(p DashboardProps) {
 					}
 				}
 			} else {
-				<!-- SSE wrapper: pushes dashboard-update events; falls back to polling -->
+				<!-- SSE wrapper: pushes rendered dashboard fragments directly. -->
 				<div
 					hx-ext="sse"
 					sse-connect={ p.BaseURL + "/ui/sse/dashboard" }
 				>
 					<div
 						id="dashboard-stats"
-						hx-get={ p.BaseURL + "/ui/partials/dashboard" }
-						hx-trigger="load, sse:dashboard-update, every 5s"
+						sse-swap="dashboard-data"
 						hx-swap="innerHTML"
 						class="space-y-4"
 					>
@@ -111,11 +110,10 @@ templ Dashboard(p DashboardProps) {
 							@DashboardSkeleton()
 						</div>
 					</div>
-					<!-- Tracker breakdown — SSE-driven with 60 s polling fallback -->
+					<!-- Tracker breakdown from the same SSE payload -->
 					<div
 						id="tracker-breakdown"
-						hx-get={ p.BaseURL + "/ui/partials/dashboard/tracker-breakdown" }
-						hx-trigger="load, sse:dashboard-update, every 15s"
+						sse-swap="dashboard-tracker"
 						hx-swap="innerHTML"
 						class="mt-6"
 					>

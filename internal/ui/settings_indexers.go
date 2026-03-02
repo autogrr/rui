@@ -19,6 +19,8 @@ import (
 	"github.com/autogrr/rui/internal/models"
 	"github.com/autogrr/rui/internal/services/jackett"
 	"github.com/autogrr/rui/internal/ui/pages"
+	gojackett "github.com/autogrr/rui/pkg/gojackett"
+	"github.com/autogrr/rui/pkg/prowlarr"
 )
 
 // ──────────────────────────────────────────────────────────────────
@@ -275,4 +277,189 @@ func (h *Handler) PostSearchCacheTTL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	render(w, r, http.StatusOK, pages.SearchCacheResultPartial(true, "Cache settings updated"))
+}
+
+// ──────────────────────────────────────────────────────────────────
+// Indexer Discovery
+//
+//	GET  /ui/partials/settings/indexers/discover   → discovery form
+//	POST /ui/partials/settings/indexers/discover   → fetch remote indexers
+//	POST /ui/partials/settings/indexers/import     → bulk create indexers
+// ──────────────────────────────────────────────────────────────────
+
+// GetIndexerDiscoverForm returns the discover-indexers form fragment.
+func (h *Handler) GetIndexerDiscoverForm(w http.ResponseWriter, r *http.Request) {
+	render(w, r, http.StatusOK, pages.IndexerDiscoverForm(h.baseURL(), ""))
+}
+
+// PostIndexerDiscoverList fetches all configured indexers from a remote Jackett or
+// Prowlarr instance and returns the selectable list fragment.
+func (h *Handler) PostIndexerDiscoverList(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		render(w, r, http.StatusUnprocessableEntity, pages.IndexerDiscoverForm(h.baseURL(), "Invalid form data"))
+		return
+	}
+
+	backend := r.FormValue("backend")
+	baseURL := strings.TrimRight(strings.TrimSpace(r.FormValue("base_url")), "/")
+	apiKey := strings.TrimSpace(r.FormValue("api_key"))
+
+	if baseURL == "" {
+		render(w, r, http.StatusUnprocessableEntity, pages.IndexerDiscoverForm(h.baseURL(), "Base URL is required"))
+		return
+	}
+	if apiKey == "" {
+		render(w, r, http.StatusUnprocessableEntity, pages.IndexerDiscoverForm(h.baseURL(), "API Key is required"))
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+
+	// Build a set of already-added indexer IDs for this backend so we can mark duplicates.
+	addedIDs := map[string]struct{}{}
+	if h.indexerStore != nil {
+		existing, _ := h.indexerStore.List(ctx)
+		for _, idx := range existing {
+			if string(idx.Backend) == backend && idx.IndexerID != "" {
+				addedIDs[idx.IndexerID] = struct{}{}
+			}
+		}
+	}
+
+	var items []pages.DiscoveredIndexer
+
+	switch backend {
+	case "jackett":
+		client := gojackett.NewClient(gojackett.Config{
+			Host:   baseURL,
+			APIKey: apiKey,
+		})
+		indexers, err := client.GetIndexersCtx(ctx)
+		if err != nil {
+			log.Warn().Err(err).Str("base_url", baseURL).Msg("ui: jackett discover failed")
+			render(w, r, http.StatusOK, pages.IndexerDiscoverForm(h.baseURL(),
+				"Failed to connect to Jackett: "+err.Error()))
+			return
+		}
+		for _, idx := range indexers.Indexer {
+			_, alreadyAdded := addedIDs[idx.ID]
+			items = append(items, pages.DiscoveredIndexer{
+				ID:           idx.ID,
+				Name:         idx.Title,
+				Description:  idx.Description,
+				Protocol:     "torrent",
+				Type:         idx.Type,
+				Configured:   idx.Configured == "true",
+				AlreadyAdded: alreadyAdded,
+			})
+		}
+
+	case "prowlarr":
+		client := prowlarr.NewClient(prowlarr.Config{
+			Host:   baseURL,
+			APIKey: apiKey,
+		})
+		indexers, err := client.GetIndexers(ctx)
+		if err != nil {
+			log.Warn().Err(err).Str("base_url", baseURL).Msg("ui: prowlarr discover failed")
+			render(w, r, http.StatusOK, pages.IndexerDiscoverForm(h.baseURL(),
+				"Failed to connect to Prowlarr: "+err.Error()))
+			return
+		}
+		for _, idx := range indexers {
+			if idx.Protocol != "torrent" {
+				continue // skip usenet-only indexers
+			}
+			idStr := strconv.Itoa(idx.ID)
+			_, alreadyAdded := addedIDs[idStr]
+			items = append(items, pages.DiscoveredIndexer{
+				ID:           idStr,
+				Name:         idx.Name,
+				Description:  idx.Description,
+				Protocol:     idx.Protocol,
+				Enabled:      idx.Enable,
+				AlreadyAdded: alreadyAdded,
+			})
+		}
+
+	default:
+		render(w, r, http.StatusUnprocessableEntity, pages.IndexerDiscoverForm(h.baseURL(), "Unsupported backend: "+backend))
+		return
+	}
+
+	render(w, r, http.StatusOK, pages.IndexerDiscoverListPartial(items, h.baseURL(), baseURL, apiKey, backend))
+}
+
+// PostIndexerBulkImport creates all selected discovered indexers.
+func (h *Handler) PostIndexerBulkImport(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		render(w, r, http.StatusUnprocessableEntity, pages.IndexerDiscoverForm(h.baseURL(), "Invalid form data"))
+		return
+	}
+
+	backend := r.FormValue("backend")
+	baseURL := strings.TrimRight(strings.TrimSpace(r.FormValue("base_url")), "/")
+	apiKey := strings.TrimSpace(r.FormValue("api_key"))
+	selectedIDs := r.Form["indexer_id[]"]
+
+	if len(selectedIDs) == 0 {
+		indexers, _ := h.indexerStore.List(r.Context())
+		render(w, r, http.StatusOK, pages.IndexerImportResultPartial(0, 0, "No indexers selected.", indexers, h.baseURL()))
+		return
+	}
+
+	parsedBackend, err := models.ParseTorznabBackend(backend)
+	if err != nil {
+		render(w, r, http.StatusUnprocessableEntity, pages.IndexerDiscoverForm(h.baseURL(), "Invalid backend"))
+		return
+	}
+
+	ctx := r.Context()
+	ownerID := h.sessionManager.GetInt(ctx, "user_id")
+	imported := 0
+	skipped := 0
+
+	for _, idStr := range selectedIDs {
+		idStr = strings.TrimSpace(idStr)
+		if idStr == "" {
+			continue
+		}
+
+		// Build a user-friendly name: for Jackett use the ID as default name (caps sync
+		// will populate the real name later); for Prowlarr we only have the ID here.
+		name := idStr
+
+		_, err := h.indexerStore.CreateWithIndexerID(
+			ctx, ownerID, name, baseURL, idStr, apiKey,
+			nil, nil, true, 0, 30, parsedBackend,
+		)
+		if err != nil {
+			log.Warn().Err(err).Str("indexer_id", idStr).Msg("ui: bulk import: failed to create indexer")
+			skipped++
+			continue
+		}
+		imported++
+
+		// Best-effort capability sync so the name + categories are populated immediately.
+		if h.jackettService != nil {
+			go func(id string) {
+				// Get the newly created indexer to find its database ID.
+				all, _ := h.indexerStore.List(context.Background())
+				for _, idx := range all {
+					if idx.IndexerID == id && string(idx.Backend) == backend {
+						syncCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+						defer cancel()
+						if _, err := h.jackettService.SyncIndexerCaps(syncCtx, idx.ID); err != nil {
+							log.Debug().Err(err).Str("indexer_id", id).Msg("ui: bulk import: caps sync failed")
+						}
+						return
+					}
+				}
+			}(idStr)
+		}
+	}
+
+	indexers, _ := h.indexerStore.List(ctx)
+	render(w, r, http.StatusOK, pages.IndexerImportResultPartial(imported, skipped, "", indexers, h.baseURL()))
 }

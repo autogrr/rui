@@ -289,6 +289,10 @@ x-cloak
 class="w-48 shrink-0 flex flex-col border-r border-border bg-background overflow-y-auto text-sm"
 >
 <div class="px-3 py-2 space-y-4">
+<div class="flex items-center justify-between">
+<label for="vt-hide-empty" class="text-xs text-muted-foreground select-none">Hide empty</label>
+<input id="vt-hide-empty" type="checkbox" class="rounded" checked onchange="toggleSidebarHideEmpty(this.checked)"/>
+</div>
 <!-- Status section -->
 <div>
 <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Status</p>
@@ -303,6 +307,7 @@ for _, sf := range []struct{ val, label string }{
 } {
 <li>
 <button
+data-status-btn={ sf.val }
 hx-get={ p.BaseURL + "/ui/partials/torrents" }
 hx-target="#vt-data-slot"
 hx-swap="innerHTML"
@@ -557,18 +562,10 @@ Add
 <div
 class="flex flex-col flex-1 min-w-0"
 >
-<!-- vt-data-slot: hidden; receives HTMX swaps. hx-ext="sse" lives here so the
-     SSE extension registers hx-trigger="sse:..." directly on this element. -->
+<!-- vt-data-slot: hidden; stores the latest JSON snapshot script payload. -->
 <div
 id="vt-data-slot"
 style="display:none"
-hx-ext="sse"
-sse-connect={ p.BaseURL + "/ui/sse/torrents?instance_id=" + itoa(p.InstanceID) }
-hx-trigger="sse:torrent-update throttle:2s, every 5s"
-hx-get={ p.BaseURL + "/ui/partials/torrents" }
-hx-swap="innerHTML"
-hx-push-url="false"
-hx-include="#current-status,#current-category,#current-tag,#current-instance,#current-sort,#current-order,#current-tracker,#current-savepath,#current-expr,#torrents-search"
 >
 @TorrentsTableBody(p)
 </div>
@@ -737,6 +734,27 @@ class="fixed z-50 hidden min-w-[12rem] rounded-lg border border-border bg-backgr
 <button type="button" onclick="ctxShowTagDialog()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>Tags…
 </button>
+<button type="button" onclick="ctxRenameCategory()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename Category…
+</button>
+<button type="button" onclick="ctxSetCategorySavePath()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18M6 7v13h12V7M9 7V5h6v2"/></svg>Set Category Save Path…
+</button>
+<button type="button" onclick="ctxSetCategoryDownloadPath()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l4-4m-4 4-4-4"/><path d="M3 19h18"/></svg>Set Category Download Path…
+</button>
+<button type="button" onclick="ctxRenameTag()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Rename Tag…
+</button>
+<button type="button" onclick="ctxDeleteTag()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Delete Tag…
+</button>
+<button type="button" onclick="ctxEditTrackerURL()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></svg>Edit Tracker URL…
+</button>
+<button type="button" onclick="ctxDeleteTrackerURL()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Delete Tracker…
+</button>
 <button type="button" onclick="ctxShowLocationDialog()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">
 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Set Location…
 </button>
@@ -769,6 +787,15 @@ class="fixed z-50 hidden min-w-[12rem] rounded-lg border border-border bg-backgr
 <button type="button" onclick="ctxAction('deleteWithFiles')" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors">
 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>Delete + Files
 </button>
+</div>
+
+<!-- Sidebar context menu (positioned via JS) -->
+<div
+id="sidebar-ctx-menu"
+class="fixed z-50 hidden min-w-[10rem] rounded-lg border border-border bg-background shadow-xl py-1 text-sm"
+@click.outside="document.getElementById('sidebar-ctx-menu').classList.add('hidden')"
+>
+<div id="sidebar-ctx-items"></div>
 </div>
 
 <!-- Set Category dialog -->
@@ -1148,30 +1175,70 @@ var _ebBytesUnits    = [ { label:'B', f:1 }, { label:'KB', f:1024 }, { label:'MB
 var _ebDurationUnits = [ { label:'sec', f:1 }, { label:'min', f:60, dflt:true }, { label:'hr', f:3600 }, { label:'day', f:86400 }, { label:'week', f:604800 } ];
 var _ebTimeAgoUnits  = [ { label:'s ago', ta:1 }, { label:'h ago', ta:3600, dflt:true }, { label:'d ago', ta:86400 }, { label:'w ago', ta:604800 }, { label:'mo ago', ta:2592000 } ];
 var _exprFields = [
+  // Identity
   { id: 'Name',          label: 'Name',           type: 'text' },
+  { id: 'Hash',          label: 'Hash',           type: 'text' },
+  { id: 'InfoHashV1',    label: 'InfoHash v1',    type: 'text' },
+  { id: 'InfoHashV2',    label: 'InfoHash v2',    type: 'text' },
+  { id: 'MagnetURI',     label: 'Magnet URI',     type: 'text' },
+  // Categorisation
   { id: 'State',         label: 'State',          type: 'enum', values: ['downloading','uploading','stalledDL','stalledUP','pausedDL','pausedUP','stoppedDL','stoppedUP','error','missingFiles','checkingUP','checkingDL','forcedUP','forcedDL','metaDL','allocating','moving','queuedDL','queuedUP'] },
   { id: 'Category',      label: 'Category',       type: 'text' },
   { id: 'Tags',          label: 'Tags',           type: 'text' },
+  // Paths
   { id: 'SavePath',      label: 'Save Path',      type: 'text' },
+  { id: 'ContentPath',   label: 'Content Path',   type: 'text' },
+  { id: 'DownloadPath',  label: 'Download Path',  type: 'text' },
+  // Tracker
   { id: 'Tracker',       label: 'Tracker',        type: 'text' },
+  { id: 'TrackersCount', label: 'Tracker Count',  type: 'number' },
+  // Ratios & progress
   { id: 'Ratio',         label: 'Ratio',          type: 'number' },
+  { id: 'RatioLimit',    label: 'Ratio Limit',    type: 'number' },
+  { id: 'MaxRatio',      label: 'Max Ratio',      type: 'number' },
   { id: 'Progress',      label: 'Progress (0–1)', type: 'number' },
-  { id: 'Priority',      label: 'Priority',       type: 'number' },
   { id: 'Availability',  label: 'Availability',   type: 'number' },
-  { id: 'NumSeeds',      label: 'Seeds',          type: 'number' },
-  { id: 'NumLeechs',     label: 'Leechers',       type: 'number' },
-  { id: 'NumComplete',   label: 'Total Seeds',    type: 'number' },
-  { id: 'NumIncomplete', label: 'Total Peers',    type: 'number' },
+  { id: 'PopularityScore', label: 'Popularity',   type: 'number' },
+  { id: 'Priority',      label: 'Priority',       type: 'number' },
+  // Peers
+  { id: 'NumSeeds',      label: 'Seeds (connected)',    type: 'number' },
+  { id: 'NumLeechs',     label: 'Leechers (connected)', type: 'number' },
+  { id: 'NumComplete',   label: 'Seeds (total)',   type: 'number' },
+  { id: 'NumIncomplete', label: 'Peers (total)',   type: 'number' },
+  // Speeds & limits
   { id: 'DlSpeed',       label: 'DL Speed',       type: 'number', units: _ebSpeedUnits },
   { id: 'UpSpeed',       label: 'UP Speed',       type: 'number', units: _ebSpeedUnits },
-  { id: 'Size',          label: 'Size',           type: 'number', units: _ebBytesUnits },
-  { id: 'TotalSize',     label: 'Total Size',     type: 'number', units: _ebBytesUnits },
-  { id: 'Uploaded',      label: 'Uploaded',       type: 'number', units: _ebBytesUnits },
-  { id: 'Downloaded',    label: 'Downloaded',     type: 'number', units: _ebBytesUnits },
-  { id: 'AmountLeft',    label: 'Remaining',      type: 'number', units: _ebBytesUnits },
-  { id: 'SeedingTime',   label: 'Seeding Time',   type: 'number', units: _ebDurationUnits },
-  { id: 'TimeActive',    label: 'Time Active',    type: 'number', units: _ebDurationUnits },
-  { id: 'AddedOn',       label: 'Added On',       type: 'number', units: _ebTimeAgoUnits },
+  { id: 'DlLimit',       label: 'DL Limit',       type: 'number', units: _ebSpeedUnits },
+  { id: 'UpLimit',       label: 'UP Limit',       type: 'number', units: _ebSpeedUnits },
+  // Sizes & transfer
+  { id: 'Size',              label: 'Size',              type: 'number', units: _ebBytesUnits },
+  { id: 'TotalSize',         label: 'Total Size',        type: 'number', units: _ebBytesUnits },
+  { id: 'Downloaded',        label: 'Downloaded',        type: 'number', units: _ebBytesUnits },
+  { id: 'Uploaded',          label: 'Uploaded',          type: 'number', units: _ebBytesUnits },
+  { id: 'DownloadedSession', label: 'Downloaded (sess)', type: 'number', units: _ebBytesUnits },
+  { id: 'UploadedSession',   label: 'Uploaded (sess)',   type: 'number', units: _ebBytesUnits },
+  { id: 'AmountLeft',        label: 'Remaining',         type: 'number', units: _ebBytesUnits },
+  { id: 'Completed',         label: 'Completed',         type: 'number', units: _ebBytesUnits },
+  // Durations
+  { id: 'SeedingTime',              label: 'Seeding Time',       type: 'number', units: _ebDurationUnits },
+  { id: 'TimeActive',               label: 'Time Active',        type: 'number', units: _ebDurationUnits },
+  { id: 'ETA',                      label: 'ETA',                type: 'number', units: _ebDurationUnits },
+  { id: 'Reannounce',               label: 'Reannounce In',      type: 'number', units: _ebDurationUnits },
+  { id: 'MaxSeedingTime',           label: 'Max Seeding Time',   type: 'number', units: _ebDurationUnits },
+  { id: 'SeedingTimeLimit',         label: 'Seeding Time Limit', type: 'number', units: _ebDurationUnits },
+  { id: 'InactiveSeedingTimeLimit', label: 'Inactive Seed Limit',type: 'number', units: _ebDurationUnits },
+  // Timestamps (age)
+  { id: 'AddedOn',      label: 'Added',              type: 'number', units: _ebTimeAgoUnits },
+  { id: 'CompletionOn', label: 'Completed At',       type: 'number', units: _ebTimeAgoUnits },
+  { id: 'LastActivity', label: 'Last Activity',      type: 'number', units: _ebTimeAgoUnits },
+  { id: 'SeenComplete', label: 'Last Seen Complete', type: 'number', units: _ebTimeAgoUnits },
+  // Booleans
+  { id: 'AutoTMM',            label: 'Auto TMM',              type: 'bool' },
+  { id: 'Private',            label: 'Private',               type: 'bool' },
+  { id: 'ForceStart',         label: 'Force Start',           type: 'bool' },
+  { id: 'SuperSeeding',       label: 'Super Seeding',         type: 'bool' },
+  { id: 'SequentialDownload', label: 'Sequential Download',   type: 'bool' },
+  { id: 'FirstLastPiecePrio', label: 'First/Last Piece Prio', type: 'bool' },
 ];
 var _exprOpsText   = ['contains','==','!=','startsWith','endsWith'];
 var _exprOpsNumber = ['<','<=','>','>=','==','!='];
@@ -1236,6 +1303,10 @@ function _ebBuildAtom(field, op, computedVal) {
   if (op === 'contains')   return field.id + ' contains "'   + s + '"';
   if (op === 'startsWith') return field.id + ' startsWith "' + s + '"';
   if (op === 'endsWith')   return field.id + ' endsWith "'   + s + '"';
+  // bool values are unquoted literals (true / false)
+  if (field.type === 'bool') return field.id + ' ' + op + ' ' + s;
+  // bool values are unquoted literals (true / false)
+  if (field.type === 'bool') return field.id + ' ' + op + ' ' + s;
   if (field.type === 'text' || field.type === 'enum') return field.id + ' ' + op + ' "' + s + '"';
   return field.id + ' ' + op + ' ' + s;
 }
@@ -1287,6 +1358,11 @@ function initExprBuilder() {
 function _ebValInput(valId, unitId, field) {
   var cls   = 'h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring';
   var enter = 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();ebStageAdd();}"';
+  if (field.type === 'bool') {
+    return '<select id="'+valId+'" class="'+cls+'">' +
+      '<option value="true">true</option><option value="false">false</option>' +
+      '</select>';
+  }
   if (field.type === 'enum') {
     return '<select id="'+valId+'" class="'+cls+'">'+
       field.values.map(function(v){ return '<option value="'+v+'">'+(_stateLabels[v]||v)+'</option>'; }).join('')+'</select>';
@@ -1313,7 +1389,7 @@ function exprBuilderFieldChanged() {
   var opSel  = document.getElementById('eb-op'),  opSel2  = document.getElementById('eb-op2');
   var valC   = document.getElementById('eb-val-container'), val2C = document.getElementById('eb-val2-container');
   if (!opSel || !valC) return;
-  var ops    = field.type === 'number' ? _exprOpsNumber : field.type === 'enum' ? _exprOpsEnum : _exprOpsText;
+  var ops    = field.type === 'number' ? _exprOpsNumber : (field.type === 'enum' || field.type === 'bool') ? _exprOpsEnum : _exprOpsText;
   var opOpts = ops.map(function(o){ return '<option value="'+o+'">'+o+'</option>'; }).join('');
   opSel.innerHTML = opOpts;
   if (opSel2) opSel2.innerHTML = opOpts;
@@ -1613,6 +1689,31 @@ function renderFilterChips() {
       '<button type="button" onclick="clearFilter(\''+p.clear+'\')" class="ml-0.5 text-primary/70 hover:text-primary leading-none" aria-label="Remove filter">\xd7</button>' +
       '</span>';
   }).join('');
+  _updateStatusSidebarButtons();
+}
+
+// _updateStatusSidebarButtons syncs the active/inactive CSS classes on all
+// [data-status-btn] sidebar buttons to match the current #current-status value.
+// Call this whenever the status filter changes so the sidebar stays in sync
+// even when the filter is applied through SSE (no server re-render of the
+// sidebar HTML).
+function _updateStatusSidebarButtons() {
+  var active = (document.getElementById('current-status') || {}).value || '';
+  document.querySelectorAll('[data-status-btn]').forEach(function(btn) {
+    var val = btn.getAttribute('data-status-btn');
+    var isActive = val === active;
+    btn.classList.toggle('bg-primary/10', isActive);
+    btn.classList.toggle('text-primary', isActive);
+    btn.classList.toggle('font-medium', isActive);
+    btn.classList.toggle('text-muted-foreground', !isActive);
+    btn.classList.toggle('hover:bg-accent', !isActive);
+    btn.classList.toggle('hover:text-foreground', !isActive);
+    var badge = document.getElementById('sb-status-count-' + val);
+    if (badge) {
+      badge.classList.toggle('text-primary/70', isActive);
+      badge.classList.toggle('text-muted-foreground/60', !isActive);
+    }
+  });
 }
 
 function clearFilter(type) {
@@ -1630,11 +1731,7 @@ function clearFilter(type) {
 }
 
 function triggerTableRefresh() {
-  var btn = document.getElementById('sort-trigger');
-  // Dispatch 'tbl-refresh' (custom event) rather than 'click' so it does NOT
-  // bubble as a DOM click — that would close Alpine @click.outside popovers
-  // like the expression builder while the user is still adding conditions.
-  if (btn && window.htmx) htmx.trigger(btn, 'tbl-refresh');
+  scheduleTorrentsSSEReconnect();
 }
 
 // ── Sidebar filter lists ─────────────────────────────────────────────────────
@@ -1647,6 +1744,16 @@ function triggerTableRefresh() {
 var _vtSidebarLists = {};
 var _vtSidebarCounts = {};
 var _vtSidebarAllItems = {}; // { cats: ['', 'cat1', ...], tags: [...], ... }
+var _vtSidebarKnownItems = { cats: {}, tags: {}, trackers: {}, savepaths: {} };
+var _vtSidebarHideEmpty = (function() {
+  try {
+    var raw = localStorage.getItem('rui:torrents:hideEmpty');
+    return raw === null ? true : raw !== 'false';
+  } catch (e) {
+    return true;
+  }
+})();
+var _vtSidebarLastInstance = 0;
 
 // Sidebar section config: key -> { sectionId, scrollId, ulId, filterInputId, filterType, inputId }
 var _sidebarCfg = {
@@ -1658,6 +1765,15 @@ var _sidebarCfg = {
 
 // _lastSidebarClickIdx tracks the last-clicked item index per section for Shift+Click range select.
 var _lastSidebarClickIdx = {};
+
+function _addKnownSidebarItem(key, value) {
+  if (!_vtSidebarKnownItems[key]) _vtSidebarKnownItems[key] = {};
+  _vtSidebarKnownItems[key][value] = true;
+}
+
+function _resetKnownSidebarItems() {
+  _vtSidebarKnownItems = { cats: {}, tags: {}, trackers: {}, savepaths: {} };
+}
 
 function _computeSidebarCounts() {
   var counts = { category: {}, tag: {}, tracker: {}, savepath: {} };
@@ -1698,23 +1814,45 @@ function _extractSidebarItems() {
     var rows = _vtList.rows || [];
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      if (r.Category) cats[r.Category] = 1;
+      if (r.Category) {
+        cats[r.Category] = 1;
+        _addKnownSidebarItem('cats', r.Category);
+      }
       if (r.Tags) {
         var tgs = r.Tags.split(',');
         for (var j = 0; j < tgs.length; j++) {
           var tg = tgs[j].trim();
-          if (tg) tags[tg] = 1;
+          if (tg) {
+            tags[tg] = 1;
+            _addKnownSidebarItem('tags', tg);
+          }
         }
       }
       var dom = _extractTrackerDomain(r.Tracker);
-      if (dom) trackers[dom] = 1;
-      if (r.SavePath) savepaths[r.SavePath] = 1;
+      if (dom) {
+        trackers[dom] = 1;
+        _addKnownSidebarItem('trackers', dom);
+      }
+      if (r.SavePath) {
+        savepaths[r.SavePath] = 1;
+        _addKnownSidebarItem('savepaths', r.SavePath);
+      }
     }
   }
-  _vtSidebarAllItems.cats      = [''].concat(Object.keys(cats).sort());
-  _vtSidebarAllItems.tags      = [''].concat(Object.keys(tags).sort());
-  _vtSidebarAllItems.trackers  = [''].concat(Object.keys(trackers).sort());
-  _vtSidebarAllItems.savepaths = [''].concat(Object.keys(savepaths).sort());
+  var catItems = Object.keys(_vtSidebarKnownItems.cats);
+  var tagItems = Object.keys(_vtSidebarKnownItems.tags);
+  var trackerItems = Object.keys(_vtSidebarKnownItems.trackers);
+  var savepathItems = Object.keys(_vtSidebarKnownItems.savepaths);
+
+  if (catItems.length === 0) catItems = Object.keys(cats);
+  if (tagItems.length === 0) tagItems = Object.keys(tags);
+  if (trackerItems.length === 0) trackerItems = Object.keys(trackers);
+  if (savepathItems.length === 0) savepathItems = Object.keys(savepaths);
+
+  _vtSidebarAllItems.cats      = [''].concat(catItems.sort());
+  _vtSidebarAllItems.tags      = [''].concat(tagItems.sort());
+  _vtSidebarAllItems.trackers  = [''].concat(trackerItems.sort());
+  _vtSidebarAllItems.savepaths = [''].concat(savepathItems.sort());
 }
 
 // _getActiveSet returns the Set of currently selected values for a hidden input.
@@ -1731,7 +1869,38 @@ function _setActiveValues(inputId, values) {
   if (el) el.value = Array.from(values).join(',');
 }
 
+// _hasOtherActiveFilters returns true when any filter section OTHER than
+// currentFilterType has an active selection.  Used to prevent the hideEmpty
+// behaviour from cross-filtering sidebar sections (e.g. selecting a category
+// should not hide tags that only appear on non-matching torrents).
+function _hasOtherActiveFilters(currentFilterType) {
+  var sectionInputs = {
+    'category': 'current-category',
+    'tag':      'current-tag',
+    'tracker':  'current-tracker',
+    'savepath': 'current-savepath',
+  };
+  var status = (document.getElementById('current-status') || {}).value || '';
+  var search = (document.getElementById('torrents-search') || {}).value || '';
+  var expr   = (document.getElementById('current-expr') || {}).value || '';
+  if (status || search || expr) return true;
+  for (var type in sectionInputs) {
+    if (type === currentFilterType) continue;
+    var val = (document.getElementById(sectionInputs[type]) || {}).value || '';
+    if (val) return true;
+  }
+  return false;
+}
+
 function initSidebars() {
+  if (_vtSidebarLastInstance !== _vtInstanceID) {
+    _resetKnownSidebarItems();
+    _vtSidebarLastInstance = _vtInstanceID;
+  }
+
+  var hideToggle = document.getElementById('vt-hide-empty');
+  if (hideToggle) hideToggle.checked = _vtSidebarHideEmpty;
+
   _computeSidebarCounts();
   _extractSidebarItems();
 
@@ -1752,6 +1921,20 @@ function _initSidebarSection(key) {
   var filterEl = document.getElementById(cfg.filterInputId);
   var q = filterEl ? filterEl.value.toLowerCase() : '';
   var items = q ? allItems.filter(function(v){ return v === '' || v.toLowerCase().indexOf(q) !== -1; }) : allItems;
+  if (_vtSidebarHideEmpty) {
+    var counts = _vtSidebarCounts[cfg.filterType] || {};
+    var activeSet = _getActiveSet(cfg.inputId);
+    // When other filter sections have active selections, keep items with
+    // 0 count visible so Ctrl/Shift multi-select still works across sections.
+    var hasOtherFilters = _hasOtherActiveFilters(cfg.filterType);
+    items = items.filter(function(v) {
+      if (v === '') return true;
+      if (activeSet.has(v)) return true;
+      var count = counts[v] || 0;
+      if (hasOtherFilters) return true;
+      return count > 0;
+    });
+  }
 
   var makeItem = function(val) { return _makeSidebarBtn(val, cfg.filterType, cfg.inputId, key, items); };
   if (_vtSidebarLists[key]) {
@@ -1800,21 +1983,23 @@ function _makeSidebarBtn(val, filterType, inputId, listKey, itemList) {
   var btn = document.createElement('button');
   btn.type = 'button';
   btn.title = label;
+  // Count badge
+  var counts = _vtSidebarCounts[filterType] || {};
+  var count = val === '' ? (_vtList ? _vtList.rows.length : 0) : (counts[val] || 0);
+  var isEmpty = val !== '' && count === 0;
   btn.className = 'w-full text-left px-2 py-1 rounded-md transition-colors flex items-center justify-between gap-1 min-w-0 ' +
-    (isActive ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-accent hover:text-foreground');
+    (isActive ? 'bg-primary/10 text-primary font-medium' :
+     isEmpty  ? 'text-muted-foreground/40 hover:bg-accent/50 hover:text-foreground/60' :
+                'text-muted-foreground hover:bg-accent hover:text-foreground');
   var labelSpan = document.createElement('span');
   labelSpan.className = 'truncate min-w-0';
   labelSpan.textContent = label;
   btn.appendChild(labelSpan);
-  // Count badge
-  var counts = _vtSidebarCounts[filterType] || {};
-  var count = val === '' ? (_vtList ? _vtList.rows.length : 0) : (counts[val] || 0);
-  if (count > 0) {
-    var badge = document.createElement('span');
-    badge.className = 'shrink-0 tabular-nums text-xs ' + (isActive ? 'text-primary/70' : 'text-muted-foreground/60');
-    badge.textContent = count;
-    btn.appendChild(badge);
-  }
+  var badge = document.createElement('span');
+  badge.className = 'shrink-0 tabular-nums text-xs ' +
+    (isActive ? 'text-primary/70' : isEmpty ? 'text-muted-foreground/30' : 'text-muted-foreground/60');
+  badge.textContent = count;
+  btn.appendChild(badge);
   btn.addEventListener('click', function(e) {
     if (val === '') {
       // "All" clears all selections
@@ -1848,8 +2033,24 @@ function _makeSidebarBtn(val, filterType, inputId, listKey, itemList) {
     triggerTableRefresh();
     renderFilterChips();
   });
+  // Right-click context menu for sidebar items (categories, tags, etc.)
+  if (val !== '') {
+    (function(sectionKey, itemValue) {
+      btn.addEventListener('contextmenu', function(e) {
+        showSidebarContextMenu(e, sectionKey, itemValue);
+      });
+    })(listKey, val);
+  }
   li.appendChild(btn);
   return li;
+}
+
+function toggleSidebarHideEmpty(checked) {
+  _vtSidebarHideEmpty = !!checked;
+  try {
+    localStorage.setItem('rui:torrents:hideEmpty', _vtSidebarHideEmpty ? 'true' : 'false');
+  } catch (e) {}
+  initSidebars();
 }
 
 // ── Context menu ─────────────────────────────────────────────────────────────
@@ -1858,6 +2059,7 @@ var _ctxName = '';
 var _ctxSavePath = '';
 var _ctxCategory = '';
 var _ctxTags = '';
+var _ctxTracker = '';
 
 function showContextMenu(e, t) {
   e.preventDefault();
@@ -1866,6 +2068,7 @@ function showContextMenu(e, t) {
   _ctxSavePath = t.SavePath || '';
   _ctxCategory = t.Category || '';
   _ctxTags     = t.Tags || '';
+  _ctxTracker  = t.Tracker || '';
   var menu = document.getElementById('ctx-menu');
   if (!menu) return;
   menu.classList.remove('hidden');
@@ -2041,6 +2244,120 @@ function ctxSubmitTags() {
   Promise.all(promises).then(function(){ document.getElementById('ctx-tags-dialog').classList.add('hidden'); triggerTableRefresh(); });
 }
 
+function _ctxFirstTag() {
+  if (!_ctxTags) return '';
+  var parts = _ctxTags.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  return parts.length ? parts[0] : '';
+}
+
+function ctxRenameCategory() {
+  _hideCtxMenu();
+  if (!_ctxCategory) return;
+  var next = prompt('Rename category to:', _ctxCategory);
+  if (next === null) return;
+  next = next.trim();
+  if (!next || next === _ctxCategory) return;
+
+  var body = new URLSearchParams();
+  body.append('old_name', _ctxCategory);
+  body.append('new_name', next);
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/categories/rename', { method: 'POST', body: body })
+    .then(function(){ triggerTableRefresh(); });
+}
+
+function ctxSetCategorySavePath() {
+  _hideCtxMenu();
+  if (!_ctxCategory) return;
+  var next = prompt('Set category save path:', '');
+  if (next === null) return;
+
+  var body = new URLSearchParams();
+  body.append('name', _ctxCategory);
+  body.append('save_path', next.trim());
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/categories/savepath', { method: 'POST', body: body })
+    .then(function(){ triggerTableRefresh(); });
+}
+
+function ctxSetCategoryDownloadPath() {
+  _hideCtxMenu();
+  if (!_ctxCategory) return;
+  var next = prompt('Set category download path:', '');
+  if (next === null) return;
+
+  var body = new URLSearchParams();
+  body.append('name', _ctxCategory);
+  body.append('download_path', next.trim());
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/categories/downloadpath', { method: 'POST', body: body })
+    .then(function(){ triggerTableRefresh(); });
+}
+
+function ctxRenameTag() {
+  _hideCtxMenu();
+  var oldTag = _ctxFirstTag();
+  if (!oldTag) return;
+  var next = prompt('Rename tag to:', oldTag);
+  if (next === null) return;
+  next = next.trim();
+  if (!next || next === oldTag) return;
+
+  var body = new URLSearchParams();
+  body.append('old_tag', oldTag);
+  body.append('new_tag', next);
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/tags/rename', { method: 'POST', body: body })
+    .then(function(){ triggerTableRefresh(); });
+}
+
+function ctxDeleteTag() {
+  _hideCtxMenu();
+  var oldTag = _ctxFirstTag();
+  if (!oldTag) return;
+  if (!confirm('Delete tag: ' + oldTag + '?')) return;
+
+  var body = new URLSearchParams();
+  body.append('tags', oldTag);
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/tags/delete', { method: 'POST', body: body })
+    .then(function(){ triggerTableRefresh(); });
+}
+
+function ctxEditTrackerURL() {
+  _hideCtxMenu();
+  var oldURL = (_ctxTracker || '').trim();
+  if (!oldURL) return;
+  var next = prompt('Edit tracker URL:', oldURL);
+  if (next === null) return;
+  next = next.trim();
+  if (!next || next === oldURL) return;
+
+  var hashes = _ctxHashes();
+  var body = new URLSearchParams();
+  hashes.forEach(function(h){ body.append('hashes', h); });
+  body.append('old_url', oldURL);
+  body.append('new_url', next);
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/edit-tracker', { method: 'POST', body: body })
+    .then(function(){ triggerTableRefresh(); });
+}
+
+function ctxDeleteTrackerURL() {
+  _hideCtxMenu();
+  var url = (_ctxTracker || '').trim();
+  if (!url) return;
+  if (!confirm('Delete tracker: ' + url + '?')) return;
+
+  var hashes = _ctxHashes();
+  var body = new URLSearchParams();
+  hashes.forEach(function(h){ body.append('hashes', h); });
+  body.append('url', url);
+  body.append('instance_id', String(_vtInstanceID));
+  fetch(_vtBaseURL + '/ui/partials/torrents/remove-trackers', { method: 'POST', body: body })
+    .then(function(){ triggerTableRefresh(); });
+}
+
 function ctxShowLocationDialog() {
   _hideCtxMenu();
   var dlg = document.getElementById('ctx-location-dialog');
@@ -2126,16 +2443,103 @@ function ctxExport() {
   window.open(_vtBaseURL + '/ui/partials/torrents/export/' + _ctxHash + '?instance_id=' + _vtInstanceID, '_blank');
 }
 
+// ── Sidebar context menu ─────────────────────────────────────────────────────
+var _sidebarCtxType  = '';  // 'cats', 'tags', 'trackers', 'savepaths'
+var _sidebarCtxValue = '';
+
+function showSidebarContextMenu(e, sectionKey, value) {
+  e.preventDefault();
+  _hideCtxMenu(); // close torrent ctx menu if open
+  _sidebarCtxType  = sectionKey;
+  _sidebarCtxValue = value;
+
+  var menu  = document.getElementById('sidebar-ctx-menu');
+  var items = document.getElementById('sidebar-ctx-items');
+  if (!menu || !items) return;
+
+  var h = '';
+  if (sectionKey === 'cats' && value) {
+    h += '<button type="button" onclick="sidebarCtxRenameCategory()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Rename Category</button>';
+    h += '<button type="button" onclick="sidebarCtxSetCatSavePath()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Set Save Path\u2026</button>';
+    h += '<button type="button" onclick="sidebarCtxSetCatDownloadPath()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Set Download Path\u2026</button>';
+  } else if (sectionKey === 'tags' && value) {
+    h += '<button type="button" onclick="sidebarCtxRenameTag()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Rename Tag</button>';
+    h += '<div class="my-1 border-t border-border"></div>';
+    h += '<button type="button" onclick="sidebarCtxDeleteTag()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors">Delete Tag</button>';
+  } else if (sectionKey === 'trackers' && value) {
+    h += '<button type="button" onclick="sidebarCtxCopy()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Copy Tracker Domain</button>';
+  } else if (sectionKey === 'savepaths' && value) {
+    h += '<button type="button" onclick="sidebarCtxCopy()" class="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors">Copy Save Path</button>';
+  } else {
+    return;
+  }
+
+  items.innerHTML = h;
+  menu.classList.remove('hidden');
+
+  var mx = e.clientX, my = e.clientY;
+  menu.style.left = '0'; menu.style.top = '0';
+  var mw = menu.offsetWidth, mh = menu.offsetHeight;
+  var vw = window.innerWidth, vh = window.innerHeight;
+  if (mx + mw > vw) mx = vw - mw - 4;
+  if (my + mh > vh) my = vh - mh - 4;
+  if (mx < 0) mx = 4;
+  if (my < 0) my = 4;
+  menu.style.left = mx + 'px';
+  menu.style.top  = my + 'px';
+}
+
+function _hideSidebarCtxMenu() {
+  var m = document.getElementById('sidebar-ctx-menu');
+  if (m) m.classList.add('hidden');
+}
+
+function sidebarCtxRenameCategory() {
+  _hideSidebarCtxMenu();
+  _ctxCategory = _sidebarCtxValue;
+  ctxRenameCategory();
+}
+
+function sidebarCtxSetCatSavePath() {
+  _hideSidebarCtxMenu();
+  _ctxCategory = _sidebarCtxValue;
+  ctxSetCategorySavePath();
+}
+
+function sidebarCtxSetCatDownloadPath() {
+  _hideSidebarCtxMenu();
+  _ctxCategory = _sidebarCtxValue;
+  ctxSetCategoryDownloadPath();
+}
+
+function sidebarCtxRenameTag() {
+  _hideSidebarCtxMenu();
+  _ctxTags = _sidebarCtxValue;
+  ctxRenameTag();
+}
+
+function sidebarCtxDeleteTag() {
+  _hideSidebarCtxMenu();
+  _ctxTags = _sidebarCtxValue;
+  ctxDeleteTag();
+}
+
+function sidebarCtxCopy() {
+  _hideSidebarCtxMenu();
+  if (_sidebarCtxValue && navigator.clipboard) navigator.clipboard.writeText(_sidebarCtxValue);
+}
+
 // Close context menu on scroll or escape.
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     _hideCtxMenu();
+    _hideSidebarCtxMenu();
     ['ctx-category-dialog','ctx-tags-dialog','ctx-location-dialog','ctx-limits-dialog','ctx-rename-dialog'].forEach(function(id) {
       var d = document.getElementById(id); if (d) d.classList.add('hidden');
     });
   }
 });
-document.getElementById('torrents-scroll-container')?.addEventListener('scroll', _hideCtxMenu);
+document.getElementById('torrents-scroll-container')?.addEventListener('scroll', function() { _hideCtxMenu(); _hideSidebarCtxMenu(); });
 
 // ── Sort arrows ──────────────────────────────────────────────────────────────
 function applySortArrows() {
@@ -2158,22 +2562,20 @@ function applySortArrows() {
 var _vtList       = null;
 var _vtBaseURL    = '';
 var _vtInstanceID = 0;
+var _torrentsES   = null;
+var _torrentsESURL = '';
+var _torrentsReconnectTimer = null;
 
-function initVirtualScroll() {
-  var dataEl = document.getElementById('vt-rows-json');
-  if (!dataEl) return;
+function loadVirtualData(data) {
+  if (!data || typeof data !== 'object') return;
 
-  var data;
-  try { data = JSON.parse(dataEl.textContent); }
-  catch(e) { console.error('vt: JSON parse failed', e); return; }
-
-  _vtBaseURL    = data.baseURL    || '';
-  _vtInstanceID = data.instanceID || 0;
+  _vtBaseURL    = data.baseURL    || _vtBaseURL || '';
+  _vtInstanceID = data.instanceID || _vtInstanceID || 0;
 
   var countEl = document.getElementById('torrent-count');
   if (countEl) countEl.textContent = (data.total || (data.rows||[]).length) + ' torrent(s)';
 
-  // Create the VirtualList instance once; reuse across SSE-driven reloads.
+  // Create the VirtualList instance once; reuse across SSE updates.
   if (!_vtList) {
     _vtList = new VirtualList({
       containerId : 'torrents-scroll-container',
@@ -2183,10 +2585,91 @@ function initVirtualScroll() {
       emptyText   : 'No torrents match your filters.',
       afterRender : function() { _restoreCheckboxes(); applyTblCols(); },
     });
+    _vtList.load(data.rows || []);
+  } else {
+    // Use softUpdate for subsequent data — preserves scroll position by
+    // avoiding spacer teardown and reattachment of scroll listeners.
+    _vtList.softUpdate(data.rows || []);
   }
-  _vtList.load(data.rows || []);
   _updateStatusBar();
   _updateStatusCounts();
+}
+
+function initVirtualScroll() {
+  var dataEl = document.getElementById('vt-rows-json');
+  if (!dataEl) return;
+
+  var data;
+  try { data = JSON.parse(dataEl.textContent); }
+  catch(e) { console.error('vt: JSON parse failed', e); return; }
+  loadVirtualData(data);
+}
+
+function _currentTorrentFilters() {
+  var get = function(id) { var el = document.getElementById(id); return el ? (el.value || '') : ''; };
+  return {
+    instance_id: get('current-instance') || String(_vtInstanceID || 0),
+    search:      get('torrents-search'),
+    status:      get('current-status'),
+    category:    get('current-category'),
+    tag:         get('current-tag'),
+    tracker:     get('current-tracker'),
+    savepath:    get('current-savepath'),
+    expr:        get('current-expr'),
+    sort:        get('current-sort') || 'added_on',
+    order:       get('current-order') || 'desc',
+  };
+}
+
+function _buildTorrentsSSEURL() {
+  var f = _currentTorrentFilters();
+  var qp = new URLSearchParams();
+  Object.keys(f).forEach(function(k) {
+    if (f[k] !== '') qp.set(k, f[k]);
+  });
+  return _vtBaseURL + '/ui/sse/torrents?' + qp.toString();
+}
+
+function _setSSEIndicator(connected) {
+  var i = document.getElementById('sse-indicator');
+  if (!i) return;
+  if (connected) i.classList.remove('hidden');
+  else i.classList.add('hidden');
+}
+
+function connectTorrentsSSE(force) {
+  if (!window.EventSource) return;
+  var url = _buildTorrentsSSEURL();
+  if (!force && _torrentsES && _torrentsESURL === url) return;
+
+  if (_torrentsES) {
+    _torrentsES.close();
+    _torrentsES = null;
+  }
+
+  _torrentsESURL = url;
+  _torrentsES = new EventSource(url);
+  _torrentsES.onopen = function() { _setSSEIndicator(true); };
+  _torrentsES.onerror = function() { _setSSEIndicator(false); };
+  _torrentsES.addEventListener('torrents-data', function(evt) {
+    if (!evt || !evt.data) return;
+    try {
+      var payload = JSON.parse(evt.data);
+      loadVirtualData(payload);
+      initSidebars();
+      applySortArrows();
+      renderFilterChips();
+    } catch (e) {
+      console.error('torrents SSE payload parse failed', e);
+    }
+  });
+}
+
+function scheduleTorrentsSSEReconnect() {
+  if (_torrentsReconnectTimer) clearTimeout(_torrentsReconnectTimer);
+  _torrentsReconnectTimer = setTimeout(function() {
+    connectTorrentsSSE(true);
+  }, 180);
 }
 
 // ── Status bar ───────────────────────────────────────────────────────────────
@@ -2602,23 +3085,41 @@ function sortBy(col) {
   if (si.value === col) { oi.value = oi.value === 'asc' ? 'desc' : 'asc'; }
   else { si.value = col; oi.value = descDefault.indexOf(col) >= 0 ? 'desc' : 'asc'; }
   applySortArrows();
-  var btn = document.getElementById('sort-trigger');
-  if (btn && window.htmx) htmx.trigger(btn, 'tbl-refresh');
+  triggerTableRefresh();
 }
 
 // ── HTMX lifecycle ───────────────────────────────────────────────────────────
 // Sync sidebar hx-vals params (status/category/tag) back to hidden inputs so
-// renderFilterChips() always reflects the active filter state.
+// renderFilterChips() always reflects the active filter state. Also immediately
+// updates the status button highlights for instant visual feedback.
 document.body.addEventListener('htmx:configRequest', function(e) {
   if (!e.detail || !e.detail.parameters) return;
   var p = e.detail.parameters;
   var map = { status: 'current-status', category: 'current-category', tag: 'current-tag', tracker: 'current-tracker', savepath: 'current-savepath' };
+  var updated = false;
   Object.keys(map).forEach(function(k) {
     if (Object.prototype.hasOwnProperty.call(p, k)) {
       var el = document.getElementById(map[k]);
-      if (el) el.value = p[k];
+      if (el) { el.value = p[k]; updated = true; }
     }
   });
+  // Provide immediate visual feedback: update chips + status button highlight
+  // without waiting for the SSE reconnect to deliver new data.
+  if (updated) { renderFilterChips(); }
+});
+
+document.body.addEventListener('htmx:beforeRequest', function(e) {
+  if (!e.detail) return;
+  // Support both pathInfo.requestPath (HTMX 2.x standard) and
+  // requestConfig.path (fallback) to stay robust across HTMX versions.
+  var pi = e.detail.pathInfo;
+  var rc = e.detail.requestConfig;
+  var path = ((pi && pi.requestPath) || (rc && rc.path) || '').replace(/\?.*$/, '');
+  var verb = ((rc && rc.verb) || e.detail.verb || '').toLowerCase();
+  if (verb === 'get' && path.endsWith('/ui/partials/torrents')) {
+    e.preventDefault();
+    scheduleTorrentsSSEReconnect();
+  }
 });
 
 document.body.addEventListener('htmx:afterSwap', function(e) {
@@ -2645,8 +3146,12 @@ document.body.addEventListener('torrent-detail-close', function() {
 });
 
 // ── SSE indicators ───────────────────────────────────────────────────────────
-document.body.addEventListener('htmx:sseOpen',  function() { var i=document.getElementById('sse-indicator'); if(i) i.classList.remove('hidden'); });
-document.body.addEventListener('htmx:sseClose', function() { var i=document.getElementById('sse-indicator'); if(i) i.classList.add('hidden');    });
+window.addEventListener('beforeunload', function() {
+  if (_torrentsES) {
+    _torrentsES.close();
+    _torrentsES = null;
+  }
+});
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 // Wrap in DOMContentLoaded so defer'd scripts (htmx, alpine) are fully
@@ -2658,6 +3163,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initExprBuilder();
   initVirtualScroll();
   initSidebars();
+  connectTorrentsSSE(true);
 });
 </script>
 }

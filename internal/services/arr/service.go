@@ -442,15 +442,15 @@ func (s *Service) GetAllMovies(ctx context.Context, instanceID int) ([]*radarr.M
 
 // SearchSeriesResult is a hit from a series title search across arr instances.
 type SearchSeriesResult struct {
-	InstanceID   int             `json:"instance_id"`
-	InstanceName string          `json:"instance_name"`
+	InstanceID   int              `json:"instance_id"`
+	InstanceName string           `json:"instance_name"`
 	Series       []*sonarr.Series `json:"series"`
 }
 
 // SearchMoviesResult is a hit from a movie title search across arr instances.
 type SearchMoviesResult struct {
-	InstanceID   int            `json:"instance_id"`
-	InstanceName string         `json:"instance_name"`
+	InstanceID   int             `json:"instance_id"`
+	InstanceName string          `json:"instance_name"`
 	Movies       []*radarr.Movie `json:"movies"`
 }
 
@@ -517,6 +517,48 @@ func (s *Service) SearchMovies(ctx context.Context, term string) ([]SearchMovies
 // CleanupExpiredCache removes expired cache entries
 func (s *Service) CleanupExpiredCache(ctx context.Context) (int64, error) {
 	return s.cacheStore.CleanupExpired(ctx)
+}
+
+// LookupMetadata queries enabled *arr instances for enriched metadata
+// (ratings, genres, overview) for the given title and content type.
+// contentType should be one of "movie", "tv", "anime".
+// Returns nil when no matching instance or title is found.
+func (s *Service) LookupMetadata(ctx context.Context, title string, contentType string) (*models.MediaMetadata, error) {
+	if title == "" {
+		return nil, nil
+	}
+	arrType := s.getArrTypeForContent(ContentType(contentType))
+	if arrType == "" {
+		return nil, nil
+	}
+	instances, err := s.instanceStore.ListEnabledByType(ctx, arrType)
+	if err != nil {
+		return nil, err
+	}
+	for _, instance := range instances {
+		client, err := s.newClientForInstance(ctx, instance)
+		if err != nil {
+			continue
+		}
+		var meta *MediaMetadata
+		switch {
+		case instance.Type.IsRadarrCompatible():
+			meta, err = client.GetMovieMetadata(ctx, title)
+		case instance.Type.IsSonarrCompatible():
+			meta, err = client.GetSeriesMetadata(ctx, title)
+		}
+		if err != nil {
+			log.Debug().Err(err).
+				Int("instanceId", instance.ID).
+				Str("title", title).
+				Msg("[ARR-META] metadata lookup failed")
+			continue
+		}
+		if !meta.IsEmpty() {
+			return meta, nil
+		}
+	}
+	return nil, nil
 }
 
 // DebugResolveResult contains detailed debug information about an ID resolution

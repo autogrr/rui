@@ -34,6 +34,12 @@ type ExternalIDLookup interface {
 	LookupExternalIDs(ctx context.Context, title string, ct arr.ContentType) (*arr.ExternalIDsResult, error)
 }
 
+// MetadataEnricher fetches full metadata (ratings, genres) for a title from an
+// information provider. arr.Service.LookupMetadata satisfies this interface.
+type MetadataEnricher interface {
+	LookupMetadata(ctx context.Context, title string, contentType string) (*models.MediaMetadata, error)
+}
+
 // Request is submitted to Process for a release to be evaluated.
 type Request struct {
 	OwnerID     int
@@ -54,6 +60,7 @@ type Service struct {
 	eventStore    *models.IntakeEventStore
 	libMatcher    LibraryMatcher
 	arrLookup     ExternalIDLookup
+	metaEnricher  MetadataEnricher // optional; enriches ratings when not in library
 	parser        *releases.Parser
 
 	// progCache: rule ID -> compiled program + the filter string it was compiled for.
@@ -80,6 +87,14 @@ func New(
 		parser:        releases.NewDefaultParser(),
 		progCache:     make(map[int]*cachedProg),
 	}
+}
+
+// WithMetadataEnricher attaches an optional metadata enricher (e.g. arr.Service)
+// used to fetch ratings/genres when the title is not found in the native library
+// or when the library entry has no ratings.
+func (s *Service) WithMetadataEnricher(me MetadataEnricher) *Service {
+	s.metaEnricher = me
+	return s
 }
 
 // Process evaluates a release through the intake pipeline and records the event.
@@ -164,6 +179,25 @@ func (s *Service) process(ctx context.Context, event *models.IntakeEvent, req Re
 	}
 
 	mc := buildMatchContext(event, bestMatch)
+
+	// 3b. Enrich ratings/genres via metadata provider when the library match
+	// has no rating data (e.g. title never synced with ratings, or no match).
+	if s.metaEnricher != nil && parsed.Title != "" && mc.RottenTomatoesRating == 0 && mc.IMDbRating == 0 {
+		meta, err := s.metaEnricher.LookupMetadata(ctx, parsed.Title, ct)
+		if err != nil {
+			log.Debug().Err(err).Str("title", parsed.Title).Msg("[INTAKE] metadata enrich failed")
+		} else if meta != nil {
+			mc.IMDbRating = meta.IMDbRating
+			mc.TMDbRating = meta.TMDbRating
+			mc.MetacriticRating = meta.MetacriticRating
+			mc.RottenTomatoesRating = meta.RottenTomatoesRating
+			mc.AudienceRating = meta.AudienceRating
+			if meta.Genres != "" {
+				mc.Genres = meta.Genres
+			}
+		}
+	}
+
 	for _, pipeline := range pipelines {
 		if !pipelineAcceptsContentType(pipeline, ct) {
 			continue
@@ -276,6 +310,19 @@ type intakeMatchCtx struct {
 	IMDbID string
 	TMDbID int
 	TVDbID int
+
+	// Ratings from the information provider.
+	// IMDbRating and TMDbRating are on a 0–10 scale.
+	// MetacriticRating is 0–100 (Metacritic raw score).
+	// RottenTomatoesRating is 0–100 (percent fresh).
+	// AudienceRating is 0–10.
+	IMDbRating           float64
+	TMDbRating           float64
+	MetacriticRating     float64
+	RottenTomatoesRating float64
+	AudienceRating       float64
+	// Genres is a comma-separated list ("Action, Adventure, Sci-Fi").
+	Genres string
 }
 
 func buildMatchContext(event *models.IntakeEvent, match *library.TitleMatch) intakeMatchCtx {
@@ -302,6 +349,13 @@ func buildMatchContext(event *models.IntakeEvent, match *library.TitleMatch) int
 		if match.Title.Year != nil {
 			mc.LibraryYear = *match.Title.Year
 		}
+		// Populate ratings from the matched library title (synced from ARR).
+		mc.IMDbRating = match.Title.IMDbRating
+		mc.TMDbRating = match.Title.TMDbRating
+		mc.MetacriticRating = match.Title.MetacriticRating
+		mc.RottenTomatoesRating = match.Title.RottenTomatoesRating
+		mc.AudienceRating = match.Title.AudienceRating
+		mc.Genres = match.Title.Genres
 	}
 	return mc
 }

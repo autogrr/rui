@@ -2,29 +2,32 @@
 // SPDX-License-Identifier: AGPL-1.0-or-later
 
 // torrents_sse.go implements the torrent live-update SSE endpoint for the UI.
-// The endpoint streams "torrent-update" events whenever the torrent list for an
-// instance changes. Clients (HTMX SSE extension) use these events as a trigger
-// to re-fetch the table body with their current filter state, so the search /
-// filter inputs are never clobbered by the refresh.
+// The endpoint streams "torrents-data" events containing a full JSON snapshot
+// (rows, total, instance ID, base URL) for the current filter/search/sort
+// query. Clients reconnect with updated query params when filters change.
 
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
+
+	"github.com/autogrr/rui/internal/ui/pages"
 )
 
-// StreamTorrentsSSE streams torrent change events via Server-Sent Events.
+// StreamTorrentsSSE streams torrent snapshots via Server-Sent Events.
 //
 // The handler:
 //  1. Resolves the target instance (falls back to first active if instance_id=0).
 //  2. Sends an initial "connected" event.
-//  3. Polls the SyncManager cache every 3 s and emits "torrent-update" when the
-//     fingerprint changes (count, state, or speeds bucketed to 100 KiB/s steps).
+//  3. Polls the SyncManager cache every 3 s and emits "torrents-data" when the
+//     instance fingerprint changes.
 //  4. Emits a keepalive comment every 15 s so proxies do not close the connection.
 //
 // Route: GET /ui/sse/torrents
@@ -36,7 +39,23 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	instanceID := intParam(r.URL.Query().Get("instance_id"), 0)
+	q := r.URL.Query()
+	instanceID := intParam(q.Get("instance_id"), 0)
+	search := strings.TrimSpace(q.Get("search"))
+	status := q.Get("status")
+	category := q.Get("category")
+	tag := q.Get("tag")
+	tracker := q.Get("tracker")
+	savepath := q.Get("savepath")
+	expr := strings.TrimSpace(q.Get("expr"))
+	sortCol := q.Get("sort")
+	sortOrder := q.Get("order")
+	if sortCol == "" {
+		sortCol = "added_on"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
 
 	// Resolve the instance to poll.
 	if instanceID == 0 && h.instanceStore != nil {
@@ -63,7 +82,7 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 	}
 	flusher.Flush()
 
-	if instanceID == 0 || h.syncManager == nil {
+	if h.syncManager == nil {
 		// No usable instance — keep the connection alive but never send updates.
 		<-ctx.Done()
 		return
@@ -71,31 +90,50 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 
 	var lastFP string
 
-	// fingerprint reads the atomically-cached torrent fingerprint. This is a
-	// nanosecond-scale operation — no locking, no torrent copying, no HTTP calls.
-	fingerprint := func() string {
-		client, err := h.syncManager.GetClientOffline(ctx, instanceID)
-		if err != nil || client == nil {
-			return lastFP // no change on error — don't spam events
-		}
-		fp := client.GetCachedTorrentFP()
-		if fp == 0 {
-			return lastFP // no sync completed yet
-		}
-		return strconv.FormatUint(fp, 16)
-	}
+	sendUpdate := func(force bool) bool {
+		rows, total, resolvedID := h.fetchTorrentRows(ctx, instanceID, search, status, category, tag, tracker, savepath, expr, sortCol, sortOrder)
 
-	sendUpdate := func() bool {
-		fp := fingerprint()
-		if fp == lastFP {
-			return true // no change, still alive
+		fp := ""
+		if resolvedID > 0 {
+			if client, err := h.syncManager.GetClientOffline(ctx, resolvedID); err == nil && client != nil {
+				if cached := client.GetCachedTorrentFP(); cached != 0 {
+					fp = strconv.FormatUint(cached, 16)
+				}
+			}
+		}
+		if fp == "" {
+			fp = fmt.Sprintf("%d:%d", resolvedID, total)
+		}
+
+		if !force && fp == lastFP {
+			return true
 		}
 		lastFP = fp
-		if _, err := fmt.Fprintf(w, "event: torrent-update\ndata: {}\n\n"); err != nil {
-			return false // write error → close connection
+
+		payload, err := json.Marshal(struct {
+			Rows       []pages.TorrentRow `json:"rows"`
+			BaseURL    string             `json:"baseURL"`
+			InstanceID int                `json:"instanceID"`
+			Total      int                `json:"total"`
+		}{
+			Rows:       rows,
+			BaseURL:    h.baseURL(),
+			InstanceID: resolvedID,
+			Total:      total,
+		})
+		if err != nil {
+			return false
+		}
+
+		if _, err := fmt.Fprintf(w, "event: torrents-data\ndata: %s\n\n", payload); err != nil {
+			return false
 		}
 		flusher.Flush()
 		return true
+	}
+
+	if !sendUpdate(true) {
+		return
 	}
 
 	pollTicker := time.NewTicker(3 * time.Second)
@@ -111,7 +149,7 @@ func (h *Handler) StreamTorrentsSSE(w http.ResponseWriter, r *http.Request) {
 		case <-ctx.Done():
 			return
 		case <-pollTicker.C:
-			if !sendUpdate() {
+			if !sendUpdate(false) {
 				return
 			}
 		case <-keepaliveTicker.C:

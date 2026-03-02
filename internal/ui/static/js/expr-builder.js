@@ -17,36 +17,78 @@
   var _durationUnits = [{ label: 'sec', f: 1 }, { label: 'min', f: 60, dflt: true }, { label: 'hr', f: 3600 }, { label: 'day', f: 86400 }, { label: 'week', f: 604800 }];
   var _timeAgoUnits  = [{ label: 's ago', ta: 1 }, { label: 'h ago', ta: 3600, dflt: true }, { label: 'd ago', ta: 86400 }, { label: 'w ago', ta: 604800 }, { label: 'mo ago', ta: 2592000 }];
 
+  // qbt.Torrent fields — mirrors all exported fields from go-qbittorrent Torrent struct.
   var DEFAULT_FIELDS = [
+    // ── Identity ──────────────────────────────────────────────────────────────
     { id: 'Name',          label: 'Name',           type: 'text' },
+    { id: 'Hash',          label: 'Hash',           type: 'text' },
+    { id: 'InfoHashV1',    label: 'InfoHash v1',    type: 'text' },
+    { id: 'InfoHashV2',    label: 'InfoHash v2',    type: 'text' },
+    { id: 'MagnetURI',     label: 'Magnet URI',     type: 'text' },
+    // ── Categorisation ────────────────────────────────────────────────────────
     { id: 'State',         label: 'State',          type: 'enum', values: ['downloading', 'uploading', 'stalledDL', 'stalledUP', 'pausedDL', 'pausedUP', 'stoppedDL', 'stoppedUP', 'error', 'missingFiles', 'checkingUP', 'checkingDL', 'forcedUP', 'forcedDL', 'metaDL', 'allocating', 'moving', 'queuedDL', 'queuedUP'] },
     { id: 'Category',      label: 'Category',       type: 'text' },
     { id: 'Tags',          label: 'Tags',           type: 'text' },
+    // ── Paths ─────────────────────────────────────────────────────────────────
     { id: 'SavePath',      label: 'Save Path',      type: 'text' },
+    { id: 'ContentPath',   label: 'Content Path',   type: 'text' },
+    { id: 'DownloadPath',  label: 'Download Path',  type: 'text' },
+    // ── Tracker ───────────────────────────────────────────────────────────────
     { id: 'Tracker',       label: 'Tracker',        type: 'text' },
+    { id: 'TrackersCount', label: 'Tracker Count',  type: 'number' },
+    // ── Ratios & progress ─────────────────────────────────────────────────────
     { id: 'Ratio',         label: 'Ratio',          type: 'number' },
+    { id: 'RatioLimit',    label: 'Ratio Limit',    type: 'number' },
+    { id: 'MaxRatio',      label: 'Max Ratio',      type: 'number' },
     { id: 'Progress',      label: 'Progress (0–1)', type: 'number' },
-    { id: 'Priority',      label: 'Priority',       type: 'number' },
     { id: 'Availability',  label: 'Availability',   type: 'number' },
-    { id: 'NumSeeds',      label: 'Seeds',          type: 'number' },
-    { id: 'NumLeechs',     label: 'Leechers',       type: 'number' },
-    { id: 'NumComplete',   label: 'Total Seeds',    type: 'number' },
-    { id: 'NumIncomplete', label: 'Total Peers',    type: 'number' },
+    { id: 'PopularityScore', label: 'Popularity',   type: 'number' },
+    { id: 'Priority',      label: 'Priority',       type: 'number' },
+    // ── Peers ─────────────────────────────────────────────────────────────────
+    { id: 'NumSeeds',      label: 'Seeds (connected)',   type: 'number' },
+    { id: 'NumLeechs',     label: 'Leechers (connected)',type: 'number' },
+    { id: 'NumComplete',   label: 'Seeds (total)',   type: 'number' },
+    { id: 'NumIncomplete', label: 'Peers (total)',   type: 'number' },
+    // ── Speeds & limits ───────────────────────────────────────────────────────
     { id: 'DlSpeed',       label: 'DL Speed',       type: 'number', units: _speedUnits },
     { id: 'UpSpeed',       label: 'UP Speed',       type: 'number', units: _speedUnits },
-    { id: 'Size',          label: 'Size',           type: 'number', units: _bytesUnits },
-    { id: 'TotalSize',     label: 'Total Size',     type: 'number', units: _bytesUnits },
-    { id: 'Uploaded',      label: 'Uploaded',       type: 'number', units: _bytesUnits },
-    { id: 'Downloaded',    label: 'Downloaded',     type: 'number', units: _bytesUnits },
-    { id: 'AmountLeft',    label: 'Remaining',      type: 'number', units: _bytesUnits },
-    { id: 'SeedingTime',   label: 'Seeding Time',   type: 'number', units: _durationUnits },
-    { id: 'TimeActive',    label: 'Time Active',    type: 'number', units: _durationUnits },
-    { id: 'AddedOn',       label: 'Added On',       type: 'number', units: _timeAgoUnits },
+    { id: 'DlLimit',       label: 'DL Limit',       type: 'number', units: _speedUnits },
+    { id: 'UpLimit',       label: 'UP Limit',       type: 'number', units: _speedUnits },
+    // ── Sizes & transfer ──────────────────────────────────────────────────────
+    { id: 'Size',              label: 'Size',              type: 'number', units: _bytesUnits },
+    { id: 'TotalSize',         label: 'Total Size',        type: 'number', units: _bytesUnits },
+    { id: 'Downloaded',        label: 'Downloaded',        type: 'number', units: _bytesUnits },
+    { id: 'Uploaded',          label: 'Uploaded',          type: 'number', units: _bytesUnits },
+    { id: 'DownloadedSession', label: 'Downloaded (sess)', type: 'number', units: _bytesUnits },
+    { id: 'UploadedSession',   label: 'Uploaded (sess)',   type: 'number', units: _bytesUnits },
+    { id: 'AmountLeft',        label: 'Remaining',         type: 'number', units: _bytesUnits },
+    { id: 'Completed',         label: 'Completed',         type: 'number', units: _bytesUnits },
+    // ── Durations ─────────────────────────────────────────────────────────────
+    { id: 'SeedingTime',              label: 'Seeding Time',       type: 'number', units: _durationUnits },
+    { id: 'TimeActive',               label: 'Time Active',        type: 'number', units: _durationUnits },
+    { id: 'ETA',                      label: 'ETA',                type: 'number', units: _durationUnits },
+    { id: 'Reannounce',               label: 'Reannounce In',      type: 'number', units: _durationUnits },
+    { id: 'MaxSeedingTime',           label: 'Max Seeding Time',   type: 'number', units: _durationUnits },
+    { id: 'SeedingTimeLimit',         label: 'Seeding Time Limit', type: 'number', units: _durationUnits },
+    { id: 'InactiveSeedingTimeLimit', label: 'Inactive Seed Limit',type: 'number', units: _durationUnits },
+    // ── Timestamps (age) ──────────────────────────────────────────────────────
+    { id: 'AddedOn',      label: 'Added',             type: 'number', units: _timeAgoUnits },
+    { id: 'CompletionOn', label: 'Completed At',      type: 'number', units: _timeAgoUnits },
+    { id: 'LastActivity', label: 'Last Activity',     type: 'number', units: _timeAgoUnits },
+    { id: 'SeenComplete', label: 'Last Seen Complete',type: 'number', units: _timeAgoUnits },
+    // ── Booleans ──────────────────────────────────────────────────────────────
+    { id: 'AutoTMM',             label: 'Auto TMM',             type: 'bool' },
+    { id: 'Private',             label: 'Private',              type: 'bool' },
+    { id: 'ForceStart',          label: 'Force Start',          type: 'bool' },
+    { id: 'SuperSeeding',        label: 'Super Seeding',        type: 'bool' },
+    { id: 'SequentialDownload',  label: 'Sequential Download',  type: 'bool' },
+    { id: 'FirstLastPiecePrio',  label: 'First/Last Piece Prio',type: 'bool' },
   ];
 
   var OPS_TEXT   = ['contains', '==', '!=', 'startsWith', 'endsWith'];
   var OPS_NUMBER = ['<', '<=', '>', '>=', '==', '!='];
   var OPS_ENUM   = ['==', '!='];
+  var OPS_BOOL   = ['==', '!='];
 
   var STATE_LABELS = {
     'downloading': 'Downloading', 'uploading': 'Seeding',
@@ -104,6 +146,8 @@
     if (op === 'contains')   return field.id + ' contains "' + s + '"';
     if (op === 'startsWith') return field.id + ' startsWith "' + s + '"';
     if (op === 'endsWith')   return field.id + ' endsWith "' + s + '"';
+    // bool values are unquoted literals (true / false)
+    if (field.type === 'bool') return field.id + ' ' + op + ' ' + s;
     if (field.type === 'text' || field.type === 'enum') return field.id + ' ' + op + ' "' + s + '"';
     return field.id + ' ' + op + ' ' + s;
   };
@@ -149,6 +193,11 @@
     var uId    = this._id(unitId);
     var cls    = 'h-7 rounded-md border border-input bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring';
     var enter  = 'onkeydown="if(event.key===\'Enter\'){event.preventDefault();' + self._pfx + '_stage();}"';
+    if (field.type === 'bool') {
+      return '<select id="' + fId + '" class="' + cls + '">' +
+        '<option value="true">true</option><option value="false">false</option>' +
+        '</select>';
+    }
     if (field.type === 'enum') {
       return '<select id="' + fId + '" class="' + cls + '">' +
         (field.values || []).map(function (v) {
@@ -247,7 +296,7 @@
     if (!fieldSel) return;
     var field = this._getField(fieldSel.value);
     if (!field) return;
-    var ops = field.type === 'number' ? OPS_NUMBER : field.type === 'enum' ? OPS_ENUM : OPS_TEXT;
+    var ops = field.type === 'number' ? OPS_NUMBER : (field.type === 'enum' || field.type === 'bool') ? OPS_ENUM : OPS_TEXT;
     var opOpts = ops.map(function (o) { return '<option value="' + o + '">' + o + '</option>'; }).join('');
     var opSel = this._el('op'), opSel2 = this._el('op2');
     var valC  = this._el('val-cont'), val2C = this._el('val2-cont');

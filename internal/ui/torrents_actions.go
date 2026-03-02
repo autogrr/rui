@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	qbt "github.com/autogrr/go-qbittorrent"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -340,16 +341,20 @@ func (h *Handler) PostTorrentRemoveTrackers(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	hash := r.FormValue("hash")
+	hash := strings.TrimSpace(r.FormValue("hash"))
+	hashes := r.Form["hashes"]
 	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
 	url := strings.TrimSpace(r.FormValue("url"))
+	if len(hashes) == 0 && hash != "" {
+		hashes = []string{hash}
+	}
 
-	if h.syncManager == nil || hash == "" || instanceID == 0 || url == "" {
+	if h.syncManager == nil || len(hashes) == 0 || instanceID == 0 || url == "" {
 		http.Error(w, "missing parameters", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.syncManager.BulkRemoveTrackers(r.Context(), instanceID, []string{hash}, url); err != nil {
+	if err := h.syncManager.BulkRemoveTrackers(r.Context(), instanceID, hashes, url); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -364,17 +369,188 @@ func (h *Handler) PostTorrentEditTracker(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	hash := r.FormValue("hash")
+	hash := strings.TrimSpace(r.FormValue("hash"))
+	hashes := r.Form["hashes"]
 	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
 	oldURL := strings.TrimSpace(r.FormValue("old_url"))
 	newURL := strings.TrimSpace(r.FormValue("new_url"))
+	if len(hashes) == 0 && hash != "" {
+		hashes = []string{hash}
+	}
 
-	if h.syncManager == nil || hash == "" || instanceID == 0 || oldURL == "" || newURL == "" {
+	if h.syncManager == nil || len(hashes) == 0 || instanceID == 0 || oldURL == "" || newURL == "" {
 		http.Error(w, "missing parameters", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.syncManager.BulkEditTrackers(r.Context(), instanceID, []string{hash}, oldURL, newURL); err != nil {
+	if err := h.syncManager.BulkEditTrackers(r.Context(), instanceID, hashes, oldURL, newURL); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PostTorrentRenameCategory renames a category by reassigning matching torrents
+// and removing the old category.
+// Route: POST /ui/partials/torrents/categories/rename
+func (h *Handler) PostTorrentRenameCategory(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	oldName := strings.TrimSpace(r.FormValue("old_name"))
+	newName := strings.TrimSpace(r.FormValue("new_name"))
+	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
+	if h.syncManager == nil || instanceID == 0 || oldName == "" || newName == "" || oldName == newName {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	torrents, err := h.syncManager.GetTorrents(r.Context(), instanceID, qbt.TorrentFilterOptions{Category: oldName})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	hashes := make([]string, 0, len(torrents))
+	for _, torrent := range torrents {
+		hash := strings.TrimSpace(qbt.Deref(torrent.Hash))
+		if hash != "" {
+			hashes = append(hashes, hash)
+		}
+	}
+	if len(hashes) > 0 {
+		if err := h.syncManager.SetCategory(r.Context(), instanceID, hashes, newName); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	_ = h.syncManager.RemoveCategories(r.Context(), instanceID, []string{oldName})
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PostTorrentSetCategorySavePath updates a category save path.
+// Route: POST /ui/partials/torrents/categories/savepath
+func (h *Handler) PostTorrentSetCategorySavePath(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	path := strings.TrimSpace(r.FormValue("save_path"))
+	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
+	if h.syncManager == nil || instanceID == 0 || name == "" {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.syncManager.EditCategory(r.Context(), instanceID, name, path); err != nil {
+		if errCreate := h.syncManager.CreateCategory(r.Context(), instanceID, name, path); errCreate != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PostTorrentSetCategoryDownloadPath maps to category save path updates until
+// a dedicated category download-path API exists in the client.
+// Route: POST /ui/partials/torrents/categories/downloadpath
+func (h *Handler) PostTorrentSetCategoryDownloadPath(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	path := strings.TrimSpace(r.FormValue("download_path"))
+	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
+	if h.syncManager == nil || instanceID == 0 || name == "" {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.syncManager.EditCategory(r.Context(), instanceID, name, path); err != nil {
+		if errCreate := h.syncManager.CreateCategory(r.Context(), instanceID, name, path); errCreate != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PostTorrentRenameTag renames a tag by migrating matching torrents.
+// Route: POST /ui/partials/torrents/tags/rename
+func (h *Handler) PostTorrentRenameTag(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	oldTag := strings.TrimSpace(r.FormValue("old_tag"))
+	newTag := strings.TrimSpace(r.FormValue("new_tag"))
+	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
+	if h.syncManager == nil || instanceID == 0 || oldTag == "" || newTag == "" || oldTag == newTag {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	torrents, err := h.syncManager.GetTorrents(r.Context(), instanceID, qbt.TorrentFilterOptions{Tag: oldTag})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	hashes := make([]string, 0, len(torrents))
+	for _, torrent := range torrents {
+		hash := strings.TrimSpace(qbt.Deref(torrent.Hash))
+		if hash != "" {
+			hashes = append(hashes, hash)
+		}
+	}
+	if len(hashes) > 0 {
+		_ = h.syncManager.CreateTags(r.Context(), instanceID, []string{newTag})
+		if err := h.syncManager.AddTags(r.Context(), instanceID, hashes, newTag); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := h.syncManager.RemoveTags(r.Context(), instanceID, hashes, oldTag); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	_ = h.syncManager.DeleteTags(r.Context(), instanceID, []string{oldTag})
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// PostTorrentDeleteTags deletes one or more tags.
+// Route: POST /ui/partials/torrents/tags/delete
+func (h *Handler) PostTorrentDeleteTags(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	tagsParam := strings.TrimSpace(r.FormValue("tags"))
+	instanceID := h.resolveInstanceID(r.Context(), intParam(r.FormValue("instance_id"), 0))
+	if h.syncManager == nil || instanceID == 0 || tagsParam == "" {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+	parts := strings.Split(tagsParam, ",")
+	tags := make([]string, 0, len(parts))
+	for _, tag := range parts {
+		clean := strings.TrimSpace(tag)
+		if clean != "" {
+			tags = append(tags, clean)
+		}
+	}
+	if len(tags) == 0 {
+		http.Error(w, "missing parameters", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.syncManager.DeleteTags(r.Context(), instanceID, tags); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

@@ -160,6 +160,11 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Post("/partials/torrents/add-trackers", h.PostTorrentAddTrackers)
 			r.Post("/partials/torrents/remove-trackers", h.PostTorrentRemoveTrackers)
 			r.Post("/partials/torrents/edit-tracker", h.PostTorrentEditTracker)
+			r.Post("/partials/torrents/categories/rename", h.PostTorrentRenameCategory)
+			r.Post("/partials/torrents/categories/savepath", h.PostTorrentSetCategorySavePath)
+			r.Post("/partials/torrents/categories/downloadpath", h.PostTorrentSetCategoryDownloadPath)
+			r.Post("/partials/torrents/tags/rename", h.PostTorrentRenameTag)
+			r.Post("/partials/torrents/tags/delete", h.PostTorrentDeleteTags)
 			r.Post("/partials/torrents/rename-file", h.PostTorrentRenameFile)
 			r.Post("/partials/torrents/ban-peers", h.PostTorrentBanPeers)
 			r.Post("/partials/torrents/add-peers", h.PostTorrentAddPeers)
@@ -193,6 +198,10 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 			r.Put("/partials/settings/indexers/{id}", h.PutIndexer)
 			r.Delete("/partials/settings/indexers/{id}", h.DeleteIndexer)
 			r.Post("/partials/settings/indexers/{id}/test", h.PostIndexerTest)
+			// Indexer discovery (Jackett / Prowlarr remote import).
+			r.Get("/partials/settings/indexers/discover", h.GetIndexerDiscoverForm)
+			r.Post("/partials/settings/indexers/discover", h.PostIndexerDiscoverList)
+			r.Post("/partials/settings/indexers/import", h.PostIndexerBulkImport)
 
 			// Search Cache.
 			r.Post("/partials/settings/search-cache", h.PostSearchCacheTTL)
@@ -298,8 +307,29 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 
 			// Library management.
 			r.Post("/partials/library/sync", h.PostLibrarySync)
+			r.Post("/partials/library/scan-clients", h.PostLibraryScanClients)
+			r.Get("/partials/library/rules/form", h.GetLibraryRuleForm)
+			r.Get("/partials/library/rules/{id}/form", h.GetLibraryRuleFormEdit)
+			r.Post("/partials/library/rules", h.PostLibraryRule)
+			r.Put("/partials/library/rules/{id}", h.PutLibraryRule)
+			r.Delete("/partials/library/rules/{id}", h.DeleteLibraryRule)
+			r.Post("/partials/library/rules/{id}/toggle", h.PostLibraryRuleToggle)
 
-			// Backups.
+			// Intake pipeline.
+			r.Get("/partials/intake/process-form", h.GetIntakeProcessForm)
+			r.Post("/partials/intake/process", h.PostIntakeProcess)
+			r.Get("/partials/intake/pipelines/form", h.GetIntakePipelineForm)
+			r.Get("/partials/intake/pipelines/{id}/form", h.GetIntakePipelineFormEdit)
+			r.Post("/partials/intake/pipelines", h.PostIntakePipeline)
+			r.Put("/partials/intake/pipelines/{id}", h.PutIntakePipeline)
+			r.Delete("/partials/intake/pipelines/{id}", h.DeleteIntakePipeline)
+			r.Post("/partials/intake/pipelines/{id}/toggle", h.PostIntakePipelineToggle)
+			r.Get("/partials/intake/pipelines/{id}/rules/form", h.GetIntakeRuleForm)
+			r.Get("/partials/intake/rules/{id}/form", h.GetIntakeRuleFormEdit)
+			r.Post("/partials/intake/pipelines/{id}/rules", h.PostIntakeRule)
+			r.Put("/partials/intake/rules/{id}", h.PutIntakeRule)
+			r.Delete("/partials/intake/rules/{id}", h.DeleteIntakeRule)
+			r.Post("/partials/intake/rules/{id}/toggle", h.PostIntakeRuleToggle)
 			r.Get("/partials/backups/settings/{instanceId}", h.GetBackupSettingsPartial)
 			r.Post("/partials/backups/settings/{instanceId}", h.PostBackupSettings)
 			r.Get("/partials/backups/runs/{instanceId}", h.GetBackupRunsPartial)

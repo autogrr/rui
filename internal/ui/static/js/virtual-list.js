@@ -197,6 +197,13 @@
     var total = this.rows.length;
     var rh    = this._rh;
 
+    // Capture scroll state BEFORE any DOM mutations.  Reading layout
+    // properties after removeChild forces a reflow that can clamp
+    // scrollTop / scrollLeft because the content between spacers is gone.
+    var scrollTop  = container.scrollTop;
+    var scrollLeft = container.scrollLeft;
+    var viewH      = container.clientHeight;
+
     // Remove current content rows (between the two spacers)
     var node = top.nextSibling;
     while (node && node !== bot) {
@@ -214,11 +221,17 @@
       return;
     }
 
-    var scrollTop = container.scrollTop;
-    var viewH     = container.clientHeight;
+    var maxScrollTop = Math.max(0, total * rh - viewH);
+    if (scrollTop > maxScrollTop) {
+      scrollTop = maxScrollTop;
+    }
     var overscan  = this._overscan;
     var startIdx  = Math.max(0, Math.floor(scrollTop / rh) - overscan);
     var endIdx    = Math.min(total, Math.ceil((scrollTop + viewH) / rh) + overscan);
+
+    if (startIdx >= endIdx) {
+      startIdx = Math.max(0, endIdx - 1);
+    }
 
     this._setSpacerH(top, startIdx * rh);
     this._setSpacerH(bot, (total - endIdx) * rh);
@@ -232,6 +245,22 @@
       frag.appendChild(cache[i]);
     }
     tbody.insertBefore(frag, bot);
+
+    // Restore scroll position after DOM mutations.
+    // When called from softUpdate (e.g. SSE live updates) we intentionally
+    // skip the unconditional set so we do NOT interrupt any in-flight
+    // smooth-scroll momentum from a mouse wheel or trackpad.
+    // We only clamp scrollTop when the data shrank and the saved position
+    // would now be beyond the valid maximum; scrollLeft is not touched
+    // because the table column widths do not change between SSE ticks.
+    if (this._noScrollRestore) {
+      if (container.scrollTop > maxScrollTop) {
+        container.scrollTop = maxScrollTop;
+      }
+    } else {
+      container.scrollTop  = scrollTop;
+      container.scrollLeft = scrollLeft;
+    }
 
     // Auto-measure actual row height after the first real render.
     // Use a flag so this works regardless of the configured initial rowHeight.
@@ -269,6 +298,25 @@
    */
   VirtualList.prototype.invalidate = function () {
     this._cache = {};
+  };
+
+  /**
+   * Replace the data array without rebuilding spacers or re-binding scroll
+   * listeners.  Clears the node cache so all visible rows are recreated on
+   * the next render(), but preserves scroll position because the spacer
+   * DOM elements and their parent structure are untouched.
+   * Ideal for incremental SSE-driven updates where the overall structure
+   * is unchanged but row data has been refreshed.
+   * @param {Array} rows
+   */
+  VirtualList.prototype.softUpdate = function (rows) {
+    this.rows   = rows || [];
+    this._cache = {};
+    // Tell render() to preserve the browser's natural scroll position so that
+    // in-flight momentum scroll (wheel / touchpad inertia) is not interrupted.
+    this._noScrollRestore = true;
+    this.render();
+    this._noScrollRestore = false;
   };
 
   /** Disconnect observers. Safe to discard the instance after this. */

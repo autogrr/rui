@@ -18,6 +18,37 @@ var (
 	ErrLibraryRuleNotFound  = errors.New("library rule not found")
 )
 
+// MediaMetadata holds enriched metadata for a title fetched from an information
+// provider (*arr). Used during library sync and intake pipeline processing.
+type MediaMetadata struct {
+	// External identifiers (may be empty if the provider didn't return them).
+	IMDbID   string
+	TMDbID   int
+	TVDbID   int
+	TVMazeID int
+	// Ratings stored on their native scale:
+	//   IMDb/TMDb/Audience: 0–10
+	//   Metacritic: 0–100
+	//   RottenTomatoes: 0–100 (percentage)
+	IMDbRating           float64
+	TMDbRating           float64
+	MetacriticRating     float64
+	RottenTomatoesRating float64
+	AudienceRating       float64
+	// Genres is a comma-separated list ("Action, Adventure, Sci-Fi").
+	Genres    string
+	Overview  string
+	Year      int
+	Title     string
+	SortTitle string
+	Status    string
+}
+
+// IsEmpty returns true when no useful metadata was found.
+func (m *MediaMetadata) IsEmpty() bool {
+	return m == nil || (m.Title == "" && m.IMDbID == "" && m.TMDbID == 0 && m.TVDbID == 0)
+}
+
 // LibraryContentType is the kind of content a library title represents.
 type LibraryContentType string
 
@@ -57,8 +88,23 @@ type LibraryTitle struct {
 	Status        string             `json:"status,omitempty"`
 	Path          string             `json:"path,omitempty"`
 	HasFile       bool               `json:"has_file"`
-	CreatedAt     time.Time          `json:"created_at"`
-	UpdatedAt     time.Time          `json:"updated_at"`
+	// Ratings from the information provider (*arr lookup).
+	IMDbRating           float64 `json:"imdb_rating,omitempty"`
+	TMDbRating           float64 `json:"tmdb_rating,omitempty"`
+	MetacriticRating     float64 `json:"metacritic_rating,omitempty"`
+	RottenTomatoesRating float64 `json:"rotten_tomatoes_rating,omitempty"`
+	AudienceRating       float64 `json:"audience_rating,omitempty"`
+	// Genres is a comma-separated list.
+	Genres string `json:"genres,omitempty"`
+	// Source indicates how this entry entered the library.
+	// One of: "arr", "torrent_client", "manual".
+	Source string `json:"source"`
+	// InfoHash is the torrent infohash for torrent_client-sourced entries.
+	InfoHash string `json:"info_hash,omitempty"`
+	// TorrentCount tracks how many torrents back this title (torrent_client source).
+	TorrentCount int       `json:"torrent_count,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 	// Seasons is populated on demand; empty for movies.
 	Seasons []LibrarySeason `json:"seasons,omitempty"`
 }
@@ -103,6 +149,20 @@ type LibraryTitleUpsertParams struct {
 	Status        string
 	Path          string
 	HasFile       bool
+	// Ratings from information provider lookup.
+	IMDbRating           float64
+	TMDbRating           float64
+	MetacriticRating     float64
+	RottenTomatoesRating float64
+	AudienceRating       float64
+	// Genres is a comma-separated list of genre strings.
+	Genres string
+	// Source is "arr", "torrent_client", or "manual".
+	Source string
+	// InfoHash is set for torrent_client-sourced entries.
+	InfoHash string
+	// TorrentCount is the number of torrents backing this title.
+	TorrentCount int
 }
 
 // LibraryTitleStore manages library titles and seasons in SQLite.
@@ -115,35 +175,151 @@ func NewLibraryTitleStore(db dbinterface.Querier) *LibraryTitleStore {
 	return &LibraryTitleStore{db: db}
 }
 
-// Upsert inserts or updates a title identified by (owner_id, arr_instance_id, arr_item_id).
-// When arr_instance_id or arr_item_id is nil, a plain INSERT is performed instead.
+// sourceDefault normalises a Source value, defaulting to "arr".
+func sourceDefault(s string) string {
+	switch s {
+	case "torrent_client", "manual":
+		return s
+	default:
+		return "arr"
+	}
+}
+
+// Upsert inserts or updates a title identified by (owner_id, arr_instance_id, arr_item_id)
+// for arr-sourced entries, or by (owner_id, info_hash) for torrent_client-sourced entries.
 func (s *LibraryTitleStore) Upsert(ctx context.Context, p LibraryTitleUpsertParams) (*LibraryTitle, error) {
+	src := sourceDefault(p.Source)
 	const q = `
 INSERT INTO library_titles
-    (owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
-     tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    (owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id, tvmaze_id,
+     arr_instance_id, arr_item_id, overview, status, path, has_file,
+     imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+     genres, source, info_hash, torrent_count)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 ON CONFLICT(owner_id, arr_instance_id, arr_item_id) DO UPDATE SET
-    content_type   = excluded.content_type,
-    title          = excluded.title,
-    sort_title     = excluded.sort_title,
-    year           = excluded.year,
-    imdb_id        = excluded.imdb_id,
-    tmdb_id        = excluded.tmdb_id,
-    tvdb_id        = excluded.tvdb_id,
-    tvmaze_id      = excluded.tvmaze_id,
-    overview       = excluded.overview,
-    status         = excluded.status,
-    path           = excluded.path,
-    has_file       = excluded.has_file
-RETURNING id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id,
-          tvdb_id, tvmaze_id, arr_instance_id, arr_item_id, overview, status, path,
-          has_file, created_at, updated_at`
+    content_type          = excluded.content_type,
+    title                 = excluded.title,
+    sort_title            = excluded.sort_title,
+    year                  = excluded.year,
+    imdb_id               = excluded.imdb_id,
+    tmdb_id               = excluded.tmdb_id,
+    tvdb_id               = excluded.tvdb_id,
+    tvmaze_id             = excluded.tvmaze_id,
+    overview              = excluded.overview,
+    status                = excluded.status,
+    path                  = excluded.path,
+    has_file              = excluded.has_file,
+    imdb_rating           = excluded.imdb_rating,
+    tmdb_rating           = excluded.tmdb_rating,
+    metacritic_rating     = excluded.metacritic_rating,
+    rotten_tomatoes_rating = excluded.rotten_tomatoes_rating,
+    audience_rating       = excluded.audience_rating,
+    genres                = excluded.genres,
+    source                = excluded.source
+RETURNING id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
+          tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
+          imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+          genres, source, info_hash, torrent_count, created_at, updated_at`
 
 	return scanTitle(s.db.QueryRowContext(ctx, q,
 		p.OwnerID, string(p.ContentType), p.Title, p.SortTitle, p.Year,
 		p.IMDbID, p.TMDbID, p.TVDbID, p.TVMazeID,
 		p.ArrInstanceID, p.ArrItemID, p.Overview, p.Status, p.Path, p.HasFile,
+		p.IMDbRating, p.TMDbRating, p.MetacriticRating, p.RottenTomatoesRating, p.AudienceRating,
+		p.Genres, src, p.InfoHash, p.TorrentCount,
+	))
+}
+
+// UpsertByHash inserts or updates a torrent-client-sourced title identified by info_hash.
+// The ON CONFLICT clause targets the partial unique index on (owner_id, info_hash)
+// WHERE info_hash != ” from migration 084.
+func (s *LibraryTitleStore) UpsertByHash(ctx context.Context, p LibraryTitleUpsertParams) (*LibraryTitle, error) {
+	p.Source = "torrent_client"
+	const q = `
+INSERT INTO library_titles
+    (owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id, tvmaze_id,
+     arr_instance_id, arr_item_id, overview, status, path, has_file,
+     imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+     genres, source, info_hash, torrent_count)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(owner_id, info_hash) WHERE info_hash != '' DO UPDATE SET
+    content_type          = excluded.content_type,
+    title                 = excluded.title,
+    sort_title            = excluded.sort_title,
+    year                  = excluded.year,
+    imdb_id               = excluded.imdb_id,
+    tmdb_id               = excluded.tmdb_id,
+    tvdb_id               = excluded.tvdb_id,
+    tvmaze_id             = excluded.tvmaze_id,
+    overview              = excluded.overview,
+    status                = excluded.status,
+    path                  = excluded.path,
+    has_file              = excluded.has_file,
+    imdb_rating           = excluded.imdb_rating,
+    tmdb_rating           = excluded.tmdb_rating,
+    metacritic_rating     = excluded.metacritic_rating,
+    rotten_tomatoes_rating = excluded.rotten_tomatoes_rating,
+    audience_rating       = excluded.audience_rating,
+    genres                = excluded.genres,
+    source                = excluded.source,
+    torrent_count         = excluded.torrent_count
+RETURNING id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
+          tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
+          imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+          genres, source, info_hash, torrent_count, created_at, updated_at`
+
+	return scanTitle(s.db.QueryRowContext(ctx, q,
+		p.OwnerID, string(p.ContentType), p.Title, p.SortTitle, p.Year,
+		p.IMDbID, p.TMDbID, p.TVDbID, p.TVMazeID,
+		p.ArrInstanceID, p.ArrItemID, p.Overview, p.Status, p.Path, p.HasFile,
+		p.IMDbRating, p.TMDbRating, p.MetacriticRating, p.RottenTomatoesRating, p.AudienceRating,
+		p.Genres, "torrent_client", p.InfoHash, p.TorrentCount,
+	))
+}
+
+// UpsertByTitle inserts or updates a torrent-client-sourced title identified by
+// (owner_id, sort_title, content_type).  This groups all torrent hashes for the
+// same parsed title into a single library entry.  The ON CONFLICT clause targets
+// the partial unique index from migration 085.
+func (s *LibraryTitleStore) UpsertByTitle(ctx context.Context, p LibraryTitleUpsertParams) (*LibraryTitle, error) {
+	p.Source = "torrent_client"
+	const q = `
+INSERT INTO library_titles
+    (owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id, tvmaze_id,
+     arr_instance_id, arr_item_id, overview, status, path, has_file,
+     imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+     genres, source, info_hash, torrent_count)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+ON CONFLICT(owner_id, sort_title, content_type) WHERE source = 'torrent_client' DO UPDATE SET
+    title                 = excluded.title,
+    year                  = CASE WHEN excluded.year IS NOT NULL AND excluded.year > 0 THEN excluded.year ELSE library_titles.year END,
+    imdb_id               = CASE WHEN excluded.imdb_id != '' THEN excluded.imdb_id ELSE library_titles.imdb_id END,
+    tmdb_id               = CASE WHEN excluded.tmdb_id > 0 THEN excluded.tmdb_id ELSE library_titles.tmdb_id END,
+    tvdb_id               = CASE WHEN excluded.tvdb_id > 0 THEN excluded.tvdb_id ELSE library_titles.tvdb_id END,
+    tvmaze_id             = CASE WHEN excluded.tvmaze_id > 0 THEN excluded.tvmaze_id ELSE library_titles.tvmaze_id END,
+    overview              = CASE WHEN excluded.overview != '' THEN excluded.overview ELSE library_titles.overview END,
+    status                = CASE WHEN excluded.status != '' THEN excluded.status ELSE library_titles.status END,
+    path                  = CASE WHEN excluded.path != '' THEN excluded.path ELSE library_titles.path END,
+    has_file              = excluded.has_file OR library_titles.has_file,
+    imdb_rating           = CASE WHEN excluded.imdb_rating > 0 THEN excluded.imdb_rating ELSE library_titles.imdb_rating END,
+    tmdb_rating           = CASE WHEN excluded.tmdb_rating > 0 THEN excluded.tmdb_rating ELSE library_titles.tmdb_rating END,
+    metacritic_rating     = CASE WHEN excluded.metacritic_rating > 0 THEN excluded.metacritic_rating ELSE library_titles.metacritic_rating END,
+    rotten_tomatoes_rating = CASE WHEN excluded.rotten_tomatoes_rating > 0 THEN excluded.rotten_tomatoes_rating ELSE library_titles.rotten_tomatoes_rating END,
+    audience_rating       = CASE WHEN excluded.audience_rating > 0 THEN excluded.audience_rating ELSE library_titles.audience_rating END,
+    genres                = CASE WHEN excluded.genres != '' THEN excluded.genres ELSE library_titles.genres END,
+    source                = excluded.source,
+    torrent_count         = excluded.torrent_count
+RETURNING id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
+          tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
+          imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+          genres, source, info_hash, torrent_count, created_at, updated_at`
+
+	return scanTitle(s.db.QueryRowContext(ctx, q,
+		p.OwnerID, string(p.ContentType), p.Title, p.SortTitle, p.Year,
+		p.IMDbID, p.TMDbID, p.TVDbID, p.TVMazeID,
+		p.ArrInstanceID, p.ArrItemID, p.Overview, p.Status, p.Path, p.HasFile,
+		p.IMDbRating, p.TMDbRating, p.MetacriticRating, p.RottenTomatoesRating, p.AudienceRating,
+		p.Genres, "torrent_client", p.InfoHash, p.TorrentCount,
 	))
 }
 
@@ -152,7 +328,8 @@ func (s *LibraryTitleStore) Get(ctx context.Context, id int) (*LibraryTitle, err
 	const q = `
 SELECT id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
        tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
-       created_at, updated_at
+       imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+       genres, source, info_hash, torrent_count, created_at, updated_at
 FROM library_titles WHERE id = ?`
 	t, err := scanTitle(s.db.QueryRowContext(ctx, q, id))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -166,7 +343,8 @@ func (s *LibraryTitleStore) List(ctx context.Context, ownerID int) ([]*LibraryTi
 	const q = `
 SELECT id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
        tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
-       created_at, updated_at
+       imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+       genres, source, info_hash, torrent_count, created_at, updated_at
 FROM library_titles WHERE owner_id = ? ORDER BY sort_title, title`
 	rows, err := s.db.QueryContext(ctx, q, ownerID)
 	if err != nil {
@@ -181,7 +359,8 @@ func (s *LibraryTitleStore) ListByContentType(ctx context.Context, ownerID int, 
 	const q = `
 SELECT id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
        tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
-       created_at, updated_at
+       imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+       genres, source, info_hash, torrent_count, created_at, updated_at
 FROM library_titles WHERE owner_id = ? AND content_type = ? ORDER BY sort_title, title`
 	rows, err := s.db.QueryContext(ctx, q, ownerID, string(ct))
 	if err != nil {
@@ -196,7 +375,8 @@ func (s *LibraryTitleStore) Search(ctx context.Context, ownerID int, pattern str
 	const q = `
 SELECT id, owner_id, content_type, title, sort_title, year, imdb_id, tmdb_id, tvdb_id,
        tvmaze_id, arr_instance_id, arr_item_id, overview, status, path, has_file,
-       created_at, updated_at
+       imdb_rating, tmdb_rating, metacritic_rating, rotten_tomatoes_rating, audience_rating,
+       genres, source, info_hash, torrent_count, created_at, updated_at
 FROM library_titles
 WHERE owner_id = ? AND (title LIKE ? ESCAPE '\' OR sort_title LIKE ? ESCAPE '\')
 ORDER BY sort_title, title LIMIT 100`
@@ -346,7 +526,10 @@ func scanTitle(row *sql.Row) (*LibraryTitle, error) {
 		&t.ID, &t.OwnerID, &ct, &t.Title, &t.SortTitle, &t.Year,
 		&t.IMDbID, &t.TMDbID, &t.TVDbID, &t.TVMazeID,
 		&t.ArrInstanceID, &t.ArrItemID, &t.Overview, &t.Status, &t.Path,
-		&t.HasFile, &t.CreatedAt, &t.UpdatedAt,
+		&t.HasFile,
+		&t.IMDbRating, &t.TMDbRating, &t.MetacriticRating, &t.RottenTomatoesRating, &t.AudienceRating,
+		&t.Genres, &t.Source, &t.InfoHash, &t.TorrentCount,
+		&t.CreatedAt, &t.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -364,7 +547,10 @@ func scanTitles(rows *sql.Rows) ([]*LibraryTitle, error) {
 			&t.ID, &t.OwnerID, &ct, &t.Title, &t.SortTitle, &t.Year,
 			&t.IMDbID, &t.TMDbID, &t.TVDbID, &t.TVMazeID,
 			&t.ArrInstanceID, &t.ArrItemID, &t.Overview, &t.Status, &t.Path,
-			&t.HasFile, &t.CreatedAt, &t.UpdatedAt,
+			&t.HasFile,
+			&t.IMDbRating, &t.TMDbRating, &t.MetacriticRating, &t.RottenTomatoesRating, &t.AudienceRating,
+			&t.Genres, &t.Source, &t.InfoHash, &t.TorrentCount,
+			&t.CreatedAt, &t.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
